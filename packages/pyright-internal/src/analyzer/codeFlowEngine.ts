@@ -15,7 +15,7 @@ import { ConsoleInterface } from '../common/console';
 import { assert, fail } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { ArgCategory, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { getFileInfo, getImportInfo } from './analyzerNodeInfo';
+import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
     createKeyForReference,
@@ -202,7 +202,8 @@ const enablePrintConvergenceLimitHit = false;
 
 export function getCodeFlowEngine(
     evaluator: TypeEvaluator,
-    speculativeTypeTracker: SpeculativeTypeTracker
+    speculativeTypeTracker: SpeculativeTypeTracker,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): CodeFlowEngine {
     const isReachableRecursionSet = new Set<number>();
     const reachabilityCache = new Map<number, ReachabilityCacheEntry>();
@@ -704,7 +705,8 @@ export function getCodeFlowEngine(
                                     !!(
                                         conditionalFlowNode.flags &
                                         (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition)
-                                    )
+                                    ),
+                                    nodeInfo
                                 );
 
                                 if (typeNarrowingCallback) {
@@ -763,7 +765,8 @@ export function getCodeFlowEngine(
                                             !!(
                                                 conditionalFlowNode.flags &
                                                 (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition)
-                                            )
+                                            ),
+                                            nodeInfo
                                         );
 
                                         if (typeNarrowingCallback) {
@@ -1000,7 +1003,10 @@ export function getCodeFlowEngine(
 
                 while (true) {
                     let sawIncomplete = false;
-                    let sawPending = false;
+                    // A reentrant reachability query can start with an existing pending subtype.
+                    let sawPending =
+                        reference === undefined &&
+                        (cacheEntry.incompleteSubtypes?.some((subtype) => subtype.isPending) ?? false);
                     let isProvenReachable =
                         reference === undefined &&
                         cacheEntry.incompleteSubtypes?.some((subtype) => subtype.type !== undefined);
@@ -1383,7 +1389,11 @@ export function getCodeFlowEngine(
                                 evaluator,
                                 conditionalFlowNode.reference!,
                                 conditionalFlowNode.expression,
-                                !!(conditionalFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition))
+                                !!(
+                                    conditionalFlowNode.flags &
+                                    (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition)
+                                ),
+                                nodeInfo
                             );
 
                             if (typeNarrowingCallback) {
@@ -1728,7 +1738,7 @@ export function getCodeFlowEngine(
     // type, thus preventing further traversal of the code flow graph.
     function isCallNoReturn(evaluator: TypeEvaluator, flowNode: FlowCall) {
         const node = flowNode.node;
-        const fileInfo = getFileInfo(node);
+        const fileInfo = nodeInfo.getFileInfo(node);
 
         // Assume that calls within a pyi file are not "NoReturn" calls.
         if (fileInfo.isStubFile) {
@@ -2010,7 +2020,7 @@ export function getCodeFlowEngine(
     }
 
     function getTypeFromWildcardImport(flowNode: FlowWildcardImport, name: string): Type {
-        const importInfo = getImportInfo(flowNode.node.d.module);
+        const importInfo = nodeInfo.getImportInfo(flowNode.node.d.module);
         assert(importInfo !== undefined && importInfo.isImportFound);
         assert(flowNode.node.d.isWildcardImport);
 
@@ -2054,13 +2064,13 @@ export function getCodeFlowEngine(
     ) {
         let referenceText = '';
         if (reference) {
-            const fileInfo = getFileInfo(reference);
+            const fileInfo = nodeInfo.getFileInfo(reference);
             const pos = convertOffsetToPosition(reference.start, fileInfo.lines);
             referenceText = `${printExpression(reference)}[${pos.line + 1}:${pos.character + 1}]`;
         }
 
         logger.log(`${callName}@${flowNode.id}: ${referenceText || '(none)'}`);
-        logger.log(formatControlFlowGraph(flowNode));
+        logger.log(formatControlFlowGraph(flowNode, nodeInfo));
     }
 
     return {

@@ -12,6 +12,7 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import {
     Declaration,
@@ -113,7 +114,7 @@ export function addDeclarationsToDefinitions(
             // Add matching source module
             sourceMapper
                 .findModules(resolvedDecl.uri)
-                .map((m) => getFileInfo(m)?.fileUri)
+                .map((m) => getFileInfo(m, sourceMapper.analyzerNodeInfo)?.fileUri)
                 .filter(isDefined)
                 .forEach((f) => _addIfUnique(definitions, _createModuleEntry(f)));
             return;
@@ -209,7 +210,7 @@ class DefinitionProviderBase {
                 continue;
             }
 
-            const fileInfo = getFileInfo(synthType.node);
+            const fileInfo = getFileInfo(synthType.node, this.sourceMapper.analyzerNodeInfo);
             const range = convertOffsetsToRange(
                 synthType.node.start,
                 synthType.node.start + synthType.node.length,
@@ -231,7 +232,7 @@ export class DefinitionProvider extends DefinitionProviderBase {
     ) {
         const sourceMapper = program.getSourceMapper(fileUri, token);
         const parseResults = program.getParseResults(fileUri);
-        const { node, offset } = _tryGetNode(parseResults, position);
+        const { node, offset } = _tryGetNode(parseResults, position, AnalyzerNodeInfo.getInfoReader(program));
 
         super(sourceMapper, program.evaluator!, program.serviceProvider, node, offset, filter, token);
     }
@@ -270,7 +271,7 @@ export class TypeDefinitionProvider extends DefinitionProviderBase {
     constructor(program: ProgramView, fileUri: Uri, position: Position, token: CancellationToken) {
         const sourceMapper = program.getSourceMapper(fileUri, token, /*mapCompiled*/ false, /*preferStubs*/ true);
         const parseResults = program.getParseResults(fileUri);
-        const { node, offset } = _tryGetNode(parseResults, position);
+        const { node, offset } = _tryGetNode(parseResults, position, AnalyzerNodeInfo.getInfoReader(program));
 
         super(sourceMapper, program.evaluator!, program.serviceProvider, node, offset, DefinitionFilter.All, token);
         this._fileUri = fileUri;
@@ -320,7 +321,11 @@ export class TypeDefinitionProvider extends DefinitionProviderBase {
     }
 }
 
-function _tryGetNode(parseResults: ParseFileResults | undefined, position: Position) {
+function _tryGetNode(
+    parseResults: ParseFileResults | undefined,
+    position: Position,
+    reader?: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+) {
     if (!parseResults) {
         return { node: undefined, offset: 0 };
     }
@@ -330,7 +335,7 @@ function _tryGetNode(parseResults: ParseFileResults | undefined, position: Posit
         return { node: undefined, offset: 0 };
     }
 
-    return { node: ParseTreeUtils.findNodeByOffset(parseResults.parserOutput.parseTree, offset), offset };
+    return { node: ParseTreeUtils.findNodeByOffset(parseResults.parserOutput.parseTree, offset, reader), offset };
 }
 
 function _createModuleEntry(uri: Uri): DocumentRange {

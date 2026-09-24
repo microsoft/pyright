@@ -7,6 +7,7 @@
  * Provides support for miscellaneous quick actions.
  */
 
+import { getInfoReader } from '../analyzer/analyzerNodeInfo';
 import { CancellationToken } from 'vscode-languageserver';
 
 import { Commands } from '../commands/commands';
@@ -36,7 +37,7 @@ export function performQuickAction(
     }
 
     if (command === Commands.orderImports) {
-        const importSorter = new ImportSorter(parseResults, token);
+        const importSorter = new ImportSorter(parseResults, getInfoReader(programView), token);
         return importSorter.sort();
     }
 

@@ -8,12 +8,11 @@ class NoSlots1:
 
 
 class NoSlots2:
-    # Only lists and tuples of simple strings are supported, so this
-    # will be treated as though there are no slots.
+    # Mapping-form slots use their statically known string keys.
     __slots__ = {"aaa": 3}
 
     def __init__(self):
-        self.x = 1
+        self.x = 1  # This should generate an error
 
 
 class NoSlots3:
@@ -57,7 +56,7 @@ class Slots1_1(Slots1):
         self.fff = 1
 
 
-class NoSlots1_1(Slots1, NoSlots2):
+class NoSlots1_1(Slots1, NoSlots2):  # This should generate an error
     def __init__(self):
         self.bbb = 1
         self.fff = 1

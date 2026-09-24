@@ -36,7 +36,10 @@
 
 helper.verifyHover('markdown', {
     child_a_method1_docs: '```python\n(method) def method1() -> bool\n```\n---\nA.method1 docs',
-    child_a_docs: '```python\nclass ChildA()\n```',
-    child_a_inner_docs: '```python\nclass ChildInner()\n```',
+    // A subclass with no docstring of its own inherits the nearest base class
+    // docstring from the stub (approximating Python's `inspect.getdoc`,
+    // excluding builtins).
+    child_a_docs: '```python\nclass ChildA()\n```\n---\nA docs',
+    child_a_inner_docs: '```python\nclass ChildInner()\n```\n---\nA.Inner docs',
     child_a_inner_method1_docs: '```python\n(method) def method1() -> bool\n```\n---\nA.Inner.method1 docs',
 });

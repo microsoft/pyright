@@ -1,0 +1,24 @@
+name: Publish documentation site
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/publish_docs.yml'
+      - '.github/workflows/publish_pages.yml'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish current documentation
+    if: ${{ github.repository == 'microsoft/pyright' && github.ref == 'refs/heads/main' }}
+    permissions:
+      actions: read
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/publish_pages.yml

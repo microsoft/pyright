@@ -26,12 +26,14 @@ import {
     LookupImportOptions,
 } from '../analyzer/analyzerFileInfo';
 import {
+    AnalyzerNodeInfoReader,
     DunderAllInfo,
     getDeclaration,
     getDunderAllInfo,
     getFileInfo,
     getFlowNode,
     getImportInfo,
+    getInfoReader,
     getScope,
 } from '../analyzer/analyzerNodeInfo';
 import { FlowNode } from '../analyzer/codeFlowTypes';
@@ -182,33 +184,34 @@ export class ProgramWrapper implements IProgram {
     }
 
     get symbolLookup(): ISymbolLookup {
+        const nodeInfo = getInfoReader(this._program);
         const symbolLookup: ISymbolLookup = {
             getFileInfo: (node: ParseNode): AnalyzerFileInfo => {
                 // Ensure the file is bound before reading AnalyzerInfo off the node.
                 // Without this, nodes from files that haven't been bound yet (e.g.
                 // freshly-discovered modules during a code-action request) return
                 // undefined fileInfo and crash downstream readers.
-                const fileUri = this._cache.getUri(node);
+                const fileUri = this._getUri(node, nodeInfo);
                 this._program.getBoundSourceFileInfo(fileUri);
-                return getFileInfo(node);
+                return getFileInfo(node, nodeInfo);
             },
             getImportInfo: (node: ParseNode): ImportResult | undefined => {
-                return getImportInfo(node);
+                return getImportInfo(node, nodeInfo);
             },
             getDeclaration: (node: ParseNode): Declaration | undefined => {
-                return getDeclaration(node);
+                return getDeclaration(node, nodeInfo);
             },
             getFlowNode: (node: ParseNode): FlowNode | undefined => {
-                return getFlowNode(node);
+                return getFlowNode(node, nodeInfo);
             },
             getScope(node) {
-                return getScope(node);
+                return getScope(node, nodeInfo);
             },
             getScopeIdForNode(node: ParseNode): string {
-                return getScopeIdForNode(node);
+                return getScopeIdForNode(node, nodeInfo);
             },
             getDunderAllInfo(node: ModuleNode): DunderAllInfo | undefined {
-                return getDunderAllInfo(node);
+                return getDunderAllInfo(node, nodeInfo);
             },
             getSymbolsForFile: (fileUri: Uri, skipFileNeededCheck = false): SymbolTable | undefined => {
                 // The underlying sync `Program` has only one version of any file, and there is
@@ -219,7 +222,7 @@ export class ProgramWrapper implements IProgram {
                 return this._program.getModuleSymbolTable(fileUri);
             },
             getSymbolsForNode: (node: ParseNode): SymbolTable | undefined => {
-                const scope = getScopeForNode(node);
+                const scope = getScopeForNode(node, nodeInfo);
                 return scope?.symbolTable;
             },
             lookupSymbol: (
@@ -227,14 +230,14 @@ export class ProgramWrapper implements IProgram {
                 name: string,
                 _skipFileNeededCheck?: boolean
             ): Symbol | undefined => {
-                return getSymbolFromScope(scopingNode, name);
+                return getSymbolFromScope(scopingNode, name, nodeInfo);
             },
             getMatchingFileInfos: (fileId: string): AnalyzerFileInfo[] => {
                 const parseTrees = this._program
                     .getSourceFileInfoList()
                     .map((f) => f.sourceFile.getParseResults()?.parserOutput.parseTree)
                     .filter((t): t is ModuleNode => !!t);
-                const fileInfos = parseTrees.map((p) => getFileInfo(p)).filter((f) => f.fileId === fileId);
+                const fileInfos = parseTrees.map((p) => getFileInfo(p, nodeInfo)).filter((f) => f.fileId === fileId);
                 return fileInfos;
             },
         };
@@ -292,6 +295,7 @@ export class ProgramWrapper implements IProgram {
         token: CancellationToken
     ): ISourceMapper | undefined {
         const sourceMapper = this._program.getSourceMapper(fileUri, token, mapCompiled, preferStubs);
+        const nodeInfo = getInfoReader(this._program);
         const wrapper: ISourceMapper = {
             findDeclarations: (decl: Declaration) => {
                 return sourceMapper ? sourceMapper.findDeclarations(decl) : [];
@@ -316,15 +320,15 @@ export class ProgramWrapper implements IProgram {
             },
             getFileInfo: (node) => {
                 // Ensure the file is bound before reading AnalyzerInfo off the node.
-                const fileUri = this._cache.getUri(node);
+                const fileUri = this._getUri(node, nodeInfo);
                 this._program.getBoundSourceFileInfo(fileUri);
-                return getFileInfo(node);
+                return getFileInfo(node, nodeInfo);
             },
         };
         return wrapper;
     }
     getUri(node: ParseNode): Uri {
-        return this._cache.getUri(node);
+        return this._getUri(node, getInfoReader(this._program));
     }
     isCaseSensitive(uri: string): boolean {
         return this._cache.isCaseSensitive(uri);
@@ -842,6 +846,17 @@ export class ProgramWrapper implements IProgram {
             .find((env) => env.root && (env.root.equals(uri) || uri.isChild(env.root)));
         return env ?? this._program.configOptions.getDefaultExecEnvironment();
     }
+
+    private _getUri(node: ParseNode, nodeInfo: AnalyzerNodeInfoReader): Uri {
+        return this._cache.getUri(node, nodeInfo, (key) => {
+            for (const sourceFileInfo of this._program.getSourceFileInfoList()) {
+                if (this._program.getParserOutput(sourceFileInfo.uri)?.parseTree.a === key) {
+                    return sourceFileInfo.uri;
+                }
+            }
+            return undefined;
+        });
+    }
 }
 
 const programWrappers = new WeakMap<ProgramView, IProgram>();
@@ -852,7 +867,12 @@ export function makeProgram(program: ProgramView, cache?: ITypeCache): IProgram 
     if (!wrapper) {
         wrapper = new ProgramWrapper(
             program as Program,
-            cache ?? new TypeCache(program.serviceProvider, (uri) => program.getParserOutput(uri))
+            cache ??
+                new TypeCache(
+                    program.serviceProvider,
+                    (uri) => program.getParserOutput(uri),
+                    () => program.getSourceFileInfoList().map((s) => s.uri)
+                )
         );
         programWrappers.set(program, wrapper);
     } else if (cache && wrapper instanceof ProgramWrapper && wrapper.typeCache !== cache) {

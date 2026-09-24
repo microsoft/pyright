@@ -7,7 +7,7 @@
 
 import { CancellationToken, ExecuteCommandParams } from 'vscode-languageserver';
 
-import { getFlowNode } from '../analyzer/analyzerNodeInfo';
+import { getInfoReader, getFlowNode } from '../analyzer/analyzerNodeInfo';
 import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { dumpSyntaxInfo, dumpTokenInfo, dumpTypeInfo } from '../common/languageInfoUtils';
@@ -103,7 +103,7 @@ export class DumpFileDebugInfo {
                     if (!node) {
                         return [];
                     }
-                    const flowNode = getFlowNode(node);
+                    const flowNode = getFlowNode(node, getInfoReader(p));
                     if (!flowNode) {
                         return [];
                     }

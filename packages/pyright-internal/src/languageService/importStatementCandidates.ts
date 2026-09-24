@@ -10,6 +10,7 @@
  */
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
+import { getInfoReader } from '../analyzer/analyzerNodeInfo';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import { ImplicitImport, ImportResult } from '../analyzer/importResult';
 import { SymbolTable } from '../analyzer/symbol';
@@ -68,7 +69,8 @@ export function getModuleNameCompletionSuggestions(
 // names and is not filtered by `__all__` or visibility. Callers that need
 // completion-style filtering must apply it themselves.
 export function getImportFromTarget(program: ProgramView, importFromNode: ImportFromNode): ImportFromTarget {
-    const importInfo = AnalyzerNodeInfo.getImportInfo(importFromNode.d.module);
+    const nodeInfo = getInfoReader(program);
+    const importInfo = AnalyzerNodeInfo.getImportInfo(importFromNode.d.module, nodeInfo);
     if (!importInfo) {
         return { hasParseResults: false };
     }
@@ -81,7 +83,7 @@ export function getImportFromTarget(program: ProgramView, importFromNode: Import
         return { importInfo, hasParseResults: false, implicitImports: importInfo.implicitImports };
     }
 
-    const symbolTable = AnalyzerNodeInfo.getScope(parseResults.parserOutput.parseTree)?.symbolTable;
+    const symbolTable = AnalyzerNodeInfo.getScope(parseResults.parserOutput.parseTree, nodeInfo)?.symbolTable;
     return { importInfo, hasParseResults: true, symbolTable, implicitImports: importInfo.implicitImports };
 }
 

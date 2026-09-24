@@ -42,3 +42,4 @@ reveal_type(v10, expected_text="list[str]")
 # A Union element type that includes a TypeForm should still trigger
 # interpretation of the string as a stringified TypeForm.
 v11: list[Union[TypeForm, int]] = ["int"]
+v12: list[Union[int, TypeForm]] = ["int"]

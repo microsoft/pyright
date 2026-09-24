@@ -44,6 +44,10 @@ job_name:
 
 Refer to the [pyright-to-gitlab-ci](https://www.npmjs.com/package/pyright-to-gitlab-ci) package for more details.
 
+### Running Pyright via MegaLinter
+
+You can run pyright as part of [MegaLinter](https://megalinter.io/), an open-source linters aggregator for CI which ships pyright among its Python linters. Refer to the [pyright page in MegaLinter documentation](https://megalinter.io/latest/descriptors/python_pyright/) for setup and configuration details.
+
 ### Running Pyright as a pre-commit hook
 
 You can run pyright as a pre-commit hook using the community-maintained [Python wrapper for pyright](https://github.com/RobertCraigie/pyright-python). For pre-commit configuration instructions, refer to [this documentation](https://github.com/RobertCraigie/pyright-python#pre-commit).

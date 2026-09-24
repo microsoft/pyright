@@ -1,3 +1,4 @@
+import { AnalyzerNodeInfoReader, getInfoReader } from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
 import { getScopeForNode } from '../analyzer/scopeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
@@ -69,10 +70,10 @@ export function isDeclaration(decl: any): decl is Declaration {
     return decl && decl.type !== undefined && decl.uri !== undefined;
 }
 
-export function getSymbolFromScope(node: ParseNode, name: string) {
+export function getSymbolFromScope(node: ParseNode, name: string, nodeInfo: AnalyzerNodeInfoReader) {
     // use name node for parameter to get the correct scope
     const nodeForScope = node.nodeType === ParseNodeType.Parameter ? node.d.name ?? node : node;
-    const scope = getScopeForNode(nodeForScope);
+    const scope = getScopeForNode(nodeForScope, nodeInfo);
     if (!scope) {
         return undefined;
     }
@@ -98,7 +99,11 @@ export function getEffectiveTypeOfDeclaration(
         return undefined;
     }
 
-    const symbol = getSymbolFromScope(decl.node, symbolName);
+    if (!evaluator) {
+        return undefined;
+    }
+
+    const symbol = getSymbolFromScope(decl.node, symbolName, getInfoReader(evaluator));
     if (!symbol) {
         return undefined;
     }

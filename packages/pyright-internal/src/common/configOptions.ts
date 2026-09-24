@@ -23,6 +23,7 @@ import { ConsoleInterface, NullConsole } from './console';
 import { isBoolean } from './core';
 import { TaskListToken } from './diagnostic';
 import { DiagnosticRule } from './diagnosticRules';
+import { containsWildcard, expandExtraPaths } from './extraPathGlob';
 import { FileSystem } from './fileSystem';
 import { Host } from './host';
 import { PythonVersion, latestStablePythonVersion } from './pythonVersion';
@@ -977,11 +978,20 @@ export class ConfigOptions {
 
     // Automatically detect virtual environment folders and exclude them.
     // This property is for internal use and not exposed externally
-    // as a config setting.
-    // It is used to store whether the user has specified directories in
-    // the exclude setting, which is later modified to include a default set.
-    // This setting is true when user has not specified any exclude.
+    // as a config setting. It mirrors the `useDefaultExcludes` setting
+    // (see AnalyzerService's _ensureDefaultOptions): virtual environment
+    // directories are part of the default-exclude set, so auto-detection is
+    // enabled whenever default excludes are on (the default) and disabled when
+    // the user turns default excludes off.
     autoExcludeVenv?: boolean | undefined;
+
+    // Whether the user explicitly provided any `exclude` entries (via a config
+    // file or language-server settings) before the default excludes were added.
+    // This is for internal use and not exposed as a config setting. It lets
+    // consumers distinguish "orphaned only by implicit default excludes" from
+    // "explicitly excluded by the user" now that the default excludes are always
+    // applied additively.
+    userSpecifiedExcludes = false;
 
     // A list of file specs whose errors and warnings should be ignored even
     // if they are included in the transitive closure of included files.
@@ -1015,6 +1025,13 @@ export class ConfigOptions {
 
     // Minimum threshold for type eval logging
     typeEvaluationTimeThreshold = 50;
+
+    // Maximum code complexity for type evaluation
+    // The following number is chosen somewhat arbitrarily. We need to cut
+    // off code flow analysis at some point for code flow graphs that are too
+    // complex. Otherwise we risk overflowing the stack or incurring extremely
+    // long analysis times. This number has been tuned empirically.
+    maxCodeComplexity = 768;
 
     // Was this config initialized from JSON (pyrightconfig/pyproject)?
     initializedFromJson = false;
@@ -1057,6 +1074,10 @@ export class ConfigOptions {
     // Default extraPaths. Can be overridden by executionEnvironment.
     defaultExtraPaths?: Uri[] | undefined;
 
+    // Raw `extraPaths` glob specs (wildcards preserved). The glob-expanded directory list lives in
+    // `defaultExtraPaths` / execution-environment `extraPaths`; these are kept so the globs can be watched.
+    readonly extraPathGlobFileSpecs: string[] = [];
+
     // Should native library import resolutions be skipped?
     skipNativeLibraries?: boolean;
 
@@ -1065,6 +1086,9 @@ export class ConfigOptions {
 
     // Run additional analysis as part of test cases?
     internalTestMode?: boolean | undefined;
+
+    // Internal baseline escape hatch; intentionally not read from project configuration.
+    experimentalOverloadResults?: boolean = true;
 
     // Run program in index generation mode.
     indexGenerationMode?: boolean | undefined;
@@ -1305,21 +1329,32 @@ export class ConfigOptions {
         }
 
         // Read the config "extraPaths".
-        const configExtraPaths: Uri[] = [];
         if (configObj.extraPaths !== undefined) {
             unusedConfigKeys.delete('extraPaths');
             if (!Array.isArray(configObj.extraPaths)) {
                 console.error(`Config "extraPaths" field must contain an array.`);
             } else {
                 const pathList = configObj.extraPaths as string[];
+                const validPaths: string[] = [];
                 pathList.forEach((path, pathIndex) => {
                     if (typeof path !== 'string') {
                         console.error(`Config "extraPaths" field ${pathIndex} must be a string.`);
                     } else {
-                        configExtraPaths!.push(configDirUri.resolvePaths(path));
+                        validPaths.push(path);
                     }
                 });
-                this.defaultExtraPaths = [...configExtraPaths];
+
+                const fs = serviceProvider.tryGet(ServiceKeys.fs);
+                if (!fs && validPaths.some(containsWildcard)) {
+                    console.warn(
+                        `Cannot expand wildcard "extraPaths" entries because no file system is available; ` +
+                            `treating them as literal paths.`
+                    );
+                }
+                this.defaultExtraPaths = fs
+                    ? expandExtraPaths(fs, configDirUri, validPaths, console)
+                    : validPaths.map((path) => configDirUri.resolvePaths(path));
+                this._recordExtraPathGlobFileSpecs(configDirUri, validPaths);
             }
         }
 
@@ -1476,6 +1511,16 @@ export class ConfigOptions {
             }
         }
 
+        // Read the "maxCodeComplexity" setting.
+        if (configObj.maxCodeComplexity !== undefined) {
+            unusedConfigKeys.delete('maxCodeComplexity');
+            if (!Number.isInteger(configObj.maxCodeComplexity) || configObj.maxCodeComplexity < 768) {
+                console.error(`Config "maxCodeComplexity" field must be an integer greater than or equal to 768.`);
+            } else {
+                this.maxCodeComplexity = configObj.maxCodeComplexity;
+            }
+        }
+
         // Read the "functionSignatureDisplay" setting.
         if (configObj.functionSignatureDisplay !== undefined) {
             unusedConfigKeys.delete('functionSignatureDisplay');
@@ -1554,11 +1599,23 @@ export class ConfigOptions {
         }
 
         if (extraPaths && extraPaths.length > 0) {
-            for (const p of extraPaths) {
-                const path = this.projectRoot.resolvePaths(p);
-                paths.push(fs.realCasePath(path));
-                if (isDirectory(fs, path)) {
-                    appendArray(paths, getPathsFromPthFiles(fs, path));
+            this._recordExtraPathGlobFileSpecs(this.projectRoot, extraPaths);
+
+            // `expandExtraPaths` de-duplicates case-sensitively, but `realCasePath`
+            // can subsequently collapse case-variant entries to the same directory
+            // on a case-insensitive file system. Re-de-duplicate on the real-cased
+            // key so the settings origin does not emit duplicate search paths.
+            const seen = new Set<string>();
+            for (const expandedPath of expandExtraPaths(fs, this.projectRoot, extraPaths)) {
+                const realCasedPath = fs.realCasePath(expandedPath);
+                if (seen.has(realCasedPath.key)) {
+                    continue;
+                }
+                seen.add(realCasedPath.key);
+
+                paths.push(realCasedPath);
+                if (isDirectory(fs, expandedPath)) {
+                    appendArray(paths, getPathsFromPthFiles(fs, expandedPath));
                 }
             }
         }
@@ -1590,7 +1647,7 @@ export class ConfigOptions {
         }
     }
 
-    setupExecutionEnvironments(configObj: any, configDirUri: Uri, console: ConsoleInterface) {
+    setupExecutionEnvironments(configObj: any, configDirUri: Uri, console: ConsoleInterface, fs?: FileSystem) {
         // Read the "executionEnvironments" array. This should be done at the end
         // after we've established default values.
         if (configObj.executionEnvironments !== undefined) {
@@ -1610,7 +1667,8 @@ export class ConfigOptions {
                         this.diagnosticRuleSet,
                         this.defaultPythonVersion,
                         this.defaultPythonPlatform,
-                        this.defaultExtraPaths || []
+                        this.defaultExtraPaths || [],
+                        fs
                     );
 
                     if (execEnv) {
@@ -1636,6 +1694,25 @@ export class ConfigOptions {
         return defaultValue;
     }
 
+    // Records wildcard `extraPaths` specs (as absolute, glob-preserving path strings) so a file
+    // watcher can be registered for each. De-dupes against already-recorded specs: this runs once
+    // per extra-paths origin (config, settings, each execution environment), and the settings
+    // origin in particular can run more than once (a zero-match glob leaves `defaultExtraPaths`
+    // unset, so the caller's `!defaultExtraPaths` guard lets `ensureDefaultExtraPaths` run again).
+    // Recording a spec that currently matches nothing is intentional so directories that appear
+    // later can be observed; the same spec must not be recorded twice.
+    private _recordExtraPathGlobFileSpecs(baseUri: Uri, entries: readonly string[]) {
+        for (const entry of entries) {
+            if (!containsWildcard(entry)) {
+                continue;
+            }
+            const spec = baseUri.resolvePaths(entry).getFilePath();
+            if (!this.extraPathGlobFileSpecs.includes(spec)) {
+                this.extraPathGlobFileSpecs.push(spec);
+            }
+        }
+    }
+
     private _convertDiagnosticLevel(value: any, fieldName: string, defaultValue: DiagnosticLevel): DiagnosticLevel {
         if (value === undefined) {
             return defaultValue;
@@ -1659,7 +1736,8 @@ export class ConfigOptions {
         configDiagnosticRuleSet: DiagnosticRuleSet,
         configPythonVersion: PythonVersion | undefined,
         configPythonPlatform: string | undefined,
-        configExtraPaths: Uri[]
+        configExtraPaths: Uri[],
+        fs?: FileSystem
     ): ExecutionEnvironment | undefined {
         try {
             const envObjKeys = envObj && typeof envObj === 'object' ? Object.getOwnPropertyNames(envObj) : [];
@@ -1695,6 +1773,7 @@ export class ConfigOptions {
                     newExecEnv.extraPaths = [];
 
                     const pathList = envObj.extraPaths as string[];
+                    const validPaths: string[] = [];
                     pathList.forEach((path, pathIndex) => {
                         if (typeof path !== 'string') {
                             console.error(
@@ -1702,9 +1781,20 @@ export class ConfigOptions {
                                     ` extraPaths field ${pathIndex} must be a string.`
                             );
                         } else {
-                            newExecEnv.extraPaths.push(configDirUri.resolvePaths(path));
+                            validPaths.push(path);
                         }
                     });
+
+                    if (!fs && validPaths.some(containsWildcard)) {
+                        console.warn(
+                            `Config executionEnvironments index ${index}: cannot expand wildcard "extraPaths" ` +
+                                `entries because no file system is available; treating them as literal paths.`
+                        );
+                    }
+                    newExecEnv.extraPaths = fs
+                        ? expandExtraPaths(fs, configDirUri, validPaths, console)
+                        : validPaths.map((path) => configDirUri.resolvePaths(path));
+                    this._recordExtraPathGlobFileSpecs(configDirUri, validPaths);
                 }
             }
 

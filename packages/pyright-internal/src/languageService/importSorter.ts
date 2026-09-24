@@ -16,6 +16,7 @@ import {
     getTopLevelImports,
     ImportStatement,
 } from '../analyzer/importStatementUtils';
+import { AnalyzerNodeInfoReader } from '../analyzer/analyzerNodeInfo';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
@@ -28,13 +29,21 @@ import { ParseFileResults } from '../parser/parser';
 const _maxLineLength = 88;
 
 export class ImportSorter {
-    constructor(private _parseResults: ParseFileResults, private _cancellationToken: CancellationToken) {}
+    constructor(
+        private _parseResults: ParseFileResults,
+        private _nodeInfo: AnalyzerNodeInfoReader,
+        private _cancellationToken: CancellationToken
+    ) {}
 
     sort(): TextEditAction[] {
         throwIfCancellationRequested(this._cancellationToken);
 
         const actions: TextEditAction[] = [];
-        const importStatements = getTopLevelImports(this._parseResults.parserOutput.parseTree);
+        const importStatements = getTopLevelImports(
+            this._parseResults.parserOutput.parseTree,
+            /* includeImplicitImports */ false,
+            this._nodeInfo
+        );
 
         const sortedStatements = importStatements.orderedImports
             .map((s) => s)

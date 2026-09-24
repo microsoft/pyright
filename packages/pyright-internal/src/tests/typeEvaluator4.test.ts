@@ -82,6 +82,11 @@ test('CallSite3', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('CallSite4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite4.py']);
+    TestUtils.validateResults(analysisResults, 0, 0, 7);
+});
+
 test('FString1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -408,6 +413,12 @@ test('DataClass18', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('DataClass19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass19.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('DataClassReplace1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -643,6 +654,12 @@ test('Unions6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unions6.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Unions7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unions7.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('ParamSpec1', () => {

@@ -3,13 +3,13 @@
 To install the dependencies for all packages in the repo:
 1. Install [nodejs](https://nodejs.org/en/) version 16.x
 2. Open terminal window in main directory of cloned source
-3. Execute `npm run install:all` to install dependencies for projects and sub-projects
+3. Execute `pnpm run install:all` to install dependencies for projects and sub-projects
 
 
 ## Building the CLI
 
 1. cd to the `packages/pyright` directory
-2. Execute `npm run build`
+2. Execute `pnpm run build`
 
 Once built, you can run the command-line tool by executing the following:
 
@@ -18,7 +18,7 @@ Once built, you can run the command-line tool by executing the following:
 ## Building the VS Code extension
 
 1. cd to the `packages/vscode-pyright` directory
-2. Execute `npm run package`
+2. Execute `pnpm run package`
 
 The resulting package (pyright-X.Y.Z.vsix) can be found in the client directory.
 To install in VS Code, go to the extensions panel and choose “Install from VSIX...” from the menu, then select the package.
@@ -27,7 +27,7 @@ To install in VS Code, go to the extensions panel and choose “Install from VSI
 ## Running Pyright tests
 
 1. cd to the `packages/pyright-internal` directory
-2. Execute `npm run test`
+2. Execute `pnpm run test`
 
 
 ## Debugging Pyright

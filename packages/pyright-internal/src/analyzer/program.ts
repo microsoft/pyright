@@ -29,6 +29,7 @@ import '../common/serviceProviderExtensions';
 import { Range, TextRange, doRangesIntersect } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
+import { tryRealpath } from '../common/uri/uriUtils';
 import { ParseFileResults, ParserOutput } from '../parser/parser';
 import { RequiringAnalysisCount } from './analysis';
 import { AbsoluteModuleDescriptor, ImportLookupResult, LookupImportOptions } from './analyzerFileInfo';
@@ -38,15 +39,17 @@ import { CacheManager } from './cacheManager';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
+import { ExperimentalOverloadResultController, ExperimentalOverloadResultOptions } from './overloadResultController';
 import { getDocString } from './parseTreeUtils';
 import { ISourceFileFactory } from './programTypes';
 import { Scope } from './scope';
-import { IPythonMode, SourceFile } from './sourceFile';
+import { CheckOperationFactory, IPythonMode, SourceFile } from './sourceFile';
 import { SourceFileInfo } from './sourceFileInfo';
 import { isUserCode, verifyNoCyclesInChainedFiles } from './sourceFileInfoUtils';
 import { SourceMapper } from './sourceMapper';
 import { Symbol, SymbolTable } from './symbol';
 import { createTracePrinter } from './tracePrinter';
+import { EvaluatorOptions } from './typeEvaluator';
 import { PrintTypeOptions, TypeEvaluator } from './typeEvaluatorTypes';
 import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { getPrintTypeFlags } from './typePrinter';
@@ -63,7 +66,6 @@ function isTaggedHintDiagnostic(diag: Diagnostic): boolean {
         diag.category === DiagnosticCategory.Deprecated
     );
 }
-
 export interface MaxAnalysisTime {
     // Maximum number of ms to analyze when there are open files
     // that require analysis. This number is usually kept relatively
@@ -100,15 +102,26 @@ export interface OpenFileOptions {
 
 // Track edit mode related information.
 class EditModeTracker {
+    readonly analysisContextOwner = this;
+
     private _isEditMode = false;
+    private _isClonedProgram = false;
     private _mutatedFiles: SourceFileInfo[] = [];
 
     get isEditMode() {
         return this._isEditMode;
     }
 
+    get isClonedProgram() {
+        return this._isClonedProgram;
+    }
+
     addMutatedFiles(file: SourceFileInfo) {
         this._mutatedFiles.push(file);
+    }
+
+    markClonedProgram() {
+        this._isClonedProgram = true;
     }
 
     enable() {
@@ -138,6 +151,17 @@ export class Program {
     private readonly _console: ConsoleInterface;
     private readonly _sourceFileList: SourceFileInfo[] = [];
     private readonly _sourceFileMap = new Map<string, SourceFileInfo>();
+
+    // A filesystem symlink and its target are tracked as separate SourceFileInfo
+    // entries (the source-file map is keyed by uri.key with no realpath dedup).
+    // These indexes let invalidation bridge such aliases so a change routed to one
+    // alias also re-checks consumers of the other.
+    // _realpathAliasMap groups uri.keys that share a realpath (only populated for
+    // symlink-involved groups); _realpathByUriKey caches each user file's realpath
+    // key so removal/lookup don't recompute it.
+    private readonly _realpathAliasMap = new Map<string, Set<string>>();
+    private readonly _realpathByUriKey = new Map<string, string>();
+    private readonly _analyzerNodeInfoContext = new AnalyzerNodeInfo.AnalyzerNodeInfoContextImpl();
     private readonly _cellChainIndex = new CellChainIndex(
         () => this._sourceFileList,
         (uri) => this.getSourceFileInfo(uri)
@@ -151,6 +175,9 @@ export class Program {
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
     private _evaluator: TypeEvaluator | undefined;
+    private _experimentalOverloadResult?: ExperimentalOverloadResultController;
+    private _evaluatorInvocationCount = 0;
+    private _cacheClearPending = false;
     private _disposed = false;
     private _parsedFileCount = 0;
     private _preCheckCallback: PreCheckCallback | undefined;
@@ -163,8 +190,17 @@ export class Program {
         readonly serviceProvider: ServiceProvider,
         logTracker?: LogTracker,
         private _disableChecker?: boolean,
-        id?: string
+        id?: string,
+        private _testOnlyChecking?: {
+            expression: () => EvaluatorOptions['testOnlyExpression'];
+            check: CheckOperationFactory;
+        },
+        private _experimentalOverloadResultOptions?: ExperimentalOverloadResultOptions
     ) {
+        assert(
+            !_testOnlyChecking || !_experimentalOverloadResultOptions,
+            'Only one operation controller may be installed'
+        );
         this._console = serviceProvider.tryGet(ServiceKeys.console) || new StandardConsole();
         this._logTracker = logTracker ?? new LogTracker(this._console, 'FG');
         this._importResolver = initialImportResolver;
@@ -196,6 +232,10 @@ export class Program {
         return this._evaluator;
     }
 
+    get experimentalOverloadResultController(): ExperimentalOverloadResultController | undefined {
+        return this._experimentalOverloadResult;
+    }
+
     get configOptions(): ConfigOptions {
         return this._configOptions;
     }
@@ -219,15 +259,29 @@ export class Program {
         return this._cellChainIndex;
     }
 
+    get analyzerNodeInfoContext(): AnalyzerNodeInfo.AnalyzerNodeInfoContext {
+        return this._analyzerNodeInfoContext;
+    }
+
+    get analyzerNodeInfoReader(): AnalyzerNodeInfo.AnalyzerNodeInfoReader {
+        return this._analyzerNodeInfoContext;
+    }
+
     dispose() {
+        this._cacheClearPending = false;
+        if ((this._testOnlyChecking || this._experimentalOverloadResult) && !this._disposed) {
+            this._evaluator?.disposeEvaluator();
+        }
         this.disposeInternal(this._disposed);
 
+        this._analyzerNodeInfoContext.dispose();
         this._cacheManager.unregisterCacheOwner(this);
         this._disposed = true;
     }
 
     enterEditMode() {
         this._editModeTracker.enable();
+        this._analyzerNodeInfoContext.enterOverlay();
     }
 
     exitEditMode() {
@@ -280,6 +334,15 @@ export class Program {
             this._createNewEvaluator();
         }
 
+        // Keep overlay-produced bindings only for parse trees that survived source-file restoration.
+        for (const info of this._sourceFileList) {
+            const parseTree = info.sourceFile.getParserOutput()?.parseTree;
+            if (parseTree) {
+                this._analyzerNodeInfoContext.promoteToPreviousLayer(parseTree);
+            }
+        }
+
+        this._analyzerNodeInfoContext.discardOverlay();
         return edits;
     }
 
@@ -365,6 +428,11 @@ export class Program {
             // search paths. Clear any cached module name so it is recomputed.
             sourceFileInfo.sourceFile.clearCachedModuleName();
             sourceFileInfo.isTracked = true;
+
+            // The file may have first been added as an untracked referenced import
+            // (skipped by the user-code-only realpath alias index). Now that it is
+            // tracked, (re-)index it so symlink-twin co-invalidation applies.
+            this._indexRealpathAlias(sourceFileInfo);
             return sourceFileInfo.sourceFile;
         }
 
@@ -500,9 +568,23 @@ export class Program {
             // We need to mark the file dirty so we can re-analyze next time.
             // This won't matter much for OpenFileOnly users, but it will matter for
             // people who use diagnosticMode Workspace.
+            const markDirtySet = new Set<string>();
             if (sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
                 sourceFileInfo.sourceFile.markDirty();
-                this._markFileDirtyRecursive(sourceFileInfo, new Set<string>());
+                this._markFileDirtyRecursive(sourceFileInfo, markDirtySet);
+            }
+
+            // Co-invalidate symlink twins so consumers that imported the other
+            // alias get re-checked as well.
+            this._markRealpathAliasesDirty(sourceFileInfo, markDirtySet);
+
+            // If anything was marked dirty (the closed file's own dependency
+            // subtree or a symlink twin's), recreate the evaluator so the
+            // re-checked consumers re-resolve against fresh types instead of the
+            // stale type cache. This mirrors markFilesDirty's markDirtySet.size
+            // check so the close path cannot silently diverge from it.
+            if (markDirtySet.size > 0) {
+                this._createNewEvaluator();
             }
         }
 
@@ -546,16 +628,21 @@ export class Program {
                 // If !evenIfContentsAreSame, see if the on-disk contents have
                 // changed. If the file is open, the on-disk contents don't matter
                 // because we'll receive updates directly from the client.
-                if (
-                    evenIfContentsAreSame ||
-                    (!sourceFileInfo.isOpenByClient && sourceFileInfo.sourceFile.didContentsChangeOnDisk())
-                ) {
+                if (this._shouldContentInvalidate(sourceFileInfo, evenIfContentsAreSame)) {
                     sourceFileInfo.sourceFile.markDirty();
 
                     // Mark any files that depend on this file as dirty
                     // also. This will retrigger analysis of these other files.
                     this._markFileDirtyRecursive(sourceFileInfo, markDirtySet);
                 }
+
+                // A filesystem symlink and its target are tracked as separate
+                // SourceFileInfo entries. A change routed to one alias (e.g. the fs
+                // watcher fires for the real target path) must also re-parse the
+                // other alias(es) sharing the same realpath and re-check their
+                // dependents; otherwise stale diagnostics persist on consumers
+                // that imported the twin.
+                this._markRealpathAliasesDirty(sourceFileInfo, markDirtySet);
             }
         });
 
@@ -699,52 +786,48 @@ export class Program {
     // analysis. In interactive mode, the timeout is always limited
     // to the smaller value to maintain responsiveness.
     analyze(maxTime?: MaxAnalysisTime, token: CancellationToken = CancellationToken.None): boolean {
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            const elapsedTime = new Duration();
+        const elapsedTime = new Duration();
 
-            const openFiles = this._sourceFileList.filter(
-                (sf) => sf.isOpenByClient && sf.sourceFile.isCheckingRequired()
-            );
+        const openFiles = this._sourceFileList.filter((sf) => sf.isOpenByClient && sf.sourceFile.isCheckingRequired());
 
-            if (openFiles.length > 0) {
-                const effectiveMaxTime = maxTime ? maxTime.openFilesTimeInMs : Number.MAX_VALUE;
+        if (openFiles.length > 0) {
+            const effectiveMaxTime = maxTime ? maxTime.openFilesTimeInMs : Number.MAX_VALUE;
 
-                // Check the open files.
-                for (const sourceFileInfo of openFiles) {
-                    if (this._checkTypes(sourceFileInfo)) {
-                        if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
-                            return true;
-                        }
-                    }
-                }
-
-                // If the caller specified a maxTime, return at this point
-                // since we've finalized all open files. We want to get
-                // the results to the user as quickly as possible.
-                if (maxTime !== undefined) {
-                    return true;
-                }
-            }
-
-            if (!this._configOptions.checkOnlyOpenFiles) {
-                const effectiveMaxTime = maxTime ? maxTime.noOpenFilesTimeInMs : Number.MAX_VALUE;
-
-                // Now do type parsing and analysis of the remaining.
-                for (const sourceFileInfo of this._sourceFileList) {
-                    if (!isUserCode(sourceFileInfo)) {
-                        continue;
-                    }
-
-                    if (this._checkTypes(sourceFileInfo)) {
-                        if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
-                            return true;
-                        }
+            // Check the open files.
+            for (const sourceFileInfo of openFiles) {
+                if (this._runEvaluatorWithCancellationToken(token, () => this._checkTypes(sourceFileInfo))) {
+                    if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
+                        return true;
                     }
                 }
             }
 
-            return false;
-        });
+            // If the caller specified a maxTime, return at this point
+            // since we've finalized all open files. We want to get
+            // the results to the user as quickly as possible.
+            if (maxTime !== undefined) {
+                return true;
+            }
+        }
+
+        if (!this._configOptions.checkOnlyOpenFiles) {
+            const effectiveMaxTime = maxTime ? maxTime.noOpenFilesTimeInMs : Number.MAX_VALUE;
+
+            // Now do type parsing and analysis of the remaining.
+            for (const sourceFileInfo of this._sourceFileList) {
+                if (!isUserCode(sourceFileInfo)) {
+                    continue;
+                }
+
+                if (this._runEvaluatorWithCancellationToken(token, () => this._checkTypes(sourceFileInfo))) {
+                    if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     // Performs parsing and analysis of a single file in the program. If the file is not part of
@@ -904,10 +987,9 @@ export class Program {
     }
 
     getTypeOfSymbol(symbol: Symbol) {
-        this._handleMemoryHighUsage();
-
-        const evaluator = this._evaluator || this._createNewEvaluator();
-        return evaluator.getEffectiveTypeOfSymbol(symbol);
+        return this._runEvaluatorWithCancellationToken(undefined, () =>
+            this._evaluator!.getEffectiveTypeOfSymbol(symbol)
+        );
     }
 
     printType(type: Type, options?: PrintTypeOptions): string {
@@ -1047,26 +1129,31 @@ export class Program {
             new LogTracker(this._console, 'Cloned'),
             this._disableChecker
         );
+        program._editModeTracker.markClonedProgram();
 
-        // Cloned program will use whatever user files the program currently has.
-        const userFiles = this.getUserFiles();
-        program.setTrackedFiles(userFiles.map((i) => i.uri));
-        program.markAllFilesDirty(/* evenIfContentsAreSame */ true);
-
-        // Make sure we keep editor content (open file) which could be different than one in the file system.
-        for (const fileInfo of this.getOpened()) {
-            const version = fileInfo.sourceFile.getClientVersion();
-            if (version === undefined) {
-                continue;
+        // Clone user and open files in their original order. Open files must be created
+        // with their full construction metadata before they are marked as tracked;
+        // precreating them as plain tracked files loses virtual-document and IPython state.
+        const filesToClone = this._sourceFileList.filter((fileInfo) => isUserCode(fileInfo) || fileInfo.isOpenByClient);
+        for (const fileInfo of filesToClone) {
+            if (fileInfo.isOpenByClient) {
+                program._addClonedOpenFile(fileInfo);
+            } else {
+                program.addTrackedFile(fileInfo.uri);
             }
-
-            program.setFileOpened(fileInfo.uri, version, fileInfo.sourceFile.getOpenFileContents() ?? '', {
-                chainedFileUri: fileInfo.chainedSourceFile?.uri,
-                ipythonMode: fileInfo.ipythonMode,
-                isVirtual: fileInfo.isVirtual,
-            });
         }
 
+        program.setTrackedFiles(filesToClone.filter((fileInfo) => fileInfo.isTracked).map((fileInfo) => fileInfo.uri));
+
+        // Restore chains only after every source exists, since a predecessor can appear
+        // later in source-file order.
+        for (const fileInfo of filesToClone) {
+            if (fileInfo.isOpenByClient && fileInfo.chainedSourceFile) {
+                program.updateChainedUri(fileInfo.uri, fileInfo.chainedSourceFile.uri);
+            }
+        }
+
+        program.markAllFilesDirty(/* evenIfContentsAreSame */ true);
         return program;
     }
 
@@ -1084,6 +1171,13 @@ export class Program {
 
     // Discards any cached information associated with this program.
     emptyCache() {
+        // Lazy import lookup can request eviction while a checker or language-service
+        // request still owns this evaluator, its controller, and private cache scopes.
+        if (this._evaluatorInvocationCount > 0) {
+            this._cacheClearPending = true;
+            return;
+        }
+        this._cacheClearPending = false;
         this._createNewEvaluator();
         this._discardCachedParseResults();
         this._parsedFileCount = 0;
@@ -1116,7 +1210,46 @@ export class Program {
         // Empty
     }
 
+    private _addClonedOpenFile(originalFileInfo: SourceFileInfo) {
+        const version = originalFileInfo.sourceFile.getClientVersion();
+        if (version === undefined) {
+            return;
+        }
+
+        const sourceFile = this._sourceFileFactory.createSourceFile(
+            this.serviceProvider,
+            originalFileInfo.uri,
+            (uri) => this._getModuleName(uri),
+            originalFileInfo.isThirdPartyImport,
+            originalFileInfo.isThirdPartyPyTypedPresent,
+            this._editModeTracker,
+            this._console,
+            this._logTracker,
+            originalFileInfo.ipythonMode
+        );
+        const sourceFileInfo = new SourceFileInfo(
+            sourceFile,
+            originalFileInfo.isTypeshedFile,
+            originalFileInfo.isThirdPartyImport,
+            originalFileInfo.isThirdPartyPyTypedPresent,
+            this._editModeTracker,
+            {
+                isTracked: originalFileInfo.isTracked,
+                isVirtual: originalFileInfo.isVirtual,
+                isOpenByClient: true,
+            }
+        );
+        this._addToSourceFileListAndMap(sourceFileInfo);
+        if (sourceFileInfo.ipythonMode === IPythonMode.CellDocs) {
+            this._cellChainIndex.invalidate();
+        }
+        sourceFile.setClientVersion(version, originalFileInfo.sourceFile.getOpenFileContents() ?? '');
+    }
+
     private _handleMemoryHighUsage() {
+        if (this._cacheClearPending) {
+            return;
+        }
         const cacheUsage = this._cacheManager.getCacheUsage();
         const usedHeapRatio = this._cacheManager.getUsedHeapRatio(
             this._configOptions.verboseOutput ? this._console : undefined
@@ -1145,7 +1278,10 @@ export class Program {
     // It does not discard cached index results or diagnostics for files.
     private _discardCachedParseResults() {
         for (const sourceFileInfo of this._sourceFileList) {
-            sourceFileInfo.sourceFile.dropParseAndBindInfo();
+            const parseTree = sourceFileInfo.sourceFile.dropParseAndBindInfo();
+            if (parseTree) {
+                this._analyzerNodeInfoContext.retainRemovedStore(parseTree);
+            }
         }
     }
 
@@ -1161,31 +1297,53 @@ export class Program {
         token: CancellationToken | undefined,
         callback: () => T | Promise<T>
     ): T | Promise<T> {
+        if (this._evaluatorInvocationCount === 0) {
+            this._handleMemoryHighUsage();
+        }
+        let isAsync = false;
+        this._evaluatorInvocationCount++;
+        const release = () => {
+            this._evaluatorInvocationCount--;
+            if (!this._disposed && this._evaluatorInvocationCount === 0 && this._cacheClearPending) {
+                this.emptyCache();
+            }
+        };
         try {
             const result = token ? this._evaluator!.runWithCancellationToken(token, callback) : callback();
             if (!isThenable(result)) {
                 return result;
             }
 
-            return result.catch((e) => {
-                if (
-                    !OperationCanceledException.is(e) ||
-                    e.isTypeCacheInvalid ||
-                    e.code === LSPErrorCodes.ServerCancelled
-                ) {
-                    this._createNewEvaluator();
-                }
+            isAsync = true;
+            return result
+                .catch((e) => {
+                    if (
+                        !this._disposed &&
+                        (!OperationCanceledException.is(e) ||
+                            e.isTypeCacheInvalid ||
+                            e.code === LSPErrorCodes.ServerCancelled)
+                    ) {
+                        this._createNewEvaluator();
+                    }
 
-                throw e;
-            });
+                    throw e;
+                })
+                .finally(release);
         } catch (e: any) {
             // An unexpected exception occurred, potentially leaving the current evaluator
             // in an inconsistent state. Discard it and replace it with a fresh one. It is
             // Cancellation exceptions are known to handle this correctly.
-            if (!OperationCanceledException.is(e) || e.isTypeCacheInvalid || e.code === LSPErrorCodes.ServerCancelled) {
+            if (
+                !this._disposed &&
+                (!OperationCanceledException.is(e) || e.isTypeCacheInvalid || e.code === LSPErrorCodes.ServerCancelled)
+            ) {
                 this._createNewEvaluator();
             }
             throw e;
+        } finally {
+            if (!isAsync) {
+                release();
+            }
         }
     }
 
@@ -1326,6 +1484,7 @@ export class Program {
             this._importResolver,
             execEnv,
             this._evaluator!,
+            this._analyzerNodeInfoContext,
             (stubFileUri: Uri, implFileUri: Uri) => this.bindShadowFile(stubFileUri, implFileUri),
             (f) => {
                 let fileInfo = this.getBoundSourceFileInfo(f);
@@ -1633,8 +1792,21 @@ export class Program {
     }
 
     private _removeSourceFileFromListAndMap(fileUri: Uri, indexToRemove: number) {
+        const sourceFileInfo = this._sourceFileMap.get(fileUri.key);
+        if (sourceFileInfo) {
+            this._dropParseAndBindInfo(sourceFileInfo.sourceFile);
+        }
+
+        this._unindexRealpathAlias(fileUri);
         this._sourceFileMap.delete(fileUri.key);
         this._sourceFileList.splice(indexToRemove, 1);
+    }
+
+    private _dropParseAndBindInfo(sourceFile: SourceFile) {
+        const parseTree = sourceFile.dropParseAndBindInfo();
+        if (parseTree) {
+            this._analyzerNodeInfoContext.remove(parseTree);
+        }
     }
 
     private _addToSourceFileListAndMap(fileInfo: SourceFileInfo) {
@@ -1648,6 +1820,137 @@ export class Program {
 
         this._sourceFileList.push(fileInfo);
         this._sourceFileMap.set(fileUri.key, fileInfo);
+        this._indexRealpathAlias(fileInfo);
+    }
+
+    // Record the file's realpath so symlink twins can co-invalidate each other.
+    // Only user-code files participate: library/typeshed files are resolved to
+    // their real paths during import resolution and are not diagnostic-checked,
+    // so indexing them would only add realpath syscalls without benefit.
+    private _indexRealpathAlias(fileInfo: SourceFileInfo) {
+        if (!isUserCode(fileInfo)) {
+            return;
+        }
+
+        const fileUri = fileInfo.uri;
+
+        // Cache hit: this URI's realpath is already indexed, so skip the
+        // filesystem syscall and redundant group bookkeeping. This matters
+        // because `addTrackedFile` re-indexes already-tracked files (e.g. the
+        // untracked -> tracked flip). Watcher-driven changes remove the file
+        // first (clearing this cache via `_unindexRealpathAlias`) before
+        // re-adding, so a genuinely retargeted symlink is recomputed on re-add.
+        if (this._realpathByUriKey.has(fileUri.key)) {
+            return;
+        }
+
+        const realpathUri = tryRealpath(this.fileSystem, fileUri) ?? fileUri;
+        const realpathKey = realpathUri.key;
+        this._realpathByUriKey.set(fileUri.key, realpathKey);
+
+        // Add this file to its realpath group when it is either reached through a
+        // symlink (its realpath differs from its own URI) or a realpath target
+        // that already has aliases pointing at it. The latter lets a re-add of
+        // only the realpath target rebuild the group instead of orphaning the
+        // aliases that still reference it.
+        const existingGroup = this._realpathAliasMap.get(realpathKey);
+        if (realpathKey !== fileUri.key || existingGroup) {
+            let aliasKeys = existingGroup;
+            if (!aliasKeys) {
+                aliasKeys = new Set<string>();
+                this._realpathAliasMap.set(realpathKey, aliasKeys);
+            }
+            aliasKeys.add(fileUri.key);
+            aliasKeys.add(realpathKey);
+        }
+    }
+
+    private _unindexRealpathAlias(fileUri: Uri) {
+        const realpathKey = this._realpathByUriKey.get(fileUri.key);
+        if (realpathKey === undefined) {
+            return;
+        }
+
+        this._realpathByUriKey.delete(fileUri.key);
+
+        const aliasKeys = this._realpathAliasMap.get(realpathKey);
+        if (!aliasKeys) {
+            return;
+        }
+
+        aliasKeys.delete(fileUri.key);
+
+        // Retain the group only while at least one member is still indexed
+        // (present in _realpathByUriKey). Keeping a lingering group that still
+        // holds an indexed member lets a later re-add of the realpath target
+        // (or another alias) rebuild the twin relationship instead of orphaning
+        // it. But when the only keys left are unindexed seeds — e.g. a realpath
+        // target that was never added because it resolves outside the workspace
+        // — drop the group so such single-entry remnants can't accumulate over a
+        // long session that churns those links.
+        let hasIndexedMember = false;
+        for (const key of aliasKeys) {
+            if (this._realpathByUriKey.has(key)) {
+                hasIndexedMember = true;
+                break;
+            }
+        }
+        if (!hasIndexedMember) {
+            this._realpathAliasMap.delete(realpathKey);
+        }
+    }
+
+    // Predicate used by the primary `markFilesDirty`/`markAllFilesDirty` loops
+    // (and, with evenIfContentsAreSame fixed to false, by twin invalidation).
+    // When !evenIfContentsAreSame, only invalidate a file whose on-disk contents
+    // actually changed and that isn't open by the client (open docs receive their
+    // content directly from the client via the normal update path). When
+    // evenIfContentsAreSame is set, always invalidate.
+    private _shouldContentInvalidate(fileInfo: SourceFileInfo, evenIfContentsAreSame: boolean): boolean {
+        return evenIfContentsAreSame || (!fileInfo.isOpenByClient && fileInfo.sourceFile.didContentsChangeOnDisk());
+    }
+
+    // Content-invalidate the realpath twin(s) of the given file and re-check their
+    // dependents. The twin must be marked dirty at the CONTENT level (markDirty),
+    // not merely re-check-required, so its symbol table is re-parsed from the
+    // updated backing file before consumers re-resolve against it.
+    //
+    // Twin fan-out ALWAYS uses the disk-change predicate (never the primary's
+    // evenIfContentsAreSame flag): a twin only needs re-parsing when its own
+    // backing file actually changed on disk. In particular, an in-memory edit to
+    // one open alias (updateOpenFileContents -> markFilesDirty(evenIfContentsAreSame=true))
+    // must NOT force the twin and its importer subtree to be re-checked on every
+    // keystroke, since the twin's on-disk contents are unchanged.
+    private _markRealpathAliasesDirty(sourceFileInfo: SourceFileInfo, markDirtySet: Set<string>) {
+        const realpathKey = this._realpathByUriKey.get(sourceFileInfo.uri.key);
+        if (realpathKey === undefined) {
+            return;
+        }
+
+        const aliasKeys = this._realpathAliasMap.get(realpathKey);
+        if (!aliasKeys || aliasKeys.size <= 1) {
+            return;
+        }
+
+        aliasKeys.forEach((aliasKey) => {
+            if (aliasKey === sourceFileInfo.uri.key || markDirtySet.has(aliasKey)) {
+                return;
+            }
+
+            const aliasInfo = this._sourceFileMap.get(aliasKey);
+            if (!aliasInfo) {
+                return;
+            }
+
+            // Only invalidate the twin when its own backing file changed on disk
+            // (and it isn't open by the client). This deliberately ignores the
+            // primary file's evenIfContentsAreSame flag so unsaved edits to one
+            // alias don't repeatedly re-check the other alias's dependents.
+            if (this._shouldContentInvalidate(aliasInfo, /* evenIfContentsAreSame */ false)) {
+                aliasInfo.sourceFile.markDirty();
+                this._markFileDirtyRecursive(aliasInfo, markDirtySet);
+            }
+        });
     }
 
     private _getModuleName(fileUri: Uri): string {
@@ -1727,7 +2030,20 @@ export class Program {
             this._evaluator.disposeEvaluator();
         }
 
-        this._evaluator = createTypeEvaluatorWithTracker(
+        const overloadResultOptions =
+            this._experimentalOverloadResultOptions ??
+            (!this._testOnlyChecking && this._configOptions.experimentalOverloadResults !== false
+                ? { automatic: true, checkerHandoff: false }
+                : undefined);
+        assert(!this._testOnlyChecking || !overloadResultOptions);
+        const overloadResultController = overloadResultOptions
+            ? new ExperimentalOverloadResultController(
+                  overloadResultOptions,
+                  () => evaluator,
+                  this._analyzerNodeInfoContext
+              )
+            : undefined;
+        const evaluator: TypeEvaluator = createTypeEvaluatorWithTracker(
             this._lookUpImport,
             {
                 printTypeFlags: getPrintTypeFlags(this._configOptions),
@@ -1735,18 +2051,25 @@ export class Program {
                 minimumLoggingThreshold: this._configOptions.typeEvaluationTimeThreshold,
                 evaluateUnknownImportsAsAny: !!this._configOptions.evaluateUnknownImportsAsAny,
                 verifyTypeCacheEvaluatorFlags: !!this._configOptions.internalTestMode,
+                nodeInfoReader: this._analyzerNodeInfoContext,
+                maxCodeComplexity: this._configOptions.maxCodeComplexity,
+                testOnlyExpression: this._testOnlyChecking?.expression(),
+                experimentalOverloadResult: overloadResultController,
             },
             this._logTracker,
             this._configOptions.logTypeEvaluationTime
                 ? createTracePrinter(
                       this._importResolver.getImportRoots(
                           this._configOptions.findExecEnvironment(this._configOptions.projectRoot)
-                      )
+                      ),
+                      this._analyzerNodeInfoContext
                   )
                 : undefined
         );
 
-        return this._evaluator;
+        this._experimentalOverloadResult = overloadResultController;
+        this._evaluator = evaluator;
+        return evaluator;
     }
 
     private _parseFile(fileToParse: SourceFileInfo, content?: string, skipFileNeededCheck?: boolean) {
@@ -1858,7 +2181,7 @@ export class Program {
             }
 
             // File should already be bound because of the chained file binding above.
-            const scope = AnalyzerNodeInfo.getScope(parseResults.parseTree);
+            const scope = AnalyzerNodeInfo.getScope(parseResults.parseTree, this._analyzerNodeInfoContext);
             return scope;
         };
 
@@ -1892,14 +2215,14 @@ export class Program {
         }
         fileToBind.effectiveFutureImports = futureImports.size > 0 ? futureImports : undefined;
 
-        fileToBind.sourceFile.bind(
+        return fileToBind.sourceFile.bind(
             this._configOptions,
             this._lookUpImport,
             builtinsScope,
             futureImports,
-            fileToBind.ipythonMode === IPythonMode.CellDocs ? this._cellChainIndex : undefined
+            fileToBind.ipythonMode === IPythonMode.CellDocs ? this._cellChainIndex : undefined,
+            this._analyzerNodeInfoContext
         );
-        return true;
     }
 
     private _getEffectiveFutureImports(futureImports: Set<string>, chainedSourceFile: SourceFileInfo): Set<string> {
@@ -1984,9 +2307,9 @@ export class Program {
 
         const parseResults = sourceFileInfo.sourceFile.getParserOutput();
         const moduleNode = parseResults!.parseTree;
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(moduleNode);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(moduleNode, this._analyzerNodeInfoContext);
 
-        const dunderAllInfo = AnalyzerNodeInfo.getDunderAllInfo(parseResults!.parseTree);
+        const dunderAllInfo = AnalyzerNodeInfo.getDunderAllInfo(parseResults!.parseTree, this._analyzerNodeInfoContext);
 
         return {
             symbolTable,
@@ -2018,10 +2341,6 @@ export class Program {
         fileToCheck: SourceFileInfo,
         options?: { chainedByList?: SourceFileInfo[]; skipFileNeededCheck?: boolean }
     ) {
-        // For very large programs, we may need to discard the evaluator and
-        // its cached types to avoid running out of heap space.
-        this._handleMemoryHighUsage();
-
         return this._logTracker.log(`analyzing: ${fileToCheck.uri}`, (logState) => {
             // If the file isn't needed because it was eliminated from the
             // transitive closure or deleted, skip the file rather than wasting
@@ -2070,7 +2389,12 @@ export class Program {
                         this._lookUpImport,
                         this._importResolver,
                         this._evaluator!,
-                        dependentFiles
+                        dependentFiles,
+                        this._analyzerNodeInfoContext,
+                        this._testOnlyChecking?.check ??
+                            (this._experimentalOverloadResult
+                                ? (_uri, parsed) => this._experimentalOverloadResult!.check(parsed.parseTree)
+                                : undefined)
                     );
                 }
             }
@@ -2158,7 +2482,7 @@ export class Program {
                 continue;
             }
 
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(parseResults.parseTree);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(parseResults.parseTree, this._analyzerNodeInfoContext);
             if (fileInfo.accessedSymbolSet) {
                 dependentFiles.push(parseResults);
             }
@@ -2294,7 +2618,7 @@ export class Program {
             return;
         }
 
-        sourceFileInfo.sourceFile.markReanalysisRequired(forceRebinding);
+        sourceFileInfo.sourceFile.markReanalysisRequired(forceRebinding, this._analyzerNodeInfoContext);
         markSet.add(fileUri.key);
 
         sourceFileInfo.importedBy.forEach((dep) => {
@@ -2318,7 +2642,8 @@ export class Program {
 
             reevaluationRequired = true;
             chainedSourceFile.sourceFile.markReanalysisRequired(
-                /* forceRebinding */ sourceFileInfo.ipythonMode === IPythonMode.CellDocs
+                /* forceRebinding */ sourceFileInfo.ipythonMode === IPythonMode.CellDocs,
+                this._analyzerNodeInfoContext
             );
             chainedSourceFile = chainedSourceFile.chainedSourceFile;
         }

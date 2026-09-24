@@ -21,6 +21,7 @@ import {
     deduplicateFolders,
     getWildcardRegexPattern,
     getWildcardRoot,
+    isSameUriFile,
     makeDirectories,
 } from '../common/uri/uriUtils';
 import * as vfs from './harness/vfs/filesystem';
@@ -915,6 +916,63 @@ test('convert UNC path', () => {
 
     // When converting UNC path, server part shouldn't be removed.
     assert(path.getPath().indexOf('server') > 0);
+});
+
+test('isSameUriFile file scheme', () => {
+    // Two file:// URIs are compared by their file-system path.
+    const a = Uri.parse('file:///a/b/c.py', caseDetector);
+    const b = Uri.parse('file:///a/b/c.py', caseDetector);
+    const c = Uri.parse('file:///a/b/d.py', caseDetector);
+    assert.strictEqual(isSameUriFile(a, b), true);
+    assert.strictEqual(isSameUriFile(a, c), false);
+});
+
+test('isSameUriFile virtual scheme differing authority', () => {
+    // Two virtual URIs that differ only by authority (the #5811 scenario) are
+    // compared by their URI path, so they are treated as the same file.
+    const a = Uri.parse('vscode-vfs://authorityA/repo/x.py', caseDetector);
+    const b = Uri.parse('vscode-vfs://authorityB/repo/x.py', caseDetector);
+    const c = Uri.parse('vscode-vfs://authorityB/repo/y.py', caseDetector);
+    assert.strictEqual(isSameUriFile(a, b), true);
+    assert.strictEqual(isSameUriFile(a, c), false);
+});
+
+test('isSameUriFile virtual scheme differing fragment', () => {
+    // Notebook-mapped virtual URIs can carry a #cellName fragment. Two virtual URIs
+    // that share a path but differ by fragment refer to different logical resources
+    // (e.g. different notebook cells) and must not merge.
+    const cell1 = Uri.parse('vscode-vfs://authorityA/repo/nb.ipynb#cell1', caseDetector);
+    const cell1Other = Uri.parse('vscode-vfs://authorityB/repo/nb.ipynb#cell1', caseDetector);
+    const cell2 = Uri.parse('vscode-vfs://authorityA/repo/nb.ipynb#cell2', caseDetector);
+    // Same fragment, differing only by authority still merges (the #5811 fix).
+    assert.strictEqual(isSameUriFile(cell1, cell1Other), true);
+    // Differing fragment stays distinct.
+    assert.strictEqual(isSameUriFile(cell1, cell2), false);
+});
+
+test('isSameUriFile virtual scheme differing query', () => {
+    // Virtual URIs that share a path but differ by query must not merge.
+    const a = Uri.parse('vscode-vfs://authorityA/repo/x.py?a=1', caseDetector);
+    const b = Uri.parse('vscode-vfs://authorityA/repo/x.py?a=2', caseDetector);
+    assert.strictEqual(isSameUriFile(a, b), false);
+});
+
+test('isSameUriFile differing virtual schemes', () => {
+    // Virtual URIs that share a path but use different schemes are distinct resources
+    // and must not merge.
+    const a = Uri.parse('vscode-vfs://authority/repo/x.py', caseDetector);
+    const b = Uri.parse('untitled://authority/repo/x.py', caseDetector);
+    assert.strictEqual(isSameUriFile(a, b), false);
+});
+
+test('isSameUriFile mixed file and virtual scheme', () => {
+    // A file:// URI paired with a virtual URI must never merge, even when the
+    // logical file appears the same. getFilePath() is non-empty on one side and
+    // empty on the other, so the anti-over-merge guard returns false.
+    const fileUri = Uri.parse('file:///repo/x.py', caseDetector);
+    const virtualUri = Uri.parse('vscode-vfs://authorityA/repo/x.py', caseDetector);
+    assert.strictEqual(isSameUriFile(fileUri, virtualUri), false);
+    assert.strictEqual(isSameUriFile(virtualUri, fileUri), false);
 });
 
 function lowerCaseDrive(entries: string[]) {

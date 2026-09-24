@@ -55,9 +55,15 @@
 
 helper.verifyHover('markdown', {
     child_a_method1_docs: '```python\n(method) def method1() -> bool\n```\n---\nA.method1 docs',
-    child_a_docs: '```python\nclass ChildA()\n```',
+    // A subclass with no docstring of its own inherits the nearest base class
+    // docstring (approximating Python's `inspect.getdoc`, excluding builtins).
+    child_a_docs: '```python\nclass ChildA()\n```\n---\nA docs',
+    // The constructor (`__init__`) docstring still takes priority over the class
+    // docstring; `ChildB.__init__` inherits `B init docs`, so the class-docstring
+    // fallback is not reached here.
     child_b_docs: '```python\nclass ChildB()\n```\n---\nB init docs',
     child_b_init_docs: '```python\n(method) def __init__() -> None\n```\n---\nB init docs',
-    secondDerived_docs: '```python\nclass Derived2()\n```',
+    // Multi-level inheritance: the nearest base in the MRO with a docstring wins.
+    secondDerived_docs: '```python\nclass Derived2()\n```\n---\nBase docs',
     secondDerived_method_docs: '```python\n(method) def method() -> None\n```\n---\nBase.method docs',
 });

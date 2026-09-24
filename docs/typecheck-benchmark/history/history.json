@@ -1,0 +1,489 @@
+{
+  "profile": {
+    "python_version": "3.14.6",
+    "runner_class": "github-ubuntu-latest",
+    "runner_image": "ubuntu24",
+    "memory_limit_mb": 8192,
+    "node_options": "--max-old-space-size=6656",
+    "dependency_isolation": "pip-target-per-package",
+    "runs_per_package": 1,
+    "warmup_runs": 0
+  },
+  "packages": [
+    "ansible",
+    "click",
+    "homeassistant",
+    "numpy",
+    "pandas",
+    "pytest",
+    "requests",
+    "torch",
+    "transformers"
+  ],
+  "package_corpus": [
+    {
+      "package_name": "ansible",
+      "commit": "e8264c418ad2e87f92fa48f75cacfaa451cb38e4",
+      "check_paths": [
+        "lib/ansible"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "click",
+      "commit": "00e592cea702e0b2caa0dee42489fdb1c22cd845",
+      "check_paths": [
+        "src/click"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "homeassistant",
+      "commit": "f002c54d12077d6b906fa624f1c4bba11a71897d",
+      "check_paths": [
+        "homeassistant"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "numpy",
+      "commit": "db6ccacf630dd90f7c498e0d924bd47b66c83746",
+      "check_paths": [
+        "numpy"
+      ],
+      "exclude_directories": [
+        "tests"
+      ]
+    },
+    {
+      "package_name": "pandas",
+      "commit": "982854070758cd2015fc9e64395684546b1c5444",
+      "check_paths": [
+        "pandas"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "pytest",
+      "commit": "56b196e921acec0259d84622a570fde6032e15b5",
+      "check_paths": [
+        "src",
+        "testing"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "requests",
+      "commit": "414f0513c33883adf6f2b46901d4f0b38a455851",
+      "check_paths": [
+        "src/requests"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "torch",
+      "commit": "3ee692b380206d788625e0a4474d758f93571ee9",
+      "check_paths": [
+        "torch"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "transformers",
+      "commit": "2ef79f87a02111f8b49a72fb7d0c86b5b0bf10b7",
+      "check_paths": [
+        "src/transformers"
+      ],
+      "exclude_directories": []
+    }
+  ],
+  "releases": [
+    {
+      "version": "1.1.406",
+      "published_at": "2025-10-01T00:00:14Z",
+      "measured_at": "2026-09-14T21:39:59.421825+00:00",
+      "packages": {
+        "ansible": {
+          "execution_time_s": 18.937,
+          "peak_memory_mb": 1078.2
+        },
+        "click": {
+          "execution_time_s": 2.795,
+          "peak_memory_mb": 349.9
+        },
+        "homeassistant": {
+          "execution_time_s": 132.669,
+          "peak_memory_mb": 5674.7
+        },
+        "numpy": {
+          "execution_time_s": 32.412,
+          "peak_memory_mb": 1471.7
+        },
+        "pandas": {
+          "execution_time_s": 853.233,
+          "peak_memory_mb": 4363.5
+        },
+        "pytest": {
+          "execution_time_s": 11.346,
+          "peak_memory_mb": 775.6
+        },
+        "requests": {
+          "execution_time_s": 2.32,
+          "peak_memory_mb": 334.1
+        },
+        "torch": {
+          "execution_time_s": 131.247,
+          "peak_memory_mb": 4852.8
+        },
+        "transformers": {
+          "execution_time_s": 119.434,
+          "peak_memory_mb": 4747.3
+        }
+      }
+    },
+    {
+      "version": "1.1.407",
+      "published_at": "2025-10-24T22:36:50Z",
+      "measured_at": "2026-09-14T21:39:42.274572+00:00",
+      "packages": {
+        "ansible": {
+          "execution_time_s": 18.193,
+          "peak_memory_mb": 1087.2
+        },
+        "click": {
+          "execution_time_s": 2.751,
+          "peak_memory_mb": 349.7
+        },
+        "homeassistant": {
+          "execution_time_s": 123.827,
+          "peak_memory_mb": 5705.5
+        },
+        "numpy": {
+          "execution_time_s": 31.756,
+          "peak_memory_mb": 1474.9
+        },
+        "pandas": {
+          "execution_time_s": 844.907,
+          "peak_memory_mb": 4425.9
+        },
+        "pytest": {
+          "execution_time_s": 11.692,
+          "peak_memory_mb": 775.9
+        },
+        "requests": {
+          "execution_time_s": 2.371,
+          "peak_memory_mb": 333.6
+        },
+        "torch": {
+          "execution_time_s": 135.43,
+          "peak_memory_mb": 4635.8
+        },
+        "transformers": {
+          "execution_time_s": 119.925,
+          "peak_memory_mb": 4755.7
+        }
+      }
+    },
+    {
+      "version": "1.1.408",
+      "published_at": "2026-01-08T01:30:41Z",
+      "measured_at": "2026-09-14T21:39:45.460985+00:00",
+      "packages": {
+        "ansible": {
+          "execution_time_s": 18.593,
+          "peak_memory_mb": 1080.1
+        },
+        "click": {
+          "execution_time_s": 2.754,
+          "peak_memory_mb": 351.0
+        },
+        "homeassistant": {
+          "execution_time_s": 123.247,
+          "peak_memory_mb": 5610.6
+        },
+        "numpy": {
+          "execution_time_s": 31.58,
+          "peak_memory_mb": 1443.4
+        },
+        "pandas": {
+          "execution_time_s": 845.103,
+          "peak_memory_mb": 4407.6
+        },
+        "pytest": {
+          "execution_time_s": 10.952,
+          "peak_memory_mb": 804.7
+        },
+        "requests": {
+          "execution_time_s": 2.207,
+          "peak_memory_mb": 338.1
+        },
+        "torch": {
+          "execution_time_s": 128.703,
+          "peak_memory_mb": 4912.3
+        },
+        "transformers": {
+          "execution_time_s": 120.21,
+          "peak_memory_mb": 4730.5
+        }
+      }
+    },
+    {
+      "version": "1.1.409",
+      "published_at": "2026-04-16T00:09:46Z",
+      "measured_at": "2026-09-14T21:38:53.481417+00:00",
+      "packages": {
+        "ansible": {
+          "execution_time_s": 17.61,
+          "peak_memory_mb": 1068.9
+        },
+        "click": {
+          "execution_time_s": 2.65,
+          "peak_memory_mb": 348.3
+        },
+        "homeassistant": {
+          "execution_time_s": 110.482,
+          "peak_memory_mb": 5722.7
+        },
+        "numpy": {
+          "execution_time_s": 30.729,
+          "peak_memory_mb": 1395.7
+        },
+        "pandas": {
+          "execution_time_s": 842.133,
+          "peak_memory_mb": 4338.7
+        },
+        "pytest": {
+          "execution_time_s": 10.787,
+          "peak_memory_mb": 785.5
+        },
+        "requests": {
+          "execution_time_s": 2.126,
+          "peak_memory_mb": 326.7
+        },
+        "torch": {
+          "execution_time_s": 121.212,
+          "peak_memory_mb": 4857.1
+        },
+        "transformers": {
+          "execution_time_s": 99.131,
+          "peak_memory_mb": 5135.9
+        }
+      }
+    },
+    {
+      "version": "1.1.410",
+      "published_at": "2026-05-23T00:23:32Z",
+      "measured_at": "2026-09-14T21:39:07.163917+00:00",
+      "packages": {
+        "ansible": {
+          "execution_time_s": 17.222,
+          "peak_memory_mb": 1059.5
+        },
+        "click": {
+          "execution_time_s": 2.515,
+          "peak_memory_mb": 348.6
+        },
+        "homeassistant": {
+          "execution_time_s": 115.053,
+          "peak_memory_mb": 5588.3
+        },
+        "numpy": {
+          "execution_time_s": 29.298,
+          "peak_memory_mb": 1388.9
+        },
+        "pandas": {
+          "execution_time_s": 853.335,
+          "peak_memory_mb": 4387.7
+        },
+        "pytest": {
+          "execution_time_s": 10.276,
+          "peak_memory_mb": 765.3
+        },
+        "requests": {
+          "execution_time_s": 2.015,
+          "peak_memory_mb": 326.6
+        },
+        "torch": {
+          "execution_time_s": 125.712,
+          "peak_memory_mb": 4472.7
+        },
+        "transformers": {
+          "execution_time_s": 104.912,
+          "peak_memory_mb": 4646.4
+        }
+      }
+    },
+    {
+      "version": "1.1.411",
+      "published_at": "2026-06-25T00:06:53Z",
+      "measured_at": "2026-09-14T21:39:36.545744+00:00",
+      "packages": {
+        "ansible": {
+          "execution_time_s": 18.02,
+          "peak_memory_mb": 1059.7
+        },
+        "click": {
+          "execution_time_s": 2.796,
+          "peak_memory_mb": 347.5
+        },
+        "homeassistant": {
+          "execution_time_s": 125.48,
+          "peak_memory_mb": 5878.8
+        },
+        "numpy": {
+          "execution_time_s": 33.093,
+          "peak_memory_mb": 1376.6
+        },
+        "pandas": {
+          "execution_time_s": 850.849,
+          "peak_memory_mb": 4451.7
+        },
+        "pytest": {
+          "execution_time_s": 11.35,
+          "peak_memory_mb": 777.1
+        },
+        "requests": {
+          "execution_time_s": 2.152,
+          "peak_memory_mb": 328.5
+        },
+        "torch": {
+          "execution_time_s": 131.836,
+          "peak_memory_mb": 4417.6
+        },
+        "transformers": {
+          "execution_time_s": 101.989,
+          "peak_memory_mb": 5118.4
+        }
+      }
+    },
+    {
+      "version": "1.1.412",
+      "published_at": "2026-08-12T22:59:44Z",
+      "measured_at": "2026-09-14T21:35:18.452118+00:00",
+      "packages": {
+        "ansible": {
+          "execution_time_s": 14.674,
+          "peak_memory_mb": 1208.4
+        },
+        "click": {
+          "execution_time_s": 2.076,
+          "peak_memory_mb": 357.4
+        },
+        "homeassistant": {
+          "execution_time_s": 106.094,
+          "peak_memory_mb": 5933.8
+        },
+        "numpy": {
+          "execution_time_s": 30.203,
+          "peak_memory_mb": 1819.2
+        },
+        "pandas": {
+          "execution_time_s": 726.738,
+          "peak_memory_mb": 4123.7
+        },
+        "pytest": {
+          "execution_time_s": 8.721,
+          "peak_memory_mb": 839.2
+        },
+        "requests": {
+          "execution_time_s": 1.641,
+          "peak_memory_mb": 333.9
+        },
+        "torch": {
+          "execution_time_s": 106.604,
+          "peak_memory_mb": 4995.3
+        },
+        "transformers": {
+          "execution_time_s": 87.682,
+          "peak_memory_mb": 5461.6
+        }
+      }
+    },
+    {
+      "version": "1.1.413",
+      "published_at": "2026-09-09T17:46:15Z",
+      "measured_at": "2026-09-14T21:42:13.958871+00:00",
+      "packages": {
+        "ansible": {
+          "execution_time_s": 21.138,
+          "peak_memory_mb": 1138.8
+        },
+        "click": {
+          "execution_time_s": 3.136,
+          "peak_memory_mb": 356.1
+        },
+        "homeassistant": {
+          "execution_time_s": 143.256,
+          "peak_memory_mb": 5972.5
+        },
+        "numpy": {
+          "execution_time_s": 44.305,
+          "peak_memory_mb": 1783.6
+        },
+        "pandas": {
+          "execution_time_s": 917.054,
+          "peak_memory_mb": 4395.8
+        },
+        "pytest": {
+          "execution_time_s": 12.59,
+          "peak_memory_mb": 827.8
+        },
+        "requests": {
+          "execution_time_s": 2.364,
+          "peak_memory_mb": 333.6
+        },
+        "torch": {
+          "execution_time_s": 153.937,
+          "peak_memory_mb": 4990.3
+        },
+        "transformers": {
+          "execution_time_s": 120.964,
+          "peak_memory_mb": 5128.4
+        }
+      }
+    },
+    {
+      "version": "1.1.414",
+      "published_at": "2026-09-09T20:40:05Z",
+      "measured_at": "2026-09-14T21:39:51.380019+00:00",
+      "packages": {
+        "ansible": {
+          "execution_time_s": 18.773,
+          "peak_memory_mb": 1075.6
+        },
+        "click": {
+          "execution_time_s": 2.649,
+          "peak_memory_mb": 363.1
+        },
+        "homeassistant": {
+          "execution_time_s": 128.431,
+          "peak_memory_mb": 6166.5
+        },
+        "numpy": {
+          "execution_time_s": 35.764,
+          "peak_memory_mb": 1851.6
+        },
+        "pandas": {
+          "execution_time_s": 849.628,
+          "peak_memory_mb": 4425.5
+        },
+        "pytest": {
+          "execution_time_s": 10.654,
+          "peak_memory_mb": 893.6
+        },
+        "requests": {
+          "execution_time_s": 2.078,
+          "peak_memory_mb": 351.0
+        },
+        "torch": {
+          "execution_time_s": 135.951,
+          "peak_memory_mb": 4789.9
+        },
+        "transformers": {
+          "execution_time_s": 112.948,
+          "peak_memory_mb": 5079.5
+        }
+      }
+    }
+  ]
+}

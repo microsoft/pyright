@@ -14,7 +14,7 @@ import { TextRange } from '../common/textRange';
 import { LocMessage } from '../localization/localize';
 import { ArgCategory, ExpressionNode, ParamCategory, ParseNodeType } from '../parser/parseNodes';
 import { Tokenizer } from '../parser/tokenizer';
-import { getFileInfo } from './analyzerNodeInfo';
+import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
@@ -53,9 +53,10 @@ export function createNamedTupleType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     argList: Arg[],
-    includesTypes: boolean
+    includesTypes: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): ClassType {
-    const fileInfo = getFileInfo(errorNode);
+    const fileInfo = nodeInfo.getFileInfo(errorNode);
     let className = 'namedtuple';
     const namedTupleEntries = new Set<string>();
 
@@ -124,7 +125,7 @@ export function createNamedTupleType(
         isInstantiableClass(namedTupleType) ? namedTupleType.shared.effectiveMetaclass : UnknownType.create()
     );
     classType.shared.baseClasses.push(namedTupleType);
-    classType.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode);
+    classType.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode, nodeInfo);
 
     const classFields = ClassType.getSymbolTable(classType);
     classFields.set(

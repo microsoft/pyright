@@ -102,6 +102,18 @@ function applyPartialTransform(
         if (constructor) {
             origFunctionType = constructor;
         }
+    } else if (isClassInstance(origFunctionTypeConcrete)) {
+        const callMethodResult = evaluator.getTypeOfBoundMember(
+            errorNode,
+            origFunctionTypeConcrete,
+            '__call__',
+            /* usage */ undefined,
+            /* diag */ undefined,
+            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
+        );
+        if (callMethodResult?.type && (isFunction(callMethodResult.type) || isOverloaded(callMethodResult.type))) {
+            origFunctionType = callMethodResult.type;
+        }
     }
 
     // Evaluate the inferred return type if necessary.

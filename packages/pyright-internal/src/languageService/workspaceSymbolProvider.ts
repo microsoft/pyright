@@ -7,7 +7,7 @@
  */
 
 import { CancellationToken, Location, ResultProgressReporter, SymbolInformation } from 'vscode-languageserver';
-import { getFileInfo } from '../analyzer/analyzerNodeInfo';
+import { getInfoReader, getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { isUserCode } from '../analyzer/sourceFileInfoUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
@@ -64,7 +64,8 @@ export class WorkspaceSymbolProvider {
             return symbolList;
         }
 
-        const fileInfo = getFileInfo(parseResults.parserOutput.parseTree);
+        const nodeInfo = getInfoReader(program);
+        const fileInfo = getFileInfo(parseResults.parserOutput.parseTree, nodeInfo);
         if (!fileInfo) {
             return symbolList;
         }
@@ -73,6 +74,7 @@ export class WorkspaceSymbolProvider {
             fileInfo,
             parseResults,
             { includeAliases: false },
+            nodeInfo,
             this._token
         );
         this.appendWorkspaceSymbolsRecursive(indexSymbolData, program, fileUri, '', symbolList);

@@ -36,9 +36,12 @@ export interface TypeResult {
     isIncomplete?: boolean;
 }
 
-export interface SpeculativeTypeEntry {
-    typeResult: TypeResult;
+export interface ContextualTypeCacheEntry {
     expectedType: Type | undefined;
+}
+
+export interface SpeculativeTypeEntry extends ContextualTypeCacheEntry {
+    typeResult: TypeResult;
     incompleteGenerationCount: number;
     dependentTypes?: DependentType[];
 }
@@ -52,6 +55,96 @@ export interface SpeculativeModeOptions {
     // a speculative root, but this can be overridden by specifying
     // this option.
     allowDiagnostics?: boolean;
+}
+
+const maxContextualTypeCacheEntriesPerNode = 8;
+
+export function contextualTypeCacheEntryMatches(
+    entry: ContextualTypeCacheEntry,
+    expectedType: Type | undefined
+): boolean {
+    if (entry.expectedType === expectedType) {
+        return true;
+    }
+
+    return expectedType ? !!entry.expectedType && isTypeSame(expectedType, entry.expectedType) : false;
+}
+
+export function findContextualTypeCacheEntry<T extends ContextualTypeCacheEntry>(
+    cacheEntries: readonly T[] | undefined,
+    expectedType: Type | undefined
+): T | undefined {
+    if (!cacheEntries) {
+        return undefined;
+    }
+
+    // Contextual entries are appended when added or replaced, so check the newest entries first.
+    // The same expected type object is normally reused, which avoids structural type
+    // comparison on the common path.
+    for (let i = cacheEntries.length - 1; i >= 0; i--) {
+        if (cacheEntries[i].expectedType === expectedType) {
+            return cacheEntries[i];
+        }
+    }
+
+    if (!expectedType) {
+        return undefined;
+    }
+
+    for (let i = cacheEntries.length - 1; i >= 0; i--) {
+        const entryExpectedType = cacheEntries[i].expectedType;
+        if (entryExpectedType && isTypeSame(expectedType, entryExpectedType)) {
+            return cacheEntries[i];
+        }
+    }
+
+    return undefined;
+}
+
+export function addContextualTypeCacheEntry<T extends ContextualTypeCacheEntry>(
+    cacheEntries: readonly T[],
+    newEntry: T,
+    isEntryValid?: (entry: T) => boolean
+): T[] {
+    let newCacheEntries = cacheEntries.filter(
+        (entry) =>
+            (!isEntryValid || isEntryValid(entry)) && !contextualTypeCacheEntryMatches(entry, newEntry.expectedType)
+    );
+
+    newCacheEntries.push(newEntry);
+    if (newCacheEntries.length > maxContextualTypeCacheEntriesPerNode) {
+        newCacheEntries = newCacheEntries.slice(newCacheEntries.length - maxContextualTypeCacheEntriesPerNode);
+    }
+
+    return newCacheEntries;
+}
+
+// Isolate exactly these node IDs for a synchronous operation. Restore entry presence
+// and values on exit unless successful results are retained; unrelated writes survive.
+export function useNodeCacheIsolation<T, V>(
+    cache: Map<number, V>,
+    nodeIds: ReadonlySet<number>,
+    callback: () => T,
+    retain = false
+): T {
+    const saved = new Map<number, V>();
+    nodeIds.forEach((id) => {
+        if (cache.has(id)) {
+            saved.set(id, cache.get(id)!);
+        }
+        cache.delete(id);
+    });
+    let completed = false;
+    try {
+        const result = callback();
+        completed = true;
+        return result;
+    } finally {
+        if (!retain || !completed) {
+            nodeIds.forEach((id) => cache.delete(id));
+            saved.forEach((value, id) => cache.set(id, value));
+        }
+    }
 }
 
 // This class maintains a stack of "speculative type contexts". When
@@ -69,6 +162,24 @@ export class SpeculativeTypeTracker {
     private _speculativeContextStack: SpeculativeContext[] = [];
     private _speculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
     private _activeDependentTypes: DependentType[] = [];
+
+    evictCacheEntries(nodeIds: ReadonlySet<number>) {
+        assert(this._speculativeContextStack.length === 0);
+        nodeIds.forEach((id) => this._speculativeTypeCache.delete(id));
+    }
+
+    canUseNodeCacheIsolation(root: ParseNode) {
+        return this._speculativeContextStack.every(
+            (context) =>
+                !ParseTreeUtils.isNodeContainedWithin(root, context.speculativeRootNode) &&
+                !ParseTreeUtils.isNodeContainedWithin(context.speculativeRootNode, root)
+        );
+    }
+
+    useNodeCacheIsolation<T>(nodeIds: ReadonlySet<number>, callback: () => T, root?: ParseNode): T {
+        assert(root ? this.canUseNodeCacheIsolation(root) : this._speculativeContextStack.length === 0);
+        return useNodeCacheIsolation(this._speculativeTypeCache, nodeIds, callback);
+    }
 
     enterSpeculativeContext(speculativeRootNode: ParseNode, options?: SpeculativeModeOptions) {
         this._speculativeContextStack.push({
@@ -158,38 +269,6 @@ export class SpeculativeTypeTracker {
     ) {
         assert(this._speculativeContextStack.length > 0);
 
-        const maxCacheEntriesPerNode = 8;
-        let cacheEntries = this._speculativeTypeCache.get(node.id);
-
-        if (!cacheEntries) {
-            cacheEntries = [];
-        } else {
-            cacheEntries = cacheEntries.filter((entry) => {
-                // Filter out any incomplete entries that no longer match the generation count.
-                // These are obsolete and cannot be used.
-                if (entry.typeResult.isIncomplete && entry.incompleteGenerationCount !== incompleteGenerationCount) {
-                    return false;
-                }
-
-                // Filter out any entries that match the expected type of the
-                // new entry. The new entry replaces the old in this case.
-                if (expectedType) {
-                    if (!entry.expectedType) {
-                        return true;
-                    }
-                    return !isTypeSame(entry.expectedType, expectedType);
-                }
-
-                return !!entry.expectedType;
-            });
-
-            // Don't allow the cache to grow too large.
-            if (cacheEntries.length >= maxCacheEntriesPerNode) {
-                cacheEntries.slice(1);
-            }
-        }
-
-        // Add the new entry.
         const newEntry: SpeculativeTypeEntry = {
             typeResult,
             expectedType,
@@ -200,8 +279,11 @@ export class SpeculativeTypeTracker {
             newEntry.dependentTypes = Array.from(this._activeDependentTypes);
         }
 
-        cacheEntries.push(newEntry);
-
+        const cacheEntries = addContextualTypeCacheEntry(
+            this._speculativeTypeCache.get(node.id) ?? [],
+            newEntry,
+            (entry) => !entry.typeResult.isIncomplete || entry.incompleteGenerationCount === incompleteGenerationCount
+        );
         this._speculativeTypeCache.set(node.id, cacheEntries);
     }
 
@@ -214,15 +296,7 @@ export class SpeculativeTypeTracker {
             const entries = this._speculativeTypeCache.get(node.id);
             if (entries) {
                 for (const entry of entries) {
-                    if (!expectedType) {
-                        if (!entry.expectedType && this._dependentTypesMatch(entry)) {
-                            return entry;
-                        }
-                    } else if (
-                        entry.expectedType &&
-                        isTypeSame(expectedType, entry.expectedType) &&
-                        this._dependentTypesMatch(entry)
-                    ) {
+                    if (contextualTypeCacheEntryMatches(entry, expectedType) && this._dependentTypesMatch(entry)) {
                         return entry;
                     }
                 }

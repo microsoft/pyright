@@ -1,16 +1,19 @@
+# Generate and authenticate a CFS-governed npm feed .npmrc at runtime (ICM 839806358).
+#
+# We intentionally do NOT commit the internal DevDiv registry into this public
+# repository, so ordinary local `pnpm install` / `yarn` runs and fork-PR CI keep
+# using the public npm registry. Only trusted Azure DevOps jobs route installs
+# through the CFS feed, by pointing NPM_CONFIG_USERCONFIG (a pipeline variable)
+# at the temp file created and authenticated below.
 steps:
-  - task: npmAuthenticate@0
-    inputs:
-      workingFile: .npmrc
+  - pwsh: |
+      @(
+        'registry=https://devdiv.pkgs.visualstudio.com/DevDiv/_packaging/Pylance_PublicPackages/npm/registry/',
+        'always-auth=true'
+      ) | Set-Content -Path "$(Agent.TempDirectory)/cfs.npmrc"
+    displayName: 'Create CFS .npmrc (runtime, not committed)'
 
   - task: npmAuthenticate@0
+    displayName: 'Authenticate CFS feed'
     inputs:
-      workingFile: packages/pyright/.npmrc
-
-  - task: npmAuthenticate@0
-    inputs:
-      workingFile: packages/pyright-internal/.npmrc
-
-  - task: npmAuthenticate@0
-    inputs:
-      workingFile: packages/vscode-pyright/.npmrc
+      workingFile: $(Agent.TempDirectory)/cfs.npmrc

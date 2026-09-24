@@ -11,8 +11,11 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { ImportResolver } from '../analyzer/importResolver';
+import { ExperimentalOverloadResultOptions } from '../analyzer/overloadResultController';
 import { Program } from '../analyzer/program';
+import { Scope } from '../analyzer/scope';
 import { NameTypeWalker } from '../analyzer/testWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { ConfigOptions, ExecutionEnvironment, getStandardDiagnosticRuleSet } from '../common/configOptions';
@@ -36,12 +39,18 @@ import { ParseFileResults, ParseOptions, Parser, ParserOutput } from '../parser/
 export interface FileAnalysisResult {
     fileUri: Uri;
     parseResults?: ParseFileResults | undefined;
+    moduleScope?: Scope | undefined;
     errors: Diagnostic[];
     warnings: Diagnostic[];
     infos: Diagnostic[];
     unusedCodes: Diagnostic[];
     unreachableCodes: Diagnostic[];
     deprecateds: Diagnostic[];
+}
+
+export interface SampleAnalysisObserver {
+    overloadResults?: ExperimentalOverloadResultOptions;
+    onComplete: (program: Program, fileUris: Uri[], configOptions: ConfigOptions) => void;
 }
 
 export function resolveSampleFilePath(fileName: string): string {
@@ -92,7 +101,8 @@ export function parseSampleFile(
 export function typeAnalyzeSampleFiles(
     fileNames: string[],
     configOptions = new ConfigOptions(Uri.empty()),
-    console?: ConsoleWithLogLevel
+    console?: ConsoleWithLogLevel,
+    observer?: SampleAnalysisObserver
 ): FileAnalysisResult[] {
     // Always enable "test mode".
     configOptions.internalTestMode = true;
@@ -102,7 +112,16 @@ export function typeAnalyzeSampleFiles(
     const serviceProvider = createServiceProvider(fs, console || new NullConsole(), tempFile);
     const importResolver = new ImportResolver(serviceProvider, configOptions, new FullAccessHost(serviceProvider));
 
-    const program = new Program(importResolver, configOptions, serviceProvider);
+    const program = new Program(
+        importResolver,
+        configOptions,
+        serviceProvider,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        observer?.overloadResults
+    );
     const fileUris = fileNames.map((name) => UriEx.file(resolveSampleFilePath(name)));
     program.setTrackedFiles(fileUris);
 
@@ -114,12 +133,14 @@ export function typeAnalyzeSampleFiles(
         nameTypeWalker.walk(parserOutput.parseTree);
     });
 
-    const results = getAnalysisResults(program, fileUris, configOptions);
-
-    program.dispose();
-    serviceProvider.dispose();
-
-    return results;
+    try {
+        const results = getAnalysisResults(program, fileUris, configOptions);
+        observer?.onComplete(program, fileUris, configOptions);
+        return results;
+    } finally {
+        program.dispose();
+        serviceProvider.dispose();
+    }
 }
 
 export function getAnalysisResults(
@@ -139,9 +160,13 @@ export function getAnalysisResults(
     return sourceFiles.map((sourceFile, index) => {
         if (sourceFile) {
             const diagnostics = sourceFile.getDiagnostics(configOptions) || [];
+            const parseResults = sourceFile.getParseResults();
             const analysisResult: FileAnalysisResult = {
                 fileUri: sourceFile.getUri(),
-                parseResults: sourceFile.getParseResults(),
+                parseResults,
+                moduleScope: parseResults
+                    ? AnalyzerNodeInfo.getScope(parseResults.parserOutput.parseTree, program.analyzerNodeInfoContext)
+                    : undefined,
                 errors: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Error),
                 warnings: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Warning),
                 infos: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Information),
@@ -156,6 +181,7 @@ export function getAnalysisResults(
             const analysisResult: FileAnalysisResult = {
                 fileUri: Uri.empty(),
                 parseResults: undefined,
+                moduleScope: undefined,
                 errors: [],
                 warnings: [],
                 infos: [],

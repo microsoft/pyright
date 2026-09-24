@@ -124,7 +124,23 @@ export function compareImportStatements(a: ImportStatement, b: ImportStatement) 
 
 // Looks for top-level 'import' and 'import from' statements and provides
 // an ordered list and a map (by file path).
-export function getTopLevelImports(parseTree: ModuleNode, includeImplicitImports = false): ImportStatements {
+export function getTopLevelImports(
+    parseTree: ModuleNode,
+    includeImplicitImports = false,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+): ImportStatements {
+    return _getTopLevelImports(parseTree, includeImplicitImports, nodeInfo);
+}
+
+export function collectTopLevelImports(parseTree: ModuleNode): ImportStatements {
+    return _getTopLevelImports(parseTree, /* includeImplicitImports */ false, /* nodeInfo */ undefined);
+}
+
+function _getTopLevelImports(
+    parseTree: ModuleNode,
+    includeImplicitImports: boolean,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader | undefined
+): ImportStatements {
     const localImports: ImportStatements = {
         orderedImports: [],
         mapByFilePath: new Map<string, ImportStatement>(),
@@ -138,7 +154,7 @@ export function getTopLevelImports(parseTree: ModuleNode, includeImplicitImports
             statement.d.statements.forEach((subStatement) => {
                 if (subStatement.nodeType === ParseNodeType.Import) {
                     foundFirstImportStatement = true;
-                    _processImportNode(subStatement, localImports, followsNonImportStatement);
+                    _processImportNode(subStatement, localImports, followsNonImportStatement, nodeInfo);
                     followsNonImportStatement = false;
                 } else if (subStatement.nodeType === ParseNodeType.ImportFrom) {
                     foundFirstImportStatement = true;
@@ -146,7 +162,8 @@ export function getTopLevelImports(parseTree: ModuleNode, includeImplicitImports
                         subStatement,
                         localImports,
                         followsNonImportStatement,
-                        includeImplicitImports
+                        includeImplicitImports,
+                        nodeInfo
                     );
                     followsNonImportStatement = false;
                 } else {
@@ -663,9 +680,14 @@ function _getInsertionEditForAutoImportInsertion(
     return { range, preChange, importStatement, postChange, importGroup };
 }
 
-function _processImportNode(node: ImportNode, localImports: ImportStatements, followsNonImportStatement: boolean) {
+function _processImportNode(
+    node: ImportNode,
+    localImports: ImportStatements,
+    followsNonImportStatement: boolean,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader | undefined
+) {
     node.d.list.forEach((importAsNode) => {
-        const importResult = AnalyzerNodeInfo.getImportInfo(importAsNode.d.module);
+        const importResult = nodeInfo ? AnalyzerNodeInfo.getImportInfo(importAsNode.d.module, nodeInfo) : undefined;
         let resolvedPath: Uri | undefined;
 
         if (importResult && importResult.isImportFound) {
@@ -699,9 +721,10 @@ function _processImportFromNode(
     node: ImportFromNode,
     localImports: ImportStatements,
     followsNonImportStatement: boolean,
-    includeImplicitImports: boolean
+    includeImplicitImports: boolean,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader | undefined
 ) {
-    const importResult = AnalyzerNodeInfo.getImportInfo(node.d.module);
+    const importResult = nodeInfo ? AnalyzerNodeInfo.getImportInfo(node.d.module, nodeInfo) : undefined;
     let resolvedPath: Uri | undefined;
 
     if (importResult && importResult.isImportFound) {

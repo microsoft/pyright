@@ -103,6 +103,37 @@ test('convertOffsetsToRange handles an empty file', () => {
     });
 });
 
+test('convertOffsetToPosition is order-independent (getItemContaining memo)', () => {
+    // getItemContaining memoizes its last hit, so converting the same offsets in a
+    // different order (against the same reused lines collection) must not change the
+    // result. Compare a warm collection against a memo-free reference for every offset.
+    const code = ['def foo(bar):', '    baz = bar', '', 'class C:\r', '    x = 1\r', 'last = 2'].join('\n');
+    const lines = new Tokenizer().tokenize(code).lines;
+
+    const forward: number[] = [];
+    for (let offset = 0; offset <= code.length; offset++) {
+        forward.push(offset);
+    }
+
+    // Reference computed on a single forward pass over a separate collection.
+    const referenceLines = new Tokenizer().tokenize(code).lines;
+    const reference = new Map<number, ReturnType<typeof convertOffsetToPosition>>();
+    for (const offset of forward) {
+        reference.set(offset, convertOffsetToPosition(offset, referenceLines));
+    }
+
+    const orders = [forward, [...forward].reverse(), [4, 0, code.length, 20, 4, 20, 0, code.length, 12, 12]];
+    for (const order of orders) {
+        for (const offset of order) {
+            assert.deepStrictEqual(
+                convertOffsetToPosition(offset, lines),
+                reference.get(offset),
+                `offset ${offset} differs after memo warm-up`
+            );
+        }
+    }
+});
+
 function verifyLineEnding(code: string, line: number, expected: number) {
     const parser = new Parser();
     const parseResults = parser.parseSourceFile(code, new ParseOptions(), new DiagnosticSink());

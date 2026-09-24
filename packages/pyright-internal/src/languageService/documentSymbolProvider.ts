@@ -10,7 +10,7 @@
 
 import { CancellationToken, DocumentSymbol, Location, SymbolInformation } from 'vscode-languageserver';
 
-import { getFileInfo } from '../analyzer/analyzerNodeInfo';
+import { getInfoReader, getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ProgramView } from '../common/extensibility';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
@@ -66,12 +66,19 @@ export class DocumentSymbolProvider {
             return symbolList;
         }
 
-        const fileInfo = getFileInfo(parseResults.parserOutput.parseTree);
+        const nodeInfo = getInfoReader(this.program);
+        const fileInfo = getFileInfo(parseResults.parserOutput.parseTree, nodeInfo);
         if (!fileInfo) {
             return symbolList;
         }
 
-        const indexSymbolData = SymbolIndexer.indexSymbols(fileInfo, parseResults, this._indexOptions, this._token);
+        const indexSymbolData = SymbolIndexer.indexSymbols(
+            fileInfo,
+            parseResults,
+            this._indexOptions,
+            nodeInfo,
+            this._token
+        );
         this.appendDocumentSymbolsRecursive(indexSymbolData, symbolList);
 
         return symbolList;

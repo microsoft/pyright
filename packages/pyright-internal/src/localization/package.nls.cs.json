@@ -1,4 +1,9 @@
 {
+    "CallHierarchy": {
+        "library": "Knihovna",
+        "standardLibrary": "Standardní knihovna",
+        "workspace": "Pracovní prostor"
+    },
     "CodeAction": {
         "createTypeStub": "Vytvořit zástupnou proceduru (Stub) typu",
         "createTypeStubFor": "Vytvořit zástupnou proceduru typu (Stub) pro modul {moduleName}",
@@ -107,6 +112,7 @@
         "dataClassBaseClassNotFrozen": "Zablokovaná třída nemůže dědit z třídy, která není zablokovaná",
         "dataClassConverterFunction": "Argument typu {argType} není platný převaděč pro pole {fieldName} typu {fieldType}",
         "dataClassConverterOverloads": "Žádná přetížení {funcName} nejsou platné převaděče pro pole {fieldName} typu {fieldType}",
+        "dataClassDuplicateKwOnly": "„{name}“ je duplicitní oddělovač KW_ONLY; V rámci třídy dataclass je povolen pouze jeden.",
         "dataClassFieldInheritedDefault": "{fieldName} přepíše pole se stejným názvem, ale chybí mu výchozí hodnota.",
         "dataClassFieldWithDefault": "Pole bez výchozích hodnot se nemůžou zobrazit po polích s výchozími hodnotami",
         "dataClassFieldWithPrivateName": "Pole datové třídy nemůže používat privátní název",
@@ -139,6 +145,10 @@
         "dictInAnnotation": "Výraz slovníku není ve výrazu typu povolený.",
         "dictKeyValuePairs": "Položky slovníku musí obsahovat páry klíč/hodnota",
         "dictUnpackIsNotMapping": "Očekávalo se mapování pro operátor rozbalení slovníku",
+        "disjointBaseFunction": "@disjoint_base nelze použít pro funkci",
+        "disjointBaseIncompatible": "Základní třídy mají nekompatibilní nesouvislé základy: {bases}",
+        "disjointBaseProtocol": "@disjoint_base nelze použít pro třídu Protocol",
+        "disjointBaseTypedDict": "@disjoint_base nelze použít pro třídu TypedDict",
         "dunderAllSymbolNotPresent": "{name} je zadáno v __all__, ale v modulu se nenachází",
         "duplicateArgsParam": "Je povolený jenom jeden parametr *",
         "duplicateBaseClass": "Duplicitní základní třída není povolena",
@@ -293,6 +303,8 @@
         "keywordSubscriptIllegal": "Argumenty klíčových slov v dolních indexech nejsou podporovány",
         "lambdaReturnTypePartiallyUnknown": "Návratový typ lambda {returnType} je částečně neznámý",
         "lambdaReturnTypeUnknown": "Návratový typ výrazu lambda je neznámý",
+        "lazyImportIllegal": "Příkaz pro „lazy“ import vyžaduje Python 3.15 nebo novější",
+        "lazyImportWildcardIllegal": "Importy se zástupnými znaky se nedají použít s „lazy“",
         "listAssignmentMismatch": "Výraz s typem {type} se nedá přiřadit k cílovému seznamu",
         "listInAnnotation": "Výraz List není ve výrazu typu povolený.",
         "literalEmptyArgs": "Za literálem (Literal) se očekával jeden nebo více argumentů typu.",
@@ -660,6 +672,7 @@
         "variadicTypeParamTooManyClass": "Obecná třída může mít maximálně jeden parametr typu TypeVarTuple, ale přijala více ({names})",
         "walrusIllegal": "Operátor := vyžaduje Python 3.8 nebo novější",
         "walrusNotAllowed": "Operátor := není v tomto kontextu povolen bez okolních závorek",
+        "walrusNotAllowedInComprehension": "Operátor „:=“ není povolen v iterovatelném výrazu pro generování kolekce.",
         "wildcardInFunction": "V rámci třídy nebo funkce není povolen import se zástupnými znaky.",
         "wildcardLibraryImport": "Není povolený import se zástupnými znaky z knihovny.",
         "wildcardPatternTypePartiallyUnknown": "Typ zachycený vzorem se zástupnými znaky je částečně neznámý",
@@ -845,6 +858,9 @@
         "useTypeInstead": "Místo toho použít type[T]",
         "varianceMismatchForClass": "Odchylka argumentu typu „{typeVarName}“ není kompatibilní se základní třídou „{className}“",
         "varianceMismatchForTypeAlias": "Rozptyl argumentu typu „{typeVarName}“ není kompatibilní s typem „{typeAliasParam}“"
+    },
+    "Rename": {
+        "cannotRenameNonUserCode": "Symbol {symbolName} nejde přejmenovat, protože je také deklarovaný v neupravitelném kódu (knihovně nebo souboru zástupné procedury), který se nedá upravit. Dokončení přejmenování by vedlo k tomu, že by symbol „{symbolName}“ byl přejmenován jen částečně. Nejprve vyřešte konfliktní deklarace:\r\n{locations}"
     },
     "Service": {
         "longOperation": "Výčet zdrojových souborů pracovního prostoru trvá dlouho. Zvažte raději otevření podsložky. [Další informace](https://aka.ms/workspace-too-many-files)"

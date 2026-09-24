@@ -8,6 +8,7 @@
  * by a location within a file.
  */
 
+import { getInfoReader } from '../analyzer/analyzerNodeInfo';
 import { CancellationToken, Location, ResultProgressReporter } from 'vscode-languageserver';
 
 import { Declaration, DeclarationType, isAliasDeclaration } from '../analyzer/declaration';
@@ -541,7 +542,7 @@ export class ReferencesProvider {
         symbolNames.add(node.d.value);
 
         const providers = (program.serviceProvider.tryGet(ServiceKeys.symbolUsageProviderFactory) ?? [])
-            .map((f) => f.tryCreateProvider(useCase, declarations, token))
+            .map((f) => f.tryCreateProvider(useCase, declarations, getInfoReader(program.evaluator!), token))
             .filter(isDefined);
 
         // Check whether we need to add new symbol names and declarations.
@@ -580,7 +581,16 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        const node = ParseTreeUtils.findNodeByOffset(parseResults.parserOutput.parseTree, offset);
+        // Navigation use cases (find-all-references, document highlights, call/type hierarchy) descend
+        // into evaluator-owned tier-2 string annotations (e.g. the Foo in cast("Foo", value)) via the
+        // reader. Rename intentionally stays on the parser tier so it cannot be initiated from inside such
+        // a quoted forward reference; renaming from the symbol's real declaration still updates those
+        // strings through the evaluator-owned forward-reference node.
+        const node = ParseTreeUtils.findNodeByOffset(
+            parseResults.parserOutput.parseTree,
+            offset,
+            useCase === ReferenceUseCase.Rename ? undefined : getInfoReader(program)
+        );
         if (node === undefined) {
             return undefined;
         }
@@ -615,6 +625,7 @@ function mergeSeedDeclarations(referencesResult: ReferencesResult, discovered: r
 }
 
 function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameNode, declarations: Declaration[]) {
+    const nodeInfo = getInfoReader(evaluator);
     const result = evaluator.lookUpSymbolRecursive(node, node.d.value, /* honorCodeFlow */ false);
     if (result && !isExternallyVisible(result.symbol)) {
         return false;
@@ -631,7 +642,7 @@ function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameN
             return true;
         }
 
-        const evalScope = ParseTreeUtils.getEvaluationScopeNode(decl.node).node;
+        const evalScope = ParseTreeUtils.getEvaluationScopeNode(decl.node, nodeInfo).node;
 
         // If the declaration is at the module level or a class level, it can be seen
         // outside of the current module, so a global search is needed.
@@ -699,13 +710,13 @@ function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameN
     // Return true if the scope that contains the specified node is visible
     // outside of the current module, false if not.
     function isContainerExternallyVisible(node: NameNode, recursionCount: number) {
-        let scopingNodeInfo = ParseTreeUtils.getEvaluationScopeNode(node);
+        let scopingNodeInfo = ParseTreeUtils.getEvaluationScopeNode(node, nodeInfo);
         let scopingNode = scopingNodeInfo.node;
 
         // If this is a type parameter scope, it acts as a proxy for
         // its outer (parent) scope.
         while (scopingNodeInfo.useProxyScope && scopingNodeInfo.node.parent) {
-            scopingNodeInfo = ParseTreeUtils.getEvaluationScopeNode(scopingNodeInfo.node.parent);
+            scopingNodeInfo = ParseTreeUtils.getEvaluationScopeNode(scopingNodeInfo.node.parent, nodeInfo);
             scopingNode = scopingNodeInfo.node;
         }
 

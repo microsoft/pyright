@@ -198,6 +198,16 @@ function toProtocolTypeAliasInfo(info: PyrightTypes.TypeAliasInfo | undefined, f
 // Otherwise, cycle detection won't work.
 function toProtocolType(id: number, type: PyrightTypes.Type, factory: ProtocolTypeFactory): TypeServerProtocol.Type {
     switch (type.category) {
+        case PyrightTypes.TypeCategory.OverloadResult:
+            return {
+                id,
+                kind: TypeServerProtocol.TypeKind.OverloadResult,
+                flags: toProtocolTypeFlags(type),
+                candidates: toProtocolTypes([...type.priv.candidates], factory),
+                baselineType: toProtocolTypeOrUndefined(type.priv.baselineType, factory)!,
+                uncertaintyKind: type.priv.uncertaintyKind === PyrightTypes.TypeCategory.Any ? 'any' : 'unknown',
+            } satisfies TypeServerProtocol.OverloadResultType;
+
         case PyrightTypes.TypeCategory.Class: {
             const decl = type.shared.declaration;
             if (decl) {

@@ -17,7 +17,7 @@
  * Feature notes:
  *   - Telemetry and profiling are intentionally omitted (Pyright has no telemetry).
  *   - Notebook support and the virtual-file-redirect supplemental are layered in by later
- *     phases; the seams (`_notebookManager`, overlay file system) are left in place.
+ *     phases; the seams (`notebookManager`, overlay file system) are left in place.
  */
 
 import { CancellationToken, Connection, Diagnostic, WorkDoneProgressServerReporter } from 'vscode-languageserver';
@@ -36,7 +36,6 @@ import {
 import { CodeAction, Command } from 'vscode-languageserver-types';
 
 import { AnalysisResults } from '../analyzer/analysis';
-import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { InvalidatedReason } from '../analyzer/backgroundAnalysisProgram';
 import { Declaration } from '../analyzer/declaration';
 import { ImportResolver } from '../analyzer/importResolver';
@@ -48,7 +47,8 @@ import { ConfigOptions } from '../common/configOptions';
 import { convertLogLevel, LogLevel } from '../common/console';
 import { isDefined, isString } from '../common/core';
 import { Diagnostic as AnalyzerDiagnostic } from '../common/diagnostic';
-import { resolvePathWithEnvVariables } from '../common/envVarUtils';
+import { resolvePathStringWithEnvVariables, resolvePathWithEnvVariables } from '../common/envVarUtils';
+import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { FullAccessHost } from '../common/fullAccessHost';
 import { Host } from '../common/host';
 import { ServerOptions, ServerSettings } from '../common/languageServerInterface';
@@ -73,14 +73,14 @@ import { fromProtocolDecl, fromProtocolNode } from './typeServerConversionTypes'
 import { ProtocolTypeFactory } from './typeServerConversionUtils';
 import { isDeclaration } from './typeEvalUtils';
 import { ITypeCache, TypeCache } from './typeCache';
-import { TypeServerFileSystem } from './typeServerFileSystem';
+import { TypeServerVirtualFileRedirects } from './typeServerFileSystem';
 import { TypeServerServiceKeys } from './typeServerServiceKeys';
 
 export class TypeServer extends LanguageServerBase {
     private readonly _handleToUriMap = new Map<number, Uri>();
     private _initializedComplete = false;
     private _globalTypeCache: ITypeCache;
-    private _notebookManager: NotebookDocumentHandler | undefined;
+    protected notebookManager: NotebookDocumentHandler | undefined;
     private readonly _uriMapper: INotebookUriMapper | undefined;
 
     constructor(serverOptions: ServerOptions, connection: Connection) {
@@ -98,8 +98,8 @@ export class TypeServer extends LanguageServerBase {
         // If this is a notebook cell and no python path was passed in, use the last known
         // python path for the containing notebook so cells resolve to the workspace with the
         // matching pythonPath.
-        if (NotebookUriMapper.isNotebookCell(fileUri) && this._notebookManager) {
-            const notebookData = await this._notebookManager.getNotebookDataForCell(fileUri);
+        if (NotebookUriMapper.isNotebookCell(fileUri) && this.notebookManager) {
+            const notebookData = await this.notebookManager.getNotebookDataForCell(fileUri);
             if (pythonPath === undefined) {
                 pythonPath = notebookData?.pythonPath;
             }
@@ -114,8 +114,8 @@ export class TypeServer extends LanguageServerBase {
 
     override async getContainingWorkspacesForFile(fileUri: Uri): Promise<Workspace[]> {
         // If this is a notebook cell we should wait for the notebook to open first.
-        if (NotebookUriMapper.isNotebookCell(fileUri) && this._notebookManager) {
-            await this._notebookManager.getNotebookDataForCell(fileUri);
+        if (NotebookUriMapper.isNotebookCell(fileUri) && this.notebookManager) {
+            await this.notebookManager.getNotebookDataForCell(fileUri);
 
             // Map the vscode-notebook-cell: URI to its file-scheme equivalent so the workspace
             // factory can match it against workspace root URIs.
@@ -203,9 +203,9 @@ export class TypeServer extends LanguageServerBase {
 
                 const extraPaths = pythonAnalysisSection.extraPaths;
                 if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
-                    serverSettings.extraPaths = extraPaths
+                    serverSettings.extraPathFileSpecs = extraPaths
                         .filter((p) => p && isString(p))
-                        .map((p) => resolvePathWithEnvVariables(workspace, p, workspaces))
+                        .map((p) => resolvePathStringWithEnvVariables(workspace, p, workspaces))
                         .filter(isDefined);
                 }
 
@@ -379,17 +379,17 @@ export class TypeServer extends LanguageServerBase {
 
         // Register raw notification handlers for notebook documents. These are registered here
         // (before connection.listen()) so they're ready when the connection starts processing
-        // messages. `_notebookManager` is created in `initialize()` (not here) because SWC's
+        // messages. `notebookManager` is created in `initialize()` (not here) because SWC's
         // TC39 class-field semantics would reinitialize it to undefined after the base class
         // constructor returns; `initialize()` runs before any notifications arrive.
         this.connection.onNotification('notebookDocument/didOpen', (params: DidOpenNotebookDocumentParams) => {
-            this._notebookManager?.onDidOpenNotebookDocument(params);
+            this.notebookManager?.onDidOpenNotebookDocument(params);
         });
         this.connection.onNotification('notebookDocument/didChange', (params: DidChangeNotebookDocumentParams) => {
-            this._notebookManager?.onDidChangeNotebookDocument(params);
+            this.notebookManager?.onDidChangeNotebookDocument(params);
         });
         this.connection.onNotification('notebookDocument/didClose', (params: DidCloseNotebookDocumentParams) => {
-            this._notebookManager?.onDidCloseNotebookDocument(params);
+            this.notebookManager?.onDidCloseNotebookDocument(params);
         });
     }
 
@@ -399,28 +399,33 @@ export class TypeServer extends LanguageServerBase {
         supportedCodeActions: string[]
     ): Promise<InitializeResult> {
         // Create the notebook manager here (not in setupConnection) because SWC's TC39
-        // class-field semantics reinitialize `_notebookManager` to undefined after the base
+        // class-field semantics reinitialize `notebookManager` to undefined after the base
         // class constructor returns. This method runs when the Initialize request is processed,
         // which is before any notifications arrive. The manager is only created when a notebook
         // URI mapper is registered in the service provider (notebook support is otherwise off).
         if (this._uriMapper && this._uriMapper instanceof NotebookUriMapper) {
-            const uriMapper = this._uriMapper;
-            this._notebookManager = new NotebookDocumentHandler(
-                uriMapper,
-                this.caseSensitiveDetector,
-                this.console,
-                (fileUri) => this.workspaceFactory.getWorkspaceForFile(fileUri, undefined)
-            );
+            this.notebookManager = this.createNotebookManager(this._uriMapper);
         }
 
         const result = await super.initialize(params, supportedCommands, supportedCodeActions);
 
         // Advertise notebook support so the client sends notebookDocument/* notifications.
-        if (this._notebookManager) {
+        if (this.notebookManager) {
             result.capabilities.notebookDocumentSync = AnyNotebookDocumentSelector;
         }
 
         return result;
+    }
+
+    /**
+     * Factory for the notebook document handler. Split out so subclasses (e.g. Pylance) can
+     * substitute a handler that layers in product-specific behavior (such as startup commands)
+     * without duplicating the initialize()/notebook-capability wiring.
+     */
+    protected createNotebookManager(uriMapper: NotebookUriMapper): NotebookDocumentHandler {
+        return new NotebookDocumentHandler(uriMapper, this.caseSensitiveDetector, this.console, (fileUri) =>
+            this.workspaceFactory.getWorkspaceForFile(fileUri, undefined)
+        );
     }
 
     protected override convertLspUriStringToUri(lspUri: string): Uri {
@@ -519,7 +524,7 @@ export class TypeServer extends LanguageServerBase {
                 // these diagnostics directly and the original client does support them.
                 const lspDiagnostics = serverDiagnostics
                     .map((d) =>
-                        convertFromPyrightDiagnostic(
+                        this.convertDiagnostic(
                             d,
                             workspace.service.fs,
                             /* supportsUnnecessaryDiagnosticTag */ true,
@@ -544,6 +549,18 @@ export class TypeServer extends LanguageServerBase {
         }
 
         return result;
+    }
+
+    // Converts a single analyzer diagnostic to an LSP diagnostic. Subclasses (e.g. Pylance) can
+    // override to add product-specific tagging (such as VS task-item tags/rank) without
+    // reimplementing the pull-diagnostics flow in `onDiagnostics`.
+    protected convertDiagnostic(
+        diag: AnalyzerDiagnostic,
+        fs: ReadOnlyFileSystem,
+        supportsUnnecessaryDiagnosticTag: boolean,
+        supportsTaskItemDiagnosticTag: boolean
+    ): Diagnostic | undefined {
+        return convertFromPyrightDiagnostic(diag, fs, supportsUnnecessaryDiagnosticTag, supportsTaskItemDiagnosticTag);
     }
 
     private _getStringValues(values: any) {
@@ -648,8 +665,9 @@ export class TypeServer extends LanguageServerBase {
         }
 
         let pythonVersion = program.configOptions.getDefaultExecEnvironment().pythonVersion;
-        if (!isDeclaration(input)) {
-            const fileInfo = getFileInfo(input);
+        const node = isDeclaration(input) ? input.node : input;
+        if (node) {
+            const fileInfo = program.symbolLookup.getFileInfo(node);
             pythonVersion = fileInfo.executionEnvironment.pythonVersion;
         }
 
@@ -699,13 +717,13 @@ export class TypeServer extends LanguageServerBase {
 
     private _onSetVirtualFileRedirect(params: TspSupplemental.SetVirtualFileRedirectParams): void {
         const fs = this.fs;
-        if (!TypeServerFileSystem.is(fs)) {
+        if (!TypeServerVirtualFileRedirects.is(fs)) {
             return;
         }
 
         const realUri = this.convertLspUriStringToUri(params.realUri);
         const virtualUri = this.convertLspUriStringToUri(params.virtualUri);
-        fs.virtualOverlay.addFileRedirect(realUri, virtualUri);
+        fs.addVirtualFileRedirect(realUri, virtualUri);
 
         // If the file is currently open, read the virtual content and update Pyright's in-memory
         // buffer. For closed files, the FS overlay redirect is sufficient — Pyright reads from
@@ -737,12 +755,12 @@ export class TypeServer extends LanguageServerBase {
 
     private _onRemoveVirtualFileRedirect(params: TspSupplemental.RemoveVirtualFileRedirectParams): void {
         const fs = this.fs;
-        if (!TypeServerFileSystem.is(fs)) {
+        if (!TypeServerVirtualFileRedirects.is(fs)) {
             return;
         }
 
         const realUri = this.convertLspUriStringToUri(params.realUri);
-        fs.virtualOverlay.removeFileRedirect(realUri);
+        fs.removeVirtualFileRedirect(realUri);
 
         // If the file is currently open, restore from the open document's original text
         // (authoritative), not from disk which may differ. For closed files, just removing the

@@ -19,3 +19,14 @@ export const requirementsFileName = 'requirements.txt';
 export const pyprojectTomlName = 'pyproject.toml';
 export const dotPythonVersionName = '.python-version';
 export const configFileName = 'pyrightconfig.json';
+
+// Default exclude glob patterns applied when the user has not specified any
+// `exclude` entries. These skip directories that commonly hold dependencies or
+// build artifacts, avoiding long scan times.
+// Frozen (`as const`) so this shared cross-package constant can't be mutated by a consumer.
+export const defaultExcludes = [
+    '**/node_modules', // Node.js dependencies
+    '**/__pycache__', // Python bytecode cache
+    '**/.*', // hidden files/directories (dotfiles)
+    '**/__editable__.*', // PEP 660 strict editable-install shadow tree (a build artifact)
+] as const;

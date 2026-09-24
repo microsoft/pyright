@@ -8,6 +8,7 @@ import assert from 'assert';
 
 import { CancellationToken } from 'vscode-jsonrpc';
 import { InvalidatedReason } from '../analyzer/backgroundAnalysisProgram';
+import { getNextServiceId } from '../analyzer/service';
 import { SourceEnumerator } from '../analyzer/sourceEnumerator';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { NullConsole } from '../common/console';
@@ -29,6 +30,107 @@ test('random library file changed', () => {
         ),
         true
     );
+});
+
+test('service clone preserves effective configuration', () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////     "stubPath": "custom-stubs",
+////     "extraPaths": ["shared"],
+////     "executionEnvironments": [
+////         { "root": "src", "extraPaths": ["src-extra"] },
+////         { "root": "tests", "extraPaths": ["test-extra"] }
+////     ]
+//// }
+//
+// @filename: src/main.py
+//// import sample
+//
+// @filename: sample/__init__.py
+// @library: true
+//// def answer(): return 42
+`;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const options = new CommandLineOptions('/projectRoot', /* fromLanguageServer */ true);
+    options.languageServerSettings.pythonPath = '/custom/python';
+    state.workspace.service.setOptions(options);
+
+    const clone = state.workspace.service.clone('test clone', getNextServiceId('test clone'));
+
+    try {
+        const originalConfig = state.workspace.service.getConfigOptions();
+        const cloneConfig = clone.getConfigOptions();
+        assert.strictEqual(cloneConfig.projectRoot.toString(), originalConfig.projectRoot.toString());
+        assert.strictEqual(cloneConfig.stubPath?.toString(), originalConfig.stubPath?.toString());
+        assert.strictEqual(cloneConfig.pythonPath?.toString(), originalConfig.pythonPath?.toString());
+        assert.deepStrictEqual(
+            cloneConfig.defaultExtraPaths?.map((uri) => uri.toString()),
+            originalConfig.defaultExtraPaths?.map((uri) => uri.toString())
+        );
+        assert.deepStrictEqual(
+            cloneConfig.executionEnvironments.map((env) => ({
+                root: env.root?.toString(),
+                extraPaths: env.extraPaths.map((uri) => uri.toString()),
+            })),
+            originalConfig.executionEnvironments.map((env) => ({
+                root: env.root?.toString(),
+                extraPaths: env.extraPaths.map((uri) => uri.toString()),
+            }))
+        );
+    } finally {
+        clone.dispose();
+    }
+});
+
+test('service clone preserves directly configured options', () => {
+    const code = `
+// @filename: sample/__init__.py
+// @library: true
+//// def answer(): return 42
+`;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+
+    const originalConfig = state.workspace.service.getConfigOptions();
+    const clone = state.workspace.service.clone('test clone', getNextServiceId('test clone'));
+
+    try {
+        assert.strictEqual(clone.getConfigOptions(), originalConfig);
+        assert.strictEqual(clone.getImportResolver().getConfigOptions(), originalConfig);
+    } finally {
+        clone.dispose();
+    }
+});
+
+test('service clone program mutations do not affect the parent', () => {
+    const code = `
+// @filename: main.py
+//// value = 1
+//
+// @filename: sample/__init__.py
+// @library: true
+//// def answer(): return 42
+`;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const parent = state.workspace.service;
+    const parentConfig = parent.getConfigOptions();
+    const parentConfigSnapshot = { ...parentConfig };
+    const parentUserFiles = parent.getUserFiles();
+    const parentAllowedImportsSpy = jest.spyOn(parent.test_program, 'setAllowedThirdPartyImports');
+    const clone = parent.clone('test clone', getNextServiceId('test clone'));
+    const sampleUri = Uri.file('/sample/__init__.py', state.serviceProvider);
+
+    try {
+        clone.backgroundAnalysisProgram.setAllowedThirdPartyImports(['sample']);
+        clone.backgroundAnalysisProgram.setTrackedFiles([sampleUri]);
+
+        assert.strictEqual(parentAllowedImportsSpy.mock.calls.length, 0);
+        assert.deepStrictEqual(parent.getUserFiles(), parentUserFiles);
+        assert.deepStrictEqual({ ...parent.getConfigOptions() }, parentConfigSnapshot);
+        assert.deepStrictEqual(clone.getUserFiles(), [sampleUri]);
+    } finally {
+        clone.dispose();
+    }
 });
 
 test('random library file starting with . changed', () => {
@@ -63,6 +165,143 @@ test('source enumeration reports symlinked include roots', () => {
     assert.deepStrictEqual(
         enumerator.getSymlinkedDirectoryRoots().map((uri) => uri.key),
         [Uri.file('/workspaceLink', fs).key]
+    );
+});
+
+test('source enumeration reports discovered config files', () => {
+    const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: '/' });
+    fs.mkdirpSync('/projectRoot/pkgA');
+    fs.mkdirpSync('/projectRoot/pkgB');
+    fs.mkdirpSync('/projectRoot/pkgC');
+    fs.writeFileSync(Uri.file('/projectRoot/pyrightconfig.json', fs), '{}');
+    fs.writeFileSync(Uri.file('/projectRoot/pkgA/pyrightconfig.json', fs), '{}');
+    fs.writeFileSync(Uri.file('/projectRoot/pkgB/pyproject.toml', fs), '[tool.pyright]\n');
+    fs.writeFileSync(Uri.file('/projectRoot/pkgC/module.py', fs), 'x = 1');
+
+    const enumerator = new SourceEnumerator(
+        [getFileSpec(Uri.file('/', fs), 'projectRoot')],
+        [],
+        /* autoExcludeVenv */ false,
+        fs,
+        new NullConsole()
+    );
+
+    const result = enumerator.enumerate(/* timeLimitInMs */ 1000);
+
+    assert.strictEqual(result.isComplete, true);
+    assert.deepStrictEqual(
+        enumerator
+            .getDiscoveredConfigFiles()
+            .map((uri) => uri.key)
+            .sort(),
+        [
+            Uri.file('/projectRoot/pkgA/pyrightconfig.json', fs).key,
+            Uri.file('/projectRoot/pkgB/pyproject.toml', fs).key,
+            Uri.file('/projectRoot/pyrightconfig.json', fs).key,
+        ].sort()
+    );
+});
+
+test('source enumeration skips config files inside auto-excluded virtual environments', () => {
+    const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: '/' });
+    fs.mkdirpSync('/projectRoot/env');
+    fs.writeFileSync(Uri.file('/projectRoot/pyrightconfig.json', fs), '{}');
+    // `env` is marked as a virtual environment; with autoExcludeVenv it must not be scanned.
+    fs.writeFileSync(Uri.file('/projectRoot/env/pyvenv.cfg', fs), '');
+    fs.writeFileSync(Uri.file('/projectRoot/env/pyrightconfig.json', fs), '{}');
+
+    const enumerator = new SourceEnumerator(
+        [getFileSpec(Uri.file('/', fs), 'projectRoot')],
+        [],
+        /* autoExcludeVenv */ true,
+        fs,
+        new NullConsole()
+    );
+
+    const result = enumerator.enumerate(/* timeLimitInMs */ 1000);
+
+    assert.strictEqual(result.isComplete, true);
+    assert.deepStrictEqual(
+        enumerator.getDiscoveredConfigFiles().map((uri) => uri.key),
+        [Uri.file('/projectRoot/pyrightconfig.json', fs).key]
+    );
+});
+
+test('explicit include does not rescue a directory detected as a virtual environment', () => {
+    const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: '/' });
+    fs.mkdirpSync('/projectRoot/env');
+    fs.writeFileSync(Uri.file('/projectRoot/module.py', fs), 'x = 1');
+    // `env` looks like a virtual environment. Even though the user explicitly includes it, the
+    // default virtual-environment exclusion takes precedence over `include` (default excludes trump
+    // includes, just like any other exclude), so it stays excluded.
+    fs.writeFileSync(Uri.file('/projectRoot/env/pyvenv.cfg', fs), '');
+    fs.writeFileSync(Uri.file('/projectRoot/env/module.py', fs), 'y = 1');
+
+    const enumerator = new SourceEnumerator(
+        [getFileSpec(Uri.file('/', fs), 'projectRoot'), getFileSpec(Uri.file('/', fs), 'projectRoot/env')],
+        [],
+        /* autoExcludeVenv */ true,
+        fs,
+        new NullConsole()
+    );
+
+    const result = enumerator.enumerate(/* timeLimitInMs */ 1000);
+
+    assert.strictEqual(result.isComplete, true);
+    // The venv source file is not matched and the directory is reported as auto-excluded.
+    assert.ok(!result.matches.has(Uri.file('/projectRoot/env/module.py', fs).key));
+    assert.deepStrictEqual(
+        [...new Set(result.autoExcludedDirs.map((uri) => uri.key))],
+        [Uri.file('/projectRoot/env', fs).key]
+    );
+});
+
+test('source enumeration skips config files under excluded directories', () => {
+    const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: '/' });
+    fs.mkdirpSync('/projectRoot/build');
+    fs.writeFileSync(Uri.file('/projectRoot/pyrightconfig.json', fs), '{}');
+    fs.writeFileSync(Uri.file('/projectRoot/build/pyrightconfig.json', fs), '{}');
+
+    const enumerator = new SourceEnumerator(
+        [getFileSpec(Uri.file('/', fs), 'projectRoot')],
+        [getFileSpec(Uri.file('/projectRoot', fs), 'build')],
+        /* autoExcludeVenv */ false,
+        fs,
+        new NullConsole()
+    );
+
+    const result = enumerator.enumerate(/* timeLimitInMs */ 1000);
+
+    assert.strictEqual(result.isComplete, true);
+    assert.deepStrictEqual(
+        enumerator.getDiscoveredConfigFiles().map((uri) => uri.key),
+        [Uri.file('/projectRoot/pyrightconfig.json', fs).key]
+    );
+});
+
+test('source enumeration skips config files matching an exclude file spec', () => {
+    const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: '/' });
+    fs.mkdirpSync('/projectRoot/pkgA');
+    fs.writeFileSync(Uri.file('/projectRoot/pyrightconfig.json', fs), '{}');
+    // pkgA is not an excluded directory (it is still scanned for sources), but its config
+    // file is explicitly excluded, so it must not be surfaced as a discovered config root.
+    fs.writeFileSync(Uri.file('/projectRoot/pkgA/pyrightconfig.json', fs), '{}');
+    fs.writeFileSync(Uri.file('/projectRoot/pkgA/module.py', fs), 'x = 1');
+
+    const enumerator = new SourceEnumerator(
+        [getFileSpec(Uri.file('/', fs), 'projectRoot')],
+        [getFileSpec(Uri.file('/projectRoot', fs), 'pkgA/pyrightconfig.json')],
+        /* autoExcludeVenv */ false,
+        fs,
+        new NullConsole()
+    );
+
+    const result = enumerator.enumerate(/* timeLimitInMs */ 1000);
+
+    assert.strictEqual(result.isComplete, true);
+    assert.deepStrictEqual(
+        enumerator.getDiscoveredConfigFiles().map((uri) => uri.key),
+        [Uri.file('/projectRoot/pyrightconfig.json', fs).key]
     );
 });
 
@@ -223,6 +462,28 @@ test('excluded but still part of program', () => {
     );
 });
 
+test('empty cache preserves analyzer information for retained parse trees', () => {
+    const state = parseAndGetTestState('//// value = 1', '/projectRoot').state;
+    const program = state.workspace.service.test_program;
+
+    while (program.analyze());
+
+    const parseTree = program.getParseResults(state.activeFile.fileUri)!.parserOutput.parseTree;
+    assert.ok(program.analyzerNodeInfoContext.getFileInfo(parseTree));
+
+    program.emptyCache();
+
+    assert.ok(program.analyzerNodeInfoContext.getFileInfo(parseTree));
+
+    while (program.analyze());
+
+    const nextParseTree = program.getParseResults(state.activeFile.fileUri)!.parserOutput.parseTree;
+    program.emptyCache();
+
+    assert.ok(program.analyzerNodeInfoContext.getFileInfo(parseTree));
+    assert.ok(program.analyzerNodeInfoContext.getFileInfo(nextParseTree));
+});
+
 test('py.typed marker file', () => {
     const code = `
 // @filename: myPkg/__init__.py
@@ -341,6 +602,80 @@ test('random folder changed', () => {
         ),
         false
     );
+});
+
+test('new folder is ignored when it is not a symlink', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    const folderUri = Uri.file('/projectRoot/newFolder', state.serviceProvider);
+    state.testFS.mkdirpSync(folderUri.getFilePath());
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'add'),
+        false
+    );
+});
+
+test('new folder under a symlinked parent is ignored', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    state.testFS.mkdirpSync('/projectRoot/realParent/newFolder');
+    state.testFS.symlinkSync('/projectRoot/realParent', '/projectRoot/linkParent');
+    const folderUri = Uri.file('/projectRoot/linkParent/newFolder', state.serviceProvider);
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'add'),
+        false
+    );
+});
+
+test('new symlinked folder is handled for its add and unlink events', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    const folderUri = Uri.file('/projectRoot/exporter', state.serviceProvider);
+    state.testFS.mkdirpSync('/projectRoot/non_linked');
+    state.testFS.symlinkSync('/projectRoot/non_linked', folderUri.getFilePath());
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'add'),
+        true
+    );
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'change'),
+        false
+    );
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'unlink'),
+        true
+    );
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'unlink'),
+        false
+    );
+});
+
+test('new symlinked folder under a regular package is handled when removed', () => {
+    const code = `
+// @filename: package/__init__.py
+//// # empty
+    `;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const cmdOptions = new CommandLineOptions(state.workspace.rootUri, false);
+    cmdOptions.languageServerSettings.watchForSourceChanges = true;
+    state.workspace.service.setOptions(cmdOptions);
+
+    let invalidatedReason: InvalidatedReason | undefined;
+    state.workspace.service.test_setOnInvalidatedCallback((reason) => {
+        invalidatedReason = reason;
+    });
+
+    const folderUri = Uri.file('/projectRoot/package/exporter', state.serviceProvider);
+    state.testFS.mkdirpSync('/projectRoot/non_linked');
+    state.testFS.symlinkSync('/projectRoot/non_linked', folderUri.getFilePath());
+    state.testFS.fireFileWatcherEvent(folderUri.toString(), 'add');
+    assert.strictEqual(invalidatedReason, InvalidatedReason.SourceWatcherChanged);
+
+    invalidatedReason = undefined;
+    state.testFS.unlinkSync(folderUri);
+    state.testFS.fireFileWatcherEvent(folderUri.toString(), 'change');
+    assert.strictEqual(invalidatedReason, InvalidatedReason.SourceWatcherChanged);
 });
 
 test('excluded folder changed', () => {

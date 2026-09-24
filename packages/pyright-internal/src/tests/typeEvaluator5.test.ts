@@ -12,7 +12,7 @@ import assert from 'assert';
 
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { pythonVersion3_11, pythonVersion3_12, pythonVersion3_13 } from '../common/pythonVersion';
+import { pythonVersion3_11, pythonVersion3_12, pythonVersion3_13, pythonVersion3_14 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -165,6 +165,14 @@ test('TypeAliasStatement5', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeAliasStatement6', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_14;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasStatement6.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Hashability1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['hashability1.py']);
     TestUtils.validateResults(analysisResults, 10);
@@ -260,6 +268,16 @@ test('TypeVarDefaultClass4', () => {
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass4.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeVarDefaultClass5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass5.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TypeVarDefaultClass6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass6.py']);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypeVarDefaultTypeAlias1', () => {
@@ -419,6 +437,11 @@ test('TypedDictClosed9', () => {
 test('TypedDictClosed10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed10.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypedDictClosed11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed11.py']);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('DataclassTransform1', () => {

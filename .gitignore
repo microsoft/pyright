@@ -40,6 +40,8 @@ build/Release
 # Dependency directories
 node_modules/
 jspm_packages/
+package-lock.json
+npm-shrinkwrap.json
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
@@ -127,6 +129,10 @@ Thumbs.db
 # Potential venv
 .venv
 
+# Python bytecode
+__pycache__/
+*.py[cod]
+
 # Agent files
 serena/
 .beads/
@@ -138,3 +144,8 @@ packages/pyright-internal/src/tests/benchmarks/.generated/
 # perfCompare.py cached commit bundles
 /build/perfCompare/
 
+# Cross-type-checker benchmark results
+/build/benchmark/results/
+
+# Local evaluation/state trace artifacts
+/.generated/evaluation-traces/

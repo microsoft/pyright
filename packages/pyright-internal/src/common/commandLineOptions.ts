@@ -84,6 +84,12 @@ export class CommandLineConfigOptions {
     // execution environments.
     autoSearchPaths?: boolean | undefined;
 
+    // Whether to add the built-in default excludes (e.g. '**/node_modules',
+    // '**/__pycache__', '**/.*', plus auto-detected virtual environments).
+    // Defaults to true when undefined. When false, no default excludes are
+    // added and virtual-environment auto-detection is disabled.
+    useDefaultExcludes?: boolean | undefined;
+
     // Extra paths to add to the default execution environment
     // when user has not explicitly defined execution environments.
     extraPaths?: string[] | undefined;
@@ -115,9 +121,6 @@ export class CommandLineLanguageServerOptions {
 
     // Watch for changes in config files.
     watchForConfigChanges?: boolean | undefined;
-
-    // Type stub import target (for creation of type stubs).
-    typeStubTargetImportName?: string | undefined;
 
     // Indicates that only open files should be checked.
     checkOnlyOpenFiles?: boolean | undefined;

@@ -60,6 +60,7 @@ import {
     isEffectivelyInstantiable,
     isLiteralTypeOrUnion,
     isPartlyUnknown,
+    isSentinelLiteral,
     makePacked,
     makeUnpacked,
     mapSubtypes,
@@ -511,10 +512,22 @@ export function addConstraintsForExpectedType(
     return false;
 }
 
+// Sentinels identify singleton types, so widening a TypeVar must preserve them.
+function stripLiteralsForInference(evaluator: TypeEvaluator, type: Type): Type {
+    // Preserve stripLiteralValue's fast path for unions that don't contain sentinels.
+    if (isUnion(type) && !type.priv.subtypes.some(isSentinelLiteral)) {
+        return stripTypeForm(evaluator.stripLiteralValue(type));
+    }
+
+    return stripTypeForm(
+        mapSubtypes(type, (subtype) => (isSentinelLiteral(subtype) ? subtype : evaluator.stripLiteralValue(subtype)))
+    );
+}
+
 function stripLiteralsForLowerBound(evaluator: TypeEvaluator, typeVar: TypeVarType, lowerBound: Type) {
     return isTypeVarTuple(typeVar)
         ? stripLiteralValueForUnpackedTuple(evaluator, lowerBound)
-        : stripTypeForm(evaluator.stripLiteralValue(lowerBound));
+        : stripLiteralsForInference(evaluator, lowerBound);
 }
 
 function getTypeVarType(
@@ -849,7 +862,13 @@ function assignUnconstrainedTypeVar(
                         newLowerBound = adjSrcType;
                     }
                 } else if (isTypeVarTuple(destType)) {
-                    const widenedType = widenTypeForTypeVarTuple(evaluator, curLowerBound, adjSrcType);
+                    const widenedType = widenTypeForTypeVarTuple(
+                        evaluator,
+                        curLowerBound,
+                        adjSrcType,
+                        isInvariant,
+                        recursionCount
+                    );
                     if (!widenedType) {
                         diag?.addMessage(
                             LocAddendum.typeAssignmentMismatch().format(
@@ -1344,12 +1363,13 @@ function typeVarOccursIn(typeVar: TypeVarType, type: Type): boolean {
 // For normal TypeVars, the constraint solver can widen a type by combining
 // two otherwise incompatible types into a union. For TypeVarTuples, we need
 // to do the equivalent operation for unpacked tuples.
-function widenTypeForTypeVarTuple(evaluator: TypeEvaluator, type1: Type, type2: Type): Type | undefined {
-    // The typing spec indicates that the type should always be "exactly
-    // the same type" if a TypeVarTuple is used in multiple locations.
-    // This is problematic for a number of reasons, but in the interest
-    // of sticking to the spec, we'll enforce that here.
-
+function widenTypeForTypeVarTuple(
+    evaluator: TypeEvaluator,
+    type1: Type,
+    type2: Type,
+    isInvariant: boolean,
+    recursionCount: number
+): Type | undefined {
     // If the two types are not unpacked tuples, we can't combine them.
     if (!isUnpackedClass(type1) || !isUnpackedClass(type2)) {
         return undefined;
@@ -1367,11 +1387,63 @@ function widenTypeForTypeVarTuple(evaluator: TypeEvaluator, type1: Type, type2: 
     const strippedType1 = stripLiteralValueForUnpackedTuple(evaluator, type1);
     const strippedType2 = stripLiteralValueForUnpackedTuple(evaluator, type2);
 
+    if (!isUnpackedClass(strippedType1) || !isUnpackedClass(strippedType2)) {
+        return undefined;
+    }
+
+    const tupleTypeArgs1 = strippedType1.priv.tupleTypeArgs;
+    const tupleTypeArgs2 = strippedType2.priv.tupleTypeArgs;
+    if (!tupleTypeArgs1 || !tupleTypeArgs2) {
+        return undefined;
+    }
+
+    for (let i = 0; i < tupleTypeArgs1.length; i++) {
+        const typeArg1 = tupleTypeArgs1[i];
+        const typeArg2 = tupleTypeArgs2[i];
+
+        if (typeArg1.isUnbounded !== typeArg2.isUnbounded || !!typeArg1.isOptional !== !!typeArg2.isOptional) {
+            return undefined;
+        }
+    }
+
     if (isTypeSame(strippedType1, strippedType2)) {
         return strippedType1;
     }
 
-    return undefined;
+    // The typing spec indicates that a TypeVarTuple bound in multiple locations
+    // should resolve to "exactly the same type". In an invariant context we honor
+    // that strictly and bail out when the tuples differ. In non-invariant contexts,
+    // however, requiring an exact match is overly restrictive and rejects valid
+    // heterogeneous bindings, so we instead widen element-wise (mirroring how normal
+    // TypeVars widen incompatible lower bounds into a union).
+    if (isInvariant) {
+        return undefined;
+    }
+
+    const tupleTypeArgs: TupleTypeArg[] = tupleTypeArgs1.map((typeArg1, index) => {
+        const typeArg2 = tupleTypeArgs2[index];
+        let widenedType: Type;
+
+        if (evaluator.assignType(typeArg1.type, typeArg2.type, undefined, undefined, undefined, recursionCount)) {
+            widenedType = typeArg1.type;
+        } else if (
+            evaluator.assignType(typeArg2.type, typeArg1.type, undefined, undefined, undefined, recursionCount)
+        ) {
+            widenedType = typeArg2.type;
+        } else {
+            widenedType = combineTypes([typeArg1.type, typeArg2.type], {
+                maxSubtypeCount: maxSubtypeCountForTypeVarLowerBound,
+            });
+        }
+
+        return {
+            type: widenedType,
+            isUnbounded: typeArg1.isUnbounded,
+            isOptional: typeArg1.isOptional,
+        };
+    });
+
+    return specializeTupleClass(strippedType1, tupleTypeArgs, /* isTypeArgExplicit */ true, /* isUnpacked */ true);
 }
 
 // If the provided type is an unpacked tuple, this function strips the
@@ -1383,7 +1455,7 @@ function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type)
 
     let strippedLiteral = false;
     const tupleTypeArgs: TupleTypeArg[] = type.priv.tupleTypeArgs.map((arg) => {
-        const strippedType = stripTypeForm(evaluator.stripLiteralValue(arg.type));
+        const strippedType = stripLiteralsForInference(evaluator, arg.type);
 
         if (strippedType !== arg.type) {
             strippedLiteral = true;

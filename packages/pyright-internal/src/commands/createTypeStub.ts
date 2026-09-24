@@ -8,10 +8,16 @@
 
 import { CancellationToken, ExecuteCommandParams } from 'vscode-languageserver';
 
-import { OperationCanceledException } from '../common/cancellationUtils';
+import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { LanguageServerBaseInterface, LanguageServerInterface } from '../common/languageServerInterface';
-import { AnalyzerServiceExecutor, CloneOptions } from '../languageService/analyzerServiceExecutor';
-import { AnalyzerService } from '../analyzer/service';
+import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecutor';
+import { runTypeStubGeneration } from '../analyzer/typeStubGeneration';
+import {
+    getTypeStubCancellationMessage,
+    getTypeStubErrorPrefix,
+    getTypeStubSuccessMessage,
+} from '../analyzer/typeStubMessages';
+import { writeGeneratedTypeStubFiles } from '../analyzer/typeStubOutput';
 import { ServerCommand } from './commandController';
 import { Uri } from '../common/uri/uri';
 import { Workspace } from '../workspaceFactory';
@@ -21,16 +27,24 @@ abstract class BaseCreateTypeStubCommand {
         // Empty
     }
 
-    protected async createTypeStub(workspace: Workspace, importName: string, token: CancellationToken): Promise<any> {
-        const service = await AnalyzerServiceExecutor.cloneService(
-            this.ls,
-            workspace,
-            await this.getCloneOptions(workspace, importName)
-        );
+    protected async createTypeStub(
+        workspace: Workspace,
+        importName: string,
+        sourceFileUri: Uri | undefined,
+        token: CancellationToken
+    ): Promise<any> {
+        throwIfCancellationRequested(token);
 
         try {
-            await this.writeTypeStub(service, workspace, importName, token);
-            await this.onTypeStubCreated(workspace, importName);
+            await runTypeStubGeneration(
+                () =>
+                    AnalyzerServiceExecutor.cloneService(this.ls, workspace, {
+                        useBackgroundAnalysis: true,
+                    }),
+                { kind: 'full', importName, sourceFileUri },
+                (service, result) => writeGeneratedTypeStubFiles(service.fs, result.files),
+                token
+            );
 
             this.ls.window.showInformationMessage(this.getSuccessMessage(importName));
 
@@ -52,49 +66,19 @@ abstract class BaseCreateTypeStubCommand {
                 this.ls.console.error(errMessage);
                 this.ls.window.showErrorMessage(errMessage);
             }
-        } finally {
-            service.dispose();
         }
     }
 
-    protected async getCloneOptions(_workspace: Workspace, importName: string): Promise<CloneOptions> {
-        return {
-            typeStubTargetImportName: importName,
-            useBackgroundAnalysis: true,
-        };
-    }
-
-    protected async onTypeStubCreated(_workspace: Workspace, _importName: string): Promise<void> {
-        return;
-    }
-
-    protected async writeTypeStub(
-        service: AnalyzerService,
-        _workspace: Workspace,
-        _importName: string,
-        token: CancellationToken
-    ): Promise<void> {
-        const info = service.getTypeStubTargetInfo();
-        // Delegate to BackgroundAnalysisProgram so stub generation runs in the
-        // background worker when one is available, avoiding blocking the LS.
-        await service.backgroundAnalysisProgram.writeTypeStub(
-            info.targetImportPath,
-            info.targetIsSingleFile,
-            info.outputPath,
-            token
-        );
-    }
-
     protected getSuccessMessage(importName: string): string {
-        return `Type stub was successfully created for '${importName}'.`;
+        return getTypeStubSuccessMessage('full', importName);
     }
 
     protected getCancellationMessage(importName: string): string {
-        return `Type stub creation for '${importName}' was canceled`;
+        return getTypeStubCancellationMessage('full', importName);
     }
 
     protected getErrorPrefix(importName: string): string {
-        return `An error occurred when creating type stub for '${importName}'`;
+        return getTypeStubErrorPrefix('full', importName);
     }
 }
 
@@ -110,9 +94,10 @@ export class CreateTypeStubCommand extends BaseCreateTypeStubCommand implements 
 
         const workspaceRoot = Uri.parse(cmdParams.arguments[0] as string, this.ls.serviceProvider);
         const importName = cmdParams.arguments[1] as string;
-        const callingFile = Uri.parse(cmdParams.arguments[2] as string, this.ls.serviceProvider);
+        const callingFileArg = cmdParams.arguments[2] as string | undefined;
+        const callingFile = callingFileArg ? Uri.parse(callingFileArg, this.ls.serviceProvider) : undefined;
 
         const workspace = await (this.ls as LanguageServerInterface).getWorkspaceForFile(callingFile ?? workspaceRoot);
-        return await this.createTypeStub(workspace, importName, token);
+        return await this.createTypeStub(workspace, importName, callingFile, token);
     }
 }

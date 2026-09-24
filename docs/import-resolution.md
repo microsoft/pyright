@@ -11,7 +11,7 @@ For absolute (non-relative) imports, Pyright employs the following resolution or
     
     * Try to resolve relative to the **root directory** of the execution environment. If no execution environments are specified in the config file, use the root of the workspace. For more information about execution environments, refer to the [configuration documentation](configuration.md#execution-environment-options).
 
-    * Try to resolve using any of the **extra paths** defined for the execution environment in the config file. If no execution environment applies, use the `python.analysis.extraPaths` setting. Extra paths are searched in the order in which they are provided in the config file or setting.
+    * Try to resolve using any of the **extra paths** defined for the execution environment in the config file. If no execution environment applies, use the `python.analysis.extraPaths` setting. Extra paths are searched in the order in which they are provided in the config file or setting. Extra path entries may contain glob patterns, which are expanded to matching directories; see [Extra path glob expansion](#extra-path-glob-expansion).
 
     * If no execution environment is configured, try to resolve using the **local directory `src`**. It is common for Python projects to place local source files within a directory of this name.
 
@@ -27,6 +27,47 @@ For absolute (non-relative) imports, Pyright employs the following resolution or
 5. Try to resolve using a **third-party typeshed** stub. If the `typeshedPath` is configured, use this instead of the typeshed stubs that are packaged with Pyright. This allows for the use of a newer or a patched version of the typeshed third-party stubs.
 
 6. For an absolute import, if all of the above attempts fail, attempt to import a module from the same directory as the importing file and parent directories that are also children of the root workspace. This accommodates cases where it is assumed that a Python script will be executed from one of these subdirectories rather than from the root directory.
+
+
+### Extra Path Glob Expansion
+Each entry in `extraPaths` may contain glob wildcards. This applies to every source of extra paths: the top-level `extraPaths` config entry, an execution environment's `extraPaths`, and the `python.analysis.extraPaths` setting. Glob entries are expanded to the set of matching directories before import resolution, using the same wildcard syntax as `include`, `exclude`, and `ignore`:
+
+- `*` matches any sequence of characters within a single path segment.
+- `**` matches any number of characters, including path separators (a recursive directory wildcard).
+- `?` matches a single character.
+
+Only **directories** are matched; a file is never added as an extra path. An entry that contains no wildcard character is treated as a literal path and, as before, is not required to exist. An empty or whitespace-only entry is ignored. Relative entries are resolved against the same base directory as literal extra paths (the config file's directory for config entries, or the project root for the setting).
+
+Expansion is deterministic and preserves the order-sensitive contract of `extraPaths` (extra paths are searched in the order in which they are provided):
+
+1. **In-place expansion.** A glob entry is replaced, at its position in the list, by the directories it matches, sorted in ascending order by their path. The comparison is case-sensitive and ordinal (paths are compared by Unicode code point after normalizing to NFC), so it is independent of the user's locale, culture, Unicode normalization form, and operating system, and the expanded order is identical everywhere. Locale-aware collation is deliberately not used.
+2. **Precedence on duplicates.** When the same directory would be produced more than once, an explicit (non-wildcard) entry always wins and keeps its own position, even relative to an earlier glob; among glob entries, the earlier glob in the list wins. The losing duplicate is dropped. Two literal entries that resolve to the same path keep the first occurrence.
+
+The comparison used for de-duplication drops a trailing path separator and is **case-sensitive**: two entries that differ only in case are treated as distinct, because case affects the resolved module name. Symbolic links are **not** resolved — the matched path is used as-is so that it maps to the intended module name — but symbolic-link cycles are guarded against during expansion, the same way they are when scanning `include` file specs.
+
+A glob that matches no directory contributes nothing; this is not an error. The fully resolved extra paths, after expansion, are written to the log when verbose logging is enabled.
+
+Glob expansion applies only to local (`file`-scheme) paths. An entry on a virtual or non-`file` filesystem is treated as a literal path (its wildcards are not expanded), so glob syntax has no effect on virtual workspaces.
+
+De-duplication and ordering are computed independently for each resolved `extraPaths` list. Because an execution environment's `extraPaths` overrides (rather than merges with) the default `extraPaths`, expansion runs on whichever list applies to a given file.
+
+For example, consider this directory layout:
+
+```
+libs/
+├── auth/src/
+├── core/src/
+└── shared/src/
+```
+
+Given `extraPaths` of `["libs/shared/src", "libs/*/src"]`:
+
+- `libs/shared/src` is a literal entry, so it keeps its position at the front of the list.
+- `libs/*/src` expands, in ascending order, to `libs/auth/src`, `libs/core/src`, and `libs/shared/src`, but `libs/shared/src` is dropped from the expansion because the literal entry already owns that path.
+
+The resulting order is `libs/shared/src`, `libs/auth/src`, `libs/core/src`.
+
+When two globs match the same directory, the earlier glob keeps it. For example, over a tree that contains `external/pip310_numpy/site-packages`, the list `["external/pip310_*/site-packages", "external/pip3??_numpy/site-packages"]` contributes that directory from the first glob and drops it from the second.
 
 
 ### Configuring Your Python Environment

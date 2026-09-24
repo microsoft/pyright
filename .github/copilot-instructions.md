@@ -6,43 +6,43 @@ Pyright is a static type checker for Python, written in TypeScript. It ships as 
 
 ```bash
 # Install all packages (from repo root)
-npm install
+pnpm install
 
 # Build the core library
-cd packages/pyright-internal && npm run build
+cd packages/pyright-internal && pnpm run build
 
 # Run all tests (builds test server first)
-cd packages/pyright-internal && npm test
+cd packages/pyright-internal && pnpm test
 
 # Run all tests without rebuilding the test server (faster iteration)
-cd packages/pyright-internal && npm run test:norebuild
+cd packages/pyright-internal && pnpm run test:norebuild
 
 # Run a single test file
-cd packages/pyright-internal && npx jest typeEvaluator1.test --forceExit
+cd packages/pyright-internal && pnpm exec jest typeEvaluator1.test --forceExit
 
 # Run a single test by name
-cd packages/pyright-internal && npx jest -t "Generic1" --forceExit
+cd packages/pyright-internal && pnpm exec jest -t "Generic1" --forceExit
 
 # Build the CLI (webpack bundle)
-npm run build:cli:dev
+pnpm run build:cli:dev
 
 # Build the VS Code extension (webpack bundle)
-npm run build:extension:dev
+pnpm run build:extension:dev
 ```
 
 ### Linting
 
 ```bash
 # Run all checks (syncpack + eslint + prettier)
-npm run check
+pnpm run check
 
 # Individual checks
-npm run check:eslint
-npm run check:prettier
+pnpm run check:eslint
+pnpm run check:prettier
 
 # Auto-fix
-npm run fix:eslint
-npm run fix:prettier
+pnpm run fix:eslint
+pnpm run fix:prettier
 ```
 
 ## Architecture
@@ -72,6 +72,14 @@ Source files are processed through these phases in order:
 **Typeshed fallback**: `packages/pyright-internal/typeshed-fallback/` contains a bundled copy of typeshed stubs. This provides the Python stdlib type stubs when no external typeshed is available.
 
 **Localized diagnostics**: All user-facing diagnostic messages come from `localization/localize.ts`, not inline strings.
+
+### Evaluation tracing
+
+For type-inference/cache regressions, unexpected diagnostics, speculative or
+reentrant evaluation, and repeated evaluator work, use the
+[evaluation-tracing skill](skills/evaluation-tracing/SKILL.md). It points to the
+[canonical local tracing manual](../docs/evaluation-traces.md); traces explain
+observed behavior, while performance claims require separate clean measurements.
 
 ## Test Conventions
 

@@ -6,6 +6,7 @@
  * Logic for performing auto-import completions.
  */
 
+import { getInfoReader } from '../analyzer/analyzerNodeInfo';
 import { CancellationToken, CompletionItem, CompletionItemKind, SymbolKind } from 'vscode-languageserver';
 
 import { DeclarationType } from '../analyzer/declaration';
@@ -14,6 +15,7 @@ import { ImportType } from '../analyzer/importResult';
 import {
     ImportGroup,
     ImportNameInfo,
+    ImportStatement,
     ImportStatements,
     ModuleNameInfo,
     getImportGroup,
@@ -32,6 +34,7 @@ import { ExecutionEnvironment } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
 import { ProgramView, SourceFileInfo } from '../common/extensibility';
 import { stripFileExtension } from '../common/pathUtils';
+import { convertPositionToOffset } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Position } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
@@ -199,7 +202,8 @@ export class AutoImporter {
     ) {
         this._importStatements = getTopLevelImports(
             this.parseResults.parserOutput.parseTree,
-            /* includeImplicitImports */ true
+            /* includeImplicitImports */ true,
+            getInfoReader(this.program)
         );
     }
 
@@ -650,6 +654,27 @@ export class AutoImporter {
         return this.importResolver.getModuleNameForImport(uri, this.execEnvironment);
     }
 
+    // Returns true when the given import statement appears before the invocation (usage)
+    // position. Merging a new symbol into an import statement that comes *after* the usage
+    // would leave the symbol unbound, so callers should only merge when this returns true.
+    //
+    // Known limitation: this is a purely lexical (offset) comparison with no execution-scope
+    // awareness. When the usage sits inside a deferred-execution scope (e.g. a function or
+    // lambda body) above a module-level same-module import, merging into that below import is
+    // actually safe at runtime because the function runs after the module finishes importing.
+    // In that case this returns false and we conservatively insert a separate import at the top
+    // instead of consolidating. We accept that as a rare, correctness-neutral trade-off, since
+    // detecting deferred-execution scopes reliably (function/lambda bodies vs class bodies,
+    // default-arg/decorator positions, comprehensions, etc.) is error-prone and not worth the
+    // risk relative to the unbound-symbol bug this guard prevents.
+    private _isImportBeforeInvocation(importStatement: ImportStatement): boolean {
+        const invocationOffset = convertPositionToOffset(
+            this._invocationPosition,
+            this.parseResults.tokenizerOutput.lines
+        );
+        return invocationOffset === undefined || invocationOffset > importStatement.node.start;
+    }
+
     private _getTextEditsForAutoImportByFilePath(
         importNameInfo: ImportNameInfo,
         moduleNameInfo: ModuleNameInfo,
@@ -701,9 +726,15 @@ export class AutoImporter {
                 }
 
                 // If not, add what we want at the existing 'import from' statement as long as
-                // what is imported is not module itself.
+                // what is imported is not module itself, and the existing statement appears
+                // before the usage. Merging into a statement that is located *after* the usage
+                // would leave the symbol unbound, so in that case we fall through to inserting
+                // a new import statement in the correct location.
                 // ex) don't add "path" to existing "from os.path import dirname" statement.
-                if (moduleNameInfo.name === importStatement.moduleName) {
+                if (
+                    moduleNameInfo.name === importStatement.moduleName &&
+                    this._isImportBeforeInvocation(importStatement)
+                ) {
                     return {
                         insertionText: importNameInfo.alias ?? insertionText,
                         edits: this.options.lazyEdit
@@ -732,8 +763,12 @@ export class AutoImporter {
                             edits: [],
                         };
                     }
-                } else {
-                    // If not, add what we want at the existing import from statement.
+                } else if (this._isImportBeforeInvocation(imported)) {
+                    // If not, add what we want at the existing import from statement, as long as
+                    // that statement appears before the usage. Merging into a statement located
+                    // *after* the usage would leave the symbol unbound, so in that case we skip
+                    // this merge and continue below to the implicit-imports check, only inserting
+                    // a new import statement if no implicit import matches.
                     return {
                         insertionText: importNameInfo.alias ?? insertionText,
                         edits: this.options.lazyEdit

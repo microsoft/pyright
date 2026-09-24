@@ -2,10 +2,12 @@
 
 # pyright: reportMissingModuleSource=false
 
+from dataclasses import InitVar
 from typing import (
     Annotated,
     Any,
     Callable,
+    ClassVar,
     Concatenate,
     Final,
     Generic,
@@ -16,11 +18,16 @@ from typing import (
     NoReturn,
     NotRequired,
     Optional,
+    Protocol,
     Required,
+    Self,
+    assert_type,
     Type,
     TypeAlias,
     TypeGuard,
+    TypedDict,
     TypeVar,
+    TypeVarTuple,
     Union,
     Unpack,
 )
@@ -32,6 +39,9 @@ type TA2[T] = list[T] | T
 TA3: TypeAlias = Annotated[int, "meta"]
 TA4 = int | str
 type TA5[T] = int
+
+# TypeAlias is accepted as a nested type argument outside a TypeForm context.
+ordinary_type_alias: list[TypeAlias]
 
 
 def func1():
@@ -115,13 +125,24 @@ NT1 = NewType("NT1", int)
 def func5[**P, R]():
     t1: TypeForm[LiteralString] = typing.LiteralString
     t2: TypeForm = TypeForm[int | str]
+
+    # This should generate an error because a ParamSpec isn't a valid
+    # type expression on its own.
     t3: TypeForm = "P"
+
     t4: TypeForm = "typing.Callable"
     t5: TypeForm = "Union[int, str]"
     t6: TypeForm = NT1
 
+    # These should generate errors because ParamSpecs and TypeVarTuples aren't
+    # valid type expressions on their own.
+    t7: TypeForm = P
+    t8: TypeForm = Ts
+    t9: TypeForm = "Ts"
+
 
 T = TypeVar("T")
+Ts = TypeVarTuple("Ts")
 
 
 def func6[**P, R]():
@@ -239,3 +260,77 @@ def func10[T](x: type[T], y: type[int]):
     t3: TypeForm = y
     t4: TypeForm[int] = y
     t5: TypeForm[float] = y
+
+
+def func11():
+    # This should generate an error because Self isn't valid outside a class.
+    t1: TypeForm = Self
+
+    # This should generate an error because ClassVar isn't valid in a TypeForm.
+    t2: TypeForm = ClassVar[int]
+
+    # This should generate an error because Final isn't valid in a TypeForm.
+    t3: TypeForm = Final[int]
+
+    # This should generate an error because Unpack isn't valid in this context.
+    t4: TypeForm = Unpack[Ts]
+
+    # This should generate an error because Optional requires a type argument.
+    t5: TypeForm = Optional
+
+    # These should generate errors because these bare special forms aren't
+    # valid type expressions.
+    t6: TypeForm = Protocol
+    t7: TypeForm = TypedDict
+    t8: TypeForm = TypeAlias
+    t9: TypeForm = Literal
+
+    # These should generate errors because forbidden qualifiers remain invalid
+    # when nested within another type expression.
+    t10: TypeForm = list[Final[int]]
+    t11: TypeForm = list[Required[int]]
+
+    # These bare special forms aren't valid type expressions.
+    t12: TypeForm = TypeGuard
+    t13: TypeForm = TypeIs
+    t14: TypeForm = Union
+    t15: TypeForm = Annotated
+    t16: TypeForm = ClassVar
+    t17: TypeForm = Required
+    t18: TypeForm = NotRequired
+    t19: TypeForm = ReadOnly
+    t20: TypeForm = Unpack
+    t21: TypeForm = Concatenate
+    t22: TypeForm = Generic
+    t23: TypeForm = Final
+
+    # These should generate errors for an empty TypeForm argument list,
+    # a nested annotation marker, and a dataclass-only annotation.
+    t24: TypeForm = TypeForm[()]
+    t25: TypeForm = list[TypeAlias]
+    t26: TypeForm = InitVar[int]
+
+
+class ClassWithSelf:
+    def method(self):
+        t1 = TypeForm(Self)
+        assert_type(t1, TypeForm[Self])
+
+        t2 = TypeForm("Self")
+        assert_type(t2, TypeForm[Self])
+
+        t3: TypeForm[Self] = "Self"
+
+        t4 = TypeForm(list[Self])
+        assert_type(t4, TypeForm[list[Self]])
+
+        t5 = TypeForm("list[Self]")
+        assert_type(t5, TypeForm[list[Self]])
+
+        t6: TypeForm[list[Self]] = "list[Self]"
+
+
+def func12[*ScopedTs]():
+    # This should generate an error because a TypeVarTuple isn't a valid
+    # type expression on its own.
+    t1: TypeForm = ScopedTs

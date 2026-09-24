@@ -43,6 +43,7 @@ export interface ReadOnlyFileSystem {
     readFileSync(uri: Uri, encoding?: null): Buffer;
     readFileSync(uri: Uri, encoding: BufferEncoding): string;
     readFileSync(uri: Uri, encoding?: BufferEncoding | null): string | Buffer;
+    readFileRangeSync(uri: Uri, offset: number, length: number): Buffer;
 
     statSync(uri: Uri): Stats;
     realpathSync(uri: Uri): Uri;

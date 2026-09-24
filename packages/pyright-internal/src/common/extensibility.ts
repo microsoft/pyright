@@ -9,6 +9,7 @@
 import { CancellationToken } from 'vscode-languageserver';
 
 import { Declaration } from '../analyzer/declaration';
+import { AnalyzerNodeInfoReader } from '../analyzer/analyzerNodeInfo';
 import { ImportResolver } from '../analyzer/importResolver';
 import * as prog from '../analyzer/program';
 import { IPythonMode } from '../analyzer/sourceFile';
@@ -87,6 +88,7 @@ export interface ProgramView {
     readonly rootPath: Uri;
     readonly console: ConsoleInterface;
     readonly evaluator: TypeEvaluator | undefined;
+    readonly analyzerNodeInfoReader: AnalyzerNodeInfoReader;
     readonly configOptions: ConfigOptions;
     readonly importResolver: ImportResolver;
     readonly fileSystem: ReadOnlyFileSystem;
@@ -148,6 +150,7 @@ export interface SymbolUsageProviderFactory {
     tryCreateProvider(
         useCase: ReferenceUseCase,
         declarations: readonly Declaration[],
+        nodeInfo: AnalyzerNodeInfoReader,
         token: CancellationToken
     ): SymbolUsageProvider | undefined;
 }

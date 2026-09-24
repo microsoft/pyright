@@ -20,19 +20,20 @@ import {
     SignatureInformation,
 } from 'vscode-languageserver';
 
-import { getFileInfo } from '../analyzer/analyzerNodeInfo';
+import { getInfoReader, AnalyzerNodeInfoReader, getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { DeclarationType } from '../analyzer/declaration';
 import { getParamListDetails, ParamKind } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParamIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
-import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
+import { getFunctionOwnDocString, isBuiltInModule } from '../analyzer/typeDocStringUtils';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { PrintTypeFlags } from '../analyzer/typePrinter';
 import {
     FunctionParam,
     FunctionType,
     isFunction,
+    isInstantiableClass,
     isOverloaded,
     isPositionOnlySeparator,
     OverloadedType,
@@ -48,14 +49,17 @@ import { ParseFileResults } from '../parser/parser';
 import { Tokenizer } from '../parser/tokenizer';
 import { TokenType } from '../parser/tokenizerTypes';
 import {
+    getConstructorDocInfo,
     getDocumentationPartsForTypeAndDecl,
     getFunctionDocStringFromType,
+    getTypeForToolTip,
     replaceStubEllipsisDefaultValues,
 } from './tooltipUtils';
 
 export class SignatureHelpProvider {
     private readonly _parseResults: ParseFileResults | undefined;
     private readonly _sourceMapper: SourceMapper;
+    private readonly _nodeInfo: AnalyzerNodeInfoReader;
 
     constructor(
         private _program: ProgramView,
@@ -70,6 +74,7 @@ export class SignatureHelpProvider {
     ) {
         this._parseResults = this._program.getParseResults(this._fileUri);
         this._sourceMapper = this._program.getSourceMapper(this._fileUri, this._token, /* mapCompiled */ true);
+        this._nodeInfo = getInfoReader(this._program);
     }
 
     getSignatureHelp(): SignatureHelp | undefined {
@@ -105,7 +110,7 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        let node = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, offset);
+        let node = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, offset, this._nodeInfo);
 
         // See if we can get to a "better" node by backing up a few columns.
         // A "better" node is defined as one that's deeper than the current
@@ -122,7 +127,11 @@ export class SignatureHelpProvider {
             if (ch === ',' || ch === '(') {
                 break;
             }
-            const curNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, curOffset);
+            const curNode = ParseTreeUtils.findNodeByOffset(
+                this._parseResults.parserOutput.parseTree,
+                curOffset,
+                this._nodeInfo
+            );
             if (curNode && curNode !== initialNode) {
                 if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
                     node = curNode;
@@ -226,6 +235,22 @@ export class SignatureHelpProvider {
             }
         }
 
+        // Apply the cross-overload borrowed docstring to the active signature only, so an
+        // undocumented active overload still shows helpful body text while non-active overloads
+        // keep their own (or no) docstring.
+        //
+        // "Active" here is the active-parameter/no-args heuristic (plus any reused client
+        // selection), not a best-match-by-argument-types choice. Only the body prose is borrowed:
+        // parameter docs are intentionally never borrowed (they were extracted from this
+        // signature's own docstring in _makeSignature), so a borrowed sibling's :param: text is
+        // never attributed to a different overload's parameters.
+        if (activeSignature !== undefined && signatures[activeSignature].documentation === undefined) {
+            const borrowed = signatureHelpResults.signatures[activeSignature].borrowedDocumentation;
+            if (borrowed !== undefined) {
+                signatures[activeSignature].documentation = borrowed;
+            }
+        }
+
         if (this._hasActiveParameterCapability || activeSignature === undefined) {
             // If there is no active parameter, then we want the client to not highlight anything.
             // Unfortunately, the LSP spec says that "undefined" or "out of bounds" values should be
@@ -265,10 +290,15 @@ export class SignatureHelpProvider {
         let stringParts = this._evaluator.printFunctionParts(functionType, PrintTypeFlags.ExpandTypedDictArgs);
         stringParts = replaceStubEllipsisDefaultValues(functionType, stringParts, this._sourceMapper);
         const parameters: ParamInfo[] = [];
+        const ownDocString = getFunctionOwnDocString(functionType, this._sourceMapper);
+        // Full spec-ordered resolution (own -> implementation -> sibling overloads -> class-level
+        // fallback). This is only surfaced on the active signature (see _convert), so an undocumented
+        // active overload still shows helpful body text while non-active overloads keep their own doc.
         const functionDocString =
+            this._getConstructorDocString(callNode, functionType) ??
             getFunctionDocStringFromType(functionType, this._sourceMapper, this._evaluator) ??
             this._getDocStringFromCallNode(callNode);
-        const fileInfo = getFileInfo(callNode);
+        const fileInfo = getFileInfo(callNode, this._nodeInfo);
         const paramListDetails = getParamListDetails(functionType);
 
         let label = '(';
@@ -338,13 +368,16 @@ export class SignatureHelpProvider {
             }
         }
 
-        // Extract the documentation only for the active parameter.
+        // Extract the documentation only for the active parameter. Use the signature's OWN docstring
+        // so an overload never surfaces a sibling overload's parameter documentation. This holds
+        // even for the active signature, which may borrow a sibling's body prose (in _convert) but
+        // never its parameter docs.
         if (activeParameter !== undefined) {
             const activeParam = parameters[activeParameter];
             const sourceParam = getParamForPrintIndex(activeParameter);
             if (activeParam && sourceParam) {
                 activeParam.documentation = this._docStringService.extractParameterDocumentation(
-                    functionDocString || '',
+                    ownDocString || '',
                     sourceParam.name || '',
                     this._format
                 );
@@ -357,24 +390,29 @@ export class SignatureHelpProvider {
             activeParameter,
         };
 
+        if (ownDocString) {
+            sigInfo.documentation = this._formatDocString(ownDocString, fileInfo?.fileUri);
+        }
+
         if (functionDocString) {
-            if (this._format === MarkupKind.Markdown) {
-                sigInfo.documentation = {
-                    kind: MarkupKind.Markdown,
-                    value: this._docStringService.convertDocStringToMarkdown(
-                        functionDocString,
-                        isBuiltInModule(fileInfo?.fileUri)
-                    ),
-                };
-            } else {
-                sigInfo.documentation = {
-                    kind: MarkupKind.PlainText,
-                    value: this._docStringService.convertDocStringToPlainText(functionDocString),
-                };
-            }
+            sigInfo.borrowedDocumentation = this._formatDocString(functionDocString, fileInfo?.fileUri);
         }
 
         return sigInfo;
+    }
+
+    private _formatDocString(docString: string, fileUri: Uri | undefined): MarkupContent {
+        if (this._format === MarkupKind.Markdown) {
+            return {
+                kind: MarkupKind.Markdown,
+                value: this._docStringService.convertDocStringToMarkdown(docString, isBuiltInModule(fileUri)),
+            };
+        }
+
+        return {
+            kind: MarkupKind.PlainText,
+            value: this._docStringService.convertDocStringToPlainText(docString),
+        };
     }
 
     private _getWrappedFunctionType(callNode: CallNode, functionType: FunctionType): FunctionType | undefined {
@@ -457,6 +495,23 @@ export class SignatureHelpProvider {
         return undefined;
     }
 
+    private _getConstructorDocString(callNode: CallNode, functionType: FunctionType): string | undefined {
+        // For a construction expression, resolve the constructor docstring through the unified
+        // component so signature help agrees with hover.
+        const classType = getTypeForToolTip(this._evaluator, callNode.d.leftExpr);
+        if (!isInstantiableClass(classType)) {
+            return undefined;
+        }
+
+        return getConstructorDocInfo(
+            classType,
+            functionType,
+            /* resolvedDecl */ undefined,
+            this._sourceMapper,
+            this._evaluator
+        )?.text;
+    }
+
     private _getDocStringFromCallNode(callNode: CallNode): string | undefined {
         // This is a heuristic to see whether we can get some docstring
         // from call node when all other methods failed.
@@ -504,6 +559,7 @@ interface ParamInfo {
 interface SignatureInfo {
     label: string;
     documentation?: MarkupContent | undefined;
+    borrowedDocumentation?: MarkupContent | undefined;
     parameters?: ParamInfo[] | undefined;
     activeParameter?: number | undefined;
 }

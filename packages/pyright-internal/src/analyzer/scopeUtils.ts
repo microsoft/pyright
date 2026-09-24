@@ -9,7 +9,7 @@
  */
 
 import { EvaluationScopeNode, ParseNode } from '../parser/parseNodes';
-import { getScope } from './analyzerNodeInfo';
+import { AnalyzerNodeInfoReader, getScope } from './analyzerNodeInfo';
 import { getEvaluationScopeNode } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
 
@@ -26,21 +26,25 @@ export function getBuiltInScope(currentScope: Scope): Scope {
 }
 
 // Locates the evaluation scope associated with the specified parse node.
-export function getScopeForNode(node: ParseNode): Scope | undefined {
-    const scopeNode = getEvaluationScopeNode(node).node;
-    return getScope(scopeNode);
+export function getScopeForNode(node: ParseNode, nodeInfo: AnalyzerNodeInfoReader): Scope | undefined {
+    const scopeNode = getEvaluationScopeNode(node, nodeInfo).node;
+    return getScope(scopeNode, nodeInfo);
 }
 
 // Returns a list of scopes associated with the node and its ancestor nodes.
 // If stopScope is provided, the search will stop at that scope.
 // Returns undefined if stopScope is not found.
-export function getScopeHierarchy(node: ParseNode, stopScope?: Scope): Scope[] | undefined {
+export function getScopeHierarchy(
+    node: ParseNode,
+    stopScope: Scope | undefined,
+    nodeInfo: AnalyzerNodeInfoReader
+): Scope[] | undefined {
     const scopeHierarchy: Scope[] = [];
     let curNode: ParseNode | undefined = node;
 
     while (curNode) {
-        const scopeNode: EvaluationScopeNode = getEvaluationScopeNode(curNode).node;
-        const curScope = getScope(scopeNode);
+        const scopeNode: EvaluationScopeNode = getEvaluationScopeNode(curNode, nodeInfo).node;
+        const curScope = getScope(scopeNode, nodeInfo);
 
         if (!curScope) {
             return undefined;
@@ -62,13 +66,17 @@ export function getScopeHierarchy(node: ParseNode, stopScope?: Scope): Scope[] |
 
 // Walks up the parse tree from the specified node to find the top-most node
 // that is within specified scope.
-export function findTopNodeInScope(node: ParseNode, scope: Scope): ParseNode | undefined {
+export function findTopNodeInScope(
+    node: ParseNode,
+    scope: Scope,
+    nodeInfo: AnalyzerNodeInfoReader
+): ParseNode | undefined {
     let curNode: ParseNode | undefined = node;
     let prevNode: ParseNode | undefined;
     let foundScope = false;
 
     while (curNode) {
-        if (getScope(curNode) === scope) {
+        if (getScope(curNode, nodeInfo) === scope) {
             foundScope = true;
         } else if (foundScope) {
             return prevNode;

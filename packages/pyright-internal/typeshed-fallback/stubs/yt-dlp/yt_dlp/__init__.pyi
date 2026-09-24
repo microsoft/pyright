@@ -38,9 +38,7 @@ class _ExternalDownloader(TypedDict, total=False):
     ftp: str
     http: str
     m3u8: str
-    mms: str
     rtmp: str
-    rtsp: str
 
 @type_check_only
 class _DownloadRange(TypedDict):
@@ -65,7 +63,7 @@ _ProgressTemplate = TypedDict(
 )
 
 @type_check_only
-class _Params(TypedDict, total=False):
+class _YoutubeDLOptions(TypedDict, total=False):
     usenetrc: bool | None
     netrc_location: str | None
     netrc_cmd: str | None
@@ -247,7 +245,7 @@ class _ParsedOptions(NamedTuple):
     parser: optparse.OptionParser
     options: optparse.Values
     urls: Collection[str]
-    ydl_opts: _Params
+    ydl_opts: _YoutubeDLOptions
 
 def parse_options(argv: Collection[str] | None = None) -> _ParsedOptions: ...
 def main(argv: list[str] | None = None) -> int: ...

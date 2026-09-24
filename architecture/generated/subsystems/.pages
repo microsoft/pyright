@@ -5,7 +5,10 @@ nav:
   - common: common.md
   - languageService: languageservice.md
   - localization: localization.md
+  - node: node.md
   - parser: parser.md
   - pprof: pprof.md
+  - protocol: protocol.md
   - src: src.md
+  - typeServer: typeserver.md
   - uri: uri.md

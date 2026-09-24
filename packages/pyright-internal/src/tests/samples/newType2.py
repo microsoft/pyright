@@ -36,3 +36,29 @@ class Meta1(type): ...
 X8 = Meta1("X8", (list,), {})
 reveal_type(X8, expected_text="type[X8]")
 reveal_type(type(X8), expected_text="type[type[X8]]")
+
+X9 = type("X9Meta", (type,), {})("X9", (type,), {})("X9Final", (type,), {})
+
+
+class InitOnlyMeta(type):
+    def __init__(
+        cls,
+        name: str,
+        bases: tuple[type, ...],
+        namespace: dict[str, object],
+    ) -> None:
+        super().__init__(name, bases, namespace)
+
+
+X10Meta = InitOnlyMeta("X10Meta", (type,), {})
+X10 = X10Meta("X10", (str,), {})
+X10("value")
+
+
+class MarkerMeta(type):
+    marker: int = 1
+
+
+X11Meta = type("X11Meta", (MarkerMeta,), {})
+X11 = X11Meta("X11", (object,), {})
+reveal_type(X11.marker, expected_text="int")

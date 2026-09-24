@@ -414,12 +414,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }
     }
 
-    updateOptionsAndRestartService(
-        workspace: Workspace,
-        serverSettings: ServerSettings,
-        typeStubTargetImportName?: string
-    ) {
-        AnalyzerServiceExecutor.runWithOptions(workspace, serverSettings, { typeStubTargetImportName });
+    updateOptionsAndRestartService(workspace: Workspace, serverSettings: ServerSettings) {
+        AnalyzerServiceExecutor.runWithOptions(workspace, serverSettings);
         workspace.searchPathsToWatch = workspace.service.librarySearchUrisToWatch ?? [];
     }
     protected get workspaceDiagnosticsReporter() {
@@ -1077,7 +1073,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }
 
         return workspace.service.run((program) => {
-            return new CallHierarchyProvider(program, uri, params.item.range.start, token).getIncomingCalls();
+            return new CallHierarchyProvider(program, uri, params.item.selectionRange.start, token).getIncomingCalls();
         }, token);
     }
 
@@ -1093,7 +1089,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }
 
         return workspace.service.run((program) => {
-            return new CallHierarchyProvider(program, uri, params.item.range.start, token).getOutgoingCalls();
+            return new CallHierarchyProvider(program, uri, params.item.selectionRange.start, token).getOutgoingCalls();
         }, token);
     }
 

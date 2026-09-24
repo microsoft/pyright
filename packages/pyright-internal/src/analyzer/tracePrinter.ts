@@ -28,7 +28,11 @@ export interface TracePrinter {
     printFileOrModuleName(fileUriOrModule: Uri | AbsoluteModuleDescriptor): string;
 }
 
-export function createTracePrinter(roots: Uri[], includeRoots: boolean = false): TracePrinter {
+export function createTracePrinter(
+    roots: Uri[],
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
+    includeRoots: boolean = false
+): TracePrinter {
     function wrap(value: string | undefined, ch = "'") {
         return value ? `${ch}${value}${ch}` : '';
     }
@@ -96,6 +100,11 @@ export function createTracePrinter(roots: Uri[], includeRoots: boolean = false):
                 case TypeCategory.Unknown:
                     return `Unknown ${wrap(type.props?.typeAliasInfo?.shared.fullName)}`;
 
+                case TypeCategory.OverloadResult:
+                    return `OverloadResult [${type.priv.candidates
+                        .map((candidate) => printType(candidate))
+                        .join(',')}]`;
+
                 default:
                     assertNever(type);
             }
@@ -160,7 +169,7 @@ export function createTracePrinter(roots: Uri[], includeRoots: boolean = false):
             node = node.parent;
         }
 
-        return node.nodeType === ParseNodeType.Module ? AnalyzerNodeInfo.getFileInfo(node) : undefined;
+        return node.nodeType === ParseNodeType.Module ? AnalyzerNodeInfo.getFileInfo(node, nodeInfo) : undefined;
     }
 
     function getText(value: string, max = 30) {

@@ -27,6 +27,7 @@ import {
     isFunction,
     isFunctionOrOverloaded,
     isInstantiableClass,
+    isOverloaded,
     isTypeSame,
     ModuleType,
     OverloadedType,
@@ -68,6 +69,10 @@ interface ProtocolCompatibility {
     preConstraints: ConstraintTracker | undefined;
     postConstraints: ConstraintTracker | undefined;
     isCompatible: boolean;
+}
+
+interface ProtocolCompatibilityCheckState {
+    isOverloadedTypeBindingFailure: boolean;
 }
 
 const protocolAssignmentStack: ProtocolAssignmentStackEntry[] = [];
@@ -316,7 +321,12 @@ function setProtocolCompatibility(
         const genericSrcType = requiresTypeArgs(srcType)
             ? selfSpecializeClass(srcType, { overrideTypeArgs: true })
             : srcType;
+        const checkState: ProtocolCompatibilityCheckState = {
+            isOverloadedTypeBindingFailure: false,
+        };
 
+        // An overload can use its "self" annotation to filter by specialization,
+        // so a generic binding failure doesn't prove universal incompatibility.
         if (
             !assignToProtocolInternal(
                 evaluator,
@@ -325,8 +335,10 @@ function setProtocolCompatibility(
                 /* diag */ undefined,
                 /* constraints */ undefined,
                 flags,
-                recursionCount
-            )
+                recursionCount,
+                checkState
+            ) &&
+            !checkState.isOverloadedTypeBindingFailure
         ) {
             isAlwaysIncompatible = true;
         }
@@ -364,7 +376,8 @@ function assignToProtocolInternal(
     diag: DiagnosticAddendum | undefined,
     constraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
-    recursionCount: number
+    recursionCount: number,
+    checkState?: ProtocolCompatibilityCheckState
 ): boolean {
     if ((flags & AssignTypeFlags.Invariant) !== 0) {
         return isTypeSame(destType, srcType);
@@ -555,6 +568,9 @@ function assignToProtocolInternal(
                             if (boundSrcFunction) {
                                 srcMemberType = boundSrcFunction;
                             } else {
+                                if (checkState && isOverloaded(srcMemberType)) {
+                                    checkState.isOverloadedTypeBindingFailure = true;
+                                }
                                 typesAreConsistent = false;
                                 return;
                             }
@@ -617,6 +633,9 @@ function assignToProtocolInternal(
                     boundDeclaredType = makeFunctionTypeVarsBound(boundDeclaredType);
                     destMemberType = boundDeclaredType;
                 } else {
+                    if (checkState && isOverloaded(destMemberType)) {
+                        checkState.isOverloadedTypeBindingFailure = true;
+                    }
                     typesAreConsistent = false;
                     return;
                 }

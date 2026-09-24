@@ -20,7 +20,7 @@ import { Uri } from '../common/uri/uri';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { ImportResolver } from './importResolver';
 import { MaxAnalysisTime, OpenFileOptions, Program } from './program';
-import { TypeStubWriter } from './typeStubWriter';
+import { generateTypeStubFiles, TypeStubGenerationPlan, TypeStubGenerationResult } from './typeStubGeneration';
 
 export enum InvalidatedReason {
     Reanalyzed,
@@ -201,24 +201,15 @@ export class BackgroundAnalysisProgram {
         return this._program.getDiagnosticsForRange(fileUri, range);
     }
 
-    async writeTypeStub(
-        targetImportUri: Uri,
-        targetIsSingleFile: boolean,
-        stubUri: Uri,
+    async generateTypeStubFiles(
+        plan: TypeStubGenerationPlan,
         token: CancellationToken
-    ): Promise<any> {
+    ): Promise<TypeStubGenerationResult> {
         if (this._backgroundAnalysis) {
-            return this._backgroundAnalysis.writeTypeStub(targetImportUri, targetIsSingleFile, stubUri, token);
+            return this._backgroundAnalysis.generateTypeStubFiles(plan, token);
         }
 
-        return new TypeStubWriter(this._program).writeTypeStub(
-            {
-                targetImportPath: targetImportUri,
-                targetIsSingleFile,
-                outputPath: stubUri,
-            },
-            token
-        );
+        return generateTypeStubFiles(this._program, plan, token);
     }
 
     invalidateAndForceReanalysis(reason: InvalidatedReason, refreshOptions?: RefreshOptions) {

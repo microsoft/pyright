@@ -5,7 +5,7 @@
 name: Run mypy_primer on push
 
 env:
-  NODE_VERSION: '22.x' # Shipped with VS Code.
+  NODE_VERSION: '24.15.0' # Shipped with VS Code.
 
 on:
   # Run on all pushes to main.
@@ -32,18 +32,21 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: pyright_to_test
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.11'
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          package_json_file: pyright_to_test/package.json
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: 'pyright_to_test/**/package-lock.json'
+          cache: 'pnpm'
+          cache-dependency-path: 'pyright_to_test/pnpm-lock.yaml'
       - name: Install dependencies
         run: |
           python -m pip install -U pip
@@ -54,6 +57,7 @@ jobs:
           # mypy_primer installs both the new and old commits. The old commit can contain
           # historical peer dependency conflicts that should not block primer comparisons.
           NPM_CONFIG_LEGACY_PEER_DEPS: 'true'
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
         run: |
           cd pyright_to_test
           echo "new commit"
@@ -73,7 +77,7 @@ jobs:
             | tee diff.txt
           ) || [ $? -eq 1 ]
       - name: Upload mypy_primer diff
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mypy_primer_diffs
           path: diff.txt
