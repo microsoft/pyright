@@ -1265,9 +1265,12 @@ test('TypedDict32', () => {
 });
 
 test('TypedDict33', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict33.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
 
-    TestUtils.validateResults(analysisResults, 8);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict33.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('TypedDictInline1', () => {

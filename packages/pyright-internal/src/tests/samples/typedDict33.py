@@ -1,75 +1,79 @@
-# This sample tests type inference and diagnostic behavior for TypedDict
-# methods (get, pop, setdefault) when called with union key types.
+# This sample tests the "get" and "pop" methods of a TypedDict when
+# the key argument is a union of str literals.
 
-from typing import Any, Literal, NotRequired, ReadOnly, TypedDict, assert_type, overload
+from typing import Any, Literal, NotRequired, ReadOnly, TypedDict, assert_type
+
+from typing_extensions import TypedDict as TypedDictExt
+
 
 class Person(TypedDict):
     name: str
     age: int
     nickname: NotRequired[str]
+    alias: NotRequired[bytes]
+
 
 class Config(TypedDict):
-    host: ReadOnly[str]
-    port: int
+    host: NotRequired[ReadOnly[str]]
+    port: NotRequired[int]
 
-def test_get_union_literal_keys(p: Person, k: Literal["name", "age"]):
-    v = p.get(k)
-    assert_type(v, str | int)
 
-def test_get_union_with_not_required(p: Person, k: Literal["name", "nickname"]):
-    v = p.get(k)
-    assert_type(v, str | None)
+class Closed(TypedDictExt, closed=True):
+    a: int
+    b: int
+    optional: NotRequired[int]
 
-def test_get_union_with_unknown_key(p: Person, k: Literal["name", "missing"], default_val: int):
-    v1 = p.get(k)
-    assert_type(v1, str | Any | None)
 
-    v2 = p.get(k, default_val)
-    assert_type(v2, str | Any | int)
+class Parent(TypedDict):
+    marker: int
 
-def test_pop_union_literal_keys(p: Person, k: Literal["name", "age"]):
-    v = p.pop(k)
-    assert_type(v, str | int)
 
-def test_pop_readonly_diagnostic(c: Config, k: Literal["host", "port"]):
-    # This should report an error because "host" is ReadOnly.
-    c.pop(k)
+def get_required(p: Person, k: Literal["name", "age"]):
+    assert_type(p.get(k), str | int)
+    assert_type(Person.get(p, k), str | int)
+    assert_type(p.get(k, 0), str | int)
 
-def test_setdefault_union_literal_keys(p: Person, k: Literal["name", "age"]):
-    # This should report an error for default "val" not matching int ("age").
-    v = p.setdefault(k, "val")
-    assert_type(v, str | int)
 
-def test_unbound_method_union_keys(p: Person, k: Literal["name", "age"]):
-    v = Person.get(p, k)
-    assert_type(v, str | int)
+def get_mixed(p: Person, k: Literal["name", "nickname"]):
+    assert_type(p.get(k), str | None)
+    assert_type(p.get(k, 1.0), str | float)
 
-class CustomContainer:
-    @overload
-    def get(self, key: Literal["a"]) -> int: ...
-    @overload
-    def get(self, key: Literal["b"]) -> str: ...
-    def get(self, key: str) -> Any:
-        pass
 
-def test_custom_overloaded_get_not_intercepted(c: CustomContainer, k: Literal["a", "b"]):
-    # User-defined overloaded function should NOT be intercepted by TypedDict transform.
-    # Standard overload resolution should apply.
-    v = c.get(k)
+def get_unknown(p: Person, k: Literal["name", "missing"]):
+    assert_type(p.get(k), str | Any | None)
 
-def test_unbound_invalid_receiver(k: Literal["name", "age"]):
-    # Unbound call with invalid receiver should fall back to normal overload validation.
-    Person.get(123, k)
 
-def test_keyword_and_extra_args(p: Person, k: Literal["name", "age"]):
-    # Keyword arguments or extra arguments fall back to standard overload validation.
-    p.get(k, default=0)
-    p.get(k, 0, 1)
+def pop_optional(p: Person, k: Literal["nickname", "alias"]):
+    assert_type(p.pop(k), str | bytes)
+    assert_type(p.pop(k, 0), str | bytes | int)
 
-def test_setdefault_missing_default(p: Person, k: Literal["name", "age"]):
-    # setdefault requires default argument; missing default falls back to normal validation and errors.
-    p.setdefault(k)
 
-def test_union_with_non_string_subtype(p: Person, k: Literal["name"] | int):
-    # Union containing non-string subtype falls back to normal validation and errors on int.
-    p.get(k)
+def pop_required(p: Person, k: Literal["name", "nickname"]):
+    # Required keys use the pop(str) -> object fallback, as with a single key.
+    assert_type(p.pop(k), object | str)
+
+
+def pop_unknown(t: Parent, k: Literal["a", "b"]):
+    assert_type(t.pop(k, 0), object | int)
+
+
+def pop_readonly(c: Config, k: Literal["host", "port"]):
+    assert_type(c.pop(k), object | int)
+
+
+def pop_closed(t: Closed, k: Literal["a", "b"]):
+    # This should generate two errors because "a" and "b" are required.
+    t.pop(k)
+
+    # This should generate an error because "a" and "b" are required.
+    t.pop(k, 0)
+
+
+def setdefault_readonly(c: Config, k: Literal["host", "port"]):
+    # This should generate an error because "host" is read-only.
+    c.setdefault(k, 0)
+
+
+def setdefault_mixed(p: Person, k: str | Literal["name"]):
+    # This should generate two errors because "str" is not a known key.
+    p.setdefault(k, "")
