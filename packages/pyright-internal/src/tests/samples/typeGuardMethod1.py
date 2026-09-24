@@ -2,7 +2,7 @@
 # static, class, overloaded, callable-instance, reordered keyword, and
 # module-qualified function calls.
 
-from typing import Any, TypeGuard, TypeIs, overload
+from typing import Any, Callable, Literal, TypeGuard, TypeIs, overload
 import typeGuard1
 
 
@@ -150,3 +150,67 @@ def test_overloaded_function_positional(x: object):
         reveal_type(x, expected_text="str")
     else:
         reveal_type(x, expected_text="object")
+
+
+def is_str_pos_only(value: object, /, **options: object) -> TypeGuard[str]:
+    return isinstance(value, str)
+
+
+def is_int_pos_only(value: object, /, **options: object) -> TypeIs[int]:
+    return isinstance(value, int)
+
+
+def test_positional_only_with_kwargs(x: object, y: object, a: int | str, b: int | str):
+    # The keyword argument "value" is captured by **options, not by the
+    # positional-only guarded parameter.
+    if is_str_pos_only(x, value=y):
+        reveal_type(x, expected_text="str")
+        reveal_type(y, expected_text="object")
+
+    if is_int_pos_only(a, value=b):
+        reveal_type(a, expected_text="int")
+        reveal_type(b, expected_text="int | str")
+    else:
+        reveal_type(a, expected_text="str")
+        reveal_type(b, expected_text="int | str")
+
+
+@overload
+def check_mode(a: object, b: object, mode: Literal[0]) -> TypeGuard[str]: ...
+@overload
+def check_mode(b: object, a: object, mode: Literal[1]) -> TypeGuard[int]: ...
+def check_mode(*args: object, **kwargs: object) -> bool:
+    return True
+
+
+def test_overload_used_for_mapping(x: object, y: object):
+    # The second overload is the one selected for the call, so its first
+    # parameter ("b") determines the guarded argument.
+    if check_mode(x, a=y, mode=1):
+        reveal_type(x, expected_text="int")
+        reveal_type(y, expected_text="object")
+
+
+def plain_is_str(val: object) -> TypeGuard[str]:
+    return isinstance(val, str)
+
+
+class PropertyGuard:
+    @property
+    def __call__(self) -> Callable[[object], TypeGuard[str]]:
+        return plain_is_str
+
+
+class InferredGuard:
+    def __call__(self, value: object):
+        return Checker.is_float(value)
+
+
+def test_property_call(guard: PropertyGuard, value: object):
+    if guard(value):
+        reveal_type(value, expected_text="str")
+
+
+def test_inferred_call(guard: InferredGuard, value: object):
+    if guard(value):
+        reveal_type(value, expected_text="float")

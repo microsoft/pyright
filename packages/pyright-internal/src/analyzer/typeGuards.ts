@@ -26,6 +26,7 @@ import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { Declaration, DeclarationType } from './declaration';
 import { transformTypeForEnumMember } from './enums';
+import { getParamListDetails, ParamKind } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import { getScopeForNode, isScopeContainedWithin } from './scopeUtils';
@@ -719,18 +720,23 @@ export function getTypeNarrowingCallback(
         } else if (isOverloaded(callType)) {
             isPossiblyTypeGuard = OverloadedType.getOverloads(callType).some(isFunctionReturnTypeGuard);
         } else if (isClassInstance(callType)) {
-            const callMember = lookUpObjectMember(callType, '__call__');
-            if (callMember) {
-                const memberType = evaluator.getTypeOfMember(callMember);
-                if (isFunction(memberType)) {
-                    isPossiblyTypeGuard = isFunctionReturnTypeGuard(memberType);
-                } else if (isOverloaded(memberType)) {
-                    isPossiblyTypeGuard = OverloadedType.getOverloads(memberType).some(isFunctionReturnTypeGuard);
-                }
-            }
+            // A callable object's __call__ may be overloaded, a property or have
+            // an inferred return type, so rely on the evaluated call below.
+            isPossiblyTypeGuard = true;
+        }
+
+        // Avoid evaluating the call unless one of its arguments could be the reference.
+        if (
+            isPossiblyTypeGuard &&
+            !testExpression.d.args.some((arg) => isMatchingExpressionOrWalrusRhs(evaluator, reference, arg.d.valueExpr))
+        ) {
+            isPossiblyTypeGuard = false;
         }
 
         if (isPossiblyTypeGuard) {
+            // Maps the guarded (first non-receiver) parameter of the signature
+            // used for the call to its argument expression. Returns undefined if
+            // the mapping is ambiguous, in which case no narrowing is applied.
             const getTargetArgExpr = (fnType: FunctionType): ExpressionNode | undefined => {
                 const isUnbound =
                     testExpression.d.leftExpr.nodeType === ParseNodeType.MemberAccess &&
@@ -739,19 +745,28 @@ export function getTypeNarrowingCallback(
                     !FunctionType.isStaticMethod(fnType) &&
                     fnType.priv.strippedFirstParamType === undefined;
 
-                const targetParamIndex = isUnbound ? 1 : 0;
-                if (targetParamIndex >= fnType.shared.parameters.length) {
+                const paramDetails = getParamListDetails(fnType);
+                const targetIndex = isUnbound ? 1 : 0;
+                if (targetIndex >= paramDetails.params.length) {
                     return undefined;
                 }
 
-                const targetParam = fnType.shared.parameters[targetParamIndex];
-                if (targetParam.name) {
+                const target = paramDetails.params[targetIndex];
+                if (target.param.category !== ParamCategory.Simple || target.kind === ParamKind.ExpandedArgs) {
+                    return undefined;
+                }
+
+                if (target.kind !== ParamKind.Positional && target.param.name) {
                     const kwArg = testExpression.d.args.find(
-                        (arg) => arg.d.argCategory === ArgCategory.Simple && arg.d.name?.d.value === targetParam.name
+                        (arg) => arg.d.argCategory === ArgCategory.Simple && arg.d.name?.d.value === target.param.name
                     );
                     if (kwArg) {
                         return kwArg.d.valueExpr;
                     }
+                }
+
+                if (target.kind === ParamKind.Keyword) {
+                    return undefined;
                 }
 
                 // Map positional arguments to parameters. If an unpacked argument
@@ -765,7 +780,7 @@ export function getTypeNarrowingCallback(
                     if (arg.d.argCategory !== ArgCategory.Simple) {
                         return undefined;
                     }
-                    if (positionalIndex === targetParamIndex) {
+                    if (positionalIndex === targetIndex) {
                         return arg.d.valueExpr;
                     }
                     positionalIndex++;
@@ -774,32 +789,20 @@ export function getTypeNarrowingCallback(
                 return undefined;
             };
 
+            // Evaluate the type guard call expression and map the argument
+            // through the signature that was actually used for the call.
+            const functionReturnTypeResult = evaluator.getTypeOfExpression(testExpression);
+            const functionReturnType = functionReturnTypeResult.type;
+
             let arg0Expr: ExpressionNode | undefined;
-            if (isFunction(callType)) {
+            const overloadsUsed = functionReturnTypeResult.overloadsUsedForCall;
+            if (overloadsUsed && overloadsUsed.length === 1) {
+                arg0Expr = getTargetArgExpr(overloadsUsed[0]);
+            } else if (isFunction(callType)) {
                 arg0Expr = getTargetArgExpr(callType);
-            } else if (isOverloaded(callType)) {
-                // Consider only the overloads that return a TypeGuard or TypeIs so
-                // that eligibility and argument mapping come from the same signature.
-                for (const overload of OverloadedType.getOverloads(callType)) {
-                    if (!isFunctionReturnTypeGuard(overload)) {
-                        continue;
-                    }
-                    arg0Expr = getTargetArgExpr(overload);
-                    if (arg0Expr) {
-                        break;
-                    }
-                }
-            } else if (isClassInstance(callType)) {
-                if (testExpression.d.args.length >= 1) {
-                    arg0Expr = testExpression.d.args[0].d.valueExpr;
-                }
             }
 
             if (arg0Expr && isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
-                // Evaluate the type guard call expression.
-                const functionReturnTypeResult = evaluator.getTypeOfExpression(testExpression);
-                const functionReturnType = functionReturnTypeResult.type;
-
                 if (
                     isClassInstance(functionReturnType) &&
                     ClassType.isBuiltIn(functionReturnType, ['TypeGuard', 'TypeIs']) &&
