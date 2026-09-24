@@ -189,10 +189,12 @@ import {
     useNodeCacheIsolation,
 } from './typeCacheUtils';
 import {
+    applyTypedDictMethodTransform,
     assignToTypedDict,
     assignTypedDictToTypedDict,
     createTypedDictType,
     createTypedDictTypeInlined,
+    getTypedDictClassFromMethod,
     getTypedDictDictEquivalent,
     getTypedDictMappingEquivalent,
     getTypedDictMembersForClass,
@@ -11324,6 +11326,21 @@ export function createTypeEvaluator(
             argList.length === 2
         ) {
             return { returnType: evaluateCastCall(argList, errorNode) };
+        }
+
+        const tdMethodInfo = getTypedDictClassFromMethod(expandedCallType);
+        if (tdMethodInfo) {
+            const tdResult = applyTypedDictMethodTransform(
+                evaluatorInterface,
+                errorNode,
+                argList,
+                tdMethodInfo.classType,
+                tdMethodInfo.methodName,
+                tdMethodInfo.isBound
+            );
+            if (tdResult) {
+                return tdResult;
+            }
         }
 
         const callResult = validateOverloadedArgTypes(
