@@ -797,7 +797,12 @@ test('Comparison1', () => {
 
     configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['comparison1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 7);
+    TestUtils.validateResults(analysisResults2, 16);
+
+    // Bytes promotions make two of the identity comparisons assignable.
+    configOptions.diagnosticRuleSet.disableBytesTypePromotions = false;
+    const analysisResults3 = TestUtils.typeAnalyzeSampleFiles(['comparison1.py'], configOptions);
+    TestUtils.validateResults(analysisResults3, 14);
 });
 
 test('Comparison2', () => {
