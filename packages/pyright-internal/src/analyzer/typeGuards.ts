@@ -2141,7 +2141,9 @@ function narrowTypeForContainerType(
     // literal types, and final instantiable classes can be handled here.
     // Non-final instantiable classes (type[A]) cannot be eliminated in negative
     // tests because a subclass SubA(A) reaches the negative branch at runtime
-    // (since SubA != A).
+    // (since SubA != A). Generic classes are also excluded because a
+    // specialized class object like Box[int] is not the same runtime object
+    // as Box.
     const typesToEliminate: Type[] = [];
     containerType.priv.tupleTypeArgs.forEach((tupleEntry) => {
         if (!tupleEntry.isUnbounded) {
@@ -2149,7 +2151,11 @@ function narrowTypeForContainerType(
                 typesToEliminate.push(tupleEntry.type);
             } else if (isClassInstance(tupleEntry.type) && isLiteralType(tupleEntry.type)) {
                 typesToEliminate.push(tupleEntry.type);
-            } else if (isInstantiableClass(tupleEntry.type) && ClassType.isFinal(tupleEntry.type)) {
+            } else if (
+                isInstantiableClass(tupleEntry.type) &&
+                ClassType.isFinal(tupleEntry.type) &&
+                tupleEntry.type.shared.typeParams.length === 0
+            ) {
                 typesToEliminate.push(tupleEntry.type);
             }
         }
@@ -2159,8 +2165,8 @@ function narrowTypeForContainerType(
         return referenceType;
     }
 
-    return mapSubtypes(referenceType, (referenceSubtype) => {
-        referenceSubtype = evaluator.makeTopLevelTypeVarsConcrete(referenceSubtype);
+    return mapSubtypes(referenceType, (unexpandedSubtype) => {
+        const referenceSubtype = evaluator.makeTopLevelTypeVarsConcrete(unexpandedSubtype);
         if (isClassInstance(referenceSubtype) && referenceSubtype.priv.literalValue === undefined) {
             // If we're able to enumerate all possible literal values
             // (for bool or enum), we can eliminate all others in a negative test.
@@ -2176,7 +2182,7 @@ function narrowTypeForContainerType(
             return undefined;
         }
 
-        return referenceSubtype;
+        return unexpandedSubtype;
     });
 }
 
