@@ -815,9 +815,6 @@ test('TypedDict27', () => {
 });
 
 test('TypedDict28', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict28.py']);
-
-    TestUtils.validateResults(analysisResults, 8);
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = pythonVersion3_13;
     configOptions.defaultPythonPlatform = 'Linux';
@@ -848,6 +845,15 @@ test('TypedDict29', () => {
 
     const repeatedModernResults = TestUtils.typeAnalyzeSampleFiles(['typedDict29.py'], modernConfigOptions);
     TestUtils.validateResults(repeatedModernResults, 0);
+});
+
+test('TypedDict30', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict30.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('TypedDictInline1', () => {

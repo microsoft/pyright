@@ -187,12 +187,10 @@ import {
     SpeculativeTypeTracker,
 } from './typeCacheUtils';
 import {
-    applyTypedDictMethodTransform,
     assignToTypedDict,
     assignTypedDictToTypedDict,
     createTypedDictType,
     createTypedDictTypeInlined,
-    getTypedDictClassFromMethod,
     getTypedDictDictEquivalent,
     getTypedDictMappingEquivalent,
     getTypedDictMembersForClass,
@@ -11498,6 +11496,114 @@ export function createTypeEvaluator(
         return { symbol, symbolName, classType, hasImplementation };
     }
 
+    // The synthesized "get" and "pop" methods for a TypedDict include a
+    // catch-all overload that accepts any str key. When the key argument is a
+    // union of str literals, that catch-all overload matches before union
+    // expansion is attempted, which produces an overly-wide return type. This
+    // function evaluates the call separately for each literal key subtype
+    // (speculatively) and, if every subtype is accepted, returns the union of
+    // the resulting return types.
+    function refineTypedDictMethodCallForUnionKey(
+        errorNode: ExpressionNode,
+        argList: Arg[],
+        overloadedType: OverloadedType,
+        isCallTypeIncomplete: boolean
+    ): { returnType: Type; isTypeIncomplete: boolean } | undefined {
+        const overload = OverloadedType.getOverloads(overloadedType)[0];
+        if (!overload || !FunctionType.isSynthesizedMethod(overload)) {
+            return undefined;
+        }
+
+        const methodName = overload.shared.name;
+        if (methodName !== 'get' && methodName !== 'pop') {
+            return undefined;
+        }
+
+        const isBound = isMethodType(overload);
+        const receiverType = isBound
+            ? overload.priv.strippedFirstParamType
+            : overload.shared.parameters.length > 0
+            ? FunctionType.getParamType(overload, 0)
+            : undefined;
+        if (!receiverType || !isClassInstance(receiverType) || !ClassType.isTypedDictClass(receiverType)) {
+            return undefined;
+        }
+
+        // Handle only simple positional calls: (key) or (key, default).
+        const keyIndex = isBound ? 0 : 1;
+        if (argList.length <= keyIndex || argList.length > keyIndex + 2) {
+            return undefined;
+        }
+        if (!argList.every((arg) => !arg.name && arg.argCategory === ArgCategory.Simple)) {
+            return undefined;
+        }
+
+        const keyArg = argList[keyIndex];
+        const keyTypeResult =
+            keyArg.typeResult ?? (keyArg.valueExpression ? getTypeOfExpression(keyArg.valueExpression) : undefined);
+        if (!keyTypeResult || !isUnion(keyTypeResult.type)) {
+            return undefined;
+        }
+
+        // Every subtype must be a str literal; otherwise keep the normal result.
+        const keySubtypes: Type[] = [];
+        let allStrLiterals = true;
+        doForEachSubtype(keyTypeResult.type, (subtype) => {
+            if (
+                isClassInstance(subtype) &&
+                ClassType.isBuiltIn(subtype, 'str') &&
+                subtype.priv.literalValue !== undefined
+            ) {
+                keySubtypes.push(subtype);
+            } else {
+                allStrLiterals = false;
+            }
+        });
+        if (!allStrLiterals || keySubtypes.length < 2 || keySubtypes.length > maxSingleOverloadArgTypeExpansionCount) {
+            return undefined;
+        }
+
+        let isTypeIncomplete = !!keyTypeResult.isIncomplete;
+        const returnTypes: Type[] = [];
+
+        const succeeded = useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () => {
+            for (const keySubtype of keySubtypes) {
+                const subtypeArgList = [...argList];
+                subtypeArgList[keyIndex] = {
+                    argCategory: ArgCategory.Simple,
+                    typeResult: { type: keySubtype, isIncomplete: keyTypeResult.isIncomplete },
+                };
+
+                const subtypeResult = validateOverloadedArgTypes(
+                    errorNode,
+                    subtypeArgList,
+                    { type: overloadedType, isIncomplete: isCallTypeIncomplete },
+                    /* constraints */ undefined,
+                    /* skipUnknownArgCheck */ true,
+                    /* inferenceContext */ undefined
+                );
+
+                if (subtypeResult.isTypeIncomplete) {
+                    isTypeIncomplete = true;
+                }
+
+                if (subtypeResult.argumentErrors || !subtypeResult.returnType) {
+                    return false;
+                }
+
+                returnTypes.push(subtypeResult.returnType);
+            }
+
+            return true;
+        });
+
+        if (!succeeded) {
+            return undefined;
+        }
+
+        return { returnType: combineTypes(returnTypes), isTypeIncomplete };
+    }
+
     function validateCallForOverloaded(
         errorNode: ExpressionNode,
         argList: Arg[],
@@ -11517,21 +11623,6 @@ export function createTypeEvaluator(
             return { returnType: evaluateCastCall(argList, errorNode) };
         }
 
-        const tdMethodInfo = getTypedDictClassFromMethod(expandedCallType);
-        if (tdMethodInfo) {
-            const tdResult = applyTypedDictMethodTransform(
-                evaluatorInterface,
-                errorNode,
-                argList,
-                tdMethodInfo.classType,
-                tdMethodInfo.methodName,
-                tdMethodInfo.isBound
-            );
-            if (tdResult) {
-                return tdResult;
-            }
-        }
-
         const callResult = validateOverloadedArgTypes(
             errorNode,
             argList,
@@ -11546,10 +11637,20 @@ export function createTypeEvaluator(
         let argumentErrors = !!callResult.argumentErrors;
 
         if (!argumentErrors) {
+            const refinedResult = refineTypedDictMethodCallForUnionKey(
+                errorNode,
+                argList,
+                expandedCallType,
+                isCallTypeIncomplete
+            );
+            if (refinedResult?.isTypeIncomplete) {
+                isTypeIncomplete = true;
+            }
+
             // Call the function transform logic to handle special-cased functions.
             const transformed = applyFunctionTransform(evaluatorInterface, errorNode, argList, expandedCallType, {
                 argumentErrors: !!callResult.argumentErrors,
-                returnType: callResult.returnType ?? UnknownType.create(isTypeIncomplete),
+                returnType: refinedResult?.returnType ?? callResult.returnType ?? UnknownType.create(isTypeIncomplete),
                 isTypeIncomplete,
             });
 
