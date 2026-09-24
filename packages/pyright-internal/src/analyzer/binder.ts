@@ -3439,6 +3439,23 @@ export class Binder extends ParseTreeWalker {
                         allowDiscriminatedNarrowing: true,
                     });
 
+                    // Look for "Y is type(X)", "Y is not type(X)", "Y == type(X)" or "Y != type(X)".
+                    if (
+                        expression.d.rightExpr.nodeType === ParseNodeType.Call &&
+                        expression.d.rightExpr.d.leftExpr.nodeType === ParseNodeType.Name &&
+                        expression.d.rightExpr.d.leftExpr.d.value === 'type' &&
+                        expression.d.rightExpr.d.args.length === 1 &&
+                        expression.d.rightExpr.d.args[0].d.argCategory === ArgCategory.Simple
+                    ) {
+                        const isRightNarrowing = this._isNarrowingExpression(
+                            expression.d.rightExpr.d.args[0].d.valueExpr,
+                            expressionList,
+                            { ...options, isComplexExpression: true }
+                        );
+
+                        return isLeftNarrowing || isRightNarrowing;
+                    }
+
                     // Look for "X is Y" or "X is not Y".
                     // Look for X == <literal> or X != <literal>
                     // Look for len(X) == <literal> or len(X) != <literal>

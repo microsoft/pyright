@@ -215,80 +215,64 @@ export function getTypeNarrowingCallback(
             let typeCallNode: CallNode | undefined;
             let otherExpr: ExpressionNode | undefined;
 
-            if (testExpression.d.leftExpr.nodeType === ParseNodeType.Call) {
+            // Either operand may be the call; pick the one whose argument matches the reference.
+            const isTypeCallOfReference = (expr: ExpressionNode): expr is CallNode =>
+                expr.nodeType === ParseNodeType.Call &&
+                expr.d.args.length === 1 &&
+                expr.d.args[0].d.argCategory === ArgCategory.Simple &&
+                isMatchingExpressionOrWalrusRhs(evaluator, reference, expr.d.args[0].d.valueExpr) &&
+                isTypeCallBase(evaluator.getTypeOfExpression(expr.d.leftExpr, EvalFlags.CallBaseDefaults).type);
+
+            if (isTypeCallOfReference(testExpression.d.leftExpr)) {
                 typeCallNode = testExpression.d.leftExpr;
                 otherExpr = testExpression.d.rightExpr;
-            } else if (testExpression.d.rightExpr.nodeType === ParseNodeType.Call) {
+            } else if (isTypeCallOfReference(testExpression.d.rightExpr)) {
                 typeCallNode = testExpression.d.rightExpr;
                 otherExpr = testExpression.d.leftExpr;
             }
 
-            if (
-                typeCallNode &&
-                otherExpr &&
-                typeCallNode.d.args.length === 1 &&
-                typeCallNode.d.args[0].d.argCategory === ArgCategory.Simple
-            ) {
-                const arg0Expr = typeCallNode.d.args[0].d.valueExpr;
-                if (isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
-                    const callType = evaluator.getTypeOfExpression(
-                        typeCallNode.d.leftExpr,
-                        EvalFlags.CallBaseDefaults
-                    ).type;
+            if (typeCallNode && otherExpr) {
+                const otherResult = evaluator.getTypeOfExpression(otherExpr);
+                const classTypes: ClassType[] = [];
+                let isClassType = true;
 
-                    if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type')) {
-                        const otherResult = evaluator.getTypeOfExpression(otherExpr);
-                        const classTypes: ClassType[] = [];
-                        let isClassType = true;
+                evaluator.mapSubtypesExpandTypeVars(otherResult.type, /* options */ undefined, (expandedSubtype) => {
+                    let instantiable: ClassType | undefined;
 
-                        evaluator.mapSubtypesExpandTypeVars(
-                            otherResult.type,
-                            /* options */ undefined,
-                            (expandedSubtype) => {
-                                let instantiable: ClassType | undefined;
-                                let isTypeParam = false;
-
-                                if (isClass(expandedSubtype)) {
-                                    if (
-                                        ClassType.isBuiltIn(expandedSubtype, 'type') &&
-                                        expandedSubtype.priv.typeArgs &&
-                                        expandedSubtype.priv.typeArgs.length > 0
-                                    ) {
-                                        isTypeParam = true;
-                                        const extracted = convertToInstantiable(
-                                            expandedSubtype.priv.typeArgs[0],
-                                            /* includeSubclasses */ true
-                                        );
-                                        if (isInstantiableClass(extracted)) {
-                                            instantiable = extracted;
-                                        }
-                                    } else if (isInstantiableClass(expandedSubtype)) {
-                                        instantiable = expandedSubtype;
-                                    }
-                                }
-
-                                if (instantiable && !ClassType.isBuiltIn(instantiable, 'object')) {
-                                    classTypes.push(
-                                        isTypeParam
-                                            ? instantiable
-                                            : ClassType.cloneIncludeSubclasses(instantiable, false)
-                                    );
-                                } else {
-                                    isClassType = false;
-                                }
-                                return undefined;
+                    if (isClass(expandedSubtype)) {
+                        if (
+                            isClassInstance(expandedSubtype) &&
+                            ClassType.isBuiltIn(expandedSubtype, 'type') &&
+                            expandedSubtype.priv.typeArgs &&
+                            expandedSubtype.priv.typeArgs.length > 0
+                        ) {
+                            const extracted = convertToInstantiable(
+                                expandedSubtype.priv.typeArgs[0],
+                                /* includeSubclasses */ true
+                            );
+                            if (isInstantiableClass(extracted)) {
+                                instantiable = extracted;
                             }
-                        );
-
-                        if (isClassType && classTypes.length > 0) {
-                            return (type: Type) => {
-                                return {
-                                    type: narrowTypeForTypeIs(evaluator, type, classTypes, adjIsPositiveTest),
-                                    isIncomplete: !!otherResult.isIncomplete,
-                                };
-                            };
+                        } else if (isInstantiableClass(expandedSubtype)) {
+                            instantiable = expandedSubtype;
                         }
                     }
+
+                    if (instantiable) {
+                        classTypes.push(instantiable);
+                    } else {
+                        isClassType = false;
+                    }
+                    return undefined;
+                });
+
+                if (isClassType && classTypes.length > 0) {
+                    return (type: Type) => {
+                        return {
+                            type: narrowTypeForTypeIs(evaluator, type, classTypes, adjIsPositiveTest),
+                            isIncomplete: !!otherResult.isIncomplete,
+                        };
+                    };
                 }
             }
 
@@ -2563,6 +2547,18 @@ function narrowTypeForDiscriminatedFieldNoneComparison(
     });
 }
 
+function isTypeCallBase(callType: Type): boolean {
+    return isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type');
+}
+
+// Determines whether two classes have incompatible disjoint bases (PEP 800),
+// in which case no class can derive from both of them.
+function areDisjointBasesIncompatible(classType1: ClassType, classType2: ClassType): boolean {
+    const base1 = ClassType.getDisjointBase(classType1);
+    const base2 = ClassType.getDisjointBase(classType2);
+    return !!base1 && !!base2 && !ClassType.getMostDerivedDisjointBase([base1, base2]);
+}
+
 // Attempts to narrow a type based on a "type(x) is y" or "type(x) is not y" check.
 function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: ClassType[], isPositiveTest: boolean) {
     // We currently don't support narrowing in the negative direction
@@ -2590,7 +2586,18 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: C
                             return addConditionToType(ClassType.cloneAsInstance(classType), subtype.props?.condition);
                         }
 
-                        if (!classType.priv.includeSubclasses || !isSubclass) {
+                        if (!classType.priv.includeSubclasses) {
+                            return undefined;
+                        }
+
+                        // A subclass of both the subtype and the class could satisfy the
+                        // comparison, so eliminate the subtype only if no such class can exist.
+                        if (
+                            !isSubclass &&
+                            (ClassType.isFinal(classType) ||
+                                ClassType.isFinal(instantiableSubtype) ||
+                                areDisjointBasesIncompatible(instantiableSubtype, classType))
+                        ) {
                             return undefined;
                         }
 
@@ -2599,7 +2606,8 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: C
                         }
                     }
 
-                    if (!classType.priv.includeSubclasses) {
+                    // A final class has no subclasses, so it is treated as an exact class.
+                    if (!classType.priv.includeSubclasses || ClassType.isFinal(classType)) {
                         // If the class if marked final and it matches, then
                         // we can eliminate it in the negative case.
                         if (matches && ClassType.isFinal(instantiableSubtype)) {
