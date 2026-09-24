@@ -115,3 +115,27 @@ def example_with_unreachable_class_decorator():
     @(class_decorator_var := (lambda cls: cls))
     class NestedClass:
         pass
+
+
+_ = "global"
+
+
+def example_with_unreachable_wildcard_pattern():
+    # This should not generate an error; a wildcard pattern does not bind a name.
+    return _
+    match 0:
+        case _:
+            pass
+
+
+class ClassWithUnreachableAssignment:
+    if False:
+        dead_attr = 1
+
+    def __getattr__(self, name: str) -> int:
+        return 1
+
+
+# This should not be Unbound; dead class-body assignments do not create
+# attributes, so __getattr__ is used.
+reveal_type(ClassWithUnreachableAssignment().dead_attr, expected_text="int")

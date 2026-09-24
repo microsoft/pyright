@@ -3074,7 +3074,11 @@ export class Binder extends ParseTreeWalker {
 
                     // Assignments in unreachable code still make names local, matching
                     // CPython. Bind those names without type-checking the dead code.
-                    this._bindNamesInUnreachableCode(statement);
+                    // Only function scopes are affected; class and module bodies
+                    // look up unassigned names in outer scopes at runtime.
+                    if (this._currentScope.type === ScopeType.Function) {
+                        this._bindNamesInUnreachableCode(statement);
+                    }
                 }
             }
         }
@@ -5079,7 +5083,9 @@ class UnreachableNameBinder extends ParseTreeWalker {
     }
 
     override visitPatternCapture(node: PatternCaptureNode): boolean {
-        this._bindName(node.d.target);
+        if (!node.d.isWildcard) {
+            this._bindName(node.d.target);
+        }
         return false;
     }
 }
