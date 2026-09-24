@@ -69,6 +69,104 @@ def test_cross_type_value_pattern(value_to_match: str):
             reveal_type(value_to_match, expected_text="str")
 
 
+class NonComparablePattern:
+    def __eq__(self, other: "NonComparablePattern") -> bool: ...
+
+
+class NonComparablePatterns:
+    value: ClassVar[NonComparablePattern]
+
+
+def test_non_comparable_value_pattern(value_to_match: str):
+    match value_to_match:
+        case NonComparablePatterns.value as a1:
+            reveal_type(a1, expected_text="Never")
+            reveal_type(value_to_match, expected_text="Never")
+
+
+class ReflectedEqSubject:
+    def __eq__(self, other: object) -> bool: ...
+
+
+class PlainToken:
+    pass
+
+
+class PlainTokens:
+    value: ClassVar[PlainToken]
+
+
+def test_reflected_eq_value_pattern(value_to_match: ReflectedEqSubject):
+    match value_to_match:
+        case PlainTokens.value as a1:
+            reveal_type(a1, expected_text="ReflectedEqSubject")
+            reveal_type(value_to_match, expected_text="ReflectedEqSubject")
+
+
+def test_unrelated_value_pattern(value_to_match: set[int]):
+    match value_to_match:
+        case PlainTokens.value as a1:
+            reveal_type(a1, expected_text="set[int]")
+
+
+class FrozenSetPatterns:
+    empty: ClassVar[frozenset[int]]
+
+
+def test_builtin_cross_type_value_pattern(value_to_match: set[int]):
+    match value_to_match:
+        case FrozenSetPatterns.empty as a1:
+            reveal_type(a1, expected_text="set[int]")
+
+
+class EqBase:
+    def __eq__(self, other: object) -> bool: ...
+
+
+class EqDerived(EqBase):
+    pass
+
+
+class EqDerivedPatterns:
+    value: ClassVar[EqDerived]
+
+
+def test_related_custom_eq_value_pattern(value_to_match: EqBase):
+    match value_to_match:
+        case EqDerivedPatterns.value as a1:
+            reveal_type(a1, expected_text="EqBase")
+            reveal_type(value_to_match, expected_text="EqBase")
+
+
+class PlainBase:
+    pass
+
+
+class PlainDerived(PlainBase):
+    pass
+
+
+class PlainDerivedPatterns:
+    value: ClassVar[PlainDerived]
+
+
+def test_related_identity_eq_value_pattern(value_to_match: PlainBase):
+    match value_to_match:
+        case PlainDerivedPatterns.value as a1:
+            reveal_type(a1, expected_text="PlainDerived")
+
+
+TEqBase = TypeVar("TEqBase", bound=EqBase)
+
+
+def test_bound_typevar_value_pattern(value_to_match: TEqBase) -> TEqBase:
+    match value_to_match:
+        case EqDerivedPatterns.value as a1:
+            reveal_type(a1, expected_text="TEqBase@test_bound_typevar_value_pattern")
+            return a1
+    return value_to_match
+
+
 TInt = TypeVar("TInt", bound=MyEnum1)
 
 
