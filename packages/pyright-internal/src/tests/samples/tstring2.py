@@ -22,6 +22,7 @@ t4.values
 # This should generate an error because t-string literals cannot be
 # mixed with string literals.
 t5 = "" t"x"
+reveal_type(t5, expected_text="Unknown")
 
 # This should generate an error.
 t6 = t"x" "y"
@@ -31,6 +32,7 @@ t7 = t"x" f"y"
 
 # This should generate an error.
 t8 = t"x" b"y"
+reveal_type(t8, expected_text="Unknown")
 
 t9 = t"a" + t"b"
 reveal_type(t9, expected_text="Template")
