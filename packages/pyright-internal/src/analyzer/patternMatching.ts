@@ -534,15 +534,20 @@ function narrowTypeBasedOnMappingPattern(
 
                 const matchesAllEntries = keyEntryInfos.every((entryInfo) => {
                     const member = typedDictMembers.knownItems.get(entryInfo.keyValue);
-                    if (!member || (!member.isRequired && !member.isProvided) || !isClassInstance(member.valueType)) {
+                    if (!member || (!member.isRequired && !member.isProvided)) {
                         return false;
                     }
 
+                    // A capture pattern matches any value once the key is present.
                     if (entryInfo.valueTypes === undefined) {
                         return true;
                     }
 
                     const memberValueType = member.valueType;
+                    if (!isClassInstance(memberValueType) || memberValueType.priv.literalValue === undefined) {
+                        return false;
+                    }
+
                     return entryInfo.valueTypes.some(
                         (valueType) =>
                             isClassInstance(valueType) &&
