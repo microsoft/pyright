@@ -8315,7 +8315,14 @@ export function createTypeEvaluator(
             } else if (isClassInstance(valueType) && ClassType.isBuiltIn(valueType, 'slice')) {
                 const tupleType = getSpecializedTupleType(baseType);
 
-                if (tupleType && index0Expr.nodeType === ParseNodeType.Slice) {
+                // Skip this if a subclass overrides the tuple's __getitem__ method.
+                const getItemMember = lookUpObjectMember(baseType, '__getitem__');
+                const isTupleGetItem =
+                    !getItemMember ||
+                    (isInstantiableClass(getItemMember.classType) &&
+                        ClassType.isBuiltIn(getItemMember.classType, 'tuple'));
+
+                if (tupleType && isTupleGetItem && index0Expr.nodeType === ParseNodeType.Slice) {
                     const slicedTupleType = getSlicedTupleType(evaluatorInterface, tupleType, index0Expr);
                     if (slicedTupleType) {
                         return { type: slicedTupleType };

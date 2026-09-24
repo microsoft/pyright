@@ -39,6 +39,7 @@ import {
     getContainerDepth,
     InferenceContext,
     isLiteralType,
+    isNoneInstance,
     isTupleClass,
     isTupleGradualForm,
     makeInferenceContext,
@@ -541,8 +542,12 @@ export function getSlicedTupleType(
     tupleType: ClassType,
     sliceNode: SliceNode
 ): Type | undefined {
-    // We don't handle step values.
-    if (sliceNode.d.stepValue || !tupleType.priv.tupleTypeArgs) {
+    if (!tupleType.priv.tupleTypeArgs) {
+        return undefined;
+    }
+
+    // We don't handle step values other than an explicit None.
+    if (sliceNode.d.stepValue && !isNoneInstance(evaluator.getTypeOfExpression(sliceNode.d.stepValue).type)) {
         return undefined;
     }
 
@@ -610,11 +615,17 @@ function getTupleSliceParam(
 
     if (expression) {
         const valType = evaluator.getTypeOfExpression(expression).type;
-        if (!isClassInstance(valType) || !ClassType.isBuiltIn(valType, 'int') || !isLiteralType(valType)) {
+        if (!isClassInstance(valType) || !isLiteralType(valType)) {
             return undefined;
         }
 
-        value = valType.priv.literalValue as number;
+        if (ClassType.isBuiltIn(valType, 'int') && typeof valType.priv.literalValue === 'number') {
+            value = valType.priv.literalValue;
+        } else if (ClassType.isBuiltIn(valType, 'bool') && typeof valType.priv.literalValue === 'boolean') {
+            value = valType.priv.literalValue ? 1 : 0;
+        } else {
+            return undefined;
+        }
         const unboundedIndex = tupleTypeArgs.findIndex(
             (typeArg) => typeArg.isUnbounded || isTypeVarTuple(typeArg.type)
         );
