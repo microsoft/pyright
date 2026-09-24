@@ -118,15 +118,17 @@ result contract, and the comparator rejects mismatched environments.
 ## Maintainer workflow
 
 Pull requests that change `packages/pyright-internal/src/analyzer/` automatically run the hosted
-benchmark when opened, reopened, updated, or marked ready for review. Draft pull requests wait until
-they are ready. The trusted trigger runs from the base repository and dispatches the existing
-read-only benchmark workflow without checking out or executing pull-request code.
+benchmark once, when opened or marked ready for review. Draft pull requests wait until they are
+ready. Subsequent commits and reopened pull requests do not trigger another automatic run. The
+trusted trigger runs from the base repository and dispatches the existing read-only benchmark
+workflow without checking out or executing pull-request code.
 
-For other pull requests, a maintainer can comment exactly `/benchmark` on an open or merged pull
-request. The command must be the entire comment. The trusted command workflow checks that the
-commenter has `write`, `maintain`, or `admin` repository permission and then explicitly dispatches
-the benchmark with the pull request's head and candidate commits. Closed, unmerged pull requests are
-ignored. Users without one of these permissions cannot start the benchmark.
+To run the benchmark again, or to run it for another pull request, a maintainer can comment exactly
+`/benchmark` on an open or merged pull request. The command must be the entire comment. The trusted
+command workflow checks that the commenter has `write`, `maintain`, or `admin` repository permission
+and then explicitly dispatches the benchmark with the pull request's head and candidate commits.
+Closed, unmerged pull requests are ignored. Users without one of these permissions cannot start the
+benchmark.
 
 For an open pull request, the dispatched workflow runs GitHub's current synthetic merge commit. For
 a merged pull request, it runs the checked-in merge or squash commit. Both modes compare the
@@ -143,9 +145,9 @@ trusted job appends both measurements to the checked-in Pyright release history 
 report, execution-time and peak-memory SVG charts, and combined JSON as a 90-day artifact linked from
 the benchmark comment. The published release history remains unchanged.
 
-Analyzer changes run again after each pushed commit. For other changes, comment `/benchmark` again
-after pushing a new commit or when rerunning the same head. The trigger workflows must already exist
-on the repository's default branch; a pull request that first introduces them cannot trigger itself.
+After the automatic run, comment `/benchmark` after pushing a new commit or when rerunning the same
+head. The trigger workflows must already exist on the repository's default branch; a pull request
+that first introduces them cannot trigger itself.
 
 ## Options
 
