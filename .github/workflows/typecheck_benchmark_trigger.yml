@@ -71,12 +71,19 @@ jobs:
               core.notice('Only open or merged pull requests can be benchmarked')
               return
             }
+            const candidateRef = pullRequest.data.merged
+              ? pullRequest.data.merge_commit_sha
+              : `refs/pull/${issueNumber}/merge`
+            if (!candidateRef) {
+              core.setFailed('The pull request does not have a candidate commit to benchmark')
+              return
+            }
             let candidateCommit
             try {
               candidateCommit = await github.rest.repos.getCommit({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                ref: pullRequest.data.merge_commit_sha || `refs/pull/${issueNumber}/merge`,
+                ref: candidateRef,
               })
             } catch (error) {
               if (error.status === 404) {
