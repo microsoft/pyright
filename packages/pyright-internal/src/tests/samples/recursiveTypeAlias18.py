@@ -1,7 +1,7 @@
 # This sample tests that the type arguments of a specialized generic
 # recursive type alias are retained when the type is printed.
 
-from typing import TypeAlias, TypeVar
+from typing import Callable, TypeAlias, TypeVar, assert_type
 
 
 type Alias1[T] = tuple[T, Alias1[T] | None]
@@ -67,6 +67,30 @@ type Alias8 = int | list[Alias8]
 
 def func8(x: Alias8):
     reveal_type(x, expected_text="int | list[Alias8]")
+
+
+# The expanded type remains semantically equivalent to the alias.
+def func11(x: Alias1[str], y: Alias1[str] | None):
+    assert_type(x, Alias1[str])
+    assert_type(x[0], str)
+    v: Alias1[str] = x
+    w: Alias1[str] | None = x[1]
+    y = w
+
+
+type Alias12[**P] = Callable[P, Alias12[P] | None]
+
+
+def func12(x: Alias12[[int, str]]):
+    reveal_type(x, expected_text="(int, str) -> (Alias12[(int, str)] | None)")
+
+
+type Alias13[T = int] = tuple[T, Alias13[T] | None]
+
+
+def func13(x: Alias13, y: Alias13[str]):
+    reveal_type(x, expected_text="tuple[int, Alias13[int] | None]")
+    reveal_type(y, expected_text="tuple[str, Alias13[str] | None]")
 
 
 # The specialization is also reflected in diagnostic messages.
