@@ -2205,7 +2205,9 @@ export function getElementTypeForContainerNarrowing(containerType: Type): Type |
         const elementTypes: Type[] = [];
         for (const subtype of containerType.priv.subtypes) {
             const elemType = getElementTypeForContainerNarrowing(subtype);
-            if (!elemType) {
+            // Don't narrow if any subtype's element type is unknown or includes an
+            // unpacked TypeVarTuple (e.g. tuple[*Ts]), whose elements could be anything.
+            if (!elemType || someSubtypes(elemType, (t) => isUnpackedTypeVarTuple(t))) {
                 return undefined;
             }
             elementTypes.push(elemType);
@@ -2217,37 +2219,17 @@ export function getElementTypeForContainerNarrowing(containerType: Type): Type |
         return undefined;
     }
 
-    // We support contains narrowing only for certain built-in and stdlib collection types that have been specialized.
-    const supportedContainers = [
-        'list',
-        'set',
-        'frozenset',
-        'deque',
-        'tuple',
-        'dict',
-        'defaultdict',
-        'OrderedDict',
-        'Sequence',
-        'MutableSequence',
-        'Set',
-        'AbstractSet',
-        'MutableSet',
-        'Collection',
-        'Container',
-        'Mapping',
-        'MutableMapping',
-        'KeysView',
-        'ValuesView',
-        'dict_keys',
-        'dict_values',
-    ];
+    // We support contains narrowing only for certain built-in types that have been specialized.
+    // Abstract collection types (e.g. Sequence, Container, KeysView) are intentionally excluded
+    // because their __contains__ implementations are not constrained to the element type.
+    const supportedContainers = ['list', 'set', 'frozenset', 'deque', 'tuple', 'dict', 'defaultdict', 'OrderedDict'];
+
+    // The concrete dict view types returned by dict.keys() and dict.values().
+    const supportedDictViews = ['_collections_abc.dict_keys', '_collections_abc.dict_values'];
 
     const isSupported =
         ClassType.isBuiltIn(containerType, supportedContainers) ||
-        ((containerType.shared.fullName.startsWith('_collections_abc.') ||
-            containerType.shared.fullName.startsWith('collections.abc.') ||
-            containerType.shared.fullName.startsWith('typing.')) &&
-            supportedContainers.includes(containerType.shared.name));
+        supportedDictViews.includes(containerType.shared.fullName);
 
     if (!isSupported) {
         return undefined;
@@ -2257,8 +2239,8 @@ export function getElementTypeForContainerNarrowing(containerType: Type): Type |
         return undefined;
     }
 
-    if (containerType.shared.name === 'dict_values' || containerType.shared.name === 'ValuesView') {
-        return containerType.priv.typeArgs.length > 1 ? containerType.priv.typeArgs[1] : containerType.priv.typeArgs[0];
+    if (containerType.shared.fullName === '_collections_abc.dict_values') {
+        return containerType.priv.typeArgs.length > 1 ? containerType.priv.typeArgs[1] : undefined;
     }
 
     if (isTupleClass(containerType) && containerType.priv.tupleTypeArgs) {
