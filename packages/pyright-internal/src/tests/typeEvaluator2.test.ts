@@ -8,6 +8,8 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import assert from 'assert';
+
 import { ConfigOptions } from '../common/configOptions';
 import {
     pythonVersion3_10,
@@ -184,6 +186,9 @@ test('Super1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super1.py']);
 
     TestUtils.validateResults(analysisResults, 10);
+
+    const errorLines = analysisResults[0].errors.map((e) => e.range.start.line + 1);
+    assert.deepStrictEqual(errorLines, [37, 46, 52, 67, 75, 88, 94, 101, 109, 116]);
 });
 
 test('Super2', () => {
@@ -264,6 +269,9 @@ test('Super14', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super14.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 4);
+
+    const errorLines = analysisResults[0].errors.map((e) => e.range.start.line + 1);
+    assert.deepStrictEqual(errorLines, [16, 20, 24, 28]);
 });
 
 test('MissingSuper1', () => {
