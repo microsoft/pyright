@@ -97,12 +97,19 @@ jobs:
             const candidateSha = candidateCommit.data.sha
             const firstParentSha = candidateCommit.data.parents[0]?.sha
             const baseSha = pullRequest.data.merged ? firstParentSha : pullRequest.data.base.sha
-            if (!baseSha || !firstParentSha) {
+            if (!firstParentSha) {
               core.setFailed('The candidate commit does not have a first parent')
               return
             }
+            if (!baseSha) {
+              core.setFailed('The pull request does not have a base commit SHA')
+              return
+            }
             if (!pullRequest.data.merged && firstParentSha !== baseSha) {
-              core.setFailed('The pull request merge commit does not use the current base')
+              core.setFailed(
+                `The pull request merge commit does not use the current base ${baseSha}; ` +
+                  `its first parent is ${firstParentSha}. The merge ref may be stale; try again shortly.`
+              )
               return
             }
             if (
