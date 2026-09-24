@@ -1021,12 +1021,12 @@ test('Protocol54', () => {
 test('Protocol55', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol55.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 
     // Verify that the errors are reported on the expected `@runtime_checkable`
     // decorators rather than on some other (unrelated) declaration.
     const errorLines = analysisResults[0].errors.map((diag) => diag.range.start.line).sort((a, b) => a - b);
-    assert.deepStrictEqual(errorLines, [13, 24, 45]);
+    assert.deepStrictEqual(errorLines, [13, 24, 45, 97]);
 });
 
 test('ProtocolExplicit1', () => {
