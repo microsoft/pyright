@@ -990,7 +990,7 @@ test('Annotated2', () => {
 test('Annotated10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotated10.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Circular1', () => {

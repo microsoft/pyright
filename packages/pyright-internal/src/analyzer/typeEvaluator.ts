@@ -6289,12 +6289,16 @@ export function createTypeEvaluator(
                     if (
                         (!typeResult || typeResult.typeErrors) &&
                         ClassType.isBuiltIn(baseType, 'Annotated') &&
-                        baseTypeForm
+                        baseTypeForm &&
+                        isClassInstance(baseTypeForm)
                     ) {
+                        // At runtime, the Annotated alias delegates attribute access
+                        // to its origin class object, so evaluate the access against
+                        // the instantiable form of the annotated class.
                         const fallbackDiag = new DiagnosticAddendum();
                         const fallbackResult = getTypeOfMemberAccessWithBaseType(
                             node,
-                            { type: baseTypeForm },
+                            { type: ClassType.cloneAsInstantiable(baseTypeForm) },
                             usage,
                             flags
                         );
