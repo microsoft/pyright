@@ -2616,8 +2616,7 @@ export function createTypeEvaluator(
                 effectiveFlags |=
                     MemberAccessFlags.SkipClassMembers |
                     MemberAccessFlags.SkipAttributeAccessOverride |
-                    MemberAccessFlags.SkipTypeBaseClass |
-                    MemberAccessFlags.SkipBaseClasses;
+                    MemberAccessFlags.SkipTypeBaseClass;
                 effectiveFlags &= ~MemberAccessFlags.SkipInstanceMembers;
             }
 

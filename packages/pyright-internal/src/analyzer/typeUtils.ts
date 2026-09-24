@@ -1773,12 +1773,18 @@ export function lookUpClassMember(
     // Skip the "type" class as an optimization because it is known to not
     // define any instance variables, and it's by far the most common metaclass.
     if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
-        let metaFlags = MemberAccessFlags.SkipClassMembers;
-        if (isClassInstance(classType) || (flags & MemberAccessFlags.SkipTypeBaseClass) !== 0) {
-            metaFlags |= MemberAccessFlags.SkipTypeBaseClass;
+        // Skip members contributed by the 'type' class itself, but continue
+        // searching any metaclass bases that follow it in the MRO (e.g.
+        // "class Meta(type, Mixin)").
+        const skipTypeClass = isClassInstance(classType) || (flags & MemberAccessFlags.SkipTypeBaseClass) !== 0;
+        let metaMember: ClassMember | undefined;
+        for (const member of getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers)) {
+            if (skipTypeClass && isClass(member.classType) && ClassType.isBuiltIn(member.classType, 'type')) {
+                continue;
+            }
+            metaMember = member;
+            break;
         }
-        const metaMemberItr = getClassMemberIterator(metaclass, memberName, metaFlags);
-        const metaMember = metaMemberItr.next()?.value;
 
         // If the metaclass defines the member and we didn't hit an Unknown
         // class in the metaclass MRO, use the metaclass member.

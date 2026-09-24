@@ -25,3 +25,23 @@ def func(a: A):
 # Access through the class itself should resolve via the metaclass.
 reveal_type(A.__dict__, expected_text="MappingProxyType[str, Any]")
 reveal_type(A.meta_method(), expected_text="str")
+
+
+class Fields:
+    def initialize(self) -> None:
+        self.label: str = "ok"
+
+
+class Meta2(type, Fields):
+    def __init__(cls, name: str, bases: tuple[type, ...], ns: dict[str, Any]) -> None:
+        cls.initialize()
+
+
+class C(metaclass=Meta2):
+    pass
+
+
+# Instance variables declared in a base class of the metaclass
+# should remain accessible through the class and its instances.
+reveal_type(C.label, expected_text="str")
+reveal_type(C().label, expected_text="str")
