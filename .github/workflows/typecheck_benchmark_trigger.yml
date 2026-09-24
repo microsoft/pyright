@@ -71,12 +71,15 @@ jobs:
               core.notice('Only open or merged pull requests can be benchmarked')
               return
             }
-            const candidateRef = pullRequest.data.merged
-              ? pullRequest.data.merge_commit_sha
-              : `refs/pull/${issueNumber}/merge`
-            if (!candidateRef) {
-              core.setFailed('The pull request does not have a candidate commit to benchmark')
-              return
+            let candidateRef
+            if (pullRequest.data.merged) {
+              candidateRef = pullRequest.data.merge_commit_sha
+              if (!candidateRef) {
+                core.setFailed('The pull request does not have a candidate commit to benchmark')
+                return
+              }
+            } else {
+              candidateRef = `refs/pull/${issueNumber}/merge`
             }
             let candidateCommit
             try {
@@ -95,12 +98,11 @@ jobs:
               throw error
             }
             const candidateSha = candidateCommit.data.sha
-            const firstParentSha = candidateCommit.data.parents[0]?.sha
-            if (!firstParentSha) {
+            const baseSha = candidateCommit.data.parents[0]?.sha
+            if (!baseSha) {
               core.setFailed('The candidate commit does not have a first parent')
               return
             }
-            const baseSha = firstParentSha
             if (
               !pullRequest.data.merged &&
               candidateCommit.data.parents[1]?.sha !== pullRequest.data.head.sha
