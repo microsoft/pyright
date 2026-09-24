@@ -691,11 +691,11 @@ test('NamedTupleReplace1', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace1.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 5);
+    TestUtils.validateResults(analysisResults1, 8);
 
     configOptions.defaultPythonVersion = pythonVersion3_13;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 5);
+    TestUtils.validateResults(analysisResults2, 8);
 });
 
 test('NamedTuple12', () => {

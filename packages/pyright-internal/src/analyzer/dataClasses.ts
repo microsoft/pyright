@@ -31,7 +31,7 @@ import { ConstraintSolution } from './constraintSolution';
 import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod } from './constructors';
 import { DeclarationType, VariableDeclaration } from './declaration';
-import { updateNamedTupleBaseClass } from './namedTuples';
+import { createNamedTupleReplaceFromDunderReplace, updateNamedTupleBaseClass } from './namedTuples';
 import {
     getClassFullName,
     getEnclosingClassOrFunction,
@@ -234,7 +234,7 @@ export function synthesizeDataClassMethods(
     );
     let replaceType: FunctionType | undefined;
     if (synthesizeDunderReplace || isNamedTuple) {
-        replaceType = FunctionType.createSynthesizedInstance(synthesizeDunderReplace ? '__replace__' : '_replace');
+        replaceType = FunctionType.createSynthesizedInstance('__replace__');
         FunctionType.addParam(replaceType, selfParam);
         FunctionType.addKeywordOnlyParamSeparator(replaceType);
         replaceType.shared.declaredReturnType = selfType;
@@ -800,7 +800,13 @@ export function synthesizeDataClassMethods(
                 symbolTable.set('__replace__', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
             }
             if (isNamedTuple && !symbolTable.has('_replace')) {
-                symbolTable.set('_replace', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
+                symbolTable.set(
+                    '_replace',
+                    Symbol.createWithType(
+                        SymbolFlags.ClassMember,
+                        createNamedTupleReplaceFromDunderReplace(replaceType)
+                    )
+                );
             }
         }
     }

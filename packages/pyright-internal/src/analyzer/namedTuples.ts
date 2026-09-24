@@ -440,26 +440,23 @@ function synthesizeNamedTupleReplaceMethods(
     addGenericGetAttribute: boolean,
     pythonVersion: PythonVersion
 ) {
-    const synthesizeDunderReplace = PythonVersion.isGreaterOrEqualTo(pythonVersion, pythonVersion3_13);
-    const replaceType = FunctionType.createSynthesizedInstance(synthesizeDunderReplace ? '__replace__' : '_replace');
-    FunctionType.addParam(replaceType, selfParam);
-    FunctionType.addKeywordOnlyParamSeparator(replaceType);
-    replaceType.shared.declaredReturnType = selfParam._type;
+    const replaceParams: FunctionParam[] = [];
 
     if (addGenericGetAttribute) {
-        FunctionType.addDefaultParams(replaceType);
+        // The fields are unknown, so accept any keyword arguments. _replace
+        // is keyword-only, so don't add an *args parameter.
+        replaceParams.push(
+            FunctionParam.create(ParamCategory.KwargsDict, AnyType.create(), FunctionParamFlags.TypeDeclared, 'kwargs')
+        );
     } else {
-        constructorType.shared.parameters.forEach((param) => {
-            if (!param.name || param.name === 'cls' || param.name === 'self') {
+        // Skip the receiver (the first parameter of __new__). Fields may
+        // legitimately be named "self" or "cls".
+        constructorType.shared.parameters.slice(1).forEach((param) => {
+            if (!param.name || isPositionOnlySeparator(param) || isKeywordOnlySeparator(param)) {
                 return;
             }
 
-            if (isPositionOnlySeparator(param) || isKeywordOnlySeparator(param)) {
-                return;
-            }
-
-            FunctionType.addParam(
-                replaceType,
+            replaceParams.push(
                 FunctionParam.create(
                     param.category,
                     param._type,
@@ -471,10 +468,36 @@ function synthesizeNamedTupleReplaceMethods(
         });
     }
 
-    if (synthesizeDunderReplace) {
-        classFields.set('__replace__', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
+    const createReplaceMethod = (name: string, flags: FunctionTypeFlags) => {
+        const replaceType = FunctionType.createSynthesizedInstance(name, flags);
+        FunctionType.addParam(replaceType, selfParam);
+        FunctionType.addKeywordOnlyParamSeparator(replaceType);
+        replaceParams.forEach((param) => FunctionType.addParam(replaceType, param));
+        replaceType.shared.declaredReturnType = selfParam._type;
+        return replaceType;
+    };
+
+    if (PythonVersion.isGreaterOrEqualTo(pythonVersion, pythonVersion3_13)) {
+        classFields.set(
+            '__replace__',
+            Symbol.createWithType(SymbolFlags.ClassMember, createReplaceMethod('__replace__', FunctionTypeFlags.None))
+        );
     }
-    classFields.set('_replace', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
+
+    // _replace is declared @final in typeshed.
+    classFields.set(
+        '_replace',
+        Symbol.createWithType(SymbolFlags.ClassMember, createReplaceMethod('_replace', FunctionTypeFlags.Final))
+    );
+}
+
+// Creates a NamedTuple _replace method with the same signature as the
+// provided synthesized __replace__ method.
+export function createNamedTupleReplaceFromDunderReplace(replaceType: FunctionType): FunctionType {
+    const namedTupleReplaceType = FunctionType.createSynthesizedInstance('_replace', FunctionTypeFlags.Final);
+    replaceType.shared.parameters.forEach((param) => FunctionType.addParam(namedTupleReplaceType, param));
+    namedTupleReplaceType.shared.declaredReturnType = replaceType.shared.declaredReturnType;
+    return namedTupleReplaceType;
 }
 
 export function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[], isTypeArgExplicit: boolean): boolean {

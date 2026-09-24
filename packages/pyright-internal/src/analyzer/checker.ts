@@ -7180,6 +7180,11 @@ export class Checker extends ParseTreeWalker {
             return false;
         }
 
+        // Synthesized methods (like NamedTuple._replace) have no declarations.
+        if (isFunction(type) && FunctionType.isSynthesizedMethod(type) && FunctionType.isFinal(type)) {
+            return true;
+        }
+
         // Was this declared with a "def" statement?
         const defDecls: FunctionNode[] = [];
         symbol.getDeclarations().forEach((decl) => {
