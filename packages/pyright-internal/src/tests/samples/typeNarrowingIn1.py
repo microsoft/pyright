@@ -11,6 +11,7 @@ from typing import (
     TypedDict,
 )
 import random
+from collections.abc import Container as AbcContainer, KeysView, Sequence
 
 
 def func0(x: str | None, y: int | str):
@@ -289,3 +290,28 @@ def func31(v: float | str, d: dict[str, float]):
         reveal_type(v, expected_text="float")
     else:
         reveal_type(v, expected_text="float | str")
+
+
+class PermissiveContainer(AbcContainer[str]):
+    def __contains__(self, x: object) -> bool:
+        return True
+
+
+def func32(x: int | str, c: PermissiveContainer, s: Sequence[int], ks: KeysView[str]):
+    # Abstract collection types don't constrain __contains__, so no narrowing.
+    if x in c:
+        reveal_type(x, expected_text="int | str")
+    if x in s:
+        reveal_type(x, expected_text="int | str")
+    if x in ks:
+        reveal_type(x, expected_text="int | str")
+
+
+def func33(x: bytes | int, s: Sequence[int] | list[int]):
+    if x in s:
+        reveal_type(x, expected_text="bytes | int")
+
+
+def func34[*Ts](x: int | None, c: tuple[*Ts] | list[int]):
+    if x in c:
+        reveal_type(x, expected_text="int | None")
