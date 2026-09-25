@@ -7172,8 +7172,8 @@ export function createTypeEvaluator(
 
         // Determine if we're calling __set__ on an asymmetric descriptor or property.
         let isAsymmetricAccessor = false;
-        if (usage.method === 'set' && isClass(methodClassType)) {
-            if (isAsymmetricDescriptorClass(methodClassType)) {
+        if (usage.method === 'set') {
+            if (isAsymmetricDescriptorClass(concreteMemberType)) {
                 isAsymmetricAccessor = true;
             }
         }
@@ -7351,14 +7351,38 @@ export function createTypeEvaluator(
 
         let isAsymmetric = false;
 
-        const getterSymbolResult = lookUpClassMember(classType, '__get__', MemberAccessFlags.SkipBaseClasses);
-        const setterSymbolResult = lookUpClassMember(classType, '__set__', MemberAccessFlags.SkipBaseClasses);
+        // Accessors can be defined at different levels of the descriptor's MRO.
+        // Ignore instance members so an instance attribute that happens to share
+        // a dunder name doesn't shadow the descriptor protocol during this check.
+        const accessorFlags = MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride;
+        const getterSymbolResult = lookUpClassMember(classType, '__get__', accessorFlags);
+        const setterSymbolResult = lookUpClassMember(classType, '__set__', accessorFlags);
 
         if (!getterSymbolResult || !setterSymbolResult) {
             isAsymmetric = false;
         } else {
             let getterType = getTypeOfMember(getterSymbolResult);
-            const setterType = getTypeOfMember(setterSymbolResult);
+            let setterType = getTypeOfMember(setterSymbolResult);
+
+            // The getter and setter can be declared on different classes. Specialize
+            // both against the concrete descriptor class so Self and inherited type
+            // variables are compared in the same context.
+            if (getterSymbolResult.classType && isInstantiableClass(getterSymbolResult.classType)) {
+                getterType = partiallySpecializeType(
+                    getterType,
+                    getterSymbolResult.classType,
+                    getTypeClassType(),
+                    classType
+                );
+            }
+            if (setterSymbolResult.classType && isInstantiableClass(setterSymbolResult.classType)) {
+                setterType = partiallySpecializeType(
+                    setterType,
+                    setterSymbolResult.classType,
+                    getTypeClassType(),
+                    classType
+                );
+            }
 
             // If this is an overload, find the appropriate overload.
             if (isOverloaded(getterType)) {
