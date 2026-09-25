@@ -6235,6 +6235,8 @@ export function createTypeEvaluator(
             return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
         }
 
+        const baseTypeForm = baseType.props?.typeForm;
+
         if (baseType.props?.specialForm && (flags & EvalFlags.TypeExpression) === 0) {
             baseType = baseType.props.specialForm;
         }
@@ -6382,6 +6384,28 @@ export function createTypeEvaluator(
                         (flags & EvalFlags.TypeExpression) === 0 ? undefined : MemberAccessFlags.TypeExpression,
                         baseTypeResult.bindToSelfType
                     );
+
+                    if (
+                        (!typeResult || typeResult.typeErrors) &&
+                        ClassType.isBuiltIn(baseType, 'Annotated') &&
+                        baseTypeForm &&
+                        isClassInstance(baseTypeForm)
+                    ) {
+                        // At runtime, the Annotated alias delegates attribute access
+                        // to its origin class object, so evaluate the access against
+                        // the instantiable form of the annotated class.
+                        const fallbackDiag = new DiagnosticAddendum();
+                        const fallbackResult = getTypeOfMemberAccessWithBaseType(
+                            node,
+                            { type: ClassType.cloneAsInstantiable(baseTypeForm) },
+                            usage,
+                            flags
+                        );
+                        if (fallbackResult && !fallbackResult.typeErrors) {
+                            typeResult = fallbackResult;
+                            diag = fallbackDiag;
+                        }
+                    }
                 }
 
                 if (typeResult) {
