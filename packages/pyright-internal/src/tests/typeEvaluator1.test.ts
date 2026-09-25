@@ -1206,6 +1206,11 @@ test('Metaclass11', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('Metaclass12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass12.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('AssignmentExpr1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr1.py']);
     TestUtils.validateResults(analysisResults, 7);
