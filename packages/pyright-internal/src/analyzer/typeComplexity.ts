@@ -63,6 +63,11 @@ export function getComplexityScoreForType(type: Type, recursionCount = 0): numbe
         case TypeCategory.Class: {
             return getComplexityScoreForClass(type, recursionCount);
         }
+
+        case TypeCategory.OverloadResult:
+            return Math.max(
+                ...type.priv.candidates.map((candidate) => getComplexityScoreForType(candidate, recursionCount))
+            );
     }
 
     // For all other types, return a score of 0.

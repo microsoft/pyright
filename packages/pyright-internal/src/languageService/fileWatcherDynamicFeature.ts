@@ -15,18 +15,18 @@ import {
 import { FileSystem } from '../common/fileSystem';
 import { extraPathWatchTargetCovers, getExtraPathWatchTargets } from '../common/extraPathGlob';
 import { ServiceKeys } from '../common/serviceKeys';
-import { deduplicateFolders, isFile } from '../common/uri/uriUtils';
+import { FileSpec, deduplicateFolders, isFile } from '../common/uri/uriUtils';
 import { DynamicFeature } from './dynamicFeature';
 import { Workspace } from '../workspaceFactory';
 import { isDefined } from '../common/core';
 import { configFileName } from '../common/pathConsts';
 
-export class FileWatcherDynamicFeature extends DynamicFeature {
+export class FileWatcherDynamicFeature<TWorkspace extends Workspace = Workspace> extends DynamicFeature {
     constructor(
         private readonly _connection: Connection,
         private readonly _hasWatchFileRelativePathCapability: boolean,
         private readonly _fs: FileSystem,
-        private readonly _workspaceFactory: IWorkspaceFactory
+        private readonly _workspaceFactory: IWorkspaceFactory<TWorkspace>
     ) {
         super('file watcher');
     }
@@ -42,38 +42,39 @@ export class FileWatcherDynamicFeature extends DynamicFeature {
 
         // Add all python search paths to watch list
         if (this._hasWatchFileRelativePathCapability) {
+            const workspaces = this._workspaceFactory.getNonDefaultWorkspaces();
+
             // Dedup search paths from all workspaces.
             // Get rid of any search path under workspace root since it is already watched by
             // "**" above.
-            const searchPaths = this._workspaceFactory.getNonDefaultWorkspaces().map((w) => [
-                ...w.searchPathsToWatch,
-                ...w.service
-                    .getConfigOptions()
-                    .getExecutionEnvironments()
-                    .map((e) => e.extraPaths)
-                    .flat(),
-            ]);
+            const watcherInfos = workspaces.map((w) => {
+                const excludes = this.getWatcherExcludes(w);
+                const searchPaths = [
+                    ...w.searchPathsToWatch,
+                    ...w.service
+                        .getConfigOptions()
+                        .getExecutionEnvironments()
+                        .map((e) => e.extraPaths)
+                        .flat(),
+                ].filter((p) => !FileSpec.isInPath(p, excludes));
+                const extraPathGlobTargets = getExtraPathWatchTargets(
+                    w.service.getConfigOptions().extraPathGlobFileSpecs,
+                    w.service.serviceProvider.get(ServiceKeys.caseSensitivityDetector)
+                ).filter((t) => !FileSpec.isInPath(t.root, excludes));
+
+                return { searchPaths, extraPathGlobTargets };
+            });
 
             const foldersToWatch = deduplicateFolders(
-                searchPaths,
-                this._workspaceFactory
-                    .getNonDefaultWorkspaces()
-                    .map((w) => w.rootUri)
-                    .filter(isDefined)
+                watcherInfos.map((info) => info.searchPaths),
+                workspaces.map((w) => w.rootUri).filter(isDefined)
             );
 
             // Wildcard `extraPaths` entries are watched by their original glob (below)
             // rather than by their already-expanded leaf directories, so drop any
             // deduped folder that one of those globs already covers. The glob specs are
             // retained on each workspace's config options (`extraPathGlobFileSpecs`).
-            const extraPathGlobTargets = this._workspaceFactory
-                .getNonDefaultWorkspaces()
-                .flatMap((w) =>
-                    getExtraPathWatchTargets(
-                        w.service.getConfigOptions().extraPathGlobFileSpecs,
-                        w.service.serviceProvider.get(ServiceKeys.caseSensitivityDetector)
-                    )
-                );
+            const extraPathGlobTargets = watcherInfos.flatMap((info) => info.extraPathGlobTargets);
 
             foldersToWatch
                 .filter((p) => !extraPathGlobTargets.some((t) => extraPathWatchTargetCovers(t, p)))
@@ -105,8 +106,12 @@ export class FileWatcherDynamicFeature extends DynamicFeature {
 
         return this._connection.client.register(DidChangeWatchedFilesNotification.type, { watchers });
     }
+
+    protected getWatcherExcludes(_workspace: TWorkspace): FileSpec[] {
+        return [];
+    }
 }
 
-interface IWorkspaceFactory {
-    getNonDefaultWorkspaces(kind?: string): Workspace[];
+interface IWorkspaceFactory<TWorkspace extends Workspace> {
+    getNonDefaultWorkspaces(kind?: string): TWorkspace[];
 }

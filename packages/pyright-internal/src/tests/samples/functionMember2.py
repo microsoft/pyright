@@ -4,6 +4,7 @@
 # pyright: reportFunctionMemberAccess=error
 
 
+from inspect import Signature
 from typing import Protocol
 
 
@@ -36,6 +37,12 @@ reveal_type(s3, expected_text="type[A]")
 
 s4 = A().method2.__self__
 reveal_type(s4, expected_text="type[A]")
+
+# This should generate an error because bound methods don't allow attribute assignments.
+A().method1.__signature__ = Signature()
+
+# This should generate an error because bound class methods don't allow attribute assignments.
+A.method2.__text_signature__ = "()"
 
 # This should generate an error because method3 is static.
 s5 = A().method3.__self__

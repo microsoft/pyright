@@ -1,6 +1,7 @@
 # This sample tests the handling of Sentinel as described in PEP 661.
 
-from typing import Literal, TypeAlias
+from dataclasses import dataclass
+from typing import Literal, TypeAlias, assert_type
 from typing_extensions import Sentinel, TypeForm  # pyright: ignore[reportMissingModuleSource]
 
 # This should generate an error because the names don't match.
@@ -16,6 +17,13 @@ BAD_CALL2 = Sentinel("BAD_CALL2", 1)
 BAD_CALL3 = Sentinel(1)
 
 MISSING = Sentinel("MISSING")
+
+
+def accept_sentinel(value: Sentinel) -> None:
+    pass
+
+
+accept_sentinel(MISSING)
 
 type TA1 = int | MISSING
 
@@ -56,3 +64,60 @@ def func3(x: Literal[0, 3, "hi"] | MISSING) -> None:
 
 t1 = type(MISSING)
 reveal_type(t1, expected_text="type[MISSING]")
+
+
+# Attribute access on a sentinel instance should resolve through the
+# regular MRO rather than being treated as an unknown descriptor.
+reveal_type(MISSING.__eq__, expected_text="(value: object, /) -> bool")
+
+
+@dataclass
+class DC1:
+    name: str | MISSING = MISSING
+
+
+class ClassA:
+    value: int | MISSING
+
+
+def func4(dc: DC1, a: ClassA) -> None:
+    reveal_type(dc.name, expected_text="str | MISSING")
+    reveal_type(a.value, expected_text="int | MISSING")
+
+    if dc.name is MISSING:
+        reveal_type(dc.name, expected_text="MISSING")
+    else:
+        reveal_type(dc.name, expected_text="str")
+
+    if dc.name is not MISSING:
+        reveal_type(dc.name, expected_text="str")
+
+    if a.value is not MISSING:
+        reveal_type(a.value, expected_text="int")
+
+
+def identity[T](value: T) -> T:
+    return value
+
+
+result = identity(MISSING)
+reveal_type(result, expected_text="MISSING")
+assert_type(result, MISSING)
+
+
+def round_trip(value: int | MISSING) -> None:
+    result = identity(value)
+    assert_type(result, int | MISSING)
+    if result is MISSING:
+        assert_type(result, MISSING)
+    else:
+        assert_type(result, int)
+
+
+def variadic_identity[*Ts](*values: *Ts) -> tuple[*Ts]:
+    return values
+
+
+assert_type(variadic_identity(MISSING, 1, "text"), tuple[MISSING, int, str])
+assert_type(identity(1), int)
+assert_type(identity("text"), str)

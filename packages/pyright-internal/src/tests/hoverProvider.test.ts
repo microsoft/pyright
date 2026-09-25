@@ -582,7 +582,7 @@ test('import symbol tooltip - useLibraryCodeForTypes true', async () => {
     state.openFile(marker1.fileName);
 
     state.verifyHover('markdown', {
-        marker1: '```python\n(class) bar\n```',
+        marker1: '```python\nclass bar()\n```',
     });
 });
 
@@ -602,7 +602,7 @@ test('TypedDict doc string', async () => {
     state.openFile(marker1.fileName);
 
     state.verifyHover('markdown', {
-        marker: '```python\n(class) TypedDict\n```\n---\nA simple typed namespace. At runtime it is equivalent to a plain dict.',
+        marker: '```python\nclass TypedDict()\n```\n---\nA simple typed namespace. At runtime it is equivalent to a plain dict.',
     });
 });
 

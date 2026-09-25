@@ -54,6 +54,20 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
                         "ok": ok,
                         "execution_time_s": time,
                         "peak_memory_mb": memory,
+                        "execution_time_stats": {
+                            "min": time,
+                            "max": time,
+                            "mean": time,
+                            "median": time,
+                            "stddev": 0.0,
+                        },
+                        "peak_memory_stats": {
+                            "min": memory,
+                            "max": memory,
+                            "mean": memory,
+                            "median": memory,
+                            "stddev": 0.0,
+                        },
                         "files_checked": 123,
                     }
                 },
@@ -70,6 +84,28 @@ class CompareBenchmarksTest(unittest.TestCase):
             )
 
         self.assertEqual(failures, [])
+
+    def test_compares_median_run_statistics(self) -> None:
+        baseline = _result(100.0, 1000.0)
+        candidate = _result(100.0, 1000.0)
+        baseline_metrics = baseline["results"][0]["metrics"]["pyright"]
+        candidate_metrics = candidate["results"][0]["metrics"]["pyright"]
+        baseline_metrics["execution_time_stats"]["median"] = 10.0
+        baseline_metrics["peak_memory_stats"]["median"] = 100.0
+        candidate_metrics["execution_time_stats"]["median"] = 11.0
+        candidate_metrics["peak_memory_stats"]["median"] = 105.0
+
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                baseline, candidate, 20.0, statistic="median"
+            )
+        report = compare_benchmarks.render_markdown(
+            baseline, candidate, 20.0, statistic="median"
+        )
+
+        self.assertEqual(failures, [])
+        self.assertIn("Statistic: `median`", report)
+        self.assertIn("| example | pyright | 123 | 11.000s | +10.0%", report)
 
     def test_report_includes_pyright_stats(self) -> None:
         candidate = _result(10.0, 100.0)
@@ -430,131 +466,494 @@ Regression threshold: `10.0%`
             with self.assertRaisesRegex(ValueError, "non-finite number NaN"):
                 compare_benchmarks._load_results(result_file)
 
-    def test_workflow_profile_matches_checked_in_baseline(self) -> None:
+    def test_pr_workflow_uses_paired_multi_run_profile(self) -> None:
         workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
-        timeout_match = re.search(
+        profile_matches = re.findall(
             r"typecheck_benchmark\.py \\\s+"
-            r"-c pyright -r 1 -w 0 -t (\d+)",
+            r"-c pyright -r (\d+) -w (\d+) -t (\d+)",
             workflow,
         )
-        self.assertIsNotNone(timeout_match)
 
-        baseline = json.loads(
-            (
-                REPO_ROOT
-                / "build"
-                / "benchmark"
-                / "baselines"
-                / "latest-linux-x64.json"
-            ).read_text(encoding="utf-8")
-        )
-        config = json.loads(
-            (
-                REPO_ROOT / "build" / "benchmark" / "install_envs.json"
-            ).read_text(encoding="utf-8")
-        )
-
-        self.assertEqual(int(timeout_match.group(1)), 1800)
-        baseline_packages = {
-            package["package_name"]: package for package in baseline["results"]
-        }
-        for package in config["packages"]:
-            package_name = package.get("name") or package["github_url"].rsplit(
-                "/", 1
-            )[-1]
-            baseline_package = baseline_packages[package_name]
-            self.assertEqual(
-                package.get("check_paths", []), baseline_package["check_paths"]
-            )
-            self.assertEqual(
-                package.get("exclude_directories", []),
-                baseline_package["exclude_directories"],
-            )
+        self.assertEqual(profile_matches, [("3", "1", "1800"), ("3", "1", "1800")])
+        self.assertEqual(workflow.count("--statistic median"), 2)
+        self.assertIn("--candidate-statistic median", workflow)
 
     def test_workflows_use_current_pnpm_setup(self) -> None:
-        for workflow_name in (
-            "typecheck_benchmark_pr.yml",
-            "typecheck_benchmark_weekly.yml",
-        ):
-            workflow = (
-                REPO_ROOT / ".github" / "workflows" / workflow_name
-            ).read_text(encoding="utf-8")
-
-            self.assertIn("uses: pnpm/action-setup@", workflow)
-            self.assertIn(
-                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
-                workflow,
-            )
-            self.assertIn(
-                "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6",
-                workflow,
-            )
-            self.assertIn("SKIP_LERNA_BOOTSTRAP: 'yes'", workflow)
-            self.assertIn("--max-old-space-size=6656", workflow)
-            self.assertIn("timeout-minutes: 10", workflow)
-            self.assertIn("pnpm install --frozen-lockfile --prefer-offline", workflow)
-            self.assertIn(
-                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1",
-                workflow,
-            )
-            self.assertNotIn("actions/upload-artifact@v4", workflow)
-            self.assertNotIn("actions/checkout@v4", workflow)
-            self.assertNotIn("actions/setup-python@v5", workflow)
-            self.assertNotIn("apt-get", workflow)
-            self.assertNotIn(".github/actions/npm-cache-dir", workflow)
-
-        weekly_workflow = (
+        weekly_workflow_path = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_weekly.yml"
-        ).read_text(encoding="utf-8")
-        self.assertIn("cache: 'pnpm'", weekly_workflow)
-        self.assertIn("pnpm-lock.yaml", weekly_workflow)
-        self.assertIn(
-            "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1",
-            weekly_workflow,
         )
-        self.assertNotIn("actions/download-artifact@v4", weekly_workflow)
+        weekly_workflow_data = _load_yaml(weekly_workflow_path)
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["benchmark"]["if"],
+            "${{ github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["report"]["if"],
+            "${{ always() && github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["benchmark"]["strategy"]["matrix"]["checker"],
+            ["pyright", "pyrefly", "ty", "mypy", "zuban"],
+        )
+        weekly_benchmark_steps = weekly_workflow_data["jobs"]["benchmark"]["steps"]
+        self.assertEqual(
+            [step.get("uses") for step in weekly_benchmark_steps],
+            [
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+                None,
+                None,
+                "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
+                "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+                None,
+                "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+                None,
+                None,
+                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            ],
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[1]["with"],
+            {
+                "python-version": "${{ env.PYTHON_VERSION }}",
+                "cache": "pip",
+                "cache-dependency-path": "build/benchmark/install_envs.json\n.github/workflows/typecheck_benchmark_weekly.yml\n",
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[5]["with"],
+            {"node-version": "${{ env.NODE_VERSION }}"},
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[6],
+            {
+                "name": "Locate benchmark pnpm store",
+                "if": "${{ matrix.checker == 'pyright' }}",
+                "id": "benchmark-pnpm",
+                "run": 'echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"\necho "lock-hash=$(sha256sum pnpm-lock.yaml | cut -d\' \' -f1)" >> "$GITHUB_OUTPUT"\n',
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[7],
+            {
+                "name": "Restore and save trusted benchmark pnpm store",
+                "if": "${{ matrix.checker == 'pyright' }}",
+                "uses": "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+                "with": {
+                    "path": "${{ steps.benchmark-pnpm.outputs.path }}",
+                    "key": "typecheck-benchmark-pnpm-${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ steps.benchmark-pnpm.outputs.lock-hash }}",
+                },
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[3]["if"],
+            "${{ matrix.checker != 'pyright' }}",
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[4]["if"],
+            "${{ matrix.checker == 'pyright' }}",
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[5]["if"],
+            "${{ matrix.checker == 'pyright' }}",
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[8],
+            {
+                "name": "Build Pyright CLI",
+                "if": "${{ matrix.checker == 'pyright' }}",
+                "timeout-minutes": 10,
+                "env": {"SKIP_LERNA_BOOTSTRAP": "yes"},
+                "run": "pnpm install --frozen-lockfile --prefer-offline\npnpm --dir packages/pyright run build\n",
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[9]["env"],
+            {
+                "BENCHMARK_RUNNER_CLASS": "github-ubuntu-latest",
+                "NODE_OPTIONS": "${{ matrix.checker == 'pyright' && '--max-old-space-size=6656' || '' }}",
+                "PYTHONNOUSERSITE": "1",
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[9]["run"],
+            "checkers=('${{ matrix.checker }}')\nextra_args=()\nif [[ '${{ matrix.checker }}' == 'pyright' ]]; then\n  checkers+=(pyright-threads)\n  extra_args+=(--skip-pyright-build)\nfi\npython build/benchmark/typecheck_benchmark.py \\\n  -c \"${checkers[@]}\" -r 3 -w 1 -t 1800 \\\n  --memory-limit-mb 8192 --os-name linux-x64 \\\n  --output build/benchmark/results \\\n  \"${extra_args[@]}\"\n",
+        )
+        weekly_report_steps = weekly_workflow_data["jobs"]["report"]["steps"]
+        self.assertEqual(
+            [step.get("uses") for step in weekly_report_steps],
+            [
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+                None,
+                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+                None,
+            ],
+        )
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["publish"],
+            {
+                "name": "Publish comparison report",
+                "needs": "report",
+                "if": "${{ github.repository == 'microsoft/pyright' && github.ref == 'refs/heads/main' }}",
+                "permissions": {
+                    "actions": "read",
+                    "contents": "read",
+                    "pages": "write",
+                    "id-token": "write",
+                },
+                "uses": "./.github/workflows/publish_pages.yml",
+                "with": {"benchmark-run-id": "${{ github.run_id }}"},
+            },
+        )
 
-        pr_workflow = (
-            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
-        ).read_text(encoding="utf-8")
-        self.assertIn(
-            "run-name: 'Type checker benchmark for PR #${{ inputs.pr_number }}'",
-            pr_workflow,
+        docs_workflow_path = REPO_ROOT / ".github" / "workflows" / "publish_docs.yml"
+        docs_workflow_data = _load_yaml(docs_workflow_path)
+        self.assertEqual(
+            docs_workflow_data,
+            {
+                "name": "Publish documentation site",
+                "on": {
+                    "push": {
+                        "branches": ["main"],
+                        "paths": [
+                            ".github/workflows/publish_docs.yml",
+                            ".github/workflows/publish_pages.yml",
+                            "docs/**",
+                        ],
+                    },
+                    "workflow_dispatch": None,
+                },
+                "permissions": {},
+                "jobs": {
+                    "publish": {
+                        "name": "Publish current documentation",
+                        "if": "${{ github.repository == 'microsoft/pyright' && github.ref == 'refs/heads/main' }}",
+                        "permissions": {
+                            "actions": "read",
+                            "contents": "read",
+                            "pages": "write",
+                            "id-token": "write",
+                        },
+                        "uses": "./.github/workflows/publish_pages.yml",
+                    }
+                },
+            },
         )
-        self.assertIn("PNPM_VERSION: '10.12.2'", pr_workflow)
-        self.assertIn("version: ${{ env.PNPM_VERSION }}", pr_workflow)
+
+        pages_workflow_path = (
+            REPO_ROOT / ".github" / "workflows" / "publish_pages.yml"
+        )
+        pages_workflow_data = _load_yaml(pages_workflow_path)
+        self.assertEqual(
+            pages_workflow_data["on"],
+            {
+                "workflow_call": {
+                    "inputs": {
+                        "benchmark-run-id": {
+                            "description": "Workflow run containing the weekly benchmark report artifact",
+                            "required": False,
+                            "default": "",
+                            "type": "string",
+                        },
+                        "history-run-id": {
+                            "description": "Workflow run containing the Pyright release history artifact",
+                            "required": False,
+                            "default": "",
+                            "type": "string",
+                        },
+                    }
+                }
+            },
+        )
+        pages_job = pages_workflow_data["jobs"]["publish"]
+        self.assertEqual(
+            {
+                key: pages_job[key]
+                for key in (
+                    "name",
+                    "runs-on",
+                    "permissions",
+                    "concurrency",
+                    "environment",
+                )
+            },
+            {
+                "name": "Publish documentation site",
+                "runs-on": "ubuntu-latest",
+                "permissions": {
+                    "actions": "read",
+                    "contents": "read",
+                    "pages": "write",
+                    "id-token": "write",
+                },
+                "concurrency": {"group": "pages", "cancel-in-progress": True},
+                "environment": {
+                    "name": "github-pages",
+                    "url": "${{ steps.deployment.outputs.page_url }}",
+                },
+            },
+        )
+        steps = pages_job["steps"]
+        self.assertEqual(
+            [step.get("name") for step in steps],
+            [
+                None,
+                "Find retained report artifacts",
+                "Download latest benchmark report",
+                "Download Pyright release history",
+                "Add report to documentation site",
+                "Configure Pages",
+                "Upload Pages artifact",
+                "Deploy to GitHub Pages",
+            ],
+        )
+        self.assertEqual(
+            [step.get("uses") for step in steps],
+            [
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3",
+                "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+                "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+                None,
+                "actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d",
+                "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9",
+                "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
+            ],
+        )
+        self.assertEqual(
+            steps[0]["with"],
+            {"ref": "main", "persist-credentials": False},
+        )
+        self.assertEqual(
+            steps[2]["with"],
+            {
+                "pattern": "weekly-typecheck-report-*",
+                "path": "weekly-report",
+                "merge-multiple": True,
+                "repository": "${{ github.repository }}",
+                "run-id": "${{ steps.reports.outputs.benchmark-run-id }}",
+                "github-token": "${{ secrets.GITHUB_TOKEN }}",
+            },
+        )
+        self.assertEqual(
+            steps[3]["with"],
+            {
+                "name": "pyright-release-history",
+                "path": "release-history",
+                "repository": "${{ github.repository }}",
+                "run-id": "${{ steps.reports.outputs.history-run-id }}",
+                "github-token": "${{ secrets.GITHUB_TOKEN }}",
+            },
+        )
+        self.assertEqual(
+            steps[6]["with"],
+            {"path": "docs", "include-hidden-files": True},
+        )
+
+        pr_workflow_path = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
+        )
+        pr_workflow_data = _load_yaml(pr_workflow_path)
+        self.assertEqual(
+            pr_workflow_data["run-name"],
+            "Type checker benchmark for PR #${{ inputs.pr_number }}",
+        )
+        self.assertEqual(
+            pr_workflow_data["env"],
+            {
+                "BENCHMARK_RUNNER_CLASS": "github-ubuntu-latest",
+                "NODE_VERSION": "24.15.0",
+                "PYTHON_VERSION": "3.14.6",
+            },
+        )
+        pr_benchmark_steps = pr_workflow_data["jobs"]["benchmark"]["steps"]
+        self.assertEqual(
+            pr_workflow_data["jobs"]["benchmark"]["if"],
+            "${{ github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            pr_workflow_data["jobs"]["comment"]["if"],
+            "${{ always() && needs.benchmark.result != 'cancelled' && github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            [step.get("uses") for step in pr_benchmark_steps],
+            [
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+                "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
+                "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+                None,
+                "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+                None,
+            ],
+        )
+        self.assertEqual(
+            pr_benchmark_steps[5],
+            {
+                "name": "Locate benchmark pnpm store",
+                "id": "benchmark-pnpm",
+                "run": 'echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"\necho "lock-hash=$(sha256sum benchmark-base/pnpm-lock.yaml | cut -d\' \' -f1)" >> "$GITHUB_OUTPUT"\n',
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[6],
+            {
+                "name": "Restore trusted benchmark pnpm store",
+                "uses": "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+                "with": {
+                    "path": "${{ steps.benchmark-pnpm.outputs.path }}",
+                    "key": "typecheck-benchmark-pnpm-${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ steps.benchmark-pnpm.outputs.lock-hash }}",
+                },
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[8],
+            {
+                "name": "Install base JavaScript dependencies",
+                "timeout-minutes": 10,
+                "working-directory": "benchmark-base",
+                "env": {"SKIP_LERNA_BOOTSTRAP": "yes"},
+                "run": "pnpm install --frozen-lockfile --prefer-offline",
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[11],
+            {
+                "name": "Install candidate JavaScript dependencies",
+                "timeout-minutes": 10,
+                "env": {"SKIP_LERNA_BOOTSTRAP": "yes"},
+                "run": "pnpm install --frozen-lockfile --prefer-offline",
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[10]["working-directory"],
+            "benchmark-base",
+        )
+        self.assertEqual(
+            pr_benchmark_steps[10]["env"],
+            {
+                "NODE_OPTIONS": "--max-old-space-size=6656",
+                "PYTHONNOUSERSITE": "1",
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[13]["env"],
+            {
+                "NODE_OPTIONS": "--max-old-space-size=6656",
+                "PYTHONNOUSERSITE": "1",
+                "PYRIGHT_BENCHMARK_ENTRY_POINT": "${{ github.workspace }}/packages/pyright/index.js",
+            },
+        )
+        history_workflow_data = _load_yaml(
+            REPO_ROOT
+            / ".github"
+            / "workflows"
+            / "typecheck_benchmark_history.yml"
+        )
+        self.assertEqual(
+            history_workflow_data["jobs"]["releases"]["if"],
+            "${{ github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            history_workflow_data["jobs"]["benchmark"]["if"],
+            "${{ github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            history_workflow_data["jobs"]["report"]["if"],
+            "${{ always() && github.repository == 'microsoft/pyright' && needs.releases.result == 'success' }}",
+        )
 
     def test_pr_benchmark_requires_authorized_comment(self) -> None:
-        trigger_workflow = (
+        trigger_workflow_path = (
             REPO_ROOT
             / ".github"
             / "workflows"
             / "typecheck_benchmark_trigger.yml"
-        ).read_text(encoding="utf-8")
+        )
+        trigger_workflow = trigger_workflow_path.read_text(encoding="utf-8")
+        trigger_workflow_data = _load_yaml(trigger_workflow_path)
         benchmark_workflow_path = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         )
         benchmark_workflow = benchmark_workflow_path.read_text(encoding="utf-8")
         benchmark_workflow_data = _load_yaml(benchmark_workflow_path)
 
-        self.assertIn("issue_comment:", trigger_workflow)
-        self.assertIn(
-            "startsWith(github.event.comment.body, '/benchmark')", trigger_workflow
+        self.assertEqual(
+            trigger_workflow_data["on"],
+            {
+                "issue_comment": {"types": ["created"]},
+                "pull_request_target": {
+                    "types": [
+                        "opened",
+                        "reopened",
+                        "synchronize",
+                        "ready_for_review",
+                    ],
+                    "paths": ["packages/pyright-internal/src/analyzer/**"],
+                },
+            },
         )
         self.assertIn(
             "context.payload.comment.body.trim() !== '/benchmark'", trigger_workflow
         )
-        self.assertIn("github.event.issue.state == 'open'", trigger_workflow)
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["trigger"]["if"],
+            "${{ github.repository == 'microsoft/pyright' && ((github.event_name == 'pull_request_target' && !github.event.pull_request.draft) || (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark'))) }}",
+        )
+        self.assertNotIn("github.event.issue.state == 'open'", trigger_workflow)
+        self.assertIn(
+            "pullRequest.data.state !== 'open' && !pullRequest.data.merged",
+            trigger_workflow,
+        )
+        self.assertIn("github.rest.repos.getCommit", trigger_workflow)
+        self.assertIn("candidateCommit.data.parents[0]?.sha", trigger_workflow)
+        self.assertIn(
+            "const automatic = context.eventName === 'pull_request_target'",
+            trigger_workflow,
+        )
+        self.assertIn(
+            "candidateCommit.data.parents[1]?.sha !== pullRequest.data.head.sha",
+            trigger_workflow,
+        )
+        self.assertNotIn("pullRequest.data.base.sha", trigger_workflow)
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
-        self.assertIn("actions: write", trigger_workflow)
-        self.assertIn("pull-requests: read", trigger_workflow)
-        self.assertIn("createWorkflowDispatch", trigger_workflow)
-        self.assertIn("workflow_id: 'typecheck_benchmark_pr.yml'", trigger_workflow)
-        self.assertIn("base_sha: pullRequest.data.base.sha", trigger_workflow)
-        self.assertIn("merge_sha: pullRequest.data.merge_commit_sha", trigger_workflow)
+        self.assertEqual(
+            trigger_workflow_data["permissions"],
+            {"contents": "read", "pull-requests": "write"},
+        )
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["trigger"]["permissions"],
+            {"contents": "read", "pull-requests": "read"},
+        )
+        self.assertNotIn("actions: write", trigger_workflow)
+        self.assertNotIn("createWorkflowDispatch", trigger_workflow)
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["benchmark"]["uses"],
+            "./.github/workflows/typecheck_benchmark_pr.yml",
+        )
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["benchmark"]["with"],
+            {
+                "pr_number": "${{ needs.trigger.outputs.pr-number }}",
+                "head_sha": "${{ needs.trigger.outputs.head-sha }}",
+                "base_sha": "${{ needs.trigger.outputs.base-sha }}",
+                "merge_sha": "${{ needs.trigger.outputs.merge-sha }}",
+            },
+        )
         self.assertNotIn("actions/checkout", trigger_workflow)
         self.assertIn(
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
@@ -571,7 +970,8 @@ Regression threshold: `10.0%`
         )
         self.assertNotIn("actions/checkout@v4", benchmark_workflow)
         self.assertNotIn("actions/github-script@v7", benchmark_workflow)
-        self.assertIn("workflow_dispatch:", benchmark_workflow)
+        self.assertIn("workflow_call:", benchmark_workflow)
+        self.assertNotIn("workflow_dispatch:", benchmark_workflow)
         self.assertNotIn("paths:", benchmark_workflow)
         self.assertNotIn("pull_request:", benchmark_workflow)
         self.assertNotIn("cache: 'pip'", benchmark_workflow)
@@ -580,12 +980,83 @@ Regression threshold: `10.0%`
         self.assertIn("inputs.base_sha", benchmark_workflow)
         self.assertIn("ref: ${{ inputs.merge_sha }}", benchmark_workflow)
         self.assertIn("-merge-${{ inputs.merge_sha }}", benchmark_workflow)
-        self.assertIn("if: ${{ always() }}", benchmark_workflow)
         self.assertIn("run_id: context.runId", benchmark_workflow)
-        self.assertIn("pullRequest.data.base.sha !== expectedBaseSha", benchmark_workflow)
+        self.assertIn(
+            "candidateCommit.data.parents[0]?.sha !== expectedBaseSha",
+            benchmark_workflow,
+        )
+        self.assertIn(
+            "candidateCommit.data.parents[1]?.sha !== expectedHeadSha",
+            benchmark_workflow,
+        )
         self.assertIn(
             "pullRequest.data.merge_commit_sha !== expectedMergeSha",
             benchmark_workflow,
+        )
+        self.assertIn("pullRequest.data.merged &&", benchmark_workflow)
+        self.assertIn(
+            "Compared candidate \\`${process.env.CANDIDATE_SHA}\\` against its first parent",
+            benchmark_workflow,
+        )
+        comment_steps = benchmark_workflow_data["jobs"]["comment"]["steps"]
+        self.assertEqual(
+            [
+                step.get("name")
+                for step in comment_steps
+                if step.get("name") in (
+                    "Render comparison history charts",
+                    "Upload comparison history charts",
+                )
+            ],
+            ["Render comparison history charts", "Upload comparison history charts"],
+        )
+        history_render = next(
+            step
+            for step in comment_steps
+            if step.get("name") == "Render comparison history charts"
+        )
+        self.assertEqual(
+            history_render,
+            {
+                "name": "Render comparison history charts",
+                "if": "${{ steps.download.outputs.pr-number != '' }}",
+                "run": "python build/benchmark/render_pyright_history.py \\\n  base.json \\\n  candidate.json \\\n  --existing-history docs/typecheck-benchmark/history/history.json \\\n  --candidate-label 'Base' \\\n  --candidate-label 'PR #${{ inputs.pr_number }}' \\\n  --candidate-statistic median \\\n  --output pr-history\n",
+            },
+        )
+        history_upload = next(
+            step
+            for step in comment_steps
+            if step.get("name") == "Upload comparison history charts"
+        )
+        self.assertEqual(
+            {
+                key: history_upload[key]
+                for key in ("name", "id", "if", "uses", "with")
+            },
+            {
+                "name": "Upload comparison history charts",
+                "id": "history",
+                "if": "${{ steps.download.outputs.pr-number != '' }}",
+                "uses": "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+                "with": {
+                    "name": "typecheck-benchmark-history-pr-${{ inputs.pr_number }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}",
+                    "path": "pr-history/",
+                    "if-no-files-found": "error",
+                    "retention-days": 90,
+                },
+            },
+        )
+        post_comment = next(
+            step for step in comment_steps if step.get("name") == "Post benchmark comment"
+        )
+        self.assertEqual(
+            post_comment["env"],
+            {
+                "PR_NUMBER": "${{ steps.download.outputs.pr-number }}",
+                "BASE_SHA": "${{ inputs.base_sha }}",
+                "CANDIDATE_SHA": "${{ inputs.merge_sha }}",
+                "HISTORY_URL": "${{ steps.history.outputs.artifact-url }}",
+            },
         )
         benchmark_job = benchmark_workflow_data["jobs"]["benchmark"]
         comment_job = benchmark_workflow_data["jobs"]["comment"]
@@ -616,20 +1087,35 @@ Regression threshold: `10.0%`
             ).exists()
         )
 
-    def test_pr_workflow_prefers_trusted_baseline_with_bootstrap_fallback(self) -> None:
+    def test_pr_workflow_benchmarks_exact_base_and_candidate(self) -> None:
         workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
 
-        trusted = "benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json"
-        bootstrap = "build/benchmark/baselines/latest-linux-x64.json"
-        self.assertLess(
-            workflow.index('if [[ -f "$trusted" ]]'),
-            workflow.index('elif [[ -f "$bootstrap" ]]'),
+        self.assertIn("ref: ${{ inputs.base_sha }}", workflow)
+        self.assertIn("working-directory: benchmark-base", workflow)
+        self.assertIn(
+            "--output ../build/benchmark/results/base",
+            workflow,
         )
-        self.assertIn('echo "path=$trusted" >> "$GITHUB_OUTPUT"', workflow)
-        self.assertIn('echo "path=$bootstrap" >> "$GITHUB_OUTPUT"', workflow)
-        self.assertIn('"${{ steps.baseline.outputs.path }}"', workflow)
+        self.assertIn(
+            "--output build/benchmark/results/candidate",
+            workflow,
+        )
+        self.assertEqual(
+            workflow.count(
+                "python benchmark-base/build/benchmark/typecheck_benchmark.py"
+            ),
+            1,
+        )
+        self.assertIn(
+            "build/benchmark/results/base/latest-linux-x64.json",
+            workflow,
+        )
+        self.assertIn(
+            "build/benchmark/results/candidate/latest-linux-x64.json",
+            workflow,
+        )
 
 
 if __name__ == "__main__":

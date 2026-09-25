@@ -52,6 +52,7 @@ From the repository root:
 python build/benchmark/typecheck_benchmark.py
 python build/benchmark/typecheck_benchmark.py -c pyright mypy -r 3 -w 1
 python build/benchmark/typecheck_benchmark.py -c pyright --skip-pyright-build
+python build/benchmark/typecheck_benchmark.py -c pyright pyright-threads -r 3 -w 1
 python build/benchmark/typecheck_benchmark.py -c pyright --local path/to/project
 python build/benchmark/typecheck_benchmark.py -c pyright pyright-pip -r 3 -w 1
 ```
@@ -70,8 +71,19 @@ accidentally resolve an npm-installed executable from `PATH`. Both variants run 
 corpus in one invocation; their versions, timing, and peak memory are reported in adjacent summary
 rows. Upgrade the package first when the comparison should use the latest PyPI release.
 
+The hosted release-history workflow installs each official npm release separately and sets
+`PYRIGHT_BENCHMARK_ENTRY_POINT` to its `index.js`. This bypasses the Python package wrapper so Linux
+peak RSS measures the Node checker process directly. The override must point to a package containing
+both `index.js` and `dist/pyright.js`; normal local and weekly benchmarks leave it unset.
+
 Use `--skip-pyright-build` to reuse an existing production bundle. The script rejects this flag if
 `packages/pyright/dist/pyright.js` does not exist.
+
+Select `pyright-threads` alongside `pyright` to compare normal single-threaded analysis with
+Pyright's `--threads` mode. The benchmark supplies no explicit thread count, so Pyright selects its
+default from the machine's logical CPU count (and falls back to one thread on machines with fewer
+than four logical CPUs). It does not collect `--stats` phase timings because Pyright does not allow
+`--threads` and `--stats` together.
 
 ## Local directories
 
@@ -105,29 +117,41 @@ result contract, and the comparator rejects mismatched environments.
 
 ## Maintainer workflow
 
-The hosted pull-request benchmark runs only when a maintainer comments exactly `/benchmark` on an
-open pull request. The command must be the entire comment. The trusted command workflow checks that
-the commenter has `write`, `maintain`, or `admin` repository permission and then explicitly dispatches
-the benchmark with the pull request's current head, base, and synthetic merge commits. Users without
-one of these permissions cannot start the benchmark.
+Pull requests that change `packages/pyright-internal/src/analyzer/` automatically run the hosted
+benchmark when opened, reopened, updated, or marked ready for review. Draft pull requests wait until
+they are ready. The trusted trigger runs from the base repository and dispatches the existing
+read-only benchmark workflow without checking out or executing pull-request code.
 
-The dispatched workflow runs the pull request's synthetic merge commit, so all mergeable open pull
-requests use the current pnpm build metadata from the base branch. It uses read-only repository
-permissions. When the run completes, a separate trusted job validates the result's head, base, and
-merge commits, renders it using default-branch code, and creates or updates one benchmark comment.
-The trusted job runs on a separate runner with pull-request write permission. The Actions job summary
-and benchmark artifact contain the same candidate results.
+For other pull requests, a maintainer can comment exactly `/benchmark` on an open or merged pull
+request. The command must be the entire comment. The trusted command workflow checks that the
+commenter has `write`, `maintain`, or `admin` repository permission and then explicitly dispatches
+the benchmark with the pull request's head and candidate commits. Closed, unmerged pull requests are
+ignored. Users without one of these permissions cannot start the benchmark.
 
-Comment `/benchmark` again after pushing a new commit or when rerunning the same head. No benchmark is
-started automatically for later commits. The command workflow must already exist on the repository's
-default branch before comments can trigger it; a pull request that first introduces the workflow
-cannot trigger itself.
+For an open pull request, the dispatched workflow runs GitHub's current synthetic merge commit. For
+a merged pull request, it runs the checked-in merge or squash commit. Both modes compare the
+candidate against its exact first parent, so a historical run uses the base revision from merge time
+rather than the current `main` head. The workflow uses the base revision's benchmark harness and
+package configuration for both binaries, uses read-only repository permissions, and measures the
+base and candidate sequentially on the same runner. When the run completes, a separate trusted job
+validates the result's head, candidate, and first-parent commits, then renders the exact measured
+comparison using default-branch code. It creates or updates one benchmark comment. The trusted job runs on a separate runner with
+pull-request write permission. The Actions job summary and benchmark artifact contain both results.
+
+The benchmark measures the exact first-parent and candidate commits on the same hosted runner. The
+trusted job appends both measurements to the checked-in Pyright release history and uploads an HTML
+report, execution-time and peak-memory SVG charts, and combined JSON as a 90-day artifact linked from
+the benchmark comment. The published release history remains unchanged.
+
+Analyzer changes run again after each pushed commit. For other changes, comment `/benchmark` again
+after pushing a new commit or when rerunning the same head. The trigger workflows must already exist
+on the repository's default branch; a pull request that first introduces them cannot trigger itself.
 
 ## Options
 
 | Flag | Description |
 | --- | --- |
-| `-c, --checkers NAME [NAME ...]` | Checkers to run; choices are `pyright`, `pyright-pip`, `pyrefly`, `ty`, `mypy`, and `zuban` |
+| `-c, --checkers NAME [NAME ...]` | Checkers to run; choices are `pyright`, `pyright-threads`, `pyright-pip`, `pyrefly`, `ty`, `mypy`, and `zuban` |
 | `-r, --runs N` | Measured runs per checker (default: 5) |
 | `-w, --warmup N` | Warmup runs discarded before measurement (default: 1) |
 | `-t, --timeout SECONDS` | Timeout for each checker invocation (default: 300) |
@@ -179,18 +203,29 @@ or otherwise failed, it is reported as `No baseline` until a new hosted baseline
 The pull-request workflow also fails if any candidate package cannot be prepared or any checker
 times out, crashes, or otherwise fails, even when that package has no successful baseline yet.
 
-On pull requests, the benchmark pins Python 3.14.6, disables shared dependency caches because it
-executes untrusted pull-request code, runs Pyright with a 6.5 GiB V8 old-space limit, and runs each
-package once with no discarded warmup. Each invocation may take up to 30 minutes. A regression must
-exceed both a 20% relative threshold and an absolute variance guard of 1
-second for time or 100 MB for peak memory. These are the comparator defaults, so the gate and trusted
-comment renderer share one configuration source. Reports and artifacts are published before a failed
-comparison marks the job unsuccessful.
+On pull requests, the benchmark pins Python 3.14.6 and never writes dependency caches because it
+executes untrusted pull-request code. It can restore a benchmark-only pnpm store created by the
+trusted weekly workflow; the lockfile hash isolates incompatible stores, and
+`actions/cache/restore` prevents the PR workflow from saving cache content. The benchmark runs
+Pyright with a 6.5 GiB V8 old-space limit and compares the median of three measured runs after one
+discarded warmup. Each invocation may take up to 30 minutes. A regression must exceed both a 20%
+relative threshold and an absolute variance guard of 1 second for time or 100 MB for peak memory.
+These are the comparator defaults, so the gate and trusted comment renderer share one configuration
+source. The comparison-history artifact retains the single-run release series and labels the paired
+base and PR points with their separate multi-run median methodology. Reports and artifacts are
+published before a failed comparison marks the job unsuccessful.
 
 The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
-Each checker performs three measured runs after one warmup over the same pinned corpus. The aggregate
-job stores each raw JSON result with a self-contained `index.html` comparison for 90 days; its Actions
-job summary links directly to the downloadable report artifact.
+The Pyright job measures single-threaded mode and `--threads` mode sequentially on the same runner and
+prepared package corpus. Each mode performs three measured runs after one warmup. The report includes
+a per-package Pyright threading chart with wall time, peak RSS, and speedup. The aggregate job stores
+each raw JSON result with a self-contained `index.html` comparison for 90 days; its Actions job
+summary links directly to the downloadable report artifact.
+
+The release-history workflow benchmarks every stable Pyright release published in the prior year
+against the same pinned corpus. It runs one measured pass per package, renders normalized per-package
+execution-time and peak-memory SVG charts, and publishes them under
+`typecheck-benchmark/history/`. Each new GitHub release rebuilds the rolling one-year history.
 
 The top-level JSON records the timestamp, platform, checker versions, run settings, aggregate
 statistics, per-package results, configured memory limit, and an `upstream_source` object containing

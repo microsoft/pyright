@@ -517,6 +517,31 @@ function printTypeInternal(
                 return `Overload[${overloads.join(', ')}]`;
             }
 
+            case TypeCategory.OverloadResult: {
+                if (printTypeFlags & PrintTypeFlags.PythonSyntax) {
+                    return printTypeInternal(
+                        type.priv.baselineType,
+                        printTypeFlags,
+                        returnTypeCallback,
+                        uniqueNameMap,
+                        recursionTypes,
+                        recursionCount
+                    );
+                }
+                const candidates = type.priv.candidates.map((candidate) =>
+                    printTypeInternal(
+                        candidate,
+                        printTypeFlags,
+                        returnTypeCallback,
+                        uniqueNameMap,
+                        recursionTypes,
+                        recursionCount
+                    )
+                );
+                const implicit = type.priv.uncertaintyKind === TypeCategory.Unknown ? '; Unknown' : '';
+                return `OverloadResult[${candidates.join(', ')}${implicit}]`;
+            }
+
             case TypeCategory.Union: {
                 // If this is a value expression that evaluates to a union type but is
                 // not a type alias, simply print the special form ("UnionType").

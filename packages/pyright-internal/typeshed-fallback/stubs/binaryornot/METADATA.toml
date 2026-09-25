@@ -1,3 +1,0 @@
-version = "0.4.*"
-upstream-repository = "https://github.com/binaryornot/binaryornot"
-obsolete-since = "0.5.0" # Released on 2026-03-07

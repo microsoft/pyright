@@ -855,6 +855,12 @@ test('TypedDictInline1', () => {
     TestUtils.validateResults(analysisResults, 6);
 });
 
+test('TypedDict30', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict30.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ClassVar1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classVar1.py']);
 

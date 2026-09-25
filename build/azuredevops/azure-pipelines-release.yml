@@ -38,6 +38,8 @@ variables:
     value: vsix
   - name: PACKAGE_NAME
     value: pyright.tgz
+  - name: TYPESERVER_PACKAGE_NAME
+    value: pyright-typeserver.tgz
   - name: ARTIFACT_NAME_PACKAGE
     value: pyright
   - name: AZURE_ARTIFACTS_FEED
@@ -204,7 +206,7 @@ extends:
             templateContext:
               outputs:
                 - output: pipelineArtifact
-                  targetPath: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}/${{ variables.PACKAGE_NAME }}'
+                  targetPath: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
                   sbomBuildDropPath: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
                   artifactName: ${{ variables.ARTIFACT_NAME_PACKAGE }}
             steps:
@@ -237,6 +239,14 @@ extends:
                 displayName: Remove version from package name
                 workingDirectory: packages/pyright
 
+              - script: pnpm pack
+                displayName: pnpm pack typeserver
+                workingDirectory: packages/pyright-typeserver
+
+              - script: mv pyright-typeserver-*.tgz ${{ variables.TYPESERVER_PACKAGE_NAME }}
+                displayName: Remove version from typeserver package name
+                workingDirectory: packages/pyright-typeserver
+
               # CredScan does not understand scanning a single file. So, it will default to scanning the whole folder that your output is pointing to.
               # We don't want it to scan the microbuild plugins, which is installed in the agent.stagedirectory by default.
               - task: CopyFiles@2
@@ -244,6 +254,13 @@ extends:
                 inputs:
                   SourceFolder: packages/pyright
                   Contents: '${{ variables.PACKAGE_NAME }}'
+                  TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
+
+              - task: CopyFiles@2
+                displayName: 'Copy ${{ variables.TYPESERVER_PACKAGE_NAME }} to subfolder'
+                inputs:
+                  SourceFolder: packages/pyright-typeserver
+                  Contents: '${{ variables.TYPESERVER_PACKAGE_NAME }}'
                   TargetFolder: '$(Build.ArtifactStagingDirectory)/${{ variables.ARTIFACT_NAME_PACKAGE }}'
 
       - stage: RecoverNpmArtifact
@@ -343,8 +360,9 @@ extends:
                   cp "$(Agent.TempDirectory)/cfs.npmrc" pyrightTest/.npmrc
                   cd pyrightTest
                   yarn
-                  yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
-                  node -e "const actual=require('./node_modules/pyright/package.json').version; const expected=process.env.RELEASE_TAG; if(expected && actual!==expected){console.error('Expected package version '+expected+', got '+actual); process.exit(1)}"
+                  yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME) $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(TYPESERVER_PACKAGE_NAME)
+                  node -e "const pyright=require('./node_modules/pyright/package.json').version; const typeserver=require('./node_modules/pyright-typeserver/package.json').version; const expected=process.env.RELEASE_TAG; if(pyright!==typeserver){console.error('Package versions do not match: pyright '+pyright+', pyright-typeserver '+typeserver); process.exit(1)} if(expected && pyright!==expected){console.error('Expected package version '+expected+', got '+pyright); process.exit(1)}"
+                  test -x node_modules/.bin/pyright-typeserver
                   node_modules/.bin/pyright --version
                 displayName: Validate npm package
                 env:
@@ -406,7 +424,7 @@ extends:
                       cp "$(Agent.TempDirectory)/cfs.npmrc" pyrightTest/.npmrc
                       cd pyrightTest
                       yarn
-                      yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
+                      yarn add --dev $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME) $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(TYPESERVER_PACKAGE_NAME)
                       node_modules/.bin/pyright --version
                     displayName: Validate package archive
                   - task: GitHubRelease@1 #https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/github-release-v1?view=azure-pipelines
@@ -422,6 +440,7 @@ extends:
                       assets: |
                         $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)/$(VSIX_NAME)
                         $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(PACKAGE_NAME)
+                        $(Pipeline.Workspace)/$(ARTIFACT_NAME_PACKAGE)/$(TYPESERVER_PACKAGE_NAME)
 
           - stage: WaitForValidation
             condition: |

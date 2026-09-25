@@ -952,6 +952,9 @@ export function addConditionToType<T extends Type>(
         case TypeCategory.Function:
             return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
 
+        case TypeCategory.OverloadResult:
+            return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
+
         case TypeCategory.Overloaded:
             return OverloadedType.create(
                 OverloadedType.getOverloads(type).map((t) => addConditionToType(t, condition))
@@ -979,6 +982,7 @@ export function getTypeCondition(type: Type): TypeCondition[] | undefined {
 
         case TypeCategory.Class:
         case TypeCategory.Function:
+        case TypeCategory.OverloadResult:
             return type.props?.condition;
     }
 }
@@ -1254,28 +1258,28 @@ export function isSentinelLiteral(type: Type): boolean {
     return isClassInstance(type) && type.priv.literalValue instanceof SentinelLiteral;
 }
 
-export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
-    class ContainsLiteralTypeWalker extends TypeWalker {
-        foundLiteral = false;
+class ContainsLiteralTypeWalker extends TypeWalker {
+    foundLiteral = false;
 
-        constructor(private _includeTypeArgs: boolean) {
-            super();
-        }
-
-        override visitClass(classType: ClassType): void {
-            if (isClassInstance(classType)) {
-                if (isLiteralLikeType(classType)) {
-                    this.foundLiteral = true;
-                    this.cancelWalk();
-                }
-            }
-
-            if (this._includeTypeArgs) {
-                super.visitClass(classType);
-            }
-        }
+    constructor(private _includeTypeArgs: boolean) {
+        super();
     }
 
+    override visitClass(classType: ClassType): void {
+        if (isClassInstance(classType)) {
+            if (isLiteralLikeType(classType)) {
+                this.foundLiteral = true;
+                this.cancelWalk();
+            }
+        }
+
+        if (this._includeTypeArgs) {
+            super.visitClass(classType);
+        }
+    }
+}
+
+export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
     const walker = new ContainsLiteralTypeWalker(includeTypeArgs);
     walker.walk(type);
     return walker.foundLiteral;

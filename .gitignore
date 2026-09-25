@@ -40,6 +40,8 @@ build/Release
 # Dependency directories
 node_modules/
 jspm_packages/
+package-lock.json
+npm-shrinkwrap.json
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
@@ -144,3 +146,6 @@ packages/pyright-internal/src/tests/benchmarks/.generated/
 
 # Cross-type-checker benchmark results
 /build/benchmark/results/
+
+# Local evaluation/state trace artifacts
+/.generated/evaluation-traces/

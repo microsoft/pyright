@@ -522,7 +522,7 @@ export class HoverProvider {
 
             case DeclarationType.Class:
             case DeclarationType.SpecialBuiltInClass: {
-                if (this._addInitOrNewMethodInsteadIfCallNode(node, parts, resolvedDecl)) {
+                if (this._addConstructorSignatureAndDocumentation(node, parts, resolvedDecl)) {
                     return;
                 }
 
@@ -693,8 +693,8 @@ export class HoverProvider {
         });
     }
 
-    private _addInitOrNewMethodInsteadIfCallNode(node: NameNode, parts: HoverTextPart[], declaration: Declaration) {
-        const result = getClassAndConstructorTypes(node, this._evaluator);
+    private _addConstructorSignatureAndDocumentation(node: NameNode, parts: HoverTextPart[], declaration: Declaration) {
+        const result = getClassAndConstructorTypes(node, this._evaluator, /* includeUncalled */ true);
         if (!result) {
             return false;
         }
@@ -706,24 +706,28 @@ export class HoverProvider {
                 /* python */ true
             );
 
-            // Select the constructor docstring via the unified component (Phase 1 constructor-method
-            // docstrings across the MRO, then Phase 2 the class docstring).
-            const docInfo = getConstructorDocInfo(
-                result.classType,
-                result.methodType,
-                declaration,
-                this._sourceMapper,
-                this._evaluator
-            );
-            if (docInfo?.text) {
-                addDocumentationResultsPart(
-                    this._program.serviceProvider,
-                    docInfo.text,
-                    this._format,
-                    parts,
-                    docInfo.sourceDecl ?? declaration,
-                    docInfo.forceLiteral
+            if (result.isCall) {
+                // Select the constructor docstring via the unified component (Phase 1 constructor-method
+                // docstrings across the MRO, then Phase 2 the class docstring).
+                const docInfo = getConstructorDocInfo(
+                    result.classType,
+                    result.methodType,
+                    declaration,
+                    this._sourceMapper,
+                    this._evaluator
                 );
+                if (docInfo?.text) {
+                    addDocumentationResultsPart(
+                        this._program.serviceProvider,
+                        docInfo.text,
+                        this._format,
+                        parts,
+                        docInfo.sourceDecl ?? declaration,
+                        docInfo.forceLiteral
+                    );
+                }
+            } else {
+                this._addDocumentationPart(parts, node, declaration);
             }
             return true;
         }

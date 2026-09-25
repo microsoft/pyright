@@ -28,6 +28,8 @@ The following settings control the *environment* in which Pyright will check for
 
 - **venv** [string, optional]: Used in conjunction with the venvPath, specifies the virtual environment to use. For more details, refer to the [import resolution](import-resolution.md#configuring-your-python-environment) documentation. This setting is ignored when using Pylance.
 
+- **maxCodeComplexity** [integer]: Specifies the maximum code flow complexity that Pyright will analyze for a module or function. The default and minimum value is 768. Increasing this limit allows more complex code to be analyzed but can cause long analysis times or stack overflows.
+
 - **verboseOutput** [boolean]: Specifies whether output logs should be verbose. This is useful when diagnosing certain problems like import resolution issues.
 
 - **extraPaths** [array of strings, optional]: Additional search paths that will be used when searching for modules imported by files. Each entry may contain glob patterns (`*`, `**`, `?`), which are expanded to matching directories in a deterministic order; see [Extra path glob expansion](import-resolution.md#extra-path-glob-expansion).

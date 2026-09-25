@@ -7,11 +7,12 @@ import json
 import math
 import sys
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 
 DEFAULT_THRESHOLD_PERCENT = 20.0
 DEFAULT_TIME_NOISE_FLOOR_SECONDS = 1.0
 DEFAULT_MEMORY_NOISE_FLOOR_MB = 100.0
+Statistic = Literal["mean", "median"]
 
 
 class ComparisonRow(TypedDict, total=False):
@@ -106,6 +107,22 @@ def _percent_change(baseline: float, candidate: float) -> float:
     return ((candidate - baseline) / baseline) * 100 if baseline else 0.0
 
 
+def _metric_value(
+    metrics: dict[str, Any], field: str, statistic: Statistic
+) -> float | None:
+    if statistic == "mean":
+        value = metrics.get(field)
+    else:
+        stats_field = (
+            "execution_time_stats"
+            if field == "execution_time_s"
+            else "peak_memory_stats"
+        )
+        stats = metrics.get(stats_field)
+        value = stats.get("median") if isinstance(stats, dict) else None
+    return float(value) if _is_finite_number(value) else None
+
+
 def _escape_markdown(value: object) -> str:
     text = str(value).replace("\\", "\\\\").replace("\r", " ").replace("\n", " ")
     for character in "`*_{}[]<>()#+-.!|":
@@ -120,6 +137,7 @@ def _analyze(
     time_noise_floor_s: float = 0.0,
     memory_noise_floor_mb: float = 0.0,
     fail_on_preparation_error: bool = False,
+    statistic: Statistic = "mean",
 ) -> tuple[list[str], list[ComparisonRow]]:
     failures = [
         *_validate_results(baseline, "baseline"),
@@ -275,10 +293,26 @@ def _analyze(
             )
             continue
 
-        old_time = float(old["execution_time_s"])
-        new_time = float(new["execution_time_s"])
-        old_memory = float(old.get("peak_memory_mb", 0.0))
-        new_memory = float(new.get("peak_memory_mb", 0.0))
+        old_time = _metric_value(old, "execution_time_s", statistic)
+        new_time = _metric_value(new, "execution_time_s", statistic)
+        old_memory = _metric_value(old, "peak_memory_mb", statistic)
+        new_memory = _metric_value(new, "peak_memory_mb", statistic)
+        if None in (old_time, new_time, old_memory, new_memory):
+            failures.append(
+                f"{package}/{checker}: {statistic} benchmark statistics are missing"
+            )
+            rows.append(
+                {
+                    "package": package,
+                    "checker": checker,
+                    "execution_time_s": None,
+                    "time_delta": None,
+                    "peak_memory_mb": None,
+                    "memory_delta": None,
+                    "status": "Failed",
+                }
+            )
+            continue
         time_delta = _percent_change(old_time, new_time)
         memory_delta = _percent_change(old_memory, new_memory)
         status = "Pass"
@@ -343,6 +377,7 @@ def compare(
     time_noise_floor_s: float = 0.0,
     memory_noise_floor_mb: float = 0.0,
     fail_on_preparation_error: bool = False,
+    statistic: Statistic = "mean",
 ) -> list[str]:
     failures, rows = _analyze(
         baseline,
@@ -351,6 +386,7 @@ def compare(
         time_noise_floor_s,
         memory_noise_floor_mb,
         fail_on_preparation_error,
+        statistic,
     )
     print(
         f"{'Package':<20} {'Checker':<10} {'Time':>10} {'Delta':>9} "
@@ -382,6 +418,7 @@ def render_markdown(
     time_noise_floor_s: float = 0.0,
     memory_noise_floor_mb: float = 0.0,
     fail_on_preparation_error: bool = False,
+    statistic: Statistic = "mean",
 ) -> str:
     failures, rows = _analyze(
         baseline,
@@ -390,6 +427,7 @@ def render_markdown(
         time_noise_floor_s,
         memory_noise_floor_mb,
         fail_on_preparation_error,
+        statistic,
     )
     if failures:
         summary = f"🔴 **{len(failures)} regression check(s) failed.**"
@@ -416,6 +454,8 @@ def render_markdown(
         "",
         f"Regression threshold: `{threshold_percent:.1f}%`",
     ]
+    if statistic == "median":
+        lines.append("Statistic: `median`")
     if time_noise_floor_s > 0 or memory_noise_floor_mb > 0:
         lines.append(
             f"Variance guard: `>{time_noise_floor_s:.1f}s` time and "
@@ -525,6 +565,7 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_MEMORY_NOISE_FLOOR_MB,
     )
     parser.add_argument("--fail-on-preparation-error", action="store_true")
+    parser.add_argument("--statistic", choices=("mean", "median"), default="mean")
     parser.add_argument("--markdown-output", type=Path)
     args = parser.parse_args(argv)
 
@@ -542,6 +583,7 @@ def main(argv: list[str] | None = None) -> int:
         args.time_noise_floor_seconds,
         args.memory_noise_floor_mb,
         args.fail_on_preparation_error,
+        args.statistic,
     )
     if args.markdown_output:
         args.markdown_output.write_text(
@@ -552,6 +594,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.time_noise_floor_seconds,
                 args.memory_noise_floor_mb,
                 args.fail_on_preparation_error,
+                args.statistic,
             ),
             encoding="utf-8",
         )

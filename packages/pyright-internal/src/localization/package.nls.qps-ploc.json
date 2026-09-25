@@ -672,6 +672,7 @@
         "variadicTypeParamTooManyClass": "[fboqC][นั้Gëñërïç çlæss çæñ hævë æt møst øñë TypeVarTuple tÿpë pæræmëtër þµt rëçëïvëð mµltïplë ({ñæmës})Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्นั้ढूँ]",
         "walrusIllegal": "[iR3y3][นั้Øpërætør \":=\" rëqµïrës Pÿthøñ 3.8 ør ñëwërẤğ倪İЂҰक्र्तिृまẤğ倪นั้ढूँ]",
         "walrusNotAllowed": "[kdD5j][นั้Øpërætør \":=\" ïs ñøt ælløwëð ïñ thïs çøñtëxt wïthøµt sµrrøµñðïñg pærëñthësësẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğนั้ढूँ]",
+        "walrusNotAllowedInComprehension": "[QeYqI][นั้Øpërætør \":=\" ïs ñøt ælløwëð wïthïñ æ çømprëhëñsïøñ ïtëræþlë ëxprëssïøñẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまนั้ढूँ]",
         "wildcardInFunction": "[NyGOv][นั้Wïlðçærð import ñøt ælløwëð wïthïñ æ çlæss ør fµñçtïøñẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "wildcardLibraryImport": "[Yk3ai][นั้Wïlðçærð import frøm æ lïþrærÿ ñøt ælløwëðẤğ倪İЂҰक्र्तिृまẤğ倪นั้ढूँ]",
         "wildcardPatternTypePartiallyUnknown": "[eRR5M][นั้Tÿpë çæptµrëð þÿ wïlðçærð pættërñ ïs pærtïællÿ µñkñøwñẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",

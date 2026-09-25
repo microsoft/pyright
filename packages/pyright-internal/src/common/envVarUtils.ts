@@ -95,11 +95,11 @@ export function resolvePathWithEnvVariables(
 export function expandPathVariables(path: string, rootPath: Uri, workspaces: WorkspaceFolder[]): string {
     // Make sure all replacements look like URI paths too.
     const replace = (match: RegExp, replaceValue: string) => {
-        path = path.replace(match, replaceValue);
+        path = path.replace(match, () => replaceValue);
     };
 
     // Replace everything inline.
-    path = path.replace(/\$\{workspaceFolder\}/g, rootPath.getPath());
+    replace(/\$\{workspaceFolder\}/g, rootPath.getPath());
 
     // this is for vscode multiroot workspace supports.
     // https://code.visualstudio.com/docs/editor/variables-reference#_variables-scoped-per-workspace-folder
@@ -110,7 +110,7 @@ export function expandPathVariables(path: string, rootPath: Uri, workspaces: Wor
 
         const escapedWorkspaceName = escapeRegExp(workspace.workspaceName);
         const ws_regexp = RegExp(`\\$\\{workspaceFolder:${escapedWorkspaceName}\\}`, 'g');
-        path = path.replace(ws_regexp, workspace.rootUri.getPath());
+        replace(ws_regexp, workspace.rootUri.getPath());
     }
 
     if (process.env.HOME !== undefined) {

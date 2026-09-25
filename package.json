@@ -1,7 +1,7 @@
 {
     "name": "pyright-root",
     "private": true,
-    "packageManager": "pnpm@10.12.2",
+    "packageManager": "pnpm@11.21.0",
     "scripts": {
         "clean": "lerna run --no-bail --stream clean",
         "installPinnedPackageManager": "node ./build/installPinnedPackageManager.js",
@@ -42,7 +42,7 @@
         "tmp": "^0.2.7",
         "typescript": "~6.0.3",
         "word-wrap": "1.2.5",
-        "yaml": "2.9.0",
+        "yaml": "^2.9.0",
         "yargs": "^16.2.0"
     }
 }
