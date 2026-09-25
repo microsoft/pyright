@@ -11,6 +11,9 @@ z = Union
 # This should generate an error.
 v1: Union[int]
 
+# This should generate an error.
+v2: Union[()]
+
 
 # This should generate an error.
 def func1() -> Union: ...
