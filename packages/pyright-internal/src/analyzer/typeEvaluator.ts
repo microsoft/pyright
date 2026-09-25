@@ -111,7 +111,12 @@ import {
     solveConstraintSet,
 } from './constraintSolver';
 import { ConstraintSet, ConstraintTracker } from './constraintTracker';
-import { createFunctionFromConstructor, getBoundInitMethod, validateConstructorArgs } from './constructors';
+import {
+    createFunctionFromConstructor,
+    getBoundInitMethod,
+    getBoundNewMethod,
+    validateConstructorArgs,
+} from './constructors';
 import {
     applyDataClassClassBehaviorOverrides,
     synthesizeDataClassMethods,
@@ -11580,7 +11585,8 @@ export function createTypeEvaluator(
             if (
                 abstractSymbols.length > 0 &&
                 !expandedCallType.priv.includeSubclasses &&
-                !isTypeVar(unexpandedCallType)
+                !isTypeVar(unexpandedCallType) &&
+                !instantiatesOnlyOtherConcreteClasses(expandedCallType, errorNode)
             ) {
                 // If the class is abstract, it can't be instantiated.
                 const diagAddendum = new DiagnosticAddendum();
@@ -29775,6 +29781,55 @@ export function createTypeEvaluator(
         );
 
         return undefined;
+    }
+
+    // Determines whether the class's `__new__` method is declared to return
+    // only instances of other concrete classes. `pathlib.Path` is the canonical
+    // example: calling it always produces a `PosixPath` or a `WindowsPath`, so
+    // its own abstract members do not make the call an error.
+    function instantiatesOnlyOtherConcreteClasses(classType: ClassType, errorNode: ExpressionNode): boolean {
+        const newMethod = getBoundNewMethod(evaluatorInterface, errorNode, classType)?.type;
+
+        // Overloaded and synthesized `__new__` methods are left to the normal check.
+        if (!newMethod || !isFunction(newMethod)) {
+            return false;
+        }
+
+        const declaredReturnType = newMethod.shared.declaredReturnType;
+        if (!declaredReturnType || isNever(declaredReturnType)) {
+            return false;
+        }
+
+        let instantiatesOthers = true;
+
+        doForEachSubtype(declaredReturnType, (subtype) => {
+            if (!isClassInstance(subtype)) {
+                instantiatesOthers = false;
+                return;
+            }
+
+            // The class itself or one of its bases can still describe an instance
+            // of this abstract class. Structural compatibility can do the same, so
+            // reject return types that can accept an instance of this class.
+            if (
+                derivesFromClassRecursive(
+                    classType,
+                    ClassType.cloneAsInstantiable(subtype),
+                    /* ignoreUnknown */ false
+                ) ||
+                assignType(subtype, ClassType.cloneAsInstance(classType))
+            ) {
+                instantiatesOthers = false;
+                return;
+            }
+
+            // The class that is actually instantiated must itself be concrete.
+            if (getAbstractSymbols(ClassType.cloneAsInstantiable(subtype)).length > 0) {
+                instantiatesOthers = false;
+            }
+        });
+
+        return instantiatesOthers;
     }
 
     // Returns a list of unimplemented abstract symbols (methods or variables) for
