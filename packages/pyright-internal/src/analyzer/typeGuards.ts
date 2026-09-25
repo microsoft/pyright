@@ -26,6 +26,7 @@ import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { Declaration, DeclarationType } from './declaration';
 import { transformTypeForEnumMember } from './enums';
+import { customMetaclassSupportsMethod } from './operations';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import { getScopeForNode, isScopeContainedWithin } from './scopeUtils';
@@ -367,6 +368,22 @@ export function getTypeNarrowingCallback(
                         return (type: Type) => {
                             return {
                                 type: narrowTypeForLiteralComparison(
+                                    evaluator,
+                                    type,
+                                    rightType,
+                                    adjIsPositiveTest,
+                                    /* isIsOperator */ false
+                                ),
+                                isIncomplete: !!rightTypeResult.isIncomplete,
+                            };
+                        };
+                    }
+
+                    // Look for X == <class> or X != <class>.
+                    if (isInstantiableClass(rightType)) {
+                        return (type: Type) => {
+                            return {
+                                type: narrowTypeForClassComparison(
                                     evaluator,
                                     type,
                                     rightType,
@@ -2664,16 +2681,45 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: C
     return combineTypes(typesToCombine);
 }
 
+// Determines whether an equality comparison ("==" or "!=") involving the
+// specified class object is guaranteed to have identity semantics. This
+// requires that the class is statically closed (it cannot be a subclass
+// with a different metaclass), is not generic (specialized aliases compare
+// by value), and its metaclass does not override "__eq__" or "__ne__".
+function hasIdentityEqualitySemantics(classType: ClassType): boolean {
+    if (classType.priv.includeSubclasses && !ClassType.isFinal(classType)) {
+        return false;
+    }
+
+    if (classType.shared.typeParams.length > 0) {
+        return false;
+    }
+
+    return !customMetaclassSupportsMethod(classType, '__eq__') && !customMetaclassSupportsMethod(classType, '__ne__');
+}
+
 // Attempts to narrow a type based on a comparison with a class using "is" or
-// "is not". This pattern is sometimes used for sentinels.
+// "is not", or "==" or "!=".
 function narrowTypeForClassComparison(
     evaluator: TypeEvaluator,
     referenceType: Type,
     classType: ClassType,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    isIsOperator = true
 ): Type {
+    if (!isIsOperator && !hasIdentityEqualitySemantics(classType)) {
+        return referenceType;
+    }
+
     return mapSubtypes(referenceType, (subtype) => {
         let concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+        if (
+            !isIsOperator &&
+            (!isInstantiableClass(concreteSubtype) || !hasIdentityEqualitySemantics(concreteSubtype))
+        ) {
+            return subtype;
+        }
 
         if (isPositiveTest) {
             if (
@@ -2693,6 +2739,9 @@ function narrowTypeForClassComparison(
 
             if (isClass(concreteSubtype)) {
                 if (TypeBase.isInstance(concreteSubtype)) {
+                    if (!isIsOperator) {
+                        return subtype;
+                    }
                     return ClassType.isBuiltIn(concreteSubtype, 'object') ? classType : undefined;
                 }
 
