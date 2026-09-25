@@ -336,12 +336,7 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
         return false;
     }
 
-    let isCompatible = true;
-    doForEachSubtype(type2, (subtype) => {
-        if (!isCompatible) {
-            return;
-        }
-
+    return allSubtypes(type2, (subtype) => {
         if (!isTypeSame(type1, subtype)) {
             const conditions = getTypeCondition(subtype);
 
@@ -349,12 +344,12 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
                 !conditions ||
                 !conditions.some((condition) => condition.typeVar.priv.nameWithScope === type1.priv.nameWithScope)
             ) {
-                isCompatible = false;
+                return false;
             }
         }
-    });
 
-    return isCompatible;
+        return true;
+    });
 }
 
 export function makeInferenceContext(
@@ -796,12 +791,10 @@ export function someSubtypes(type: Type, callback: (type: Type) => boolean): boo
 
 export function allSubtypes(type: Type, callback: (type: Type) => boolean): boolean {
     if (isUnion(type)) {
-        return type.priv.subtypes.every((subtype) => {
-            callback(subtype);
-        });
-    } else {
-        return callback(type);
+        return type.priv.subtypes.every(callback);
     }
+
+    return callback(type);
 }
 
 export function doForEachSignature(
