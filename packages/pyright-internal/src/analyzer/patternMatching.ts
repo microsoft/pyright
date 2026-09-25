@@ -83,6 +83,7 @@ import {
     isUnboundedTupleClass,
     lookUpClassMember,
     mapSubtypes,
+    MemberAccessFlags,
     partiallySpecializeType,
     preserveUnknown,
     specializeTupleClass,
@@ -1331,7 +1332,7 @@ function narrowTypeBasedOnValuePattern(
                 evaluator.mapSubtypesExpandTypeVars(
                     subjectType,
                     { conditionFilter: getTypeCondition(valueSubtypeExpanded) },
-                    (subjectSubtypeExpanded) => {
+                    (subjectSubtypeExpanded, subjectSubtypeUnexpanded) => {
                         // If this is a negative test, see if it's an enum value.
                         if (!isPositiveTest) {
                             if (
@@ -1401,7 +1402,38 @@ function narrowTypeBasedOnValuePattern(
                             )
                         );
 
-                        return returnType ? valueSubtypeUnexpanded : undefined;
+                        if (!returnType) {
+                            return undefined;
+                        }
+
+                        // A successful "==" comparison does not generally imply that the
+                        // subject has the pattern value's type because either operand may
+                        // override __eq__. If neither does, equality implies identity, so
+                        // narrow to the value type.
+                        if (!hasCustomEq(valueSubtypeExpanded) && !hasCustomEq(subjectSubtypeExpanded)) {
+                            return valueSubtypeUnexpanded;
+                        }
+
+                        // Literal (including enum) values are handled specially: narrow to
+                        // the literal if it is assignable to the subject, and eliminate the
+                        // subject if the literal is not comparable to it and the subject
+                        // cannot supply a reflected custom __eq__.
+                        if (isClassInstance(valueSubtypeExpanded) && isLiteralType(valueSubtypeExpanded)) {
+                            if (evaluator.assignType(subjectSubtypeExpanded, valueSubtypeExpanded)) {
+                                return valueSubtypeUnexpanded;
+                            }
+
+                            if (
+                                !evaluator.isTypeComparable(valueSubtypeExpanded, subjectSubtypeExpanded) &&
+                                isClassInstance(subjectSubtypeExpanded) &&
+                                (ClassType.isBuiltIn(subjectSubtypeExpanded) || !hasCustomEq(subjectSubtypeExpanded))
+                            ) {
+                                return undefined;
+                            }
+                        }
+
+                        // Otherwise retain the subject type.
+                        return subjectSubtypeUnexpanded;
                     }
                 )
             );
@@ -1411,6 +1443,12 @@ function narrowTypeBasedOnValuePattern(
     );
 
     return combineTypes(narrowedSubtypes);
+}
+
+// Determines whether the type is a class instance whose "__eq__" method
+// is provided by a class other than "object".
+function hasCustomEq(type: Type): boolean {
+    return !isClassInstance(type) || !!lookUpClassMember(type, '__eq__', MemberAccessFlags.SkipObjectBaseClass);
 }
 
 // Returns information about all subtypes that match the definition of a "mapping" as
