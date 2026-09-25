@@ -511,8 +511,28 @@ function validateInitMethod(
     );
 
     const returnType = mapSubtypes(callResult.specializedInitSelfType ?? type, (selfType) => {
+        // An Any or Unknown argument matched several __init__ overloads that
+        // construct different specializations, so the type arguments are unknown.
+        // Don't apply the constraints, which reflect only the first of those overloads.
+        if (isUnknown(selfType)) {
+            return applyExpectedTypeForConstructor(
+                evaluator,
+                type,
+                /* inferenceContext */ undefined,
+                new ConstraintTracker()
+            );
+        }
+
+        // A specialized __init__ self type must not widen type arguments
+        // explicitly supplied by the caller, even when overloads are ambiguous.
+        const isUnspecializedAlias =
+            !!type.props?.typeAliasInfo?.shared.typeParams?.length &&
+            !type.props.typeAliasInfo.typeArgs &&
+            type.priv.typeArgs?.every(isUnknown);
         const adjustedClassType =
-            isClassInstance(selfType) && ClassType.isSameGenericClass(selfType, type)
+            (!type.priv.typeArgs || isUnspecializedAlias) &&
+            isClassInstance(selfType) &&
+            ClassType.isSameGenericClass(selfType, type)
                 ? ClassType.cloneAsInstantiable(selfType)
                 : type;
         return applyExpectedTypeForConstructor(
