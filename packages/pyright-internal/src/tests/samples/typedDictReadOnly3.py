@@ -1,7 +1,6 @@
 # This sample tests diagnostic rule categorization for ReadOnly TypedDict key modifications.
 
-from typing import NotRequired, TypedDict
-from typing_extensions import ReadOnly  # pyright: ignore[reportMissingModuleSource]
+from typing import NotRequired, ReadOnly, TypedDict
 
 
 class TD1(TypedDict):
