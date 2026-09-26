@@ -1335,6 +1335,60 @@ function narrowTypeBasedOnValuePattern(
                         // If this is a negative test, see if it's an enum value.
                         if (!isPositiveTest) {
                             if (
+                                isInstantiableClass(subjectSubtypeExpanded) &&
+                                isInstantiableClass(valueSubtypeExpanded) &&
+                                isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded) &&
+                                // Bug fix (QA regression 1): The value must be a specific class literal,
+                                // not a polymorphic type variable. E.g. holder.cls: type[Base] could hold
+                                // a subclass at runtime, so it must not eliminate Base from the residual.
+                                !valueSubtypeExpanded.priv.includeSubclasses &&
+                                // Bug fix (QA regression 2): The value must not be a specialized generic
+                                // alias (e.g. Box[int]). At runtime type(Box[int]()) is the raw class Box,
+                                // so Box != Box[int] and case _: is reachable. We check the unexpanded
+                                // value type since expansion strips the type args from the expanded form.
+                                (!valueSubtypeUnexpanded ||
+                                    !isInstantiableClass(valueSubtypeUnexpanded) ||
+                                    !valueSubtypeUnexpanded.priv.typeArgs ||
+                                    valueSubtypeUnexpanded.priv.typeArgs.length === 0)
+                            ) {
+                                // A value pattern compares with ==, not identity. Ensure that the
+                                // subject class uses standard equality semantics by resolving __eq__
+                                // through the metaclass MRO. If a custom metaclass defines __eq__,
+                                // the match may not behave as a simple identity check.
+                                const metaclass = subjectSubtypeExpanded.shared.effectiveMetaclass;
+                                let eqClass: ClassType | undefined;
+                                if (
+                                    metaclass &&
+                                    isInstantiableClass(metaclass) &&
+                                    !ClassType.isBuiltIn(metaclass, 'type')
+                                ) {
+                                    // Resolve __eq__ via MRO for non-default metaclasses (e.g. ABCMeta,
+                                    // EnumMeta, or user-defined metaclasses). When a named metaclass
+                                    // overrides __eq__, we cannot safely narrow.
+                                    const eqMember = lookUpClassMember(metaclass, '__eq__');
+                                    if (eqMember && isClass(eqMember.classType)) {
+                                        eqClass = eqMember.classType;
+                                    }
+                                }
+
+                                // isStandardEquality is true when:
+                                // - metaclass is the default built-in `type` (no custom __eq__), OR
+                                // - the resolved __eq__ member comes from a well-known built-in class
+                                //   that uses identity semantics (type, object, ABCMeta, EnumMeta).
+                                const isStandardEquality =
+                                    !eqClass ||
+                                    ClassType.isBuiltIn(eqClass, ['type', 'object', 'ABCMeta', 'EnumMeta']);
+
+                                // Only narrow (remove from residual) when equality semantics are standard
+                                // and the subject class is @final (no subclasses can exist at runtime).
+                                // We intentionally do NOT use !includeSubclasses on the subject here to
+                                // avoid false-eliminating non-final classes referenced directly as class
+                                // objects (e.g. subject = Base where Base is not @final).
+                                if (isStandardEquality && ClassType.isFinal(subjectSubtypeExpanded)) {
+                                    return undefined;
+                                }
+                            }
+                            if (
                                 isClassInstance(subjectSubtypeExpanded) &&
                                 isClassInstance(valueSubtypeExpanded) &&
                                 isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded)
