@@ -790,6 +790,12 @@ test('Self11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Self12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self12.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('UnusedVariable1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
