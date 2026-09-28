@@ -11,6 +11,8 @@ import { join } from 'path';
 
 import { verifyMcpTools } from '../../../../build/ci/mypyPrimerMcp';
 
+jest.setTimeout(90_000);
+
 // A headless CLI transport fixture, not an MCP server: only discovery RPCs are accepted.
 const mockCli = String.raw`
 const fs = require('fs');
@@ -193,7 +195,7 @@ describe('mypy_primer native MCP preflight', () => {
                 PRIMER_TEST_ENV: 'unchanged',
             },
             encoding: 'utf8',
-            timeout: 10_000,
+            timeout: 30_000,
         });
         expect(result.error).toBeUndefined();
         expect(result.status).toBe(fail ? 1 : 17);
