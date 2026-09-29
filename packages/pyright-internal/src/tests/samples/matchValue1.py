@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 from http import HTTPStatus
-from typing import Annotated, ClassVar, Literal, TypeVar
+from typing import Annotated, Any, Callable, ClassVar, Literal, TypeVar, final
 
 # pyright: reportIncompatibleMethodOverride=false
 
@@ -154,6 +154,137 @@ def test_related_identity_eq_value_pattern(value_to_match: PlainBase):
     match value_to_match:
         case PlainDerivedPatterns.value as a1:
             reveal_type(a1, expected_text="PlainDerived")
+
+
+@final
+class InstanceEqToken:
+    def __init__(self) -> None:
+        # Implicit equality ignores special methods assigned to an instance.
+        self.__eq__: Callable[[object], bool] = lambda other: True
+
+
+class InstanceEqPatterns:
+    value: ClassVar[InstanceEqToken] = InstanceEqToken()
+
+
+def test_instance_eq_value_pattern(value_to_match: InstanceEqToken | None) -> InstanceEqToken:
+    match value_to_match:
+        case InstanceEqPatterns.value as a1:
+            reveal_type(a1, expected_text="InstanceEqToken")
+            reveal_type(value_to_match, expected_text="InstanceEqToken")
+            return a1
+    return InstanceEqPatterns.value
+
+
+@final
+class IdentityClassA:
+    # Comparing class objects must not use their instances' equality method.
+    def __eq__(self, other: object) -> bool:
+        return True
+
+    @staticmethod
+    def only_a() -> int:
+        return 1
+
+
+@final
+class IdentityClassB:
+    pass
+
+
+class IdentityMeta(type):
+    pass
+
+
+@final
+class IdentityClassC(metaclass=IdentityMeta):
+    pass
+
+
+class CustomEqMeta(type):
+    def __eq__(cls, other: object) -> bool:
+        return True
+
+
+class InheritedEqMeta(CustomEqMeta):
+    pass
+
+
+@final
+class CustomEqClass(metaclass=InheritedEqMeta):
+    pass
+
+
+class ClassPatterns:
+    a = IdentityClassA
+    c = IdentityClassC
+    custom = CustomEqClass
+
+
+def test_class_identity_value_pattern(value_to_match: type[IdentityClassA] | type[IdentityClassB]) -> int:
+    match value_to_match:
+        case ClassPatterns.a as a1:
+            reveal_type(a1, expected_text="type[IdentityClassA]")
+            reveal_type(value_to_match, expected_text="type[IdentityClassA]")
+            return a1.only_a()
+    return 0
+
+
+def test_inherited_identity_value_pattern(value_to_match: type[IdentityClassB] | type[IdentityClassC]):
+    match value_to_match:
+        case ClassPatterns.c as a1:
+            reveal_type(a1, expected_text="type[IdentityClassC]")
+            reveal_type(value_to_match, expected_text="type[IdentityClassC]")
+
+
+def test_custom_metaclass_value_pattern(value_to_match: type[IdentityClassB]) -> type[IdentityClassB]:
+    match value_to_match:
+        case ClassPatterns.custom as a1:
+            reveal_type(a1, expected_text="type[IdentityClassB]")
+            reveal_type(value_to_match, expected_text="type[IdentityClassB]")
+            return a1
+    return value_to_match
+
+
+def test_reflected_metaclass_value_pattern(value_to_match: type[CustomEqClass]) -> type[CustomEqClass]:
+    match value_to_match:
+        case ClassPatterns.a as a1:
+            reveal_type(a1, expected_text="type[CustomEqClass]")
+            reveal_type(value_to_match, expected_text="type[CustomEqClass]")
+            return a1
+    return value_to_match
+
+
+def test_unknown_metaclass_value_pattern(meta: Any):
+    class UnknownMetaClass(metaclass=meta):
+        pass
+
+    class InheritedUnknownMetaClass(UnknownMetaClass):
+        pass
+
+    class Patterns:
+        value = UnknownMetaClass
+        inherited = InheritedUnknownMetaClass
+
+    def inner(value_to_match: type[IdentityClassB]) -> type[IdentityClassB]:
+        match value_to_match:
+            case Patterns.value as a1:
+                reveal_type(a1, expected_text="type[IdentityClassB]")
+                reveal_type(value_to_match, expected_text="type[IdentityClassB]")
+                return a1
+            case Patterns.inherited as a2:
+                reveal_type(a2, expected_text="type[IdentityClassB]")
+                reveal_type(value_to_match, expected_text="type[IdentityClassB]")
+                return a2
+        return value_to_match
+
+    def reflected(value_to_match: type[UnknownMetaClass]) -> type[UnknownMetaClass]:
+        match value_to_match:
+            case ClassPatterns.a as a1:
+                reveal_type(a1, expected_text="type[UnknownMetaClass]")
+                reveal_type(value_to_match, expected_text="type[UnknownMetaClass]")
+                return a1
+        return value_to_match
 
 
 TEqBase = TypeVar("TEqBase", bound=EqBase)

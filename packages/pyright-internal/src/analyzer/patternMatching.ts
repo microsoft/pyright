@@ -1395,10 +1395,24 @@ function narrowTypeBasedOnValuePattern(
     return combineTypes(narrowedSubtypes);
 }
 
-// Determines whether the type is a class instance whose "__eq__" method
-// is provided by a class other than "object".
+// Determines whether implicit equality may use an implementation other than object.__eq__.
 function hasCustomEq(type: Type): boolean {
-    return !isClassInstance(type) || !!lookUpClassMember(type, '__eq__', MemberAccessFlags.SkipObjectBaseClass);
+    if (isInstantiableClass(type)) {
+        const metaclass = type.shared.effectiveMetaclass;
+        if (!metaclass || !isInstantiableClass(metaclass)) {
+            return true;
+        }
+        type = ClassType.cloneAsInstance(metaclass);
+    }
+
+    return (
+        !isClassInstance(type) ||
+        !!lookUpClassMember(
+            type,
+            '__eq__',
+            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
+        )
+    );
 }
 
 // Returns information about all subtypes that match the definition of a "mapping" as
