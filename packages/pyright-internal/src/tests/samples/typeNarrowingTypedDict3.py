@@ -59,6 +59,8 @@ def mutate_present_keys(value: MutableDict):
             # the "first" key alternative.
             value[key] = "x"
 
+            # This should generate an error. Presence does not correlate the
+            # value union with each possible assignment target.
             value[key] = value[key]
 
             # This should generate an error for the required key alternative.
@@ -76,7 +78,9 @@ class StrValueDict(TypedDict, total=False):
 def read_present_key_from_union(value: IntValueDict | StrValueDict):
     for key in ("int_value", "str_value"):
         if key in value:
-            reveal_type(value[key], expected_text="int* | str*")
+            # This should generate two errors. These open TypedDicts may contain
+            # undeclared keys with unknown value types, even after a presence check.
+            reveal_type(value[key], expected_text="int | Unknown | str")
 
 
 class MyDict2(TypedDict, total=False):

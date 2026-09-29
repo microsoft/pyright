@@ -582,7 +582,16 @@ test('TypeNarrowingTypedDict2', () => {
 test('TypeNarrowingTypedDict3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict3.py']);
 
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 12);
+});
+
+test('TypeNarrowingTypedDict4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict4.py']);
+
+    TestUtils.validateResults(analysisResults, 21);
+    expect(analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((a, b) => a - b)).toEqual([
+        118, 125, 132, 138, 144, 152, 159, 166, 174, 186, 193, 201, 208, 222, 236, 249, 264, 272, 279, 287, 321,
+    ]);
 });
 
 test('typeNarrowingCallable1', () => {

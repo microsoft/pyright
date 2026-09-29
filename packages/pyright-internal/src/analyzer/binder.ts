@@ -3649,7 +3649,18 @@ export class Binder extends ParseTreeWalker {
         }
 
         const prevFlowNode = this._currentFlowNode!;
-        if (!this._isCodeUnreachable() && isCodeFlowSupportedForReference(node)) {
+        // Record mutations even when the target cannot be narrowed, so presence
+        // proofs do not survive deletion or replacement through a variable index.
+        let root: ExpressionNode = node;
+        while (root.nodeType === ParseNodeType.Index || root.nodeType === ParseNodeType.MemberAccess) {
+            root = root.d.leftExpr;
+        }
+        const reference = isCodeFlowSupportedForReference(node)
+            ? node
+            : isCodeFlowSupportedForReference(root)
+            ? root
+            : undefined;
+        if (!this._isCodeUnreachable() && reference) {
             const flowNode: FlowAssignment = {
                 flags: FlowFlags.Assignment,
                 id: this._getUniqueFlowNodeId(),
@@ -3658,7 +3669,7 @@ export class Binder extends ParseTreeWalker {
                 targetSymbolId,
             };
 
-            const referenceKey = createKeyForReference(node);
+            const referenceKey = createKeyForReference(reference);
             this._currentScopeCodeFlowExpressions!.add(referenceKey);
 
             if (unbound) {

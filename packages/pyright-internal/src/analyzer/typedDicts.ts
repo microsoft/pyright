@@ -57,7 +57,6 @@ import {
     NeverType,
     OverloadedType,
     Type,
-    TypeCondition,
     TypedDictEntries,
     TypedDictEntry,
     TypeVarScopeType,
@@ -69,7 +68,6 @@ import {
     buildSolutionFromSpecializedClass,
     computeMroLinearization,
     convertToInstance,
-    getTypeCondition,
     getTypeVarScopeId,
     isLiteralType,
     mapSubtypes,
@@ -1534,18 +1532,8 @@ export function getTypeOfIndexedTypedDict(
     let diag = new DiagnosticAddendum();
     let allDiagsInvolveNotRequiredKeys = true;
 
-    const conditionFilter = getTypeCondition(baseType);
-    const setType =
-        usage.method === 'set' && usage.setType && conditionFilter
-            ? evaluator.mapSubtypesExpandTypeVars(usage.setType.type, /* options */ undefined, (subtype) =>
-                  TypeCondition.isCompatible(getTypeCondition(subtype), conditionFilter) ? subtype : undefined
-              )
-            : usage.setType?.type;
+    let isKeyPresent: boolean | undefined;
     const resultingType = mapSubtypes(indexType, (subtype) => {
-        if (!TypeCondition.isCompatible(getTypeCondition(subtype), conditionFilter)) {
-            return undefined;
-        }
-
         if (isAnyOrUnknown(subtype)) {
             return subtype;
         }
@@ -1570,12 +1558,15 @@ export function getTypeOfIndexedTypedDict(
                 allDiagsInvolveNotRequiredKeys = false;
                 return UnknownType.create();
             } else if (!(entry.isRequired || entry.isProvided) && usage.method === 'get') {
-                diag.addMessage(
-                    LocAddendum.keyNotRequired().format({
-                        name: entryName,
-                        type: evaluator.printType(baseType),
-                    })
-                );
+                isKeyPresent ??= evaluator.isKeyPresentInTypedDict(node);
+                if (!isKeyPresent) {
+                    diag.addMessage(
+                        LocAddendum.keyNotRequired().format({
+                            name: entryName,
+                            type: evaluator.printType(baseType),
+                        })
+                    );
+                }
             } else if (entry.isReadOnly && usage.method !== 'get') {
                 diag.addMessage(
                     LocAddendum.keyReadOnly().format({
@@ -1587,7 +1578,7 @@ export function getTypeOfIndexedTypedDict(
             }
 
             if (usage.method === 'set') {
-                if (!evaluator.assignType(entry.valueType, setType ?? AnyType.create(), diag)) {
+                if (!evaluator.assignType(entry.valueType, usage.setType?.type ?? AnyType.create(), diag)) {
                     allDiagsInvolveNotRequiredKeys = false;
                 }
             } else if (usage.method === 'del' && entry.isRequired) {

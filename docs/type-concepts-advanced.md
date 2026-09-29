@@ -105,6 +105,25 @@ def func2(val: float | None):
 
 In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `float` (specifically, a value of 0.0) or `None` in the negative case.
 
+### TypedDict Key Presence
+
+When a key has a union of string literal types, a membership check can establish that an indexed read of that same key is safe:
+
+```python
+class Data(TypedDict, total=False):
+    a: int
+    b: str
+
+def read(data: Data):
+    for key in ("a", "b"):
+        if key in data:
+            value = data[key]  # int | str, without an optional-key access error
+```
+
+This proves presence only for the checked dictionary and key, not for every literal alternative. It does not correlate value types with assignment targets or make undeclared keys valid. In particular, a union of open TypedDicts may contain an undeclared key whose value type is unknown.
+
+The presence check must hold on every incoming control-flow path. Reassigning the dictionary or key, deleting an item, or crossing a call, loop boundary, or exception-handling gate can prevent this proof. A guard inside a loop applies to reads within that iteration; it does not associate values carried from earlier iterations with the current key. Existing single-literal TypedDict narrowing is unchanged.
+
 ### Aliased Conditional Expression
 
 Pyright also supports a type guard expression `c`, where `c` is an identifier that refers to a local variable that is assigned one of the above supported type guard expression forms. These are called “aliased conditional expressions”. Examples include `c = a is not None` and `c = isinstance(a, str)`. When “c” is used within a conditional check, it can be used to narrow the type of expression `a`.
