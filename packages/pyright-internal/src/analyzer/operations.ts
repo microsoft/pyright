@@ -425,6 +425,33 @@ export function getTypeOfBinaryOperation(
     // within a loop construct using __add__.
     const isTupleAddAllowed = !isUnion(leftType);
 
+    // Tuple ordering should compare the element types, not the particular
+    // literal values inferred from each tuple expression. Keep the precise
+    // tuple types for flow analysis, indexing, and other operations.
+    if (
+        node.d.operator === OperatorType.LessThan ||
+        node.d.operator === OperatorType.LessThanOrEqual ||
+        node.d.operator === OperatorType.GreaterThan ||
+        node.d.operator === OperatorType.GreaterThanOrEqual
+    ) {
+        if (isClassInstance(leftType) && isTupleClass(leftType) && leftType.priv.tupleTypeArgs) {
+            leftType = specializeTupleClass(
+                leftType,
+                leftType.priv.tupleTypeArgs.map((arg) => ({ ...arg, type: evaluator.stripLiteralValue(arg.type) })),
+                leftType.priv.isTypeArgExplicit,
+                leftType.priv.isUnpacked
+            );
+        }
+        if (isClassInstance(rightType) && isTupleClass(rightType) && rightType.priv.tupleTypeArgs) {
+            rightType = specializeTupleClass(
+                rightType,
+                rightType.priv.tupleTypeArgs.map((arg) => ({ ...arg, type: evaluator.stripLiteralValue(arg.type) })),
+                rightType.priv.isTypeArgExplicit,
+                rightType.priv.isUnpacked
+            );
+        }
+    }
+
     const typeResult = validateBinaryOperation(
         evaluator,
         node.d.operator,

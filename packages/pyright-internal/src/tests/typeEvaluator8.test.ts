@@ -395,7 +395,7 @@ test('Operator1', () => {
 test('Tuple24', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple24.py']);
 
-    TestUtils.validateResults(analysisResults, 0, 0, 2);
+    TestUtils.validateResults(analysisResults, 6, 0, 2);
 });
 
 test('Operator2', () => {
