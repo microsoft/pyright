@@ -19263,6 +19263,9 @@ export function createTypeEvaluator(
             // Determine the effective metaclass.
             if (metaclassNode) {
                 let metaclassType = getTypeOfExpression(metaclassNode, exprFlags).type;
+                if (isAny(metaclassType)) {
+                    metaclassType = UnknownType.create();
+                }
                 if (isInstantiableClass(metaclassType) || isUnknown(metaclassType)) {
                     if (requiresSpecialization(metaclassType, { ignorePseudoGeneric: true })) {
                         addDiagnostic(
