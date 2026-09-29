@@ -1776,8 +1776,13 @@ export function lookUpClassMember(
 
     // Skip the "type" class as an optimization because it is known to not
     // define any instance variables, and it's by far the most common metaclass.
-    if (isInstantiableClass(classType) && metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
-        const metaMemberItr = getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers);
+    if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
+        let metaFlags = MemberAccessFlags.SkipClassMembers;
+        if (isClassInstance(classType)) {
+            // Preserve custom metaclass fields without exposing members inherited from type.
+            metaFlags |= MemberAccessFlags.SkipTypeBaseClass;
+        }
+        const metaMemberItr = getClassMemberIterator(metaclass, memberName, metaFlags);
         const metaMember = metaMemberItr.next()?.value;
 
         // If the metaclass defines the member and we didn't hit an Unknown
