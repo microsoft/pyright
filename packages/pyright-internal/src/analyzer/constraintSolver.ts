@@ -1135,11 +1135,7 @@ function assignConstrainedTypeVar(
             return constrainedSubtype;
         });
 
-        const isExplicitNeverConstraint =
-            isNever(concreteSrcType) &&
-            destType.shared.hasExplicitNeverConstraint &&
-            destType.shared.constraints.some((constraint) => isTypeSame(constraint, concreteSrcType));
-        if ((isNever(constrainedType) && !isExplicitNeverConstraint) || !isCompatible) {
+        if (isNever(constrainedType) || !isCompatible) {
             constrainedType = undefined;
         }
 

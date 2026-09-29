@@ -2882,7 +2882,6 @@ export interface TypeVarDetailsShared {
     kind: TypeVarKind;
     name: string;
     constraints: Type[];
-    hasExplicitNeverConstraint: boolean;
     boundType: Type | undefined;
     isDefaultExplicit: boolean;
     defaultType: Type;
@@ -3218,7 +3217,6 @@ export namespace TypeVarType {
                 kind,
                 name,
                 constraints: [],
-                hasExplicitNeverConstraint: false,
                 boundType: undefined,
                 isDefaultExplicit: false,
                 defaultType: UnknownType.create(),
@@ -3237,9 +3235,6 @@ export namespace TypeVarType {
 
     export function addConstraint(type: TypeVarType, constraintType: Type) {
         type.shared.constraints.push(constraintType);
-        if (isNever(constraintType)) {
-            type.shared.hasExplicitNeverConstraint = true;
-        }
     }
 
     export function getNameWithScope(typeVarType: TypeVarType) {
