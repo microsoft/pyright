@@ -25081,6 +25081,21 @@ export function createTypeEvaluator(
         });
     }
 
+    function isNodeWithinInferredTypeSource(decl: Declaration, node: ParseNode): boolean {
+        if (decl.type !== DeclarationType.Variable || !decl.inferredTypeSource) {
+            return false;
+        }
+
+        let source = decl.inferredTypeSource;
+        if (source.nodeType === ParseNodeType.For || source.nodeType === ParseNodeType.ComprehensionFor) {
+            source = source.d.iterableExpr;
+        }
+
+        // An except clause source contains code that runs after the
+        // assignment, so check only expression sources.
+        return isExpressionNode(source) && ParseTreeUtils.isNodeContainedWithin(node, source);
+    }
+
     function inferTypeOfSymbolForUsage(symbol: Symbol, usageNode?: NameNode, useLastDecl = false): EffectiveTypeResult {
         // Look in the inferred type cache to see if we've computed this already.
         let cacheEntries = effectiveTypeCache.get(symbol.id);
@@ -25200,7 +25215,7 @@ export function createTypeEvaluator(
                         // Note: for the cases filtered out here (decl after usage in same
                         // scope), the code-flow engine handles loop-carried narrowing when
                         // it evaluates the type at the actual usage site.
-                        if (decl.node.start >= usageNode.start) {
+                        if (decl.node.start >= usageNode.start || isNodeWithinInferredTypeSource(decl, usageNode)) {
                             return;
                         }
                     }
