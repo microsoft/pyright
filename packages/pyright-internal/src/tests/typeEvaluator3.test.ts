@@ -910,7 +910,7 @@ test('UnknownRecursiveAliasBranches1', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_14;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unknownRecursiveAliasBranches1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0, 0, 0);
+    TestUtils.validateResults(analysisResults, 0, 0, 1);
 });
 
 test('Classes1', () => {

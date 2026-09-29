@@ -31,6 +31,7 @@ def dispatch(request: JsonRpcRequest) -> object | None:
     try:
         raise KeyboardInterrupt()
     except* KeyboardInterrupt as _e:
+        reveal_type(_e, expected_text="BaseExceptionGroup[KeyboardInterrupt]")
         handle_keyboard_interrupt(_e.exceptions[0])
 
     if request.method == 'm0':
