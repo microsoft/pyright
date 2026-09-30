@@ -346,6 +346,7 @@ import {
     isNoneInstance,
     isNoneTypeClass,
     isOptionalType,
+    isOverlapOnlyByOmission,
     isPartlyUnknown,
     isProperty,
     isSentinelLiteral,
@@ -28319,6 +28320,9 @@ export function createTypeEvaluator(
                 // be a match.
                 if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
                     if (srcParam.defaultType) {
+                        if (isOverlapOnlyByOmission(destParamType, destParam.defaultType, srcParamType)) {
+                            canAssign = false;
+                        }
                         continue;
                     }
                 }
@@ -28752,6 +28756,11 @@ export function createTypeEvaluator(
                     // be a match.
                     if (srcParamInfo.defaultType && destParamInfo.defaultType) {
                         if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
+                            if (
+                                isOverlapOnlyByOmission(destParamInfo.type, destParamInfo.defaultType, srcParamType)
+                            ) {
+                                canAssign = false;
+                            }
                             destParamMap.delete(srcParamInfo.param.name);
                             return;
                         }
