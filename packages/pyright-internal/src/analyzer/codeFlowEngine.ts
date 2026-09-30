@@ -41,6 +41,7 @@ import { formatControlFlowGraph } from './codeFlowUtils';
 import { getBoundCallMethod, getBoundNewMethod } from './constructors';
 import { DeclarationType } from './declaration';
 import {
+    getEvaluationScopeNode,
     isImplicitRevealTypeName,
     isMatchingExpression,
     isPartialMatchingExpression,
@@ -512,7 +513,7 @@ export function getCodeFlowEngine(
                         return setCacheEntry(curFlowNode, NeverType.createNever(), /* isIncomplete */ false);
                     }
 
-                    if (curFlowNode.flags & FlowFlags.VariableAnnotation) {
+                    if (curFlowNode.flags & (FlowFlags.VariableAnnotation | FlowFlags.Mutation)) {
                         const varAnnotationNode = curFlowNode as FlowVariableAnnotation;
                         curFlowNode = varAnnotationNode.antecedent;
                         continue;
@@ -1264,16 +1265,34 @@ export function getCodeFlowEngine(
             return false;
         }
 
-        function getRootSymbolId(expression: ExpressionNode): number | undefined {
+        function getReferenceRoot(expression: ExpressionNode): ExpressionNode {
             while (expression.nodeType === ParseNodeType.MemberAccess || expression.nodeType === ParseNodeType.Index) {
                 expression = expression.d.leftExpr;
             }
+            return expression;
+        }
+
+        function getRootSymbolId(expression: ExpressionNode): number | undefined {
+            expression = getReferenceRoot(expression);
             if (expression.nodeType === ParseNodeType.AssignmentExpression) {
                 expression = expression.d.name;
             }
             return expression.nodeType === ParseNodeType.Name
                 ? evaluator.lookUpSymbolRecursive(expression, expression.d.value, /* honorCodeFlow */ false)?.symbol.id
                 : undefined;
+        }
+
+        function getPresenceScope(expression: ParseNode) {
+            let scope = getEvaluationScopeNode(expression, nodeInfo).node;
+            while (
+                scope.nodeType === ParseNodeType.Comprehension &&
+                (scope.parent?.nodeType === ParseNodeType.List ||
+                    scope.parent?.nodeType === ParseNodeType.Set ||
+                    scope.parent?.nodeType === ParseNodeType.Dictionary)
+            ) {
+                scope = getEvaluationScopeNode(scope.parent, nodeInfo).node;
+            }
+            return scope;
         }
 
         function matches(reference: ExpressionNode, expression: ExpressionNode): boolean {
@@ -1287,6 +1306,7 @@ export function getCodeFlowEngine(
         const pending = [flowNode];
         const visited = new Set<number>();
         const maxPresenceFlowNodes = 256;
+        const presenceScope = getPresenceScope(node);
 
         while (pending.length > 0) {
             evaluator.checkForCancellation();
@@ -1327,6 +1347,18 @@ export function getCodeFlowEngine(
                     matches(key, expression.d.leftExpr) &&
                     matches(reference, expression.d.rightExpr)
                 ) {
+                    const rightRoot = getReferenceRoot(expression.d.rightExpr);
+                    // The left operand was evaluated before any rebinding in the right operand.
+                    // A self-assignment is inert, but other assignments may invalidate that key.
+                    if (
+                        rightRoot.nodeType === ParseNodeType.AssignmentExpression &&
+                        !isMatchingExpression(rightRoot.d.name, rightRoot.d.rightExpr)
+                    ) {
+                        return false;
+                    }
+                    if (getPresenceScope(expression) !== presenceScope) {
+                        return false;
+                    }
                     if ((expression.d.operator === OperatorType.In) === !!(current.flags & FlowFlags.TrueCondition)) {
                         continue;
                     }
@@ -1336,7 +1368,7 @@ export function getCodeFlowEngine(
                 continue;
             }
 
-            if (current.flags & FlowFlags.Assignment) {
+            if (current.flags & (FlowFlags.Assignment | FlowFlags.Mutation)) {
                 const assignment = current as FlowAssignment;
                 if (
                     current.flags & FlowFlags.Unbind ||
@@ -1465,6 +1497,7 @@ export function getCodeFlowEngine(
                     curFlowNode.flags &
                     (FlowFlags.VariableAnnotation |
                         FlowFlags.Assignment |
+                        FlowFlags.Mutation |
                         FlowFlags.WildcardImport |
                         FlowFlags.ExhaustedMatch)
                 ) {
@@ -1693,6 +1726,7 @@ export function getCodeFlowEngine(
                     curFlowNode.flags &
                     (FlowFlags.VariableAnnotation |
                         FlowFlags.Assignment |
+                        FlowFlags.Mutation |
                         FlowFlags.WildcardImport |
                         FlowFlags.TrueNeverCondition |
                         FlowFlags.FalseNeverCondition |

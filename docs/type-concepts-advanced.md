@@ -124,6 +124,8 @@ This proves presence only for the checked dictionary and key, not for every lite
 
 The presence check must hold on every incoming control-flow path. Reassigning the dictionary or key, deleting an item, or crossing a call, loop boundary, or exception-handling gate can prevent this proof. A guard inside a loop applies to reads within that iteration; it does not associate values carried from earlier iterations with the current key. Existing single-literal TypedDict narrowing is unchanged.
 
+The guard must also apply when the read executes. A generator expression cannot use a guard outside its deferred body, although a guard within that body can establish presence. Its first iterable is evaluated immediately and can still use an enclosing guard, as can an eager list, set, or dictionary comprehension. Assignment expressions in the right operand of the membership test prevent this proof unless they simply assign a name to itself; they may change the key after the left operand has already been evaluated.
+
 ### Aliased Conditional Expression
 
 Pyright also supports a type guard expression `c`, where `c` is an identifier that refers to a local variable that is assigned one of the above supported type guard expression forms. These are called “aliased conditional expressions”. Examples include `c = a is not None` and `c = isinstance(a, str)`. When “c” is used within a conditional check, it can be used to narrow the type of expression `a`.

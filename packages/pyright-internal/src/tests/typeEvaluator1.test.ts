@@ -594,6 +594,22 @@ test('TypeNarrowingTypedDict4', () => {
     ]);
 });
 
+test('TypeNarrowingTypedDict5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict5.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+    expect(analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((a, b) => a - b)).toEqual([
+        22, 29, 46, 72, 79, 90,
+    ]);
+});
+
+test('CodeFlowMutation1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlowMutation1.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    expect(analysisResults[0].errors[0].range.start.line + 1).toBe(31);
+});
+
 test('typeNarrowingCallable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingCallable1.py']);
 
