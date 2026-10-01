@@ -18465,7 +18465,9 @@ export function createTypeEvaluator(
         // Set a partial type to handle recursive (self-referential) type aliases.
         const scope = getScopeForNode(declNode);
         const typeAliasSymbol = scope?.lookUpSymbolRecursive(nameNode.d.value);
-        const typeAliasDecl = nodeInfo.getDeclaration(declNode);
+        const typeAliasDecl =
+            nodeInfo.getDeclaration(declNode) ??
+            typeAliasSymbol?.symbol.getDeclarations().find((decl) => decl.node === nameNode);
         if (typeAliasDecl && typeAliasSymbol) {
             setSymbolResolutionPartialType(typeAliasSymbol.symbol, typeAliasDecl, typeAliasTypeVar);
         }
@@ -24754,6 +24756,17 @@ export function createTypeEvaluator(
         let includesSpeculativeResult = false;
 
         decls.forEach((decl) => {
+            // If there's a partially-constructed type that is allowed for
+            // recursive symbol resolution, use it without invalidating the
+            // symbols being resolved above it.
+            const partialType = getSymbolResolutionPartialType(symbol, decl);
+            if (partialType) {
+                typesToCombine.push(partialType);
+                isIncomplete = true;
+                sawPendingEvaluation = true;
+                return;
+            }
+
             if (pushSymbolResolution(symbol, decl)) {
                 let symbolPopped = false;
                 try {
