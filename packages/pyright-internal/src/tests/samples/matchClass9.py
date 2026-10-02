@@ -52,3 +52,44 @@ def bool_pattern(value: bool | str, pattern: type[bool]) -> str:
         case _:
             reveal_type(value, expected_text="str")
             return value
+
+
+from enum import Enum, IntEnum
+
+
+class Color(Enum):
+    RED = 1
+
+
+class Number(IntEnum):
+    ONE = 1
+
+
+class EmptyEnum(Enum):
+    pass
+
+
+def enum_pattern(value: Color | str, pattern: type[Color]) -> str:
+    match value:
+        case pattern():
+            return "color"
+        case _:
+            reveal_type(value, expected_text="str")
+            return value
+
+
+def int_enum_pattern(value: Number | str, pattern: type[Number]) -> str:
+    match value:
+        case pattern():
+            return "number"
+        case _:
+            reveal_type(value, expected_text="str")
+            return value
+
+
+def empty_enum_pattern(value: EmptyEnum | str, pattern: type[EmptyEnum]) -> None:
+    match value:
+        case pattern():
+            pass
+        case _:
+            reveal_type(value, expected_text="EmptyEnum | str")
