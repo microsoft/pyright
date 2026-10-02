@@ -8,16 +8,21 @@
 
 import assert from 'assert';
 import {
+    CallHierarchyIncomingCallsRequest,
+    CallHierarchyOutgoingCallsRequest,
+    CallHierarchyPrepareRequest,
     CancellationToken,
     CompletionItem,
     CompletionRequest,
     ConfigurationItem,
     DidChangeWorkspaceFoldersNotification,
     DidCloseTextDocumentNotification,
+    DiagnosticSeverity,
     DocumentDiagnosticRequest,
     InitializedNotification,
     InitializeRequest,
     MarkupContent,
+    SymbolKind,
 } from 'vscode-languageserver';
 
 import { convertOffsetToPosition } from '../common/positionUtils';
@@ -178,11 +183,179 @@ describe(`Basic language server tests`, () => {
         assert(completionItem);
     });
 
+    test.each([
+        { decorated: false, direction: 'incoming' },
+        { decorated: false, direction: 'outgoing' },
+        { decorated: true, direction: 'incoming' },
+        { decorated: true, direction: 'outgoing' },
+    ])('Call hierarchy round trip: decorated=$decorated, direction=$direction', async ({ decorated, direction }) => {
+        const code = `
+// @filename: test.py
+//// from typing import Callable, TypeVar
+//// F = TypeVar("F", bound=Callable[..., object])
+//// def identity(f: F) -> F:
+////     return f
+////
+//// def /*leaf*/leaf/*leafNameEnd*/():
+////     pass
+////
+//// /*callerStart*/${decorated ? '@identity\n//// ' : ''}def /*caller*/caller/*callerNameEnd*/():
+////     /*leafCall*/leaf/*leafCallEnd*/()/*callerEnd*/
+////
+//// /*parentStart*/def /*parent*/parent/*parentNameEnd*/():
+////     /*callerCall*/caller/*callerCallEnd*/()/*parentEnd*/
+        `;
+        const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code);
+        await openFile(info, 'leaf');
+        const marker = info.testData.markerPositions.get('leaf')!;
+        const uri = marker.fileUri.toString();
+        const text = info.testData.files.find((file) => file.fileName === marker.fileName)!.content;
+        const lines = getParseResults(text).tokenizerOutput.lines;
+        const position = (name: string) =>
+            convertOffsetToPosition(info.testData.markerPositions.get(name)!.position, lines);
+        const range = (start: string, end: string) => ({ start: position(start), end: position(end) });
+
+        const prepared = await info.connection.sendRequest(
+            CallHierarchyPrepareRequest.type,
+            { textDocument: { uri }, position: position('leaf') },
+            CancellationToken.None
+        );
+        assert(prepared);
+        assert.strictEqual(prepared.length, 1);
+        const incoming = await info.connection.sendRequest(
+            CallHierarchyIncomingCallsRequest.type,
+            { item: prepared[0] },
+            CancellationToken.None
+        );
+        assert(incoming);
+        assert.strictEqual(incoming.length, 1);
+        const caller = incoming[0].from;
+        expect(caller).toEqual(
+            expect.objectContaining({
+                name: 'caller',
+                kind: SymbolKind.Function,
+                uri,
+                range: range('callerStart', 'callerEnd'),
+                selectionRange: range('caller', 'callerNameEnd'),
+            })
+        );
+        expect(incoming[0].fromRanges).toEqual([range('leafCall', 'leafCallEnd')]);
+
+        // Send the returned item unchanged, as a client expanding the hierarchy would.
+        if (direction === 'incoming') {
+            const parents = await info.connection.sendRequest(
+                CallHierarchyIncomingCallsRequest.type,
+                { item: caller },
+                CancellationToken.None
+            );
+            expect(parents).toEqual([
+                {
+                    from: expect.objectContaining({
+                        name: 'parent',
+                        kind: SymbolKind.Function,
+                        uri,
+                        range: range('parentStart', 'parentEnd'),
+                        selectionRange: range('parent', 'parentNameEnd'),
+                    }),
+                    fromRanges: [range('callerCall', 'callerCallEnd')],
+                },
+            ]);
+        } else {
+            const outgoing = await info.connection.sendRequest(
+                CallHierarchyOutgoingCallsRequest.type,
+                { item: caller },
+                CancellationToken.None
+            );
+            assert(outgoing);
+            assert.strictEqual(outgoing.length, 1);
+            assert.strictEqual(outgoing[0].to.name, 'leaf');
+            assert.strictEqual(outgoing[0].to.uri, uri);
+            expect(outgoing[0].to.selectionRange).toEqual(range('leaf', 'leafNameEnd'));
+            expect(outgoing[0].fromRanges).toEqual([range('leafCall', 'leafCallEnd')]);
+        }
+    });
+
     [false, true].forEach((supportsPullDiagnostics) => {
         describe(`Diagnostics ${supportsPullDiagnostics ? 'pull' : 'push'}`, () => {
             // Background analysis takes longer than 5 seconds sometimes, so we need to
             // increase the timeout.
             jest.setTimeout(200000);
+            test.each([false, true])(
+                'automatic overload results default with background thread=%s',
+                async (supportsBackgroundThread) => {
+                    const code = `
+// @filename: root/test.py
+//// from typing import Any, overload
+//// @overload
+//// def choose(value: list[int]) -> list[int]: ...
+//// @overload
+//// def choose(value: list[str]) -> list[str]: ...
+//// def choose(value: Any) -> Any:
+////     return value
+//// def check(value: list[Any]) -> None:
+////     [|/*result*/result|] = choose(value)
+////     integer: list[int] = result
+////     string: list[str] = result
+////     result.append(1)
+////     result.append("x")
+////     bad: list[bytes] = result
+////     result.append(3.14)
+////     result.nonexistent()
+//// def ordinary(value: list[int]) -> None:
+////     [|/*concrete*/concrete|] = choose(value)
+////     concrete.append("bad")
+`;
+                    const info = await runLanguageServer(
+                        DEFAULT_WORKSPACE_ROOT,
+                        code,
+                        true,
+                        [
+                            {
+                                item: {
+                                    scopeUri: `file://${normalizeSlashes(DEFAULT_WORKSPACE_ROOT, '/')}`,
+                                    section: 'python.analysis',
+                                },
+                                value: { typeCheckingMode: 'standard' },
+                            },
+                        ],
+                        undefined,
+                        supportsBackgroundThread,
+                        supportsPullDiagnostics
+                    );
+                    await openFile(info, 'result');
+                    for (const [marker, type] of [
+                        ['result', 'OverloadResult[list[int], list[str]]'],
+                        ['concrete', 'list[int]'],
+                    ]) {
+                        const result = await hover(info, marker);
+                        assert(result && MarkupContent.is(result.contents));
+                        assert.strictEqual(
+                            result.contents.value,
+                            `\`\`\`python\n(variable) ${marker}: ${type}\n\`\`\``
+                        );
+                    }
+                    const diagnostics = (await waitForDiagnostics(info)).find((d) => d.uri.endsWith('root/test.py'));
+                    assert(diagnostics);
+                    const marker = info.testData.markerPositions.get('result')!;
+                    const content = info.testData.files.find((f) => f.fileName === marker.fileName)!.content;
+                    const expected = [
+                        ['bad: list[bytes]', 'reportAssignmentType'],
+                        ['result.append(3.14)', 'reportArgumentType'],
+                        ['result.nonexistent()', 'reportAttributeAccessIssue'],
+                        ['concrete.append("bad")', 'reportArgumentType'],
+                    ];
+                    assert.deepStrictEqual(
+                        Array.from(diagnostics.diagnostics)
+                            .filter((d) => d.severity === DiagnosticSeverity.Error)
+                            .map((d) => [d.range.start.line, d.code]),
+                        expected.map(([text, rule]) => [
+                            content.slice(0, content.indexOf(text)).split('\n').length - 1,
+                            rule,
+                        ])
+                    );
+                }
+            );
+
             test('background thread diagnostics', async () => {
                 const code = `
 // @filename: root/test.py

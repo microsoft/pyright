@@ -73,6 +73,14 @@ Source files are processed through these phases in order:
 
 **Localized diagnostics**: All user-facing diagnostic messages come from `localization/localize.ts`, not inline strings.
 
+### Evaluation tracing
+
+For type-inference/cache regressions, unexpected diagnostics, speculative or
+reentrant evaluation, and repeated evaluator work, use the
+[evaluation-tracing skill](skills/evaluation-tracing/SKILL.md). It points to the
+[canonical local tracing manual](../docs/evaluation-traces.md); traces explain
+observed behavior, while performance claims require separate clean measurements.
+
 ## Test Conventions
 
 ### Test Structure

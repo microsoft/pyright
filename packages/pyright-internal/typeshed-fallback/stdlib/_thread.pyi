@@ -4,8 +4,8 @@ from _typeshed import structseq
 from collections.abc import Callable
 from threading import Thread
 from types import TracebackType
-from typing import Any, Final, NoReturn, final, overload
-from typing_extensions import TypeVarTuple, Unpack, deprecated, disjoint_base
+from typing import Any, Final, final, overload
+from typing_extensions import Never, TypeVarTuple, Unpack, deprecated, disjoint_base
 
 _Ts = TypeVarTuple("_Ts")
 
@@ -18,7 +18,9 @@ class RLock:
     def acquire(self, blocking: bool = True, timeout: float = -1) -> bool: ...
     def release(self) -> None: ...
     __enter__ = acquire
-    def __exit__(self, t: type[BaseException] | None, v: BaseException | None, tb: TracebackType | None) -> None: ...
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, exc_tb: TracebackType | None, /
+    ) -> None: ...
     if sys.version_info >= (3, 14):
         def locked(self) -> bool: ...
 
@@ -48,7 +50,7 @@ if sys.version_info >= (3, 13):
         def locked_lock(self) -> bool: ...  # undocumented
         def __enter__(self) -> bool: ...
         def __exit__(
-            self, type: type[BaseException] | None, value: BaseException | None, traceback: TracebackType | None
+            self, exc_type: type[BaseException] | None, exc_value: BaseException | None, exc_tb: TracebackType | None, /
         ) -> None: ...
 
     LockType = lock
@@ -82,9 +84,9 @@ def start_new(function: Callable[[Unpack[_Ts]], object], args: tuple[Unpack[_Ts]
 def start_new(function: Callable[..., object], args: tuple[Any, ...], kwargs: dict[str, Any], /) -> int: ...  # undocumented
 
 def interrupt_main(signum: signal.Signals = signal.SIGINT, /) -> None: ...
-def exit() -> NoReturn: ...
+def exit() -> Never: ...
 @deprecated("Obsolete synonym. Use `exit()` instead.")
-def exit_thread() -> NoReturn: ...  # undocumented
+def exit_thread() -> Never: ...  # undocumented
 def allocate_lock() -> LockType: ...
 @deprecated("Obsolete synonym. Use `allocate_lock()` instead.")
 def allocate() -> LockType: ...  # undocumented

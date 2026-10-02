@@ -76,6 +76,7 @@ _ASGILifespanValidatorType: TypeAlias = Callable[[str | None], str]
 _HTTP2FrameSizeValidatorType: TypeAlias = Callable[[ConvertibleToInt], int]
 _HTTPProtocolsValidatorType: TypeAlias = Callable[[str | None], list[str]]
 _HttpParserValidatorType: TypeAlias = Callable[[str | None], str]
+_HTTP2CleartextValidatorType: TypeAlias = Callable[[str | bool | None], str]
 
 _ValidatorType: TypeAlias = (  # noqa: Y047
     _BoolValidatorType
@@ -93,6 +94,7 @@ _ValidatorType: TypeAlias = (  # noqa: Y047
     | _HTTP2FrameSizeValidatorType
     | _HTTPProtocolsValidatorType
     | _HttpParserValidatorType
+    | _HTTP2CleartextValidatorType
 )
 
 KNOWN_SETTINGS: list[Setting]
@@ -169,6 +171,8 @@ class Setting(metaclass=SettingMeta):
 
     __cmp__ = __lt__
 
+def validate_http2_cleartext(val: str | bool | None) -> str: ...
+
 @overload
 def validate_bool(val: bool) -> bool: ...
 @overload
@@ -192,7 +196,7 @@ def validate_file_exists(val: str) -> str: ...
 def validate_file_exists(val: None) -> None: ...
 
 def validate_list_string(val: str | list[str] | None) -> list[str]: ...
-def validate_list_of_existing_files(val: str | list[str] | None) -> list[str]: ...
+def validate_list_of_files_or_patterns(val: str | list[str] | None) -> list[str]: ...
 def validate_string_to_addr_list(val: str | None) -> list[str]: ...
 def validate_string_to_list(val: str | None) -> list[str]: ...
 
@@ -782,7 +786,7 @@ class OnStarting(Setting):
     default: ClassVar[_OnStartingHookType]
     desc: ClassVar[str]
 
-    def on_starting(server: Arbiter) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def on_starting(server: Arbiter) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class OnReload(Setting):
     name: ClassVar[str]
@@ -792,7 +796,7 @@ class OnReload(Setting):
     default: ClassVar[_OnReloadHookType]
     desc: ClassVar[str]
 
-    def on_reload(server: Arbiter) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def on_reload(server: Arbiter) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class WhenReady(Setting):
     name: ClassVar[str]
@@ -802,7 +806,7 @@ class WhenReady(Setting):
     default: ClassVar[_WhenReadyHookType]
     desc: ClassVar[str]
 
-    def when_ready(server: Arbiter) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def when_ready(server: Arbiter) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class Prefork(Setting):
     name: ClassVar[str]
@@ -812,7 +816,7 @@ class Prefork(Setting):
     default: ClassVar[_PreForkHookType]
     desc: ClassVar[str]
 
-    def pre_fork(server: Arbiter, worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def pre_fork(server: Arbiter, worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class Postfork(Setting):
     name: ClassVar[str]
@@ -822,7 +826,7 @@ class Postfork(Setting):
     default: ClassVar[_PostForkHookType]
     desc: ClassVar[str]
 
-    def post_fork(server: Arbiter, worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def post_fork(server: Arbiter, worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class PostWorkerInit(Setting):
     name: ClassVar[str]
@@ -832,7 +836,7 @@ class PostWorkerInit(Setting):
     default: ClassVar[_PostWorkerInitHookType]
     desc: ClassVar[str]
 
-    def post_worker_init(worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def post_worker_init(worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class WorkerInt(Setting):
     name: ClassVar[str]
@@ -842,7 +846,7 @@ class WorkerInt(Setting):
     default: ClassVar[_WorkerIntHookType]
     desc: ClassVar[str]
 
-    def worker_int(worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def worker_int(worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class WorkerAbort(Setting):
     name: ClassVar[str]
@@ -852,7 +856,7 @@ class WorkerAbort(Setting):
     default: ClassVar[_WorkerAbortHookType]
     desc: ClassVar[str]
 
-    def worker_abort(worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def worker_abort(worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class PreExec(Setting):
     name: ClassVar[str]
@@ -862,7 +866,7 @@ class PreExec(Setting):
     default: ClassVar[_PreExecHookType]
     desc: ClassVar[str]
 
-    def pre_exec(server: Arbiter) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def pre_exec(server: Arbiter) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class PreRequest(Setting):
     name: ClassVar[str]
@@ -872,7 +876,7 @@ class PreRequest(Setting):
     default: ClassVar[_PreRequestHookType]
     desc: ClassVar[str]
 
-    def pre_request(worker: Worker, req: Request) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def pre_request(worker: Worker, req: Request) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class PostRequest(Setting):
     name: ClassVar[str]
@@ -882,7 +886,7 @@ class PostRequest(Setting):
     default: ClassVar[_PostRequestHookType]
     desc: ClassVar[str]
 
-    def post_request(worker: Worker, req: Request, environ: _EnvironType, resp: Response) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def post_request(worker: Worker, req: Request, environ: _EnvironType, resp: Response) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class ChildExit(Setting):
     name: ClassVar[str]
@@ -892,7 +896,7 @@ class ChildExit(Setting):
     default: ClassVar[_ChildExitHookType]
     desc: ClassVar[str]
 
-    def child_exit(server: Arbiter, worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def child_exit(server: Arbiter, worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class WorkerExit(Setting):
     name: ClassVar[str]
@@ -902,7 +906,7 @@ class WorkerExit(Setting):
     default: ClassVar[_WorkerExitHookType]
     desc: ClassVar[str]
 
-    def worker_exit(server: Arbiter, worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def worker_exit(server: Arbiter, worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class NumWorkersChanged(Setting):
     name: ClassVar[str]
@@ -912,7 +916,7 @@ class NumWorkersChanged(Setting):
     default: ClassVar[_NumWorkersChangedHookType]
     desc: ClassVar[str]
 
-    def nworkers_changed(server: Arbiter, new_value: int, old_value: int | None) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def nworkers_changed(server: Arbiter, new_value: int, old_value: int | None) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class OnExit(Setting):
     name: ClassVar[str]
@@ -921,7 +925,7 @@ class OnExit(Setting):
     default: ClassVar[_OnExitHookType]
     desc: ClassVar[str]
 
-    def on_exit(server: Arbiter) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def on_exit(server: Arbiter) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class NewSSLContext(Setting):
     name: ClassVar[str]
@@ -931,7 +935,7 @@ class NewSSLContext(Setting):
     default: ClassVar[_SSLContextHookType]
     desc: ClassVar[str]
 
-    def ssl_context(config: Config, default_ssl_context_factory: Callable[[], SSLContext]) -> SSLContext: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def ssl_context(config: Config, default_ssl_context_factory: Callable[[], SSLContext]) -> SSLContext: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 def validate_proxy_protocol(val: str | bool | None) -> str: ...
 
@@ -1051,6 +1055,15 @@ class HTTPProtocols(Setting):
     cli: ClassVar[list[str]]
     meta: ClassVar[str]
     validator: ClassVar[_HTTPProtocolsValidatorType]
+    default: ClassVar[str]
+    desc: ClassVar[str]
+
+class HTTP2Cleartext(Setting):
+    name: ClassVar[str]
+    section: ClassVar[str]
+    cli: ClassVar[list[str]]
+    meta: ClassVar[str]
+    validator: ClassVar[_HTTP2CleartextValidatorType]
     default: ClassVar[str]
     desc: ClassVar[str]
 
@@ -1273,7 +1286,7 @@ class OnDirtyStarting(Setting):
     default: ClassVar[_OnDirtyStartingHookType]
     desc: ClassVar[str]
 
-    def on_dirty_starting(arbiter: Arbiter) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def on_dirty_starting(arbiter: Arbiter) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class DirtyPostFork(Setting):
     name: ClassVar[str]
@@ -1283,7 +1296,7 @@ class DirtyPostFork(Setting):
     default: ClassVar[_DirtyPostForkHookType]
     desc: ClassVar[str]
 
-    def dirty_post_fork(arbiter: Arbiter, worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def dirty_post_fork(arbiter: Arbiter, worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class DirtyWorkerInit(Setting):
     name: ClassVar[str]
@@ -1293,7 +1306,7 @@ class DirtyWorkerInit(Setting):
     default: ClassVar[_DirtyWorkerInitHookType]
     desc: ClassVar[str]
 
-    def dirty_worker_init(worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def dirty_worker_init(worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class DirtyWorkerExit(Setting):
     name: ClassVar[str]
@@ -1303,7 +1316,7 @@ class DirtyWorkerExit(Setting):
     default: ClassVar[_DirtyWorkerExitHookType]
     desc: ClassVar[str]
 
-    def dirty_worker_exit(arbiter: Arbiter, worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]
+    def dirty_worker_exit(arbiter: Arbiter, worker: Worker) -> None: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore [invalid-annotation]
 
 class ControlSocket(Setting):
     name: ClassVar[str]

@@ -953,10 +953,9 @@ export function getTypedDictDictEquivalent(
 
     let dictValueType = entries.extraItems.valueType;
 
-    let isEquivalentToDict = true;
-    entries.knownItems.forEach((entry) => {
+    for (const entry of entries.knownItems.values()) {
         if (entry.isReadOnly || entry.isRequired) {
-            isEquivalentToDict = false;
+            return undefined;
         }
 
         dictValueType = combineTypes([dictValueType, entry.valueType]);
@@ -971,12 +970,8 @@ export function getTypedDictDictEquivalent(
                 recursionCount + 1
             )
         ) {
-            isEquivalentToDict = false;
+            return undefined;
         }
-    });
-
-    if (!isEquivalentToDict) {
-        return undefined;
     }
 
     return dictValueType;
@@ -1575,6 +1570,7 @@ export function getTypeOfIndexedTypedDict(
                         type: evaluator.printType(baseType),
                     })
                 );
+                allDiagsInvolveNotRequiredKeys = false;
             }
 
             if (usage.method === 'set') {

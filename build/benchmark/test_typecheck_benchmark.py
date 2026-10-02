@@ -56,6 +56,24 @@ class TypecheckBenchmarkTest(unittest.TestCase):
 
         self.assertEqual(command, ["node", str(entry_point)])
 
+    def test_pyright_command_uses_configured_entry_point(self) -> None:
+        entry_point = self.root / "historical" / "index.js"
+        bundle = entry_point.parent / "dist" / "pyright.js"
+        bundle.parent.mkdir(parents=True)
+        entry_point.touch()
+        bundle.touch()
+
+        with (
+            patch.dict(
+                os.environ,
+                {benchmark.PYRIGHT_ENTRY_POINT_ENV: str(entry_point)},
+            ),
+            patch.object(benchmark, "_executable", return_value="node"),
+        ):
+            command = benchmark._pyright_command()
+
+        self.assertEqual(command, ["node", str(entry_point.resolve())])
+
     def test_pip_pyright_command_uses_active_python_environment(self) -> None:
         with patch.object(
             benchmark.subprocess,
@@ -118,6 +136,25 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             timeout=benchmark.BUILD_TIMEOUT,
         )
 
+    def test_prepare_local_pyright_accepts_configured_entry_point(self) -> None:
+        entry_point = self.root / "historical" / "index.js"
+        bundle = entry_point.parent / "dist" / "pyright.js"
+        bundle.parent.mkdir(parents=True)
+        entry_point.touch()
+        bundle.touch()
+
+        with (
+            patch.dict(
+                os.environ,
+                {benchmark.PYRIGHT_ENTRY_POINT_ENV: str(entry_point)},
+            ),
+            patch.object(benchmark, "_executable", return_value="node"),
+            patch.object(benchmark.subprocess, "run") as run,
+        ):
+            benchmark.prepare_local_pyright(skip_build=False)
+
+        run.assert_not_called()
+
     def test_pyright_config_and_command(self) -> None:
         source_dir = self.root / "src"
         source_dir.mkdir()
@@ -137,6 +174,29 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         self.assertEqual(config["include"], ["src"])
         self.assertEqual(config["exclude"], benchmark.PYRIGHT_DEFAULT_EXCLUDES)
         self.assertIs(config["useLibraryCodeForTypes"], True)
+        configs[0].unlink()
+
+    def test_threaded_pyright_uses_runner_cpu_count_without_stats(self) -> None:
+        source_dir = self.root / "src"
+        source_dir.mkdir()
+        with patch.object(
+            benchmark, "_checker_command", return_value=["node", "pyright.js"]
+        ):
+            command, configs = benchmark._build_checker_command(
+                "pyright-threads", self.root, [source_dir]
+            )
+
+        self.assertEqual(
+            command,
+            [
+                "node",
+                "pyright.js",
+                "--project",
+                str(configs[0]),
+                "--threads",
+            ],
+        )
+        self.assertNotIn("--stats", command)
         configs[0].unlink()
 
     def test_pip_pyright_uses_pyright_config(self) -> None:

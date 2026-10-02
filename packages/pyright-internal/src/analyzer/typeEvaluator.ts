@@ -183,8 +183,10 @@ import {
     addContextualTypeCacheEntry,
     ContextualTypeCacheEntry,
     contextualTypeCacheEntryMatches,
+    findContextualTypeCacheEntry,
     SpeculativeModeOptions,
     SpeculativeTypeTracker,
+    useNodeCacheIsolation,
 } from './typeCacheUtils';
 import {
     assignToTypedDict,
@@ -213,6 +215,7 @@ import {
     EffectiveTypeResult,
     ensureExpectedTypeCandidates,
     EvalFlags,
+    EvaluationOperationController,
     EvaluatorUsage,
     ExpectedTypeOptions,
     ExpectedTypeResult,
@@ -236,6 +239,7 @@ import {
 } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
 import * as TypePrinter from './typePrinter';
+import { TypeWalker } from './typeWalker';
 import {
     AnyType,
     ClassType,
@@ -387,6 +391,16 @@ import {
     UniqueSignatureTracker,
     validateTypeVarDefault,
 } from './typeUtils';
+
+import {
+    AutomaticOverloadSelection,
+    getFixedOverloadCoverage,
+    hasNestedOverloadAny,
+    isFixedOverloadArgumentShape,
+    isFixedOverloadReturnShape,
+    OverloadCoverage,
+    OverloadSelectionBudget,
+} from './overloadResultSelector';
 
 interface GetTypeArgsOptions {
     isAnnotatedClass?: boolean;
@@ -606,12 +620,6 @@ const verifyTypeCacheEvaluatorFlags = false;
 // This debugging option prints each expression and its evaluated type.
 const printExpressionTypes = false;
 
-// The following number is chosen somewhat arbitrarily. We need to cut
-// off code flow analysis at some point for code flow graphs that are too
-// complex. Otherwise we risk overflowing the stack or incurring extremely
-// long analysis times. This number has been tuned empirically.
-export const maxCodeComplexity = 768;
-
 export interface EvaluatorOptions {
     printTypeFlags: TypePrinter.PrintTypeFlags;
     logCalls: boolean;
@@ -619,6 +627,17 @@ export interface EvaluatorOptions {
     evaluateUnknownImportsAsAny: boolean;
     verifyTypeCacheEvaluatorFlags: boolean;
     nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader;
+    maxCodeComplexity: number;
+    experimentalOverloadResult?: import('./overloadResultController').ExperimentalOverloadResultController;
+    // Artifact-only root-operation experiment. No normal evaluator installs this hook.
+    testOnlyMemberAccess?: {
+        nodes: ReadonlySet<MemberAccessNode>;
+        install: (getMember: (node: MemberAccessNode, baseTypeResult: TypeResult) => TypeResult) => void;
+    };
+    // Test-only injection uses the same production cache-ownership contract.
+    testOnlyExpression?: EvaluationOperationController & {
+        query?: (node: ExpressionNode) => TypeResult | undefined;
+    };
 }
 
 // Describes a "deferred class completion" that is run when a class type is
@@ -665,6 +684,10 @@ export function createTypeEvaluator(
     wrapWithLogger: LogWrapper
 ): TypeEvaluator {
     const nodeInfo = AnalyzerNodeInfo.createAnalyzerNodeInfoAccessor(evaluatorOptions.nodeInfoReader);
+    const maxCodeComplexity = evaluatorOptions.maxCodeComplexity;
+    const operationController: EvaluationOperationController | undefined =
+        evaluatorOptions.experimentalOverloadResult ?? evaluatorOptions.testOnlyExpression;
+    let operationRouter = evaluatorOptions.experimentalOverloadResult?.isAutomatic ? undefined : operationController;
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: SuppressedNodeStackEntry[] = [];
@@ -748,6 +771,7 @@ export function createTypeEvaluator(
     // circular references in complex data structures, so it fails
     // to clean up the objects if we don't help it out.
     function disposeEvaluator() {
+        operationController?.dispose?.();
         functionRecursionMap = new Map<number, FunctionRecursionInfo[]>();
         codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
         typeCache = new Map<number, TypeCacheEntry>();
@@ -776,9 +800,7 @@ export function createTypeEvaluator(
     }
 
     function readTypeFormTypeCacheEntry(node: ParseNode, expectedType: Type | undefined) {
-        return getTypeFormTypeCache(node)
-            .get(node.id)
-            ?.find((entry) => contextualTypeCacheEntryMatches(entry, expectedType));
+        return findContextualTypeCacheEntry(getTypeFormTypeCache(node).get(node.id), expectedType);
     }
 
     // Contextual reads consult expectedTypeCache and prefer a matching TypeForm result.
@@ -924,6 +946,10 @@ export function createTypeEvaluator(
         writeTypeCache(node, typeResult, flags);
     }
 
+    function getMaxCodeComplexity(): number {
+        return maxCodeComplexity;
+    }
+
     function setAsymmetricDescriptorAssignment(node: ParseNode) {
         if (isSpeculativeModeInUse(/* node */ undefined)) {
             return;
@@ -1017,10 +1043,42 @@ export function createTypeEvaluator(
         return undefined;
     }
 
+    function finishOverloadActivation() {
+        if (!returnTypeInferenceTypeCache && !isSpeculativeModeInUse(undefined)) {
+            try {
+                evaluatorOptions.experimentalOverloadResult!.finishActivation();
+            } finally {
+                // Install routing before an activation restart re-enters evaluation.
+                if (evaluatorOptions.experimentalOverloadResult!.roots.size) {
+                    operationRouter = operationController;
+                }
+            }
+        }
+    }
+
+    function runWithOverloadActivation<T>(callback: () => T): T {
+        return evaluatorOptions.experimentalOverloadResult!.runWithActivation(() => {
+            const result = callback();
+            if (evaluatorOptions.experimentalOverloadResult!.hasPendingActivation) {
+                finishOverloadActivation();
+            }
+            return result;
+        });
+    }
+
     // Determines the type of the specified node by evaluating it in
     // context, logging any errors in the process. This may require the
     // type of surrounding statements to be evaluated.
     function getType(node: ExpressionNode): Type | undefined {
+        if (evaluatorOptions.experimentalOverloadResult?.needsActivationBoundary()) {
+            return runWithOverloadActivation(() => getType(node));
+        }
+        const canonical =
+            operationRouter?.route?.({ kind: 'query', node })?.result ??
+            evaluatorOptions.testOnlyExpression?.query?.(node);
+        if (canonical) {
+            return canonical.type;
+        }
         initializePrefetchedTypes(node);
 
         let type = evaluateContextualTypeForSubnode(node, () => {
@@ -1075,6 +1133,15 @@ export function createTypeEvaluator(
     }
 
     function getTypeResult(node: ExpressionNode): TypeResult | undefined {
+        if (evaluatorOptions.experimentalOverloadResult?.needsActivationBoundary()) {
+            return runWithOverloadActivation(() => getTypeResult(node));
+        }
+        const canonical =
+            operationRouter?.route?.({ kind: 'query', node })?.result ??
+            evaluatorOptions.testOnlyExpression?.query?.(node);
+        if (canonical) {
+            return canonical;
+        }
         return evaluateContextualTypeForSubnode(node, () => {
             evaluateTypesForExpressionInContext(node);
         });
@@ -1245,6 +1312,9 @@ export function createTypeEvaluator(
         flags = EvalFlags.None,
         inferenceContext?: InferenceContext
     ): TypeResult {
+        if (evaluatorOptions.experimentalOverloadResult?.needsActivationBoundary()) {
+            return runWithOverloadActivation(() => getTypeOfExpression(node, flags, inferenceContext));
+        }
         let useTypeFormCache = (flags & EvalFlags.TypeFormArg) !== 0;
         if (inferenceContext) {
             inferenceContext.expectedType = transformPossibleRecursiveTypeAlias(inferenceContext.expectedType);
@@ -1257,6 +1327,17 @@ export function createTypeEvaluator(
 
         if ((flags & EvalFlags.TypeFormArg) !== 0 && (flags & EvalFlags.NoConvertSpecialForm) === 0) {
             flags |= EvalFlags.NoParamSpec | EvalFlags.NoTypeVarTuple;
+        }
+
+        const testResult =
+            operationRouter?.route?.({
+                kind: 'expression',
+                node,
+                flags,
+                context: inferenceContext,
+            })?.result ?? operationRouter?.dispatch(node, flags, inferenceContext);
+        if (testResult) {
+            return testResult;
         }
 
         // Is this type already cached?
@@ -1319,6 +1400,12 @@ export function createTypeEvaluator(
         initializePrefetchedTypes(node);
 
         let typeResult = getTypeOfExpressionCore(node, flags, inferenceContext);
+        if (evaluatorOptions.experimentalOverloadResult?.hasPendingActivation) {
+            finishOverloadActivation();
+        }
+        if (operationRouter) {
+            typeResult = operationRouter.project(node, typeResult);
+        }
 
         // Should we disable type promotions for bytes?
         if (
@@ -2159,6 +2246,9 @@ export function createTypeEvaluator(
         recursionCount++;
 
         switch (type.category) {
+            case TypeCategory.OverloadResult:
+                return true;
+
             case TypeCategory.Unbound:
             case TypeCategory.Unknown:
             case TypeCategory.Any:
@@ -2277,6 +2367,9 @@ export function createTypeEvaluator(
         recursionCount++;
 
         switch (type.category) {
+            case TypeCategory.OverloadResult:
+                return true;
+
             case TypeCategory.Unknown:
             case TypeCategory.Function:
             case TypeCategory.Overloaded:
@@ -3692,6 +3785,11 @@ export function createTypeEvaluator(
         return undefined;
     }
 
+    function getFunctionClassType(type: FunctionType | OverloadedType): ClassType | undefined {
+        const classType = isMethodType(type) ? prefetched?.methodClass : prefetched?.functionClass;
+        return classType && isInstantiableClass(classType) ? classType : undefined;
+    }
+
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
         return (
             getTypeOfModule(node, symbolName, ['typing']) ?? getTypeOfModule(node, symbolName, ['typing_extensions'])
@@ -3896,7 +3994,9 @@ export function createTypeEvaluator(
 
         if (isNodeReachable(node)) {
             const fileInfo = nodeInfo.getFileInfo(node);
-            return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range ?? node);
+            const sink =
+                evaluatorOptions.experimentalOverloadResult?.getDiagnosticSink(node) ?? fileInfo.diagnosticSink;
+            return sink.addDiagnosticWithTextRange(diagLevel, message, range ?? node);
         }
 
         return undefined;
@@ -5322,7 +5422,7 @@ export function createTypeEvaluator(
             type = addTypeFormForSymbol(node, type, flags, !!effectiveTypeInfo.includesVariableDecl);
         } else {
             // Handle the special case of "reveal_type" and "reveal_locals".
-            if (name === 'reveal_type' || name === 'reveal_locals') {
+            if (ParseTreeUtils.isImplicitRevealTypeName(node) || name === 'reveal_locals') {
                 type = AnyType.create();
             } else {
                 addDiagnostic(
@@ -6576,6 +6676,9 @@ export function createTypeEvaluator(
                 break;
             }
 
+            case TypeCategory.OverloadResult:
+                throw new Error('Overload-result member dispatch is not enabled');
+
             default:
                 assertNever(baseType);
         }
@@ -7043,7 +7146,12 @@ export function createTypeEvaluator(
             MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
         );
 
-        if (!methodTypeResult || methodTypeResult.typeErrors) {
+        const deferredMethodType =
+            usage.method === 'get'
+                ? getDescriptorGetMethodWithDeferredSelfSpecialization(concreteMemberType, subDiag)
+                : undefined;
+
+        if ((!methodTypeResult || methodTypeResult.typeErrors) && !deferredMethodType) {
             // Provide special error messages for properties.
             if (ClassType.isPropertyClass(concreteMemberType) && usage.method !== 'get') {
                 const message =
@@ -7059,10 +7167,10 @@ export function createTypeEvaluator(
             return { type: memberType };
         }
 
-        const methodClassType = methodTypeResult.classType;
-        let methodType = methodTypeResult.type;
+        const methodClassType = methodTypeResult?.classType ?? concreteMemberType;
+        let methodType = deferredMethodType ?? methodTypeResult!.type;
 
-        if (methodTypeResult.typeErrors || !methodClassType) {
+        if (!methodClassType) {
             if (diag && subDiag) {
                 diag.addAddendum(subDiag);
             }
@@ -7257,6 +7365,87 @@ export function createTypeEvaluator(
             isAsymmetricAccessor,
             memberAccessDeprecationInfo: deprecationInfo,
         };
+    }
+
+    function getDescriptorGetMethodWithDeferredSelfSpecialization(
+        concreteMemberType: ClassType,
+        diag: DiagnosticAddendum | undefined
+    ): FunctionType | OverloadedType | undefined {
+        const member = lookUpClassMember(concreteMemberType, '__get__');
+        if (!member || !isInstantiableClass(member.unspecializedClassType)) {
+            return undefined;
+        }
+
+        const unspecializedClassType = member.unspecializedClassType;
+        const declaringClassType = member.classType;
+        if (!isInstantiableClass(declaringClassType)) {
+            return undefined;
+        }
+        const declaringObjectType = ClassType.cloneAsInstance(declaringClassType);
+
+        const unspecializedMethodType = getEffectiveTypeOfSymbol(member.symbol);
+        if (!isFunctionOrOverloaded(unspecializedMethodType)) {
+            return undefined;
+        }
+
+        // A class ParamSpec used in Concatenate within the self annotation needs to be
+        // solved from the concrete descriptor, rather than specialized before self is bound.
+        const classParamSpecs = ClassType.getTypeParams(unspecializedClassType).filter(isParamSpec);
+        if (classParamSpecs.length === 0) {
+            return undefined;
+        }
+
+        const signatures = isFunction(unspecializedMethodType)
+            ? [unspecializedMethodType]
+            : OverloadedType.getOverloads(unspecializedMethodType);
+
+        const shouldDefer = signatures.some((signature) => {
+            if (signature.shared.parameters.length === 0) {
+                return false;
+            }
+
+            const selfParamType = FunctionType.getParamType(signature, 0);
+            if (!isClassInstance(selfParamType) || !ClassType.isSameGenericClass(selfParamType, declaringObjectType)) {
+                return false;
+            }
+
+            class ConcatenateParamSpecWalker extends TypeWalker {
+                found = false;
+
+                override visitFunction(type: FunctionType): void {
+                    const paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
+                    if (
+                        paramSpec &&
+                        FunctionType.cloneRemoveParamSpecArgsKwargs(type).shared.parameters.length > 0 &&
+                        classParamSpecs.some((classParamSpec) => isTypeSame(paramSpec, classParamSpec))
+                    ) {
+                        this.found = true;
+                        this.cancelWalk();
+                        return;
+                    }
+
+                    super.visitFunction(type);
+                }
+            }
+
+            const walker = new ConcatenateParamSpecWalker();
+            selfParamType.priv.typeArgs?.forEach((typeArg) => walker.walk(typeArg));
+
+            return walker.found;
+        });
+
+        if (!shouldDefer) {
+            return undefined;
+        }
+
+        return bindFunctionToClassOrObject(
+            declaringObjectType,
+            unspecializedMethodType,
+            declaringClassType,
+            /* treatConstructorAsClassMethod */ false,
+            concreteMemberType,
+            diag
+        );
     }
 
     function bindMethodForMemberAccess(
@@ -9105,6 +9294,8 @@ export function createTypeEvaluator(
             );
         }
 
+        operationRouter?.beforeCall(node);
+
         const argList = ParseTreeUtils.getArgsByRuntimeOrder(node).map((arg) => {
             const functionArg: Arg = {
                 valueExpression: arg.d.valueExpr,
@@ -9125,8 +9316,7 @@ export function createTypeEvaluator(
                 typeResult = getTypeOfSuperCall(node);
             } else if (
                 isAnyOrUnknown(baseTypeResult.type) &&
-                node.d.leftExpr.nodeType === ParseNodeType.Name &&
-                node.d.leftExpr.d.value === 'reveal_type'
+                ParseTreeUtils.isImplicitRevealTypeName(node.d.leftExpr)
             ) {
                 // Handle the implicit "reveal_type" call.
                 typeResult = getTypeOfRevealType(node, inferenceContext);
@@ -10142,6 +10332,25 @@ export function createTypeEvaluator(
                 }
 
                 if (!callResult.argumentErrors && callResult.returnType) {
+                    if (
+                        evaluatorOptions.experimentalOverloadResult &&
+                        !callResult.isTypeIncomplete &&
+                        !overload.priv.boundToType &&
+                        !overload.shared.methodClass &&
+                        !overload.shared.declaration?.isMethod &&
+                        errorNode.nodeType === ParseNodeType.Call &&
+                        errorNode.d.leftExpr.nodeType === ParseNodeType.Name &&
+                        errorNode.parent?.nodeType === ParseNodeType.Assignment &&
+                        errorNode.parent.d.rightExpr === errorNode &&
+                        expandedArgTypes.length === 1 &&
+                        !hasArgTypeOverride &&
+                        callResult.argResults
+                    ) {
+                        evaluatorOptions.experimentalOverloadResult.considerActivation(
+                            errorNode,
+                            callResult.argResults
+                        );
+                    }
                     overloadsUsedForCall.push(overload);
 
                     matchedOverload = overload;
@@ -10423,6 +10632,141 @@ export function createTypeEvaluator(
         });
 
         return winningOverloadIndex === undefined ? undefined : matches[winningOverloadIndex].overload;
+    }
+
+    function selectAutomaticOverloadResult(
+        node: CallNode,
+        limit: number,
+        proofUnits: number
+    ): AutomaticOverloadSelection {
+        const budget = new OverloadSelectionBudget(proofUnits);
+        const coverage: OverloadCoverage[] = [];
+        const matches: number[] = [];
+        const decline = (reason: string): AutomaticOverloadSelection => ({
+            candidates: [],
+            reason: budget.exceeded ? 'proof-limit' : reason,
+            coverage,
+            matches,
+            units: budget.used,
+        });
+        return useSpeculativeMode(node, () => {
+            const callee = getTypeOfExpression(node.d.leftExpr, EvalFlags.NoSpecialize);
+            if (callee.isIncomplete || callee.typeErrors || !isOverloaded(callee.type)) {
+                return decline('not-complete-overloaded-function');
+            }
+            const overloads = OverloadedType.getOverloads(callee.type);
+            if (overloads.length > limit) {
+                return decline('candidate-limit');
+            }
+            const args: Arg[] = node.d.args.map((arg) => ({
+                argCategory: arg.d.argCategory,
+                valueExpression: arg.d.valueExpr,
+                node: arg,
+                name: arg.d.name,
+            }));
+            const sources = node.d.args.map((arg) => getTypeOfExpression(arg.d.valueExpr));
+            if (
+                sources.some(
+                    (s) =>
+                        s.isIncomplete || s.typeErrors || isAny(s.type) || !isFixedOverloadArgumentShape(s.type, budget)
+                )
+            ) {
+                return decline('unsupported-argument-shape');
+            }
+            if (!sources.some((s) => hasNestedOverloadAny(s.type))) {
+                return decline('no-invariant-any');
+            }
+            const returns: Type[] = [];
+            for (let index = 0; index < overloads.length; index++) {
+                checkForCancellation();
+                const overload = overloads[index];
+                const declaration = overload.shared.declaration;
+                const declaredReturnType = overload.shared.declaredReturnType;
+                const returnType = FunctionType.getEffectiveReturnType(overload);
+                if (
+                    !declaration ||
+                    declaration.isMethod ||
+                    overload.shared.methodClass ||
+                    overload.priv.boundToType ||
+                    overload.shared.typeParams.length ||
+                    !declaredReturnType ||
+                    !returnType ||
+                    declaration.node.d.decorators.length !== 1 ||
+                    overload.shared.parameters.some(
+                        (p, i) =>
+                            p.category !== ParamCategory.Simple ||
+                            !p.name ||
+                            p.defaultExpr ||
+                            FunctionType.getParamDefaultType(overload, i)
+                    )
+                ) {
+                    return decline('unsupported-signature');
+                }
+                if (
+                    !isFixedOverloadReturnShape(declaredReturnType, budget) ||
+                    (returnType !== declaredReturnType && !isFixedOverloadReturnShape(returnType, budget))
+                ) {
+                    return decline('unsupported-return-shape');
+                }
+                const mapping = matchArgsToParams(node, args, { type: overload, isIncomplete: false }, index);
+                if (mapping.isTypeIncomplete) {
+                    return decline('incomplete-mapping');
+                }
+                if (mapping.argumentErrors) {
+                    continue;
+                }
+                if (
+                    mapping.argParams.length !== args.length ||
+                    mapping.argParams.some(
+                        (p, i) =>
+                            p.argument !== args[i] ||
+                            p.isDefaultArg ||
+                            p.requiresTypeVarMatching ||
+                            !isFixedOverloadArgumentShape(p.paramType, budget)
+                    )
+                ) {
+                    return decline('unsupported-mapping');
+                }
+                // This is the ordinary matcher and solver, not a parallel
+                // assignability algorithm. Only complete successful matches count.
+                const matched = useSpeculativeMode(node, () =>
+                    validateArgTypesWithContext(node, mapping, new ConstraintTracker(), true, undefined)
+                );
+                if (matched.isTypeIncomplete || !matched.returnType) {
+                    return decline('incomplete-solution');
+                }
+                if (!isFixedOverloadReturnShape(matched.returnType, budget)) {
+                    return decline('unsupported-solved-return-shape');
+                }
+                if (matched.argumentErrors) {
+                    continue;
+                }
+                const proof = mapping.argParams.map((p, i) =>
+                    getFixedOverloadCoverage(sources[i].type, p.paramType, budget)
+                );
+                const covered = proof.includes('unsupported')
+                    ? 'unsupported'
+                    : proof.includes('not-covered')
+                    ? 'not-covered'
+                    : 'covered';
+                coverage.push(covered);
+                matches.push(index);
+                if (covered === 'unsupported') {
+                    return decline('unsupported-coverage');
+                }
+                if (!returns.some((type) => isTypeSame(type, matched.returnType!))) {
+                    returns.push(matched.returnType);
+                }
+                // A covering overload ends the retained prefix; earlier
+                // non-covering matches remain live alternatives.
+                if (covered === 'covered') {
+                    break;
+                }
+            }
+            return returns.length > 1
+                ? { candidates: returns, reason: 'selected', coverage, matches, units: budget.used }
+                : decline('equivalent-or-single-return');
+        });
     }
 
     function validateOverloadedArgTypes(
@@ -17444,8 +17788,9 @@ export function createTypeEvaluator(
 
         // Validate that we received at least two type arguments. One type argument
         // is allowed if it's an unpacked TypeVarTuple or tuple. None is also allowed
-        // since it is used to define NoReturn in typeshed stubs).
-        if (types.length === 1 && !allowSingleTypeArg && !isNoneInstance(types[0])) {
+        // since it is used to define NoReturn in typeshed stubs). No type arguments,
+        // as in "Union[()]", is a runtime error.
+        if (types.length === 0 || (types.length === 1 && !allowSingleTypeArg && !isNoneInstance(types[0]))) {
             if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeArguments, LocMessage.unionTypeArgCount(), errorNode);
             }
@@ -17917,6 +18262,15 @@ export function createTypeEvaluator(
     }
 
     function evaluateTypesForAssignmentStatement(node: AssignmentNode): void {
+        if (
+            operationRouter?.route?.({
+                kind: 'statement',
+                node,
+                evaluate: () => evaluateTypesForAssignmentStatement(node),
+            })
+        ) {
+            return;
+        }
         const fileInfo = nodeInfo.getFileInfo(node);
 
         // If the entire statement has already been evaluated, don't
@@ -18976,6 +19330,9 @@ export function createTypeEvaluator(
             // Determine the effective metaclass.
             if (metaclassNode) {
                 let metaclassType = getTypeOfExpression(metaclassNode, exprFlags).type;
+                if (isAny(metaclassType)) {
+                    metaclassType = UnknownType.create();
+                }
                 if (isInstantiableClass(metaclassType) || isUnknown(metaclassType)) {
                     if (requiresSpecialization(metaclassType, { ignorePseudoGeneric: true })) {
                         addDiagnostic(
@@ -20894,7 +21251,10 @@ export function createTypeEvaluator(
             }
 
             if (isInstantiableClass(exceptionType)) {
-                if (ClassType.isBuiltIn(exceptionType, 'BaseException')) {
+                if (
+                    derivesFromStdlibClass(exceptionType, 'BaseException') &&
+                    !derivesFromStdlibClass(exceptionType, 'Exception')
+                ) {
                     includesBaseException = true;
                 }
                 return ClassType.cloneAsInstance(exceptionType);
@@ -21862,6 +22222,9 @@ export function createTypeEvaluator(
     // be evaluated to provide sufficient context for the type. Evaluated types
     // are written back to the type cache for later retrieval.
     function evaluateTypesForStatement(node: ParseNode): void {
+        if (evaluatorOptions.experimentalOverloadResult?.needsActivationBoundary()) {
+            return runWithOverloadActivation(() => evaluateTypesForStatement(node));
+        }
         initializePrefetchedTypes(node);
 
         let curNode: ParseNode | undefined = node;
@@ -22959,8 +23322,14 @@ export function createTypeEvaluator(
 
         // PEP 563 indicates that if a forward reference can be resolved in the module
         // scope (or, by implication, in the builtins scope), it should prefer that
-        // resolution over local resolutions.
-        if (symbolWithScope && preferGlobalScope) {
+        // resolution over local resolutions. This doesn't apply to a PEP 695 "type"
+        // statement's target, which binds synchronously in the scope where it appears
+        // (including a class scope) rather than being deferred like other annotations.
+        const isTypeAliasStatementTarget = symbolWithScope?.symbol
+            .getDeclarations()
+            .some((decl) => decl.type === DeclarationType.TypeAlias);
+
+        if (symbolWithScope && preferGlobalScope && !isTypeAliasStatementTarget) {
             let curSymbolWithScope: SymbolWithScope | undefined = symbolWithScope;
             while (
                 curSymbolWithScope.scope.type !== ScopeType.Module &&
@@ -27158,6 +27527,30 @@ export function createTypeEvaluator(
         );
     }
 
+    // Types like "bytes", "bytearray" and "memoryview" support cross-type
+    // content comparisons via "==" and "!=", even though they're otherwise
+    // unrelated (non-overlapping) types. Use derivesFromStdlibClass to check
+    // membership in this group across the MRO.
+    function isBytesLikeType(type: ClassType) {
+        return (
+            derivesFromStdlibClass(type, 'bytes') ||
+            derivesFromStdlibClass(type, 'bytearray') ||
+            derivesFromStdlibClass(type, 'memoryview')
+        );
+    }
+
+    // Determines whether the two types are both members of the "bytes-like"
+    // group of types ("bytes", "bytearray" and "memoryview"). Pyright models
+    // this relationship as a "type promotion" (used elsewhere for
+    // assignability), but that grouping is also useful for determining
+    // whether two otherwise-disjoint built-in types can be compared with
+    // "==" or "!=", since these types share compatible "__eq__" semantics
+    // regardless of whether the "disableBytesTypePromotions" setting allows
+    // the assignment.
+    function isTypePromotionRelated(leftType: ClassType, rightType: ClassType) {
+        return isBytesLikeType(leftType) && isBytesLikeType(rightType);
+    }
+
     // Determines whether the two types are potentially comparable -- i.e.
     // their types overlap in such a way that it makes sense for them to
     // be compared with an == or != operator. The functional also supports
@@ -27264,6 +27657,17 @@ export function createTypeEvaluator(
                         }
 
                         return boolVal === (intVal === 1);
+                    }
+
+                    // Distinct bytes-like classes support cross-type equality regardless
+                    // of disableBytesTypePromotions. Don't apply this to the same class:
+                    // different bytes literals must remain disjoint.
+                    if (
+                        !assumeIsOperator &&
+                        !ClassType.isSameGenericClass(leftType, rightType) &&
+                        isTypePromotionRelated(leftType, rightType)
+                    ) {
+                        return true;
                     }
 
                     return false;
@@ -28019,8 +28423,8 @@ export function createTypeEvaluator(
         ) {
             diag?.createAddendum().addMessage(
                 LocAddendum.argsPositionOnly().format({
-                    expected: srcParamDetails.positionOnlyParamCount,
-                    received: destParamDetails.firstPositionOrKeywordIndex,
+                    expected: destParamDetails.firstPositionOrKeywordIndex,
+                    received: srcParamDetails.positionOnlyParamCount,
                 })
             );
             canAssign = false;
@@ -30166,6 +30570,7 @@ export function createTypeEvaluator(
         getNoneType,
         getUnionClassType,
         getTypeClassType,
+        getFunctionClassType,
         getBuiltInObject,
         getTypingType,
         getTypeCheckerInternalsType,
@@ -30189,11 +30594,147 @@ export function createTypeEvaluator(
         useSpeculativeMode,
         isSpeculativeModeInUse,
         setTypeResultForNode,
+        getMaxCodeComplexity,
         checkForCancellation,
         printControlFlowGraph,
     };
 
     const codeFlowEngine = getCodeFlowEngine(evaluatorInterface, speculativeTypeTracker, nodeInfo);
+
+    if (evaluatorOptions.testOnlyMemberAccess) {
+        const { nodes, install } = evaluatorOptions.testOnlyMemberAccess;
+        install((node, baseTypeResult) => {
+            assert(nodes.has(node));
+            return getTypeOfMemberAccessWithBaseType(node, baseTypeResult, { method: 'get' }, EvalFlags.NoSpecialize);
+        });
+    }
+
+    evaluatorOptions.experimentalOverloadResult?.installSelector(selectAutomaticOverloadResult);
+    evaluatorOptions.experimentalOverloadResult?.installActivationBoundary(
+        () => !returnTypeInferenceTypeCache && !isSpeculativeModeInUse(undefined),
+        finishOverloadActivation
+    );
+    evaluatorOptions.experimentalOverloadResult?.installCheckerHandoff((root, expression, result, callback) => {
+        const ids = evaluatorOptions.experimentalOverloadResult!.roots.get(root);
+        const isComplete = (value: TypeResult) =>
+            !value.isIncomplete &&
+            !value.typeErrors &&
+            !(isFunction(value.type) && FunctionType.isPartiallyEvaluated(value.type)) &&
+            !(isClass(value.type) && ClassType.isPartiallyEvaluated(value.type));
+        if (
+            !ids ||
+            returnTypeInferenceTypeCache ||
+            isSpeculativeModeInUse(undefined) ||
+            typeCache.get(expression.id)?.typeResult !== result ||
+            typeCache.get(expression.id)?.flags !== EvalFlags.None ||
+            !isComplete(result)
+        ) {
+            return false;
+        }
+        for (const id of ids) {
+            const entry = typeCache.get(id);
+            if ((entry && !isComplete(entry.typeResult)) || typeFormTypeCache.has(id)) {
+                return false;
+            }
+        }
+        // Continue synchronously before this candidate's isolation unwinds. No
+        // saved cache set or result is restored, and the checker reads live entries.
+        checkForCancellation();
+        callback();
+        return true;
+    });
+    evaluatorOptions.experimentalOverloadResult?.installQueryCache((root, node) => {
+        const roots = evaluatorOptions.experimentalOverloadResult!.roots;
+        const ids = roots.get(root);
+        const isOrdinaryContext = () => !returnTypeInferenceTypeCache && !isSpeculativeModeInUse(undefined);
+        if (!ids || !isOrdinaryContext()) {
+            return undefined;
+        }
+        const isComplete = (result: TypeResult) =>
+            !result.isIncomplete &&
+            !(isFunction(result.type) && FunctionType.isPartiallyEvaluated(result.type)) &&
+            !(isClass(result.type) && ClassType.isPartiallyEvaluated(result.type));
+        const queryEntry = readContextualTypeCacheEntryForNode(node);
+        if (!queryEntry || !isComplete(queryEntry.typeResult)) {
+            return undefined;
+        }
+        const entries = [...ids].map((id) => ({
+            id,
+            runtime: typeCache.get(id),
+            expected: expectedTypeCache.get(id),
+            typeForm: typeFormTypeCache.get(id),
+        }));
+        const areComplete = () =>
+            entries.every(
+                (entry) =>
+                    (!entry.runtime || isComplete(entry.runtime.typeResult)) &&
+                    (!entry.typeForm || entry.typeForm.every((e) => isComplete(e.typeResult)))
+            );
+        if (!areComplete()) {
+            return undefined;
+        }
+        // This is a validity guard, not a saved public answer. Reuse only while
+        // the complete, privately restored cache set is still installed.
+        return () => {
+            const valid =
+                isOrdinaryContext() &&
+                roots.get(root) === ids &&
+                readContextualTypeCacheEntryForNode(node) === queryEntry &&
+                areComplete() &&
+                entries.every(
+                    (entry) =>
+                        typeCache.get(entry.id) === entry.runtime &&
+                        expectedTypeCache.get(entry.id) === entry.expected &&
+                        typeFormTypeCache.get(entry.id) === entry.typeForm
+                );
+            if (valid) {
+                checkForCancellation();
+            }
+            return valid;
+        };
+    });
+
+    if (operationController) {
+        const { roots } = operationController;
+        operationController.installCacheIsolation({
+            evict(root) {
+                const ids = roots.get(root);
+                assert(ids && ids.size <= 256);
+                assert(!returnTypeInferenceTypeCache && !isSpeculativeModeInUse(undefined));
+                ids.forEach((id) => {
+                    typeCache.delete(id);
+                    expectedTypeCache.delete(id);
+                    typeFormTypeCache.delete(id);
+                });
+                speculativeTypeTracker.evictCacheEntries(ids);
+            },
+            isolate(root, callback, retain = false) {
+                const ids = roots.get(root);
+                assert(ids && ids.size <= 256);
+                // Native argument speculation can query earlier, disjoint operations
+                // through code flow. Never isolate a root that overlaps that context.
+                assert(!returnTypeInferenceTypeCache && speculativeTypeTracker.canUseNodeCacheIsolation(root));
+                return useNodeCacheIsolation(
+                    typeCache,
+                    ids,
+                    () =>
+                        useNodeCacheIsolation(
+                            expectedTypeCache,
+                            ids,
+                            () =>
+                                useNodeCacheIsolation(
+                                    typeFormTypeCache,
+                                    ids,
+                                    () => speculativeTypeTracker.useNodeCacheIsolation(ids, callback, root),
+                                    retain
+                                ),
+                            retain
+                        ),
+                    retain
+                );
+            },
+        });
+    }
 
     return evaluatorInterface;
 }

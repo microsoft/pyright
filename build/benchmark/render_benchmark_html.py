@@ -9,7 +9,11 @@ from pathlib import Path
 from typing import Any
 
 
-CHECKER_ORDER = ["pyright", "pyrefly", "ty", "mypy", "zuban"]
+CHECKER_ORDER = ["pyright", "pyright-threads", "pyrefly", "ty", "mypy", "zuban"]
+
+
+def _checker_label(checker: str) -> str:
+    return "pyright (threads)" if checker == "pyright-threads" else checker
 
 
 def load_checker_results(paths: list[Path]) -> dict[str, dict[str, Any]]:
@@ -17,12 +21,12 @@ def load_checker_results(paths: list[Path]) -> dict[str, dict[str, Any]]:
     for path in paths:
         data = json.loads(path.read_text(encoding="utf-8"))
         checkers = data.get("type_checkers", [])
-        if len(checkers) != 1:
-            raise ValueError(f"{path} must contain exactly one type checker")
-        checker = checkers[0]
-        if checker in results:
-            raise ValueError(f"Duplicate result for {checker}")
-        results[checker] = data
+        if not checkers:
+            raise ValueError(f"{path} must contain at least one type checker")
+        for checker in checkers:
+            if checker in results:
+                raise ValueError(f"Duplicate result for {checker}")
+            results[checker] = data
     return results
 
 
@@ -86,7 +90,7 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
         version = results[checker].get("type_checker_versions", {}).get(checker, "unknown")
         summary_rows.append(
             "<tr>"
-            f"<th scope=\"row\"><span class=\"checker\">{html.escape(checker)}</span>"
+            f"<th scope=\"row\"><span class=\"checker\">{html.escape(_checker_label(checker))}</span>"
             f"<small>{html.escape(str(version))}</small></th>"
             f"<td>{tested}</td><td class=\"{'failed' if failed else 'passed'}\">{failed}</td>"
             f"<td><div class=\"bar\" style=\"--size:{share:.1f}%\"></div>"
@@ -142,7 +146,54 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
             f'{"".join(pyright_stats_rows)}</tbody></table></div></section>'
         )
 
-    checker_headers = "".join(f"<th>{html.escape(checker)}</th>" for checker in checkers)
+    threading_section = ""
+    if "pyright" in metrics and "pyright-threads" in metrics:
+        threading_rows = []
+        comparable_times = [
+            float(metric["execution_time_s"])
+            for checker in ("pyright", "pyright-threads")
+            for metric in metrics[checker].values()
+            if metric.get("ok")
+        ]
+        max_time = max(comparable_times, default=0.0)
+        for package in packages:
+            single = metrics["pyright"].get(package, {})
+            threaded = metrics["pyright-threads"].get(package, {})
+            if not single.get("ok") or not threaded.get("ok"):
+                continue
+            single_time = float(single["execution_time_s"])
+            threaded_time = float(threaded["execution_time_s"])
+            single_share = single_time / max_time * 100 if max_time else 0.0
+            threaded_share = threaded_time / max_time * 100 if max_time else 0.0
+            speedup = single_time / threaded_time if threaded_time else 0.0
+            threading_rows.append(
+                f'<tr><th scope="row">{html.escape(package)}</th>'
+                f'<td><div class="thread-bar single" style="--size:{single_share:.1f}%"></div>'
+                f"<strong>{single_time:.2f}s</strong>"
+                f'<small>{float(single.get("peak_memory_mb", 0.0)):.0f} MB</small></td>'
+                f'<td><div class="thread-bar threaded" style="--size:{threaded_share:.1f}%"></div>'
+                f"<strong>{threaded_time:.2f}s</strong>"
+                f'<small>{float(threaded.get("peak_memory_mb", 0.0)):.0f} MB</small></td>'
+                f"<td><strong>{speedup:.2f}x</strong></td></tr>"
+            )
+        if threading_rows:
+            thread_count = results["pyright-threads"].get("cpu_count", "unknown")
+            threading_section = (
+                '<section><h2>Pyright threading comparison</h2>'
+                '<p class="legend">Sequential runs on the same runner compare single-threaded '
+                'Pyright with <code>--threads</code>, '
+                "requested without an explicit count on a runner reporting "
+                f"{html.escape(str(thread_count))} logical CPUs. "
+                "Bars show wall time on a shared scale; cells also show peak RSS.</p>"
+                '<div class="table-wrap"><table><thead><tr><th>Package</th>'
+                '<th><span class="key single"></span>Single-thread</th>'
+                '<th><span class="key threaded"></span>Multi-thread</th><th>Speedup</th>'
+                f'</tr></thead><tbody>{"".join(threading_rows)}</tbody></table></div></section>'
+            )
+
+    checker_headers = "".join(
+        f"<th>{html.escape(_checker_label(checker))}</th>" for checker in checkers
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -168,6 +219,10 @@ tbody tr:last-child th,tbody tr:last-child td {{ border-bottom:0; }}
 small {{ display:block; margin-top:3px; color:var(--muted); font-family:"IBM Plex Mono","Courier New",monospace; }}
 .checker {{ display:block; font-size:1.05rem; text-transform:capitalize; }}
 .bar {{ float:left; width:var(--size); min-width:3px; height:8px; margin:6px 10px 0 0; background:var(--blue); }}
+.thread-bar {{ float:left; width:var(--size); min-width:3px; height:10px; margin:6px 10px 0 0; }}
+.thread-bar.single,.key.single {{ background:var(--blue); }}
+.thread-bar.threaded,.key.threaded {{ background:var(--green); }}
+.key {{ display:inline-block; width:10px; height:10px; margin-right:6px; }}
 .passed {{ color:var(--green); }} .failed {{ color:var(--red); }}
 .legend {{ color:var(--muted); font-size:.9rem; }}
 @media (max-width:640px) {{ header {{ padding-top:30px; padding-bottom:30px; }} main {{ padding-inline:14px; }} }}
@@ -178,8 +233,10 @@ small {{ display:block; margin-top:3px; color:var(--muted); font-family:"IBM Ple
 <main>
 <section><h2>Run summary</h2><p class="legend">Generated {html.escape(timestamp)} · Python {html.escape(str(environment.get('python_version', 'unknown')))} · {html.escape(str(environment.get('platform_details', environment.get('platform', 'unknown'))))}</p>
 <div class="table-wrap"><table><thead><tr><th>Checker</th><th>Measured</th><th>Failed</th><th>Total time</th><th>Median time</th><th>Median RSS</th></tr></thead><tbody>{''.join(summary_rows)}</tbody></table></div></section>
-<section><h2>Package comparison</h2><p class="legend">Each checker runs on a separate hosted runner, so timings are independent trends rather than a fastest-checker ranking. Cells show wall time and peak RSS.</p>
+<section><h2>Package comparison</h2><p class="legend">Different checker jobs run on separate hosted runners, so timings are independent trends rather than a fastest-checker ranking. The two Pyright modes run sequentially in one job. Cells show wall time and peak RSS.</p>
 <div class="table-wrap"><table><thead><tr><th>Package</th>{checker_headers}</tr></thead><tbody>{''.join(package_rows)}</tbody></table></div></section>
+{threading_section}
+<section><h2>Pyright release history</h2><p class="legend">Track per-package execution time and peak memory across every stable Pyright release from the prior year.</p><p><a href="history/">View Pyright package performance by release</a></p></section>
 {pyright_stats_section}
 </main>
 </body>

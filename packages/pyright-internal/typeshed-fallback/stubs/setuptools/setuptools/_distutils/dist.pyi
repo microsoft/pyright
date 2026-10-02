@@ -1,9 +1,10 @@
 from _typeshed import Incomplete, StrOrBytesPath, StrPath, SupportsWrite
-from collections.abc import Iterable, MutableMapping
+from collections.abc import Iterable, Mapping, MutableMapping
 from re import Pattern
 from typing import IO, ClassVar, Literal, TypeAlias, TypeVar, overload
 
 from .cmd import Command
+from .extension import Extension
 
 command_re: Pattern[str]
 
@@ -78,18 +79,18 @@ class Distribution:
     script_args: list[str] | None
     command_options: dict[str, dict[str, tuple[str, str]]]
     dist_files: list[tuple[str, str, str]]
-    packages: Incomplete
+    packages: list[str] | None
     package_data: dict[str, list[str]]
-    package_dir: Incomplete
-    py_modules: Incomplete
-    libraries: Incomplete
-    headers: Incomplete
-    ext_modules: Incomplete
-    ext_package: Incomplete
-    include_dirs: Incomplete
+    package_dir: Mapping[str, str] | None
+    py_modules: list[str] | None
+    libraries: list[tuple[str, dict[str, Incomplete]]] | None
+    headers: list[str] | None
+    ext_modules: list[Extension] | None
+    ext_package: str | None
+    include_dirs: list[str] | None
     extra_path: Incomplete
-    scripts: Incomplete
-    data_files: Incomplete
+    scripts: list[str] | None
+    data_files: list[tuple[str, list[str]]] | None
     password: str
     command_obj: dict[str, Command]
     have_run: dict[str, bool]

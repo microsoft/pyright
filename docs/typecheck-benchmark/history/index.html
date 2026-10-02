@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pyright package performance by release</title>
+<style>
+body { margin:0; color:#18222c; background:#f4f7f5; font-family:Aptos,"Trebuchet MS",sans-serif; }
+header { color:white; background:#173b47; padding:38px max(24px,calc((100vw - 1240px)/2)); border-bottom:5px solid #e67700; }
+h1 { margin:0 0 8px; font-family:Georgia,serif; font-size:clamp(2rem,5vw,3.6rem); }
+header p { margin:0; color:#d8e7e8; }
+main { max-width:1240px; margin:auto; padding:32px 24px 64px; }
+section { margin-bottom:36px; } img { width:100%; height:auto; border:1px solid #cdd8d3; background:white; }
+.note { color:#52616b; } .table-wrap { overflow:auto; border:1px solid #cdd8d3; background:white; }
+table { width:100%; border-collapse:collapse; } th,td { padding:11px 14px; border-bottom:1px solid #dce5e1; text-align:left; }
+thead { background:#edf2ef; } code { background:#e5ece8; padding:2px 5px; }
+</style>
+</head>
+<body>
+<header><h1>Pyright package performance by release</h1><p>Every stable Pyright release from the prior year, measured against one pinned package corpus.</p></header>
+<main>
+<section><h2>Execution time</h2><img src="execution-time.svg" alt="Per-package Pyright execution time across releases"></section>
+<section><h2>Peak memory</h2><img src="peak-memory.svg" alt="Per-package Pyright peak memory across releases"></section>
+<section><h2>Methodology</h2>
+<p class="note">Each point is one measured run on a GitHub-hosted Ubuntu runner and is normalized to that package's earliest release. Releases use the same package commits, check paths, Python version, memory limit, and dependency-isolation mode. Separate hosted runners introduce machine variance, so use the charts for release-scale trends rather than small differences.</p>
+<p>Profile: Python <code>3.14.6</code>,
+runner <code>github-ubuntu-latest</code>,
+1 measured run per package.</p></section>
+<section><h2>Release runs</h2><div class="table-wrap"><table><thead><tr><th>Version</th><th>Published</th><th>Packages measured</th><th>Measured at</th></tr></thead><tbody><tr><th>1.1.406</th><td>2025-10-01</td><td>9</td><td>2026-09-14T21:39:59.421825+00:00</td></tr><tr><th>1.1.407</th><td>2025-10-24</td><td>9</td><td>2026-09-14T21:39:42.274572+00:00</td></tr><tr><th>1.1.408</th><td>2026-01-08</td><td>9</td><td>2026-09-14T21:39:45.460985+00:00</td></tr><tr><th>1.1.409</th><td>2026-04-16</td><td>9</td><td>2026-09-14T21:38:53.481417+00:00</td></tr><tr><th>1.1.410</th><td>2026-05-23</td><td>9</td><td>2026-09-14T21:39:07.163917+00:00</td></tr><tr><th>1.1.411</th><td>2026-06-25</td><td>9</td><td>2026-09-14T21:39:36.545744+00:00</td></tr><tr><th>1.1.412</th><td>2026-08-12</td><td>9</td><td>2026-09-14T21:35:18.452118+00:00</td></tr><tr><th>1.1.413</th><td>2026-09-09</td><td>9</td><td>2026-09-14T21:42:13.958871+00:00</td></tr><tr><th>1.1.414</th><td>2026-09-09</td><td>9</td><td>2026-09-14T21:39:51.380019+00:00</td></tr></tbody></table></div></section>
+<p><a href="../">Back to the weekly type checker comparison</a> | <a href="history.json">Download summarized JSON</a></p>
+</main>
+</body>
+</html>

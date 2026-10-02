@@ -30,6 +30,11 @@ To install in VS Code, go to the extensions panel and choose “Install from VSI
 2. Execute `pnpm run test`
 
 
+## Reviewing pull requests
+
+See [Pyright PR review agents](pr-review-agents.md) for a coordinated review of performance, architectural fit, type
+precision, product benefit, and existing PR feedback.
+
 ## Debugging Pyright
 
 To debug pyright, open the root source directory within VS Code. Open the debug sub-panel and choose “Pyright CLI” from the debug target menu. Click on the green “run” icon or press F5 to build and launch the command-line version in the VS Code debugger. There's also a similar option that provides a slightly faster build/debug loop: make sure you've built the pyright-internal project e.g. with Terminal > Run Build Task > tsc: watch, then choose “Pyright CLI (pyright-internal)”.

@@ -532,9 +532,15 @@ test('TypeNarrowingTupleLength1', () => {
 });
 
 test('TypeNarrowingIn1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn1.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 0);
+
+    configOptions.diagnosticRuleSet.disableBytesTypePromotions = false;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults2, 0);
 });
 
 test('TypeNarrowingIn2', () => {

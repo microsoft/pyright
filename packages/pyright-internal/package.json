@@ -17,7 +17,9 @@
         "test:norebuild": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testPathIgnorePatterns src/tests/benchmarks",
         "test:benchmark": "cross-env PYRIGHT_RUN_BENCHMARKS=1 node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testTimeout=300000 --runInBand --detectOpenHandles src/tests/benchmarks",
         "test:coverage": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testPathIgnorePatterns src/tests/benchmarks --reporters=jest-junit --reporters=default --coverage --coverageReporters=cobertura --coverageReporters=html --coverageReporters=json",
-        "test:imports": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest importResolver.test --forceExit --runInBand"
+        "test:imports": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest importResolver.test --forceExit --runInBand",
+        "trace": "node ./out/packages/pyright-internal/src/trace/cli.js",
+        "test:trace": "pnpm run build && cross-env PYRIGHT_RUN_TRACE_TESTS=1 jest evaluationTrace --runInBand --forceExit"
     },
     "dependencies": {
         "@yarnpkg/fslib": "2.10.4",

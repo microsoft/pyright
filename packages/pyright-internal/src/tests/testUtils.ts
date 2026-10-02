@@ -13,6 +13,7 @@ import * as path from 'path';
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { ImportResolver } from '../analyzer/importResolver';
+import { ExperimentalOverloadResultOptions } from '../analyzer/overloadResultController';
 import { Program } from '../analyzer/program';
 import { Scope } from '../analyzer/scope';
 import { NameTypeWalker } from '../analyzer/testWalker';
@@ -45,6 +46,11 @@ export interface FileAnalysisResult {
     unusedCodes: Diagnostic[];
     unreachableCodes: Diagnostic[];
     deprecateds: Diagnostic[];
+}
+
+export interface SampleAnalysisObserver {
+    overloadResults?: ExperimentalOverloadResultOptions;
+    onComplete: (program: Program, fileUris: Uri[], configOptions: ConfigOptions) => void;
 }
 
 export function resolveSampleFilePath(fileName: string): string {
@@ -95,7 +101,8 @@ export function parseSampleFile(
 export function typeAnalyzeSampleFiles(
     fileNames: string[],
     configOptions = new ConfigOptions(Uri.empty()),
-    console?: ConsoleWithLogLevel
+    console?: ConsoleWithLogLevel,
+    observer?: SampleAnalysisObserver
 ): FileAnalysisResult[] {
     // Always enable "test mode".
     configOptions.internalTestMode = true;
@@ -105,7 +112,16 @@ export function typeAnalyzeSampleFiles(
     const serviceProvider = createServiceProvider(fs, console || new NullConsole(), tempFile);
     const importResolver = new ImportResolver(serviceProvider, configOptions, new FullAccessHost(serviceProvider));
 
-    const program = new Program(importResolver, configOptions, serviceProvider);
+    const program = new Program(
+        importResolver,
+        configOptions,
+        serviceProvider,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        observer?.overloadResults
+    );
     const fileUris = fileNames.map((name) => UriEx.file(resolveSampleFilePath(name)));
     program.setTrackedFiles(fileUris);
 
@@ -117,12 +133,14 @@ export function typeAnalyzeSampleFiles(
         nameTypeWalker.walk(parserOutput.parseTree);
     });
 
-    const results = getAnalysisResults(program, fileUris, configOptions);
-
-    program.dispose();
-    serviceProvider.dispose();
-
-    return results;
+    try {
+        const results = getAnalysisResults(program, fileUris, configOptions);
+        observer?.onComplete(program, fileUris, configOptions);
+        return results;
+    } finally {
+        program.dispose();
+        serviceProvider.dispose();
+    }
 }
 
 export function getAnalysisResults(

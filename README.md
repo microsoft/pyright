@@ -17,6 +17,13 @@ Try Pyright in your browser using the [Pyright Playground](https://pyright-play.
 Refer to [the documentation](https://microsoft.github.io/pyright) for installation, configuration, and usage details.
 
 
+## Performance
+
+The [weekly type checker benchmark](https://microsoft.github.io/pyright/typecheck-benchmark/) compares Pyright with other Python type checkers.
+
+The [Pyright release history](https://microsoft.github.io/pyright/typecheck-benchmark/history/) tracks per-package execution time and peak memory across releases.
+
+
 ## Environment variables
 
 If Pyright fails to create a temporary directory (for example in remote/server environments where the OS temp directory doesn't exist or isn't writable), you can override the temp directory root:

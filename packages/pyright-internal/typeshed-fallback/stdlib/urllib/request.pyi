@@ -1,13 +1,13 @@
 import ssl
 import sys
-from _typeshed import ReadableBuffer, StrOrBytesPath, SupportsRead
+from _typeshed import ReadableBuffer, StrOrBytesPath, SupportsItems, SupportsRead
 from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from email.message import Message
 from http.client import HTTPConnection, HTTPMessage, HTTPResponse
 from http.cookiejar import CookieJar
 from re import Pattern
-from typing import IO, Any, ClassVar, Literal, NoReturn, Protocol, TypeAlias, TypeVar, overload, type_check_only
-from typing_extensions import deprecated
+from typing import IO, Any, ClassVar, Literal, Protocol, TypeAlias, TypeVar, overload, type_check_only
+from typing_extensions import Never, deprecated
 from urllib.error import HTTPError as HTTPError
 from urllib.response import addclosehook, addinfourl
 
@@ -101,7 +101,11 @@ if sys.version_info >= (3, 14):
 
 else:
     if sys.platform == "win32":
-        from nturl2path import pathname2url as pathname2url, url2pathname as url2pathname
+        # These functions are implemented in the deprecated ``nturl2path`` module,
+        # but remain part of the public ``urllib.request`` API.
+        def url2pathname(url: str) -> str: ...
+        def pathname2url(p: str) -> str: ...
+
     else:
         def url2pathname(pathname: str) -> str: ...
         def pathname2url(pathname: str) -> str: ...
@@ -139,7 +143,7 @@ class Request:
         self,
         url: str,
         data: _DataType = None,
-        headers: MutableMapping[str, str] = {},
+        headers: SupportsItems[str, str] = {},
         origin_req_host: str | None = None,
         unverifiable: bool = False,
         method: str | None = None,
@@ -336,7 +340,7 @@ class CacheFTPHandler(FTPHandler):
     def clear_cache(self) -> None: ...  # undocumented
 
 class UnknownHandler(BaseHandler):
-    def unknown_open(self, req: Request) -> NoReturn: ...
+    def unknown_open(self, req: Request) -> Never: ...
 
 class HTTPErrorProcessor(BaseHandler):
     def http_response(self, request: Request, response: HTTPResponse) -> _UrlopenRet: ...

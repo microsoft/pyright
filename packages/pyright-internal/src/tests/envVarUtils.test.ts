@@ -41,6 +41,20 @@ test('expands ${workspaceFolder:sibling}', () => {
     assert.equal(expandPathVariables(test_path, workspaceFolderUri, [workspace]), path);
 });
 
+test.each(['$&', '$$', '$`', "$'"])('preserves replacement characters in workspace paths: %s', (directory) => {
+    const rootUri = UriEx.file(`/src/${directory}/project`);
+    const workspace = createWorkspace(rootUri);
+    workspace.workspaceName = 'sibling';
+    for (const variable of ['${workspaceFolder}', '${workspaceFolder:sibling}']) {
+        const path = `${variable}/lib`;
+        assert.equal(expandPathVariables(path, rootUri, [workspace]), `${rootUri.getPath()}/lib`);
+        assert.equal(
+            resolvePathWithEnvVariables(workspace, path, [workspace])?.getFilePath(),
+            rootUri.resolvePaths('lib').getFilePath()
+        );
+    }
+});
+
 test('resolvePathWithEnvVariables ${workspaceFolder}', () => {
     const workspaceFolderUri = UriEx.parse('mem-fs:/hello/there');
     const test_path = `\${workspaceFolder}/foo`;
@@ -67,6 +81,16 @@ describe('expandPathVariables', () => {
 
     afterAll(() => {
         process.env = OLD_ENV;
+    });
+
+    test.each(['$&', '$$', '$`', "$'"])('preserves replacement characters in environment values: %s', (value) => {
+        process.env.VIRTUAL_ENV = `/src/${value}/project`;
+        const path = '${env:VIRTUAL_ENV}/lib';
+        assert.equal(expandPathVariables(path, Uri.empty(), []), `${process.env.VIRTUAL_ENV}/lib`);
+        assert.equal(
+            resolvePathWithEnvVariables(defaultWorkspace, path, [])?.getFilePath(),
+            UriEx.file(process.env.VIRTUAL_ENV).resolvePaths('lib').getFilePath()
+        );
     });
 
     test('expands ${env:HOME}', () => {

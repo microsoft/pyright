@@ -13,6 +13,7 @@ def _result(checker: str, time: float, memory: float, ok: bool = True) -> dict:
         "platform": "linux",
         "platform_details": "Linux test runner",
         "python_version": "3.14.6",
+        "cpu_count": 4,
         "type_checkers": [checker],
         "type_checker_versions": {checker: "1.2.3"},
         "aggregate": {
@@ -80,10 +81,29 @@ class RenderBenchmarkHtmlTest(unittest.TestCase):
 
         self.assertEqual(results, {"mypy": _result("mypy", 1.0, 100.0), "pyright": _result("pyright", 2.0, 200.0)})
 
+    def test_loads_multiple_checkers_from_one_result(self) -> None:
+        combined = _result("pyright", 2.0, 200.0)
+        threaded = _result("pyright-threads", 1.0, 250.0)
+        combined["type_checkers"].append("pyright-threads")
+        combined["type_checker_versions"].update(threaded["type_checker_versions"])
+        combined["aggregate"].update(threaded["aggregate"])
+        combined["results"][0]["metrics"].update(
+            threaded["results"][0]["metrics"]
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pyright.json"
+            path.write_text(json.dumps(combined))
+            results = render_benchmark_html.load_checker_results([path])
+
+        self.assertEqual(set(results), {"pyright", "pyright-threads"})
+        self.assertIs(results["pyright"], results["pyright-threads"])
+
     def test_renders_comparison_semantics(self) -> None:
         report = render_benchmark_html.render_html(
             {
                 "pyright": _result("pyright", 2.0, 200.0),
+                "pyright-threads": _result("pyright-threads", 1.0, 250.0),
                 "mypy": _result("mypy", 1.0, 100.0),
                 "zuban": _result("zuban", 0.0, 0.0, ok=False),
             }
@@ -94,17 +114,27 @@ class RenderBenchmarkHtmlTest(unittest.TestCase):
         self.assertEqual(parser.title, "Python type checker benchmark")
         self.assertEqual(
             parser.headings,
-            ["Python type checker benchmark", "Run summary", "Package comparison"],
+            [
+                "Python type checker benchmark",
+                "Run summary",
+                "Package comparison",
+                "Pyright threading comparison",
+                "Pyright release history",
+            ],
         )
         self.assertEqual(
             parser.cells,
             [
                 "Checker", "Measured", "Failed", "Total time", "Median time", "Median RSS",
                 "pyright", "1.2.3", "1", "0", "2.0s", "2.0s", "200 MB",
+                "pyright (threads)", "1.2.3", "1", "0", "1.0s", "1.0s", "250 MB",
                 "mypy", "1.2.3", "1", "0", "1.0s", "1.0s", "100 MB",
                 "zuban", "1.2.3", "0", "1", "0.0s", "0.0s", "0 MB",
-                "Package", "pyright", "mypy", "zuban", "example", "2.00s", "200 MB",
-                "1.00s", "100 MB", "Not measured",
+                "Package", "pyright", "pyright (threads)", "mypy", "zuban",
+                "example", "2.00s", "200 MB", "1.00s", "250 MB", "1.00s",
+                "100 MB", "Not measured", "Package", "Single-thread",
+                "Multi-thread", "Speedup", "example", "2.00s", "200 MB",
+                "1.00s", "250 MB", "2.00x",
             ],
         )
 

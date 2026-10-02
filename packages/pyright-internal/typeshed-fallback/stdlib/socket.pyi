@@ -137,7 +137,7 @@ from _typeshed import ReadableBuffer, Unused, WriteableBuffer
 from collections.abc import Iterable
 from enum import IntEnum, IntFlag
 from io import BufferedReader, BufferedRWPair, BufferedWriter, IOBase, RawIOBase, TextIOWrapper
-from typing import Any, Final, Literal, Protocol, SupportsIndex, overload, type_check_only
+from typing import Any, Final, Literal, Protocol, SupportsIndex, TypeAlias, overload, type_check_only
 from typing_extensions import Self
 
 __all__ = [
@@ -1035,9 +1035,10 @@ if sys.platform != "win32" and sys.platform != "darwin":
 if sys.platform != "win32" and sys.platform != "darwin" and sys.platform != "linux":
     __all__ += ["BTPROTO_HCI", "BTPROTO_L2CAP", "BTPROTO_SCO"]
 
-if sys.platform != "win32" and sys.platform != "darwin" and sys.platform != "linux":
+if sys.platform != "win32" and sys.platform != "darwin":
     from _socket import HCI_DATA_DIR as HCI_DATA_DIR, HCI_FILTER as HCI_FILTER, HCI_TIME_STAMP as HCI_TIME_STAMP
 
+if sys.platform != "win32" and sys.platform != "darwin" and sys.platform != "linux":
     __all__ += ["HCI_FILTER", "HCI_TIME_STAMP", "HCI_DATA_DIR"]
 
 if sys.version_info >= (3, 11) and sys.platform != "linux" and sys.platform != "win32" and sys.platform != "darwin":
@@ -1576,6 +1577,11 @@ def create_server(
 ) -> socket: ...
 
 # The 5th tuple item is the socket address, for IP4, IP6, or IP6 if Python is compiled with --disable-ipv6, respectively.
+_GetAddrInfoResult: TypeAlias = list[
+    tuple[Literal[AddressFamily.AF_INET], SocketKind, int, str, tuple[str, int]]
+    | tuple[Literal[AddressFamily.AF_INET6], SocketKind, int, str, tuple[str, int, int, int] | tuple[int, bytes]]
+]
+
 def getaddrinfo(
     host: bytes | str | None, port: bytes | str | int | None, family: int = 0, type: int = 0, proto: int = 0, flags: int = 0
-) -> list[tuple[AddressFamily, SocketKind, int, str, tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes]]]: ...
+) -> _GetAddrInfoResult: ...
