@@ -183,6 +183,8 @@ export interface SymbolUsageProvider {
 }
 
 export interface StatusMutationListener {
+    // Called with the new program before files are cloned. Rebind services only in its container.
+    onProgramCloned?: (program: prog.Program) => void;
     onFileDirty?: (fileUri: Uri) => void;
     onClearCache?: () => void;
     onUpdateSettings?: <T extends ServerSettings>(settings: T) => void;

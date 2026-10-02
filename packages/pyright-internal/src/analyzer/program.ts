@@ -1108,11 +1108,15 @@ export class Program {
         const program = new Program(
             this._importResolver,
             this._configOptions,
-            this.serviceProvider,
+            this.serviceProvider.clone(),
             new LogTracker(this._console, 'Cloned'),
             this._disableChecker
         );
         program._editModeTracker.markClonedProgram();
+
+        // Rebind program-owned services before creating files or sending cache invalidations.
+        const listeners = [...(program.serviceProvider.tryGet(ServiceKeys.stateMutationListeners) ?? [])];
+        listeners.forEach((listener) => listener.onProgramCloned?.(program));
 
         // Clone user and open files in their original order. Open files must be created
         // with their full construction metadata before they are marked as tracked;

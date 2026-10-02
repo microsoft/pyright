@@ -510,34 +510,18 @@ function validateInitMethod(
         inferenceContext ? { ...inferenceContext, returnTypeOverride } : undefined
     );
 
-    // Overload evaluation keeps the ordinary __init__ return as a placeholder
-    // and carries argument-dependent constructed types through this separate field,
-    // including when union-expanded argument lists are combined.
-    const returnType = callResult.specializedInitSelfType
-        ? mapSubtypes(callResult.specializedInitSelfType, (specializedInitSelfSubtype) => {
-              let adjustedClassType = type;
-              if (
-                  isClassInstance(specializedInitSelfSubtype) &&
-                  ClassType.isSameGenericClass(specializedInitSelfSubtype, adjustedClassType)
-              ) {
-                  adjustedClassType = ClassType.cloneAsInstantiable(specializedInitSelfSubtype);
-              }
-
-              if (
-                  !type.priv.isTypeArgExplicit &&
-                  (isAny(specializedInitSelfSubtype) || isUnknown(specializedInitSelfSubtype))
-              ) {
-                  return specializedInitSelfSubtype;
-              }
-
-              return applyExpectedTypeForConstructor(
-                  evaluator,
-                  adjustedClassType,
-                  /* inferenceContext */ undefined,
-                  constraints
-              );
-          })
-        : applyExpectedTypeForConstructor(evaluator, type, /* inferenceContext */ undefined, constraints);
+    const returnType = mapSubtypes(callResult.specializedInitSelfType ?? type, (selfType) => {
+        const adjustedClassType =
+            isClassInstance(selfType) && ClassType.isSameGenericClass(selfType, type)
+                ? ClassType.cloneAsInstantiable(selfType)
+                : type;
+        return applyExpectedTypeForConstructor(
+            evaluator,
+            adjustedClassType,
+            /* inferenceContext */ undefined,
+            constraints
+        );
+    });
 
     if (callResult.isTypeIncomplete) {
         isTypeIncomplete = true;

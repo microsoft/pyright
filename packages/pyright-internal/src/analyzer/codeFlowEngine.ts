@@ -2028,26 +2028,35 @@ export function getCodeFlowEngine(
         assert(symbolWithScope !== undefined);
         const decls = symbolWithScope!.symbol.getDeclarations();
 
-        // Normally the wildcard import contributes its own alias declaration, so we can
-        // identify it by the import node directly. But wildcard-imported multipart modules
-        // may be merged into an existing alias declaration (for example, when
-        // `import mylib.a` is followed by `from x import *` and `x` imports `mylib.b`).
-        // In that case, fall back to the merged multipart alias so code flow preserves the
-        // imported module type instead of degrading the name to Unknown.
-        //
-        // First-match is safe here because the binder merges all multipart imports for the
-        // same base name into a single symbol whose module info carries the union of all
-        // submodule paths. Every surviving alias declaration for that symbol therefore
-        // carries equivalent module info after the merge.
-        const wildcardDecl =
-            decls.find((decl) => decl.node === flowNode.node) ??
-            decls.find(
-                (decl) =>
-                    decl.type === DeclarationType.Alias &&
-                    !decl.symbolName &&
-                    decl.firstNamePart === name &&
-                    decl.loadSymbolsFromPath
-            );
+        let wildcardDecl = decls.find((decl) => decl.node === flowNode.node);
+
+        // The binder may merge a wildcard-imported module into an existing declaration.
+        // Match the exported module using the same identity as the binder, not the local
+        // name, which can be an alias (e.g. "np" rather than "numpy").
+        if (!wildcardDecl && !importInfo.isNativeLib && importInfo.resolvedUris.length > 0) {
+            const resolvedPath = importInfo.resolvedUris[importInfo.resolvedUris.length - 1];
+            const importedDecls = nodeInfo
+                .getFileInfo(flowNode.node)
+                .importLookup(resolvedPath)
+                ?.symbolTable.get(name)
+                ?.getDeclarations();
+            const importedDecl = importedDecls?.[importedDecls.length - 1];
+
+            if (
+                importedDecl?.type === DeclarationType.Alias &&
+                !importedDecl.symbolName &&
+                importedDecl.firstNamePart
+            ) {
+                wildcardDecl = decls.find(
+                    (decl) =>
+                        decl.type === DeclarationType.Alias &&
+                        !decl.symbolName &&
+                        decl.moduleName === importedDecl.moduleName &&
+                        decl.firstNamePart === importedDecl.firstNamePart &&
+                        decl.loadSymbolsFromPath
+                );
+            }
+        }
 
         if (!wildcardDecl) {
             return UnknownType.create();

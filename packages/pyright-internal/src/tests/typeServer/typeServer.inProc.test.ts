@@ -11,13 +11,19 @@
  *
  * Ported from Pylance's `typeServer.inProc.test.ts`. The Pylance round-trip tests that
  * reconstruct a Pyright `Type` from the protocol `Type` depend on the client-side consumer
- * stack (ExternalProgram / snapshotSync), which stays in Pylance, so they are intentionally
+ * stack (SnapshotBackedProgram / snapshotSync), which stays in Pylance, so they are intentionally
  * not ported here. Instead these tests assert on the protocol-level responses.
  */
 
 import assert from 'assert';
 
+import { NotebookCellKind } from 'vscode-languageserver-protocol';
+
+import { UriEx } from '../../common/uri/uriUtils';
+import { NotebookUriMapper } from '../../typeServer/notebookUriMapper';
 import { TypeServerProtocol } from '../../typeServer/protocol/typeServerProtocol';
+import { WellKnownWorkspaceKinds } from '../../workspaceFactory';
+import { distlibFolder } from '../harness/vfs/factory';
 import { initializeDependenciesForInProcTests, withInProcTypeServer } from './inProcTypeServerTestUtils';
 
 jest.setTimeout(120000);
@@ -51,6 +57,54 @@ describe('TypeServer in-proc protocol', () => {
             const snapshot = await context.refreshSnapshot();
             assert(snapshot >= 0);
         });
+    });
+
+    test('fresh registered notebook cell uses its nearest nested regular workspace', async () => {
+        const code = `
+// @filename: main.py
+//// value = 1
+// @filename: /outer/inner/other.py
+//// value = 2
+`;
+        const outerWorkspace = UriEx.file('/outer');
+        const innerWorkspace = UriEx.file('/outer/inner');
+        const notebookUri = UriEx.file('/outer/inner/fresh.ipynb');
+        const freshCellUri = UriEx.parse('vscode-notebook-cell:/outer/inner/fresh.ipynb#cell1');
+
+        await withInProcTypeServer(
+            code,
+            async (context) => {
+                assert.strictEqual(NotebookUriMapper.isNotebookCell(freshCellUri), true);
+
+                context.sendNotification('notebookDocument/didOpen', {
+                    notebookDocument: {
+                        uri: notebookUri.toString(),
+                        notebookType: 'jupyter-notebook',
+                        version: 1,
+                        cells: [{ kind: NotebookCellKind.Code, document: freshCellUri.toString() }],
+                    },
+                    cellTextDocuments: [
+                        {
+                            uri: freshCellUri.toString(),
+                            languageId: 'python',
+                            version: 1,
+                            text: 'value = 3',
+                        },
+                    ],
+                });
+                await context.sendRequest(TypeServerProtocol.GetSupportedProtocolVersionRequest.type);
+
+                const workspace = await context.getTypeServerWorkspaceForFile(freshCellUri);
+                assert.strictEqual(workspace.rootUri?.toString(), innerWorkspace.toString());
+                assert.deepStrictEqual(workspace.kinds, [WellKnownWorkspaceKinds.Regular]);
+            },
+            {
+                workspaceFolders: [
+                    { uri: outerWorkspace.toString(), name: 'outer' },
+                    { uri: innerWorkspace.toString(), name: 'inner' },
+                ],
+            }
+        );
     });
 
     test('resolveImport resolves a local module', async () => {
@@ -88,6 +142,49 @@ describe('TypeServer in-proc protocol', () => {
 
             assert(Array.isArray(paths));
             assert(paths.every((p) => typeof p === 'string'));
+        });
+    });
+
+    test('type queries use the fixed Python version, platform, and virtual libraries', async () => {
+        const code = `
+// @filename: main.py
+//// import sys
+//// from fixture_library import library_value
+//// from distribution_fixture import distribution_value
+////
+//// if sys.version_info >= (3, 10) and sys.version_info < (3, 11):
+////     version_value = 1
+//// else:
+////     version_value = "different version"
+//// if sys.platform == "linux":
+////     platform_value = "linux"
+//// else:
+////     platform_value = 0
+////
+//// [|/*version*/version|] = version_value
+//// [|/*platform*/platform|] = platform_value
+//// [|/*library*/library|] = library_value
+//// [|/*distribution*/distribution|] = distribution_value
+// @filename: fixture_library.py
+// @library: true
+//// library_value: float = 1.0
+// @filename: ${distlibFolder.getFilePath()}/distribution_fixture.py
+//// distribution_value: bool = True
+`;
+
+        await withInProcTypeServer(code, async (context) => {
+            await context.openFileForMarker('version');
+            for (const [marker, expectedType] of [
+                ['version', 'int'],
+                ['platform', 'str'],
+                ['library', 'float'],
+                ['distribution', 'bool'],
+            ]) {
+                const type = await context.sendRequestWithSnapshot(TypeServerProtocol.GetComputedTypeRequest.type, {
+                    arg: context.getNodeForMarker(marker),
+                });
+                assert.strictEqual(getClassTypeName(type), expectedType);
+            }
         });
     });
 

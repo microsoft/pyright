@@ -7,7 +7,8 @@ settings:
 overrides:
   js-yaml@>=3.0.0 <3.15.2: 3.15.2
   js-yaml@>=4.0.0 <4.3.2: 4.3.2
-  tar: 7.5.11
+  ip-address: 10.3.1
+  tar: 7.5.19
 
 importers:
 
@@ -138,8 +139,8 @@ importers:
         specifier: ^3.3.1
         version: 3.3.1
       smol-toml:
-        specifier: ^1.6.1
-        version: 1.7.0
+        specifier: ^1.8.0
+        version: 1.8.0
       source-map-support:
         specifier: ^0.5.21
         version: 0.5.21
@@ -3087,8 +3088,8 @@ packages:
     resolution: {integrity: sha1-Zlq4vE2iendKQFhOgS4+D6RbGh4=}
     engines: {node: '>= 0.10'}
 
-  ip-address@10.2.0:
-    resolution: {integrity: sha1-gF/BeLIMUYvUyFSLJP4wiS1/MgY=}
+  ip-address@10.3.1:
+    resolution: {integrity: sha1-kp+WKdFyT34bdIXOiXUvNnUzahA=}
     engines: {node: '>= 12'}
 
   is-arrayish@0.2.1:
@@ -4480,8 +4481,8 @@ packages:
     resolution: {integrity: sha1-T86198S4bCVEAk72huEv8Jg0Zb4=}
     engines: {node: '>= 18'}
 
-  smol-toml@1.7.0:
-    resolution: {integrity: sha1-7RslnOfgWQffGr51iXG9Cg7ywN0=}
+  smol-toml@1.8.0:
+    resolution: {integrity: sha1-3F4JNoJfH+83vfLFaQgfcJ2KAJ8=}
     engines: {node: '>= 18'}
 
   socks-proxy-agent@8.0.5:
@@ -4676,8 +4677,8 @@ packages:
     resolution: {integrity: sha1-rK2EwoQTawYNw/qmRHSqmuvXcoc=}
     engines: {node: '>=6'}
 
-  tar@7.5.11:
-    resolution: {integrity: sha1-ElD65F2YgGs21wOzCXP6jgptiGg=}
+  tar@7.5.19:
+    resolution: {integrity: sha1-2JFea3F/gDannYOcqUSBmLACsKc=}
     engines: {node: '>=18'}
 
   terminal-link@4.0.0:
@@ -8196,7 +8197,7 @@ snapshots:
 
   interpret@1.4.0: {}
 
-  ip-address@10.2.0: {}
+  ip-address@10.3.1: {}
 
   is-arrayish@0.2.1: {}
 
@@ -8783,7 +8784,7 @@ snapshots:
       slash: 3.0.0
       ssri: 12.0.0
       string-width: 4.2.3
-      tar: 7.5.11
+      tar: 7.5.19
       through: 2.3.8
       tinyglobby: 0.2.12
       typescript: 5.9.3
@@ -9138,7 +9139,7 @@ snapshots:
       nopt: 9.0.0
       proc-log: 6.1.0
       semver: 7.7.2
-      tar: 7.5.11
+      tar: 7.5.19
       tinyglobby: 0.2.12
       undici: 6.28.0
       which: 6.0.1
@@ -9506,7 +9507,7 @@ snapshots:
       promise-retry: 2.0.1
       sigstore: 4.1.1(supports-color@8.1.1)
       ssri: 12.0.0
-      tar: 7.5.11
+      tar: 7.5.19
     transitivePeerDependencies:
       - supports-color
 
@@ -9528,7 +9529,7 @@ snapshots:
       proc-log: 6.1.0
       sigstore: 4.1.1(supports-color@8.1.1)
       ssri: 13.0.1
-      tar: 7.5.11
+      tar: 7.5.19
     transitivePeerDependencies:
       - supports-color
 
@@ -9980,7 +9981,7 @@ snapshots:
 
   smol-toml@1.6.1: {}
 
-  smol-toml@1.7.0: {}
+  smol-toml@1.8.0: {}
 
   socks-proxy-agent@8.0.5(supports-color@8.1.1):
     dependencies:
@@ -9992,7 +9993,7 @@ snapshots:
 
   socks@2.8.9:
     dependencies:
-      ip-address: 10.2.0
+      ip-address: 10.3.1
       smart-buffer: 4.2.0
 
   source-map-support@0.5.13:
@@ -10179,7 +10180,7 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 3.6.2
 
-  tar@7.5.11:
+  tar@7.5.19:
     dependencies:
       '@isaacs/fs-minipass': 4.0.1
       chownr: 3.0.0
