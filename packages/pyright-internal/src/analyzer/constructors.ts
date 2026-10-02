@@ -526,15 +526,23 @@ function validateInitMethod(
         // A specialized __init__ self type must not widen type arguments
         // explicitly supplied by the caller, even when overloads are ambiguous.
         const isUnspecializedAlias =
-            !!type.props?.typeAliasInfo?.shared.typeParams?.length &&
-            !type.props.typeAliasInfo.typeArgs &&
-            type.priv.typeArgs?.every(isUnknown);
-        const adjustedClassType =
+            !!type.props?.typeAliasInfo?.shared.typeParams?.length && !type.props.typeAliasInfo.typeArgs;
+        let adjustedClassType =
             (!type.priv.typeArgs || isUnspecializedAlias) &&
             isClassInstance(selfType) &&
             ClassType.isSameGenericClass(selfType, type)
                 ? ClassType.cloneAsInstantiable(selfType)
                 : type;
+        if (isUnspecializedAlias && type.priv.typeArgs && adjustedClassType.priv.typeArgs) {
+            // A partially specialized alias can fix some arguments while leaving
+            // others available for inference. Retain the fixed arguments.
+            adjustedClassType = ClassType.specialize(
+                adjustedClassType,
+                type.priv.typeArgs.map((arg, index) =>
+                    isUnknown(arg) ? adjustedClassType.priv.typeArgs![index] ?? arg : arg
+                )
+            );
+        }
         return applyExpectedTypeForConstructor(
             evaluator,
             adjustedClassType,

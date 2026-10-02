@@ -202,3 +202,26 @@ GenericBox: TypeAlias = Box[T_co]
 def explicit_alias(value: Any) -> None:
     reveal_type(DogBox(value), expected_text="Box[Dog]")
     reveal_type(GenericBox[Dog](value), expected_text="Box[Dog]")
+
+
+U_alias = TypeVar("U_alias")
+
+
+class Pair(Generic[T_alias, U_alias]):
+    def __init__(self: "Pair[int, str]", value: str) -> None: ...
+
+
+IntPair: TypeAlias = Pair[int, U_alias]
+TextPair: TypeAlias = Pair[T_alias, str]
+
+reveal_type(Pair("text"), expected_text="Pair[int, str]")
+reveal_type(IntPair("text"), expected_text="Pair[int, str]")
+reveal_type(TextPair("text"), expected_text="Pair[int, str]")
+
+
+class AnimalPair(Generic[T_co, U_alias]):
+    def __init__(self: "AnimalPair[Animal, str]", value: str) -> None: ...
+
+
+DogPair: TypeAlias = AnimalPair[Dog, U_alias]
+reveal_type(DogPair("text"), expected_text="AnimalPair[Dog, str]")
