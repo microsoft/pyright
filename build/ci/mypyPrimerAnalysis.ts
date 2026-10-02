@@ -158,11 +158,36 @@ export async function loadSource(request: Request, repository: string, handoff: 
     const runAttempt = positiveInteger(context.runAttempt);
     const parameters = { ...repositoryParameters(repository), run_id: runId };
     const run = record((await request('GET /repos/{owner}/{repo}/actions/runs/{run_id}', parameters)).data);
-    const headSha = text(run.head_sha);
+    let source = run;
+    if (run.event === 'workflow_run') {
+        const match = /^Run mypy_primer after Validation #(\d+)$/.exec(text(run.display_title));
+        if (!match) {
+            throw new Error('The primer run does not identify its source Validation run');
+        }
+        const validationId = positiveInteger(Number(match[1]));
+        source = record(
+            (
+                await request('GET /repos/{owner}/{repo}/actions/runs/{run_id}', {
+                    ...repositoryParameters(repository),
+                    run_id: validationId,
+                })
+            ).data
+        );
+        if (
+            source.id !== validationId ||
+            source.event !== 'pull_request' ||
+            source.path !== '.github/workflows/validation.yml' ||
+            source.conclusion !== 'success' ||
+            record(source.repository).full_name !== repository
+        ) {
+            throw new Error('The primer run does not follow successful pull request Validation');
+        }
+    }
+    const headSha = text(source.head_sha);
     if (
         run.id !== runId ||
         run.run_attempt !== runAttempt ||
-        run.event !== 'pull_request' ||
+        (run.event !== 'pull_request' && run.event !== 'workflow_run') ||
         run.path !== '.github/workflows/mypy_primer_pr.yaml' ||
         run.conclusion !== 'success' ||
         record(run.repository).full_name !== repository ||
@@ -210,9 +235,9 @@ export async function loadSource(request: Request, repository: string, handoff: 
         runId,
         runAttempt,
         headSha,
-        headRepository: text(record(run.head_repository).full_name),
-        headBranch: text(run.head_branch),
-        pullRequests: array(run.pull_requests).map((pr) => positiveInteger(record(pr).number)),
+        headRepository: text(record(source.head_repository).full_name),
+        headBranch: text(source.head_branch),
+        pullRequests: array(source.pull_requests).map((pr) => positiveInteger(record(pr).number)),
     };
 }
 

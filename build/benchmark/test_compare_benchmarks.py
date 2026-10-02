@@ -916,14 +916,9 @@ Regression threshold: `10.0%`
             trigger_workflow_data["on"],
             {
                 "issue_comment": {"types": ["created"]},
-                "pull_request_target": {
-                    "types": [
-                        "opened",
-                        "reopened",
-                        "synchronize",
-                        "ready_for_review",
-                    ],
-                    "paths": ["packages/pyright-internal/src/analyzer/**"],
+                "workflow_run": {
+                    "workflows": ["Validation"],
+                    "types": ["completed"],
                 },
             },
         )
@@ -932,7 +927,7 @@ Regression threshold: `10.0%`
         )
         self.assertEqual(
             trigger_workflow_data["jobs"]["trigger"]["if"],
-            "${{ github.repository == 'microsoft/pyright' && ((github.event_name == 'pull_request_target' && !github.event.pull_request.draft) || (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark'))) }}",
+            "${{ github.repository == 'microsoft/pyright' && ((github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark'))) }}",
         )
         self.assertNotIn("github.event.issue.state == 'open'", trigger_workflow)
         self.assertIn(
@@ -942,7 +937,7 @@ Regression threshold: `10.0%`
         self.assertIn("github.rest.repos.getCommit", trigger_workflow)
         self.assertIn("candidateCommit.data.parents[0]?.sha", trigger_workflow)
         self.assertIn(
-            "const automatic = context.eventName === 'pull_request_target'",
+            "require('./build/resolveValidatedPullRequest.js')",
             trigger_workflow,
         )
         self.assertIn(
@@ -958,7 +953,7 @@ Regression threshold: `10.0%`
         )
         self.assertEqual(
             trigger_workflow_data["jobs"]["trigger"]["permissions"],
-            {"contents": "read", "pull-requests": "read"},
+            {"actions": "read", "contents": "read", "pull-requests": "read"},
         )
         self.assertNotIn("actions: write", trigger_workflow)
         self.assertNotIn("createWorkflowDispatch", trigger_workflow)
@@ -985,7 +980,20 @@ Regression threshold: `10.0%`
                 "pull-requests": "write",
             },
         )
-        self.assertNotIn("actions/checkout", trigger_workflow)
+        checkout = trigger_workflow_data["jobs"]["trigger"]["steps"][0]
+        self.assertEqual(
+            checkout["with"],
+            {
+                "ref": "${{ github.event.repository.default_branch }}",
+                "persist-credentials": False,
+            },
+        )
+        self.assertIn("github.rest.actions.listWorkflowRuns", trigger_workflow)
+        self.assertIn("status: 'success'", trigger_workflow)
+        self.assertIn(
+            "file.filename.startsWith('packages/pyright-internal/src/analyzer/')",
+            trigger_workflow,
+        )
         self.assertIn(
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
             trigger_workflow,
@@ -999,6 +1007,133 @@ Regression threshold: `10.0%`
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
             benchmark_workflow,
         )
+
+    def test_primer_waits_for_validation_and_uses_read_only_candidate(self) -> None:
+        workflow = _load_yaml(
+            REPO_ROOT / ".github" / "workflows" / "mypy_primer_pr.yaml"
+        )
+        self.assertEqual(
+            workflow["on"],
+            {"workflow_run": {"workflows": ["Validation"], "types": ["completed"]}},
+        )
+        self.assertIn(
+            "github.event.workflow_run.conclusion == 'success'",
+            workflow["jobs"]["resolve"]["if"],
+        )
+        self.assertEqual(
+            workflow["permissions"], {"contents": "read", "pull-requests": "read"}
+        )
+        primer = workflow["jobs"]["mypy_primer"]
+        self.assertEqual(primer["needs"], "resolve")
+        self.assertEqual(
+            primer["if"], "${{ needs.resolve.outputs.pr-number != '' }}"
+        )
+        self.assertEqual(primer["permissions"], {"contents": "read"})
+        checkout = primer["steps"][0]["with"]
+        self.assertEqual(checkout["ref"], "${{ needs.resolve.outputs.merge-sha }}")
+        self.assertFalse(checkout["persist-credentials"])
+        self.assertFalse(
+            any(step.get("with", {}).get("cache") for step in primer["steps"])
+        )
+        script = primer["steps"][5]["run"]
+        self.assertNotIn("GITHUB_SHA", script)
+        self.assertIn('git branch new_commit "$PRIMER_SHA"', script)
+
+    def test_validated_pr_resolution_and_separate_path_filters(self) -> None:
+        script = r"""
+const assert = require('assert').strict;
+const fs = require('fs');
+const YAML = require('yaml');
+const resolve = require('./build/resolveValidatedPullRequest.js');
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const workflows = ['typecheck_benchmark_trigger.yml', 'mypy_primer_pr.yaml'].map(
+    (name) => YAML.parse(fs.readFileSync(`.github/workflows/${name}`, 'utf8'))
+);
+async function check(runChanges = {}, prChanges = {}, filenames = [], script) {
+    const run = {
+        name: 'Validation', path: '.github/workflows/validation.yml',
+        event: 'pull_request', conclusion: 'success',
+        repository: { full_name: 'microsoft/pyright' },
+        head_repository: { id: 17, owner: { login: 'external' } },
+        head_branch: 'feature', head_sha: 'a'.repeat(40), ...runChanges,
+    };
+    const pr = {
+        number: 7, state: 'open', merge_commit_sha: 'b'.repeat(40),
+        head: { sha: 'a'.repeat(40), repo: { id: 17 } }, ...prChanges,
+    };
+    const outputs = {};
+    const core = {
+        notice: () => {}, setFailed: (message) => { throw new Error(message); },
+        setOutput: (name, value) => { outputs[name] = value; },
+    };
+    const context = {
+        eventName: 'workflow_run', repo: { owner: 'microsoft', repo: 'pyright' },
+        payload: { workflow_run: run },
+    };
+    const github = {
+        rest: {
+            pulls: {
+                list: 'list', listFiles: 'files', get: async () => ({ data: pr }),
+            },
+            repos: {
+                getCommit: async () => ({ data: {
+                    parents: [{ sha: 'c'.repeat(40) }, { sha: pr.head.sha }],
+                } }),
+            },
+        },
+        paginate: async (method, parameters) => {
+            if (method === 'list') {
+                assert.equal(parameters.head, 'external:feature');
+                return [pr];
+            }
+            assert.equal(method, 'files');
+            return filenames.map((filename) => ({ filename }));
+        },
+    };
+    if (script) {
+        await new AsyncFunction('github', 'context', 'core', 'require', script)(
+            github, context, core, require
+        );
+        return outputs['pr-number'];
+    }
+    return resolve({ github, context, core });
+}
+(async () => {
+    assert.equal((await check()).pullRequest.number, 7);
+    for (const conclusion of ['failure', 'cancelled', null]) {
+        assert.equal(await check({ conclusion }), undefined);
+    }
+    assert.equal(await check({ event: 'push' }), undefined);
+    assert.equal(await check({ path: '.github/workflows/other.yml' }), undefined);
+    assert.equal(await check({ repository: { full_name: 'external/pyright' } }), undefined);
+    assert.equal(await check({}, { head: { sha: 'd'.repeat(40), repo: { id: 17 } } }), undefined);
+    assert.equal(await check({}, { head: { sha: 'a'.repeat(40), repo: { id: 18 } } }), undefined);
+    assert.equal(await check({}, { state: 'closed' }), undefined);
+    const scripts = [
+        workflows[0].jobs.trigger.steps.find((step) => step.id === 'resolve').with.script,
+        workflows[1].jobs.resolve.steps.find((step) => step.id === 'resolve').with.script,
+    ];
+    for (const [filename, expected] of [
+        ['packages/pyright-internal/src/analyzer/checker.ts', [7, 7]],
+        ['packages/pyright-internal/src/tests/sample.py', [undefined, 7]],
+        ['packages/pyright/index.js', [undefined, 7]],
+        ['packages/pyright-internal/typeshed-fallback/stdlib/os.pyi', [undefined, 7]],
+        ['README.md', [undefined, undefined]],
+    ]) {
+        for (let index = 0; index < scripts.length; index++) {
+            assert.equal(await check({}, {}, [filename], scripts[index]), expected[index]);
+        }
+    }
+})().catch((error) => { console.error(error); process.exitCode = 1; });
+"""
+        subprocess.run(["node", "-e", script], cwd=REPO_ROOT, check=True)
+
+    def test_benchmark_workflow_preserves_candidate_and_reporting(self) -> None:
+        workflow_path = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
+        )
+        benchmark_workflow = workflow_path.read_text(encoding="utf-8")
+        benchmark_workflow_data = _load_yaml(workflow_path)
         self.assertNotIn("actions/checkout@v4", benchmark_workflow)
         self.assertNotIn("actions/github-script@v7", benchmark_workflow)
         self.assertIn("workflow_call:", benchmark_workflow)
