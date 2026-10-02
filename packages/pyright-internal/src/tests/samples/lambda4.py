@@ -1,7 +1,7 @@
 # This sample tests the case where a lambda is assigned to
 # a union type that contains multiple callables.
 
-from typing import Callable, Generic, Protocol, Self, TypeVar, assert_type
+from typing import Callable, Generic, ParamSpec, Protocol, Self, TypeVar, assert_type
 
 
 U1 = Callable[[int, str], bool] | Callable[[str], bool]
@@ -67,6 +67,8 @@ accepts_u2(callback_3)
 
 
 T = TypeVar("T")
+P = ParamSpec("P")
+R = TypeVar("R")
 
 Takes = Callable[[T], object]
 
@@ -76,6 +78,14 @@ U3 = Takes[Takes[int]] | Takes[Takes[str]]
 def accepts_u3(u: U3):
     # This should generate an error.
     u(lambda v: v.lower())
+
+
+def forward_options(f: Callable[P, R]) -> Callable[P, R]:
+    return lambda *args, **options: f(*args, **options)
+
+
+def forward_kwargs(f: Callable[P, R]) -> Callable[P, R]:
+    return lambda *args, **kwargs: f(*args, **kwargs)
 
 
 class KeywordOnlyCallable:
