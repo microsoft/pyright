@@ -118,10 +118,10 @@ result contract, and the comparator rejects mismatched environments.
 ## Maintainer workflow
 
 Pull requests that change `packages/pyright-internal/src/analyzer/` automatically run the hosted
-benchmark once, when opened or marked ready for review. Draft pull requests wait until they are
-ready. Subsequent commits and reopened pull requests do not trigger another automatic run. The
-trusted trigger runs from the base repository and dispatches the existing read-only benchmark
-workflow without checking out or executing pull-request code.
+benchmark when their `mypy_primer` workflow starts. For external contributors, this waits for a
+maintainer to approve the pull request workflows. Subsequent commits trigger another run after their
+workflows start. The trusted trigger runs from the base repository and dispatches the existing
+benchmark workflow.
 
 To run the benchmark again, or to run it for another pull request, a maintainer can comment exactly
 `/benchmark` on an open or merged pull request. The command must be the entire comment. The trusted
