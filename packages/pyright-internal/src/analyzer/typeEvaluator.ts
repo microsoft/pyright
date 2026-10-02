@@ -30451,6 +30451,7 @@ export function createTypeEvaluator(
         validateInitSubclassArgs,
         isNodeReachable,
         isAfterNodeReachable,
+        isKeyPresentInTypedDict: (node) => codeFlowEngine.isKeyPresentInTypedDict(node),
         getNodeReachability,
         getAfterNodeReachability,
         isAsymmetricAccessorAssignment,

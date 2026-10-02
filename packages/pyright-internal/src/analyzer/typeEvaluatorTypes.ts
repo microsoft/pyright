@@ -23,6 +23,7 @@ import {
     DecoratorNode,
     ExpressionNode,
     FunctionNode,
+    IndexNode,
     MatchNode,
     NameNode,
     ParamCategory,
@@ -732,6 +733,7 @@ export interface TypeEvaluator {
 
     isNodeReachable: (node: ParseNode, sourceNode?: ParseNode | undefined) => boolean;
     isAfterNodeReachable: (node: ParseNode) => boolean;
+    isKeyPresentInTypedDict: (node: IndexNode) => boolean;
     getNodeReachability: (node: ParseNode, sourceNode?: ParseNode | undefined) => Reachability;
     getAfterNodeReachability: (node: ParseNode) => Reachability;
 
