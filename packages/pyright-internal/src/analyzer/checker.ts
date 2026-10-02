@@ -5472,6 +5472,12 @@ export class Checker extends ParseTreeWalker {
 
             const decls = localSymbol.getDeclarations();
 
+            // The runtime initializes the special __weakref__ slot. A normal
+            // instance variable with this name is still subject to this check.
+            if (name === '__weakref__' && localSymbol.isSlotsMember()) {
+                return;
+            }
+
             // If the symbol is assigned (or at least declared) within the
             // class body or within the __init__ method, it can be ignored.
             if (
@@ -5538,6 +5544,12 @@ export class Checker extends ParseTreeWalker {
         // that are not initialized.
         const diagAddendum = new DiagnosticAddendum();
         abstractSymbols.forEach((member, name) => {
+            // Runtime-managed slots remain initialized when inherited from
+            // an abstract base class.
+            if (name === '__weakref__' && member.symbol.isSlotsMember()) {
+                return;
+            }
+
             const decls = member.symbol.getDeclarations();
 
             if (decls.length === 0 || !isClass(member.classType)) {
