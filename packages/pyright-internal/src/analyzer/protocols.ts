@@ -679,6 +679,7 @@ function assignToProtocolInternal(
                             subDiag?.createAddendum(),
                             protocolConstraints,
                             selfSolution,
+                            assignTypeFlags,
                             recursionCount
                         )
                     ) {

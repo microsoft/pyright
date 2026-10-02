@@ -25795,6 +25795,7 @@ export function createTypeEvaluator(
                             /* diag */ undefined,
                             /* constraints */ undefined,
                             /* selfConstraints */ undefined,
+                            AssignTypeFlags.Default,
                             recursionCount
                         )
                     ) {
@@ -28210,6 +28211,7 @@ export function createTypeEvaluator(
     // accepts, apart from parameters that overlap only when omitted.
     function isParamListOverlapOnlyByOmission(
         destType: FunctionType,
+        srcType: FunctionType,
         destParamDetails: ParamListDetails,
         srcParamDetails: ParamListDetails,
         recursionCount: number
@@ -28219,6 +28221,7 @@ export function createTypeEvaluator(
         }
 
         const destScopeIds = getTypeVarScopeIds(destType);
+        const srcScopeIds = getTypeVarScopeIds(srcType);
         const constraints = new ConstraintTracker();
 
         return destParamDetails.params.every((destParam, index) => {
@@ -28242,7 +28245,7 @@ export function createTypeEvaluator(
 
             return assignType(
                 makeTypeVarsFree(destParam.type, destScopeIds),
-                srcParam.type,
+                makeTypeVarsBound(srcParam.type, srcScopeIds),
                 /* diag */ undefined,
                 constraints,
                 AssignTypeFlags.Default,
@@ -28369,6 +28372,7 @@ export function createTypeEvaluator(
                             isOverlapOnlyByOmission(destParamType, destParam.defaultType, srcParamType) &&
                             isParamListOverlapOnlyByOmission(
                                 destType,
+                                srcType,
                                 destParamDetails,
                                 srcParamDetails,
                                 recursionCount
@@ -28813,6 +28817,7 @@ export function createTypeEvaluator(
                                 isOverlapOnlyByOmission(destParamInfo.type, destParamInfo.defaultType, srcParamType) &&
                                 isParamListOverlapOnlyByOmission(
                                     destType,
+                                    srcType,
                                     destParamDetails,
                                     srcParamDetails,
                                     recursionCount
