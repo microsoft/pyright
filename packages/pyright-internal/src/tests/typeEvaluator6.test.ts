@@ -1100,6 +1100,20 @@ test('Constructor34', () => {
     );
 });
 
+test('Constructor35', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor35.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+    assert.deepStrictEqual(analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()).sort(), [
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportGeneralTypeIssues,
+    ]);
+});
+
 test('ConstructorCallable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable1.py']);
 

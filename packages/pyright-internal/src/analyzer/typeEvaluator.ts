@@ -176,7 +176,7 @@ import * as ScopeUtils from './scopeUtils';
 import { createSentinelType } from './sentinel';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags, SynthesizedTypeInfo } from './symbol';
-import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { isConstantName, isMethodExemptFromLsp, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
 import { assignTupleTypeArgs, expandTuple, getSlicedTupleType, getTypeOfTuple, makeTupleObject } from './tuples';
 import {
@@ -2838,12 +2838,14 @@ export function createTypeEvaluator(
 
         const argList: Arg[] = [];
         let previousCategory = ArgCategory.Simple;
+        let hasFakeArg = false;
 
         // Empty arguments do not enter the AST as nodes, but instead are left blank.
         // Instead, we detect when we appear to be between two known arguments or at the
         // end of the argument list and insert a fake argument of an unknown type to have
         // something to match later.
         function addFakeArg() {
+            hasFakeArg = true;
             argList.push({
                 argCategory: previousCategory,
                 typeResult: { type: UnknownType.create() },
@@ -2892,7 +2894,32 @@ export function createTypeEvaluator(
                 );
             });
 
-            const specializedType = solveAndApplyConstraints(type, constraints);
+            let specializedType: Type = type;
+            if (FunctionType.getParamSpecFromArgsKwargs(type)) {
+                const solution = solveConstraints(evaluatorInterface, constraints);
+
+                // The fake argument is used only to identify the active parameter. Preserve
+                // type variables in that parameter while specializing the forwarded ParamSpec.
+                if (hasFakeArg && callResult?.activeParam) {
+                    const activeParamIndex = type.shared.parameters.indexOf(callResult.activeParam);
+                    if (activeParamIndex >= 0) {
+                        getTypeVarArgsRecursive(FunctionType.getParamType(type, activeParamIndex)).forEach(
+                            (typeVar) => {
+                                if (!isParamSpec(typeVar)) {
+                                    solution.doForEachSolutionSet((solutionSet) => {
+                                        const solvedType = solutionSet.getType(typeVar);
+                                        if (!solvedType || isUnknown(solvedType)) {
+                                            solutionSet.setType(typeVar, typeVar);
+                                        }
+                                    });
+                                }
+                            }
+                        );
+                    }
+                }
+
+                specializedType = applySolvedTypeVars(type, solution);
+            }
             const finalType = isFunction(specializedType) ? specializedType : type;
             const hasActiveArg = argList.some((arg) => arg.active);
 
@@ -4104,6 +4131,30 @@ export function createTypeEvaluator(
                     );
                     if (memberInfo?.isTypeDeclared) {
                         declaredType = getTypeOfMember(memberInfo);
+                        if (
+                            isMethodExemptFromLsp(nameValue) &&
+                            memberInfo.symbol
+                                .getTypedDeclarations()
+                                .some((decl) => decl.type === DeclarationType.Function) &&
+                            isFunctionOrOverloaded(typeResult.type) &&
+                            isFunctionOrOverloaded(declaredType) &&
+                            !isFinalVariable(memberInfo.symbol)
+                        ) {
+                            const baseMethods = isFunction(declaredType)
+                                ? [declaredType]
+                                : [
+                                      ...OverloadedType.getOverloads(declaredType),
+                                      OverloadedType.getImplementation(declaredType),
+                                  ];
+                            if (
+                                !baseMethods.some(
+                                    (method) => method && isFunction(method) && FunctionType.isFinal(method)
+                                )
+                            ) {
+                                // Apply the same override exemptions to aliases and method definitions.
+                                declaredType = undefined;
+                            }
+                        }
                     }
                 }
             }
@@ -6723,6 +6774,22 @@ export function createTypeEvaluator(
 
         // Always look for a member with a declared type first.
         let memberInfo = lookUpClassMember(classType, memberName, flags | MemberAccessFlags.DeclaredTypesOnly);
+
+        // A class-level method alias retains its inferred signature, unlike an annotated variable.
+        if (
+            usage.method === 'get' &&
+            memberInfo?.skippedUndeclaredType &&
+            memberInfo.symbol.getTypedDeclarations().some((decl) => decl.type === DeclarationType.Function)
+        ) {
+            const inferredMember = lookUpClassMember(classType, memberName, flags);
+            if (
+                inferredMember?.isClassMember &&
+                !inferredMember.isInstanceMember &&
+                isFunctionOrOverloaded(getTypeOfMember(inferredMember))
+            ) {
+                memberInfo = inferredMember;
+            }
+        }
 
         // If we couldn't find a symbol with a declared type, use
         // a symbol with an inferred type.
@@ -29927,7 +29994,7 @@ export function createTypeEvaluator(
                 return functionType;
             }
 
-            if (FunctionType.isInstanceMethod(functionType)) {
+            if (FunctionType.isInstanceMethod(functionType) && !treatConstructorAsClassMethod) {
                 // If the baseType is a metaclass, don't specialize the function.
                 if (isInstantiableMetaclass(baseType)) {
                     return functionType;
@@ -29954,10 +30021,7 @@ export function createTypeEvaluator(
                 );
             }
 
-            if (
-                FunctionType.isClassMethod(functionType) ||
-                (treatConstructorAsClassMethod && FunctionType.isConstructorMethod(functionType))
-            ) {
+            if (FunctionType.isClassMethod(functionType) || treatConstructorAsClassMethod) {
                 const baseClass = isInstantiableClass(baseType) ? baseType : ClassType.cloneAsInstantiable(baseType);
                 const clsType = selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : undefined;
 
