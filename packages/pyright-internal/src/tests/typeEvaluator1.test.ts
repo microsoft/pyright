@@ -1231,6 +1231,15 @@ test('Metaclass11', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('Metaclass12', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass12.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('AssignmentExpr1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr1.py']);
     TestUtils.validateResults(analysisResults, 7);

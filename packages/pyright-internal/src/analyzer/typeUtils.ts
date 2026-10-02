@@ -1778,7 +1778,18 @@ export function lookUpClassMember(
     // define any instance variables, and it's by far the most common metaclass.
     if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
         const metaMemberItr = getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers);
-        const metaMember = metaMemberItr.next()?.value;
+        let metaMember = metaMemberItr.next()?.value;
+
+        // type.__dict__ describes class namespaces, not instance dictionaries.
+        if (
+            memberName === '__dict__' &&
+            isClassInstance(classType) &&
+            metaMember &&
+            isClass(metaMember.classType) &&
+            ClassType.isBuiltIn(metaMember.classType, 'type')
+        ) {
+            metaMember = undefined;
+        }
 
         // If the metaclass defines the member and we didn't hit an Unknown
         // class in the metaclass MRO, use the metaclass member.
