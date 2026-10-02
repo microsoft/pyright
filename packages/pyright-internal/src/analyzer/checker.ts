@@ -2723,7 +2723,7 @@ export class Checker extends ParseTreeWalker {
                         prevReturnType,
                         /* diag */ undefined,
                         /* constraints */ undefined,
-                        AssignTypeFlags.Default
+                        AssignTypeFlags.RejectCyclicLowerBound
                     )
                 ) {
                     const altNode = this._findNodeForOverload(node, prevOverload);

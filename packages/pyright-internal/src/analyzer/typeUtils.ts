@@ -1249,6 +1249,23 @@ export function isLiteralTypeOrUnion(type: Type, allowNone = false): boolean {
     return false;
 }
 
+// Determines whether two defaulted parameters overlap only when the
+// argument is omitted and the dest parameter's default decides the result.
+// This requires literal and None types throughout, a dest default that is
+// a member of the dest type, and dest and source types with no shared member.
+export function isOverlapOnlyByOmission(destType: Type, destDefaultType: Type, srcType: Type): boolean {
+    if (![destType, destDefaultType, srcType].every((type) => isLiteralTypeOrUnion(type, /* allowNone */ true))) {
+        return false;
+    }
+
+    const isMemberOf = (subtype: Type, type: Type) => !!findSubtype(type, (member) => isTypeSame(subtype, member));
+
+    return (
+        !findSubtype(destDefaultType, (subtype) => !isMemberOf(subtype, destType)) &&
+        !findSubtype(destType, (subtype) => isMemberOf(subtype, srcType))
+    );
+}
+
 export function isLiteralLikeType(type: ClassType): boolean {
     if (type.priv.literalValue !== undefined) {
         return true;
