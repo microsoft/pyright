@@ -712,6 +712,23 @@ test('Slots4', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Slots5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['slots5.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+
+    const sampleLines = TestUtils.readSampleFile('slots5.py').split(/\r?\n/);
+    const uninitializedNames = analysisResults[0].errors.map((diagnostic) => {
+        assert.strictEqual(diagnostic.getRule(), 'reportUninitializedInstanceVariable');
+        assert.strictEqual(diagnostic.range.start.line, diagnostic.range.end.line);
+        const line = sampleLines[diagnostic.range.start.line];
+        return line.slice(diagnostic.range.start.character, diagnostic.range.end.character);
+    });
+    assert.deepStrictEqual(uninitializedNames, ['"value"', '__weakref__', 'IncompleteConcrete']);
+    assert.ok(analysisResults[0].errors[2].message.includes('"value"'));
+    assert.ok(!analysisResults[0].errors[2].message.includes('__weakref__'));
+});
+
 test('Parameters1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
