@@ -405,6 +405,12 @@ test('TypeNarrowingEnum2', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('TypeNarrowingIdentityNone1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIdentityNone1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeNarrowingIsinstance1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance1.py']);
 
