@@ -1777,8 +1777,18 @@ export function lookUpClassMember(
     // Skip the "type" class as an optimization because it is known to not
     // define any instance variables, and it's by far the most common metaclass.
     if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
-        const metaMemberItr = getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers);
-        const metaMember = metaMemberItr.next()?.value;
+        // Skip members contributed by the 'type' class itself, but continue
+        // searching any metaclass bases that follow it in the MRO (e.g.
+        // "class Meta(type, Mixin)").
+        const skipTypeClass = isClassInstance(classType) || (flags & MemberAccessFlags.SkipTypeBaseClass) !== 0;
+        let metaMember: ClassMember | undefined;
+        for (const member of getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers)) {
+            if (skipTypeClass && isClass(member.classType) && ClassType.isBuiltIn(member.classType, 'type')) {
+                continue;
+            }
+            metaMember = member;
+            break;
+        }
 
         // If the metaclass defines the member and we didn't hit an Unknown
         // class in the metaclass MRO, use the metaclass member.
@@ -2009,7 +2019,7 @@ export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.De
 
             // Should we ignore members on the 'object' base class?
             if (flags & ClassIteratorFlags.SkipObjectBaseClass) {
-                if (isInstantiableClass(specializedMroClass)) {
+                if (isClass(specializedMroClass)) {
                     if (ClassType.isBuiltIn(specializedMroClass, 'object')) {
                         break;
                     }
@@ -2018,7 +2028,7 @@ export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.De
 
             // Should we ignore members on the 'type' base class?
             if (flags & ClassIteratorFlags.SkipTypeBaseClass) {
-                if (isInstantiableClass(specializedMroClass)) {
+                if (isClass(specializedMroClass)) {
                     if (ClassType.isBuiltIn(specializedMroClass, 'type')) {
                         break;
                     }
