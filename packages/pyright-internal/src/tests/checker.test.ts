@@ -9,6 +9,8 @@
  * heavily upon).
  */
 
+import * as assert from 'assert';
+
 import { ConfigOptions } from '../common/configOptions';
 import { pythonVersion3_10, pythonVersion3_8, pythonVersion3_9 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -730,4 +732,32 @@ test('Deprecated8', () => {
     configOptions.diagnosticRuleSet.reportDeprecated = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated8.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 4);
+});
+
+test('Deprecated9', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['deprecated9.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0, 0, 9, undefined, undefined, 11);
+
+    const sampleLines = TestUtils.readSampleFile('deprecated9.py').split(/\r?\n/);
+    const expectedLines = sampleLines.flatMap((line, index) => (line.trim() === '# deprecated use' ? [index + 1] : []));
+
+    configOptions.diagnosticRuleSet.reportDeprecated = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated9.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 11, 0, 9);
+    assert.deepStrictEqual(
+        analysisResults2[0].errors.map((diagnostic) => diagnostic.range.start.line),
+        expectedLines
+    );
+    analysisResults2[0].errors.forEach((diagnostic) => {
+        assert.strictEqual(diagnostic.getRule(), 'reportDeprecated');
+    });
+
+    configOptions.diagnosticRuleSet.reportDeprecated = 'warning';
+    const analysisResults3 = TestUtils.typeAnalyzeSampleFiles(['deprecated9.py'], configOptions);
+    TestUtils.validateResults(analysisResults3, 0, 11, 9);
+    assert.deepStrictEqual(
+        analysisResults3[0].warnings.map((diagnostic) => diagnostic.range.start.line),
+        expectedLines
+    );
 });
