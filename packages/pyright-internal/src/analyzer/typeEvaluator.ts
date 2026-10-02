@@ -28289,6 +28289,20 @@ export function createTypeEvaluator(
             isContra ? srcParamDetails : destParamDetails
         );
 
+        let paramListOmissionResult: boolean | undefined;
+        const checkParamListOmission = () => {
+            if (paramListOmissionResult === undefined) {
+                paramListOmissionResult = isParamListOverlapOnlyByOmission(
+                    destType,
+                    srcType,
+                    destParamDetails,
+                    srcParamDetails,
+                    recursionCount
+                );
+            }
+            return paramListOmissionResult;
+        };
+
         const targetIncludesParamSpec = isContra ? !!srcParamSpec : !!destParamSpec;
 
         const destPositionalCount = destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
@@ -28370,13 +28384,7 @@ export function createTypeEvaluator(
                     if (srcParam.defaultType) {
                         if (
                             isOverlapOnlyByOmission(destParamType, destParam.defaultType, srcParamType) &&
-                            isParamListOverlapOnlyByOmission(
-                                destType,
-                                srcType,
-                                destParamDetails,
-                                srcParamDetails,
-                                recursionCount
-                            )
+                            checkParamListOmission()
                         ) {
                             canAssign = false;
                         }
@@ -28815,13 +28823,7 @@ export function createTypeEvaluator(
                         if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
                             if (
                                 isOverlapOnlyByOmission(destParamInfo.type, destParamInfo.defaultType, srcParamType) &&
-                                isParamListOverlapOnlyByOmission(
-                                    destType,
-                                    srcType,
-                                    destParamDetails,
-                                    srcParamDetails,
-                                    recursionCount
-                                )
+                                checkParamListOmission()
                             ) {
                                 canAssign = false;
                             }
