@@ -6,9 +6,9 @@ on:
       - created
   workflow_run:
     workflows:
-      - Run mypy_primer on PR
+      - Validation
     types:
-      - in_progress
+      - completed
 
 permissions:
   contents: read
@@ -19,10 +19,12 @@ jobs:
     name: Authorize benchmark
     if: >-
       ${{ github.repository == 'microsoft/pyright' &&
-      ((github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request') ||
+      ((github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/benchmark'))) }}
     permissions:
+      actions: read
       contents: read
       pull-requests: read
     runs-on: ubuntu-latest
@@ -32,6 +34,11 @@ jobs:
       base-sha: ${{ steps.resolve.outputs.base-sha }}
       merge-sha: ${{ steps.resolve.outputs.merge-sha }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
       - name: Resolve benchmark revisions
         id: resolve
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -39,35 +46,11 @@ jobs:
           script: |
             let issueNumber
             if (context.eventName === 'workflow_run') {
-              const workflowRun = context.payload.workflow_run
-              const headOwner = workflowRun.head_repository?.owner?.login
-              if (!headOwner || !workflowRun.head_branch || !workflowRun.head_sha) {
-                core.setFailed('The approved workflow run is missing pull request head information')
-                return
-              }
-              const pullRequests = await github.paginate(github.rest.pulls.list, {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state: 'open',
-                head: `${headOwner}:${workflowRun.head_branch}`,
-                per_page: 100,
-              })
-              const matchingPullRequests = pullRequests.filter(
-                (pullRequest) => pullRequest.head.sha === workflowRun.head_sha
-              )
-              if (matchingPullRequests.length !== 1) {
-                core.notice(
-                  `Expected one open pull request for the approved workflow run, found ${matchingPullRequests.length}`
-                )
-                return
-              }
-              issueNumber = matchingPullRequests[0].number
-              const files = await github.paginate(github.rest.pulls.listFiles, {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: issueNumber,
-                per_page: 100,
-              })
+              const resolve = require('./build/resolveValidatedPullRequest.js')
+              const validated = await resolve({ github, context, core })
+              if (!validated) return
+              const { pullRequest, files } = validated
+              issueNumber = pullRequest.number
               if (!files.some((file) => file.filename.startsWith('packages/pyright-internal/src/analyzer/'))) {
                 core.notice('The pull request does not change analyzer sources')
                 return
@@ -96,9 +79,31 @@ jobs:
               repo: context.repo.repo,
               pull_number: issueNumber,
             })
+            if (
+              context.eventName === 'workflow_run' &&
+              pullRequest.data.head.sha !== context.payload.workflow_run.head_sha
+            ) {
+              core.notice('The pull request changed after Validation')
+              return
+            }
             if (pullRequest.data.state !== 'open' && !pullRequest.data.merged) {
               core.notice('Only open or merged pull requests can be benchmarked')
               return
+            }
+            if (context.eventName === 'issue_comment') {
+              const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'validation.yml',
+                event: 'pull_request',
+                head_sha: pullRequest.data.head.sha,
+                status: 'success',
+                per_page: 100,
+              })
+              if (!runs.some((run) => run.head_sha === pullRequest.data.head.sha)) {
+                core.notice('Wait for successful Validation before requesting a benchmark')
+                return
+              }
             }
             const candidateSha = pullRequest.data.merge_commit_sha
             if (!candidateSha) {
