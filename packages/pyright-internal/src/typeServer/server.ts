@@ -499,53 +499,47 @@ export class TypeServer extends LanguageServerBase {
             return result;
         }
 
-        this.incrementAnalysisProgress();
+        if (params.previousResultId !== diagnosticsVersion.toString() && sourceFile) {
+            let diagnosticsVersionAfter = UncomputedDiagnosticsVersion - 1;
+            let serverDiagnostics: AnalyzerDiagnostic[] = [];
 
-        try {
-            if (params.previousResultId !== diagnosticsVersion.toString() && sourceFile) {
-                let diagnosticsVersionAfter = UncomputedDiagnosticsVersion - 1;
-                let serverDiagnostics: AnalyzerDiagnostic[] = [];
+            while (diagnosticsVersion !== diagnosticsVersionAfter && !token.isCancellationRequested && sourceFile) {
+                sourceFile = workspace.service.getSourceFile(uri);
+                diagnosticsVersion = sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
 
-                while (diagnosticsVersion !== diagnosticsVersionAfter && !token.isCancellationRequested && sourceFile) {
-                    sourceFile = workspace.service.getSourceFile(uri);
-                    diagnosticsVersion = sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
-
-                    if (sourceFile) {
-                        serverDiagnostics = await workspace.service.analyzeFileAndGetDiagnostics(uri, token);
-                    }
-
-                    const sourceFileAfter = workspace.service.getSourceFile(uri);
-                    diagnosticsVersionAfter = sourceFileAfter?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
+                if (sourceFile) {
+                    serverDiagnostics = await workspace.service.analyzeFileAndGetDiagnostics(uri, token);
                 }
 
-                // Use the type server's converter which handles TaskItem diagnostics. Pass
-                // `true` for the tag-support flags unconditionally: a TSP child doesn't
-                // receive the actual client capabilities, but a foreground server relays
-                // these diagnostics directly and the original client does support them.
-                const lspDiagnostics = serverDiagnostics
-                    .map((d) =>
-                        this.convertDiagnostic(
-                            d,
-                            workspace.service.fs,
-                            /* supportsUnnecessaryDiagnosticTag */ true,
-                            /* supportsTaskItemDiagnosticTag */ true
-                        )
-                    )
-                    .filter((d): d is Diagnostic => d !== undefined);
-
-                result.resultId =
-                    diagnosticsVersionAfter === UncomputedDiagnosticsVersion
-                        ? undefined
-                        : diagnosticsVersionAfter.toString();
-                result.items = lspDiagnostics;
-            } else {
-                (result as any).kind = 'unchanged';
-                result.resultId =
-                    diagnosticsVersion === UncomputedDiagnosticsVersion ? undefined : diagnosticsVersion.toString();
-                delete (result as any).items;
+                const sourceFileAfter = workspace.service.getSourceFile(uri);
+                diagnosticsVersionAfter = sourceFileAfter?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
             }
-        } finally {
-            this.decrementAnalysisProgress();
+
+            // Use the type server's converter which handles TaskItem diagnostics. Pass
+            // `true` for the tag-support flags unconditionally: a TSP child doesn't
+            // receive the actual client capabilities, but a foreground server relays
+            // these diagnostics directly and the original client does support them.
+            const lspDiagnostics = serverDiagnostics
+                .map((d) =>
+                    this.convertDiagnostic(
+                        d,
+                        workspace.service.fs,
+                        /* supportsUnnecessaryDiagnosticTag */ true,
+                        /* supportsTaskItemDiagnosticTag */ true
+                    )
+                )
+                .filter((d): d is Diagnostic => d !== undefined);
+
+            result.resultId =
+                diagnosticsVersionAfter === UncomputedDiagnosticsVersion
+                    ? undefined
+                    : diagnosticsVersionAfter.toString();
+            result.items = lspDiagnostics;
+        } else {
+            (result as any).kind = 'unchanged';
+            result.resultId =
+                diagnosticsVersion === UncomputedDiagnosticsVersion ? undefined : diagnosticsVersion.toString();
+            delete (result as any).items;
         }
 
         return result;
