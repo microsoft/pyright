@@ -15292,6 +15292,7 @@ export function createTypeEvaluator(
                                 isPrivateName(param.d.name.d.value));
                         const isCompatibleKeywordParam =
                             expectedParam.kind !== ParamKind.Keyword ||
+                            expectedParam.param.category === ParamCategory.KwargsDict ||
                             (!isPositionOnlyParam && param.d.name?.d.value === expectedParam.param.name);
 
                         // If the parameter category matches and both of the parameters are
