@@ -1233,10 +1233,11 @@ test('Metaclass11', () => {
 
 test('Metaclass12', () => {
     const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
     configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass12.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('AssignmentExpr1', () => {

@@ -44,6 +44,9 @@ reveal_type(read_tag(ClassA), expected_text="str")
 reveal_type(ClassA.meta_only, expected_text="int")
 reveal_type(ClassA.__dict__, expected_text="MappingProxyType[str, Any]")
 
+# This should generate an error because the class dictionary is read-only.
+ClassA.__dict__["payload"] = "hello"
+
 
 def func1(value: ClassA, derived: SubclassA):
     reveal_type(value.tag, expected_text="str")
@@ -70,3 +73,45 @@ def func3(value: ClassA | ClassB):
         reveal_type(value, expected_text="ClassB")
     else:
         assert_never(value)
+
+
+class FieldInstaller:
+    def install(self) -> None:
+        self.tag: str = "installed"
+
+
+# FieldInstaller follows type in the metaclass MRO.
+class MetaC(type, FieldInstaller):
+    def __init__(cls, name: str, bases: tuple[type, ...], namespace: dict[str, Any]):
+        super().__init__(name, bases, namespace)
+        cls.install()
+
+
+class ClassC(metaclass=MetaC):
+    pass
+
+
+class SubclassC(ClassC):
+    pass
+
+
+def func4(value: ClassC, derived: SubclassC):
+    reveal_type(ClassC.tag, expected_text="str")
+    reveal_type(value.tag, expected_text="str")
+    reveal_type(derived.tag, expected_text="str")
+    reveal_type(read_tag(value), expected_text="str")
+    reveal_type(read_tag(derived), expected_text="str")
+    reveal_type(value.__dict__, expected_text="dict[str, Any]")
+    value.__dict__["tag"] = "updated"
+
+
+class GenericClass[T](metaclass=MetaA):
+    pass
+
+
+def func5(value: GenericClass[int], class_object: type[GenericClass[int]], metaclass_instance: MetaA):
+    reveal_type(value.__type_params__, expected_text="tuple[TypeVar | ParamSpec | TypeVarTuple, ...]")
+    reveal_type(class_object.__type_params__, expected_text="tuple[TypeVar | ParamSpec | TypeVarTuple, ...]")
+    reveal_type(value.__dict__, expected_text="dict[str, Any]")
+    reveal_type(class_object.__dict__, expected_text="MappingProxyType[str, Any]")
+    reveal_type(metaclass_instance.__dict__, expected_text="MappingProxyType[str, Any]")
