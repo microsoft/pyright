@@ -88,6 +88,7 @@ import {
     isMetaclassInstance,
     isNoneInstance,
     isNoneTypeClass,
+    isOptionalType,
     isProperty,
     isSentinelLiteral,
     isTupleClass,
@@ -98,6 +99,7 @@ import {
     makeTypeVarsFree,
     mapSubtypes,
     MemberAccessFlags,
+    removeNoneFromUnion,
     specializeTupleClass,
     someSubtypes,
     specializeWithUnknownTypeArgs,
@@ -286,6 +288,37 @@ export function getTypeNarrowingCallback(
                                 isIncomplete: !!rightTypeResult.isIncomplete,
                             };
                         };
+                    }
+
+                    // If the RHS is statically known not to be None, a positive
+                    // identity comparison proves that the LHS isn't None either.
+                    // This is intentionally limited to removing None. In
+                    // particular, don't attempt to intersect arbitrary nominal,
+                    // protocol, or generic types here.
+                    if (
+                        adjIsPositiveTest &&
+                        !isAnyOrUnknown(rightType) &&
+                        (!isTypeVar(rightType) ||
+                            TypeVarType.hasBound(rightType) ||
+                            TypeVarType.hasConstraints(rightType))
+                    ) {
+                        const noneType = evaluator.getNoneType();
+                        const rightTypeCanBeNone = isTypeVar(rightType)
+                            ? rightType.shared.boundType
+                                ? evaluator.assignType(rightType.shared.boundType, noneType)
+                                : rightType.shared.constraints.some((constraint) =>
+                                      evaluator.assignType(constraint, noneType)
+                                  )
+                            : evaluator.assignType(rightType, noneType);
+
+                        if (!rightTypeCanBeNone) {
+                            return (type: Type) => {
+                                return {
+                                    type: isOptionalType(type) ? removeNoneFromUnion(type) : type,
+                                    isIncomplete: !!rightTypeResult.isIncomplete,
+                                };
+                            };
+                        }
                     }
                 }
 
