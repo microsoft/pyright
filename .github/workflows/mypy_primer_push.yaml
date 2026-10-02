@@ -66,11 +66,13 @@ jobs:
           cd ..
           npm config set legacy-peer-deps true --location=user
           npm config get legacy-peer-deps
+          # TODO: Re-enable SymPy once we determine how to make its primer results more deterministic.
           # fail action if exit code isn't zero or one
           (
             mypy_primer \
             --repo pyright_to_test \
             --type-checker pyright \
+            --project-selector '^(?!https://github\.com/sympy/sympy$)' \
             --new $GITHUB_SHA \
             --debug \
             --output concise \
