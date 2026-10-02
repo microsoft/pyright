@@ -425,6 +425,23 @@ export class Checker extends ParseTreeWalker {
     override visitDecorator(node: DecoratorNode): boolean {
         // Class type evaluation can defer identity-factory arguments, so full checking must validate the expression.
         this._evaluator.getTypeOfExpression(node.d.expr);
+
+        // A decorator factory call has a separate implicit call to its result.
+        // Checking the factory's name does not cover this second call.
+        if (node.d.expr.nodeType === ParseNodeType.Call) {
+            const decoratorResult = this._evaluator.getTypeResultForDecorator(node);
+            const deprecatedOverload = decoratorResult?.overloadsUsedForCall?.find(
+                (overload) => overload.shared.deprecatedMessage !== undefined
+            );
+            if (deprecatedOverload) {
+                this._reportDeprecatedDiagnostic(
+                    node.d.expr,
+                    getDeprecatedMessageForFunction(deprecatedOverload),
+                    deprecatedOverload.shared.deprecatedMessage
+                );
+            }
+        }
+
         return true;
     }
 
@@ -4430,29 +4447,6 @@ export class Checker extends ParseTreeWalker {
         let errorMessage: string | undefined;
         let deprecatedMessage: string | undefined;
 
-        function getDeprecatedMessageForFunction(functionType: FunctionType): string {
-            if (
-                functionType.shared.declaration &&
-                functionType.shared.declaration.node.nodeType === ParseNodeType.Function
-            ) {
-                const containingClass = ParseTreeUtils.getEnclosingClass(
-                    functionType.shared.declaration.node,
-                    /* stopAtFunction */ true
-                );
-
-                if (containingClass) {
-                    return LocMessage.deprecatedMethod().format({
-                        name: functionType.shared.name || '<anonymous>',
-                        className: containingClass.d.name.d.value,
-                    });
-                }
-            }
-
-            return LocMessage.deprecatedFunction().format({
-                name: functionType.shared.name,
-            });
-        }
-
         function getDeprecatedMessageForOverloadedCall(evaluator: TypeEvaluator, type: Type) {
             // Determine if the node is part of a call expression. If so,
             // we can determine which overload(s) were used to satisfy
@@ -8033,4 +8027,24 @@ export class Checker extends ParseTreeWalker {
             }
         });
     }
+}
+
+function getDeprecatedMessageForFunction(functionType: FunctionType): string {
+    if (functionType.shared.declaration && functionType.shared.declaration.node.nodeType === ParseNodeType.Function) {
+        const containingClass = ParseTreeUtils.getEnclosingClass(
+            functionType.shared.declaration.node,
+            /* stopAtFunction */ true
+        );
+
+        if (containingClass) {
+            return LocMessage.deprecatedMethod().format({
+                name: functionType.shared.name || '<anonymous>',
+                className: containingClass.d.name.d.value,
+            });
+        }
+    }
+
+    return LocMessage.deprecatedFunction().format({
+        name: functionType.shared.name,
+    });
 }
