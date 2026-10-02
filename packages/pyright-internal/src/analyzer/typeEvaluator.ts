@@ -671,6 +671,7 @@ export function createTypeEvaluator(
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: SuppressedNodeStackEntry[] = [];
     const assignClassToSelfStack: AssignClassToSelfInfo[] = [];
+    const abstractFactoryCheckStack = new Set<ClassType['shared']>();
 
     let functionRecursionMap = new Map<number, FunctionRecursionInfo[]>();
     let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
@@ -29474,6 +29475,21 @@ export function createTypeEvaluator(
     // example: calling it always produces a `PosixPath` or a `WindowsPath`, so
     // its own abstract members do not make the call an error.
     function instantiatesOnlyOtherConcreteClasses(classType: ClassType, errorNode: ExpressionNode): boolean {
+        // Resolving a return type's members can evaluate a decorator that calls
+        // this factory again. Keep the normal abstract check for that cycle.
+        if (abstractFactoryCheckStack.has(classType.shared)) {
+            return false;
+        }
+
+        abstractFactoryCheckStack.add(classType.shared);
+        try {
+            return checkAbstractFactoryReturnType(classType, errorNode);
+        } finally {
+            abstractFactoryCheckStack.delete(classType.shared);
+        }
+    }
+
+    function checkAbstractFactoryReturnType(classType: ClassType, errorNode: ExpressionNode): boolean {
         const newMethod = getBoundNewMethod(evaluatorInterface, errorNode, classType)?.type;
 
         // Overloaded and synthesized `__new__` methods are left to the normal check.
