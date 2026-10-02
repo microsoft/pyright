@@ -398,6 +398,12 @@ test('Tuple24', () => {
     TestUtils.validateResults(analysisResults, 6, 0, 2);
 });
 
+test('Tuple25', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple25.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Operator2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator2.py']);
 
