@@ -32,6 +32,7 @@ import {
     getLiteralTypeClassName,
     getTypeCondition,
     getUnionSubtypeCount,
+    isLiteralType,
     isNoneInstance,
     isOptionalType,
     isTupleClass,
@@ -60,6 +61,7 @@ import {
     isFunctionOrOverloaded,
     isInstantiableClass,
     isNever,
+    isTypeSame,
     isUnion,
 } from './types';
 
@@ -1390,31 +1392,114 @@ function validateArithmeticOperation(
                             isTupleClass(rightSubtypeExpanded) &&
                             rightSubtypeExpanded.priv.tupleTypeArgs
                         ) {
-                            const widenedLeft = specializeTupleClass(
-                                leftSubtypeExpanded,
-                                leftSubtypeExpanded.priv.tupleTypeArgs.map((arg) => ({
-                                    ...arg,
-                                    type: evaluator.stripLiteralValue(arg.type),
-                                })),
-                                leftSubtypeExpanded.priv.isTypeArgExplicit,
-                                leftSubtypeExpanded.priv.isUnpacked
-                            );
-                            const widenedRight = specializeTupleClass(
-                                rightSubtypeExpanded,
-                                rightSubtypeExpanded.priv.tupleTypeArgs.map((arg) => ({
-                                    ...arg,
-                                    type: evaluator.stripLiteralValue(arg.type),
-                                })),
-                                rightSubtypeExpanded.priv.isTypeArgExplicit,
-                                rightSubtypeExpanded.priv.isUnpacked
-                            );
-                            resultTypeResult = evaluator.getTypeOfMagicMethodCall(
-                                widenedLeft,
-                                magicMethodName,
-                                [{ type: widenedRight, isIncomplete: rightTypeResult.isIncomplete }],
-                                errorNode,
-                                inferenceContext
-                            );
+                            const leftArgs = leftSubtypeExpanded.priv.tupleTypeArgs;
+                            const rightArgs = rightSubtypeExpanded.priv.tupleTypeArgs;
+                            let elementsOrderable = true;
+                            // An unbounded argument can consume zero or more positions.
+                            // Check every reachable alignment before retrying tuple ordering.
+                            const pending = [[0, 0]];
+                            const visited = new Set<string>();
+
+                            while (pending.length > 0 && elementsOrderable) {
+                                const [leftIndex, rightIndex] = pending.pop()!;
+                                const position = `${leftIndex},${rightIndex}`;
+                                if (visited.has(position)) {
+                                    continue;
+                                }
+                                visited.add(position);
+
+                                if (leftIndex === leftArgs.length || rightIndex === rightArgs.length) {
+                                    continue;
+                                }
+
+                                const leftArg = leftArgs[leftIndex];
+                                const rightArg = rightArgs[rightIndex];
+                                if (leftArg.isUnbounded || leftArg.isOptional) {
+                                    pending.push([leftIndex + 1, rightIndex]);
+                                }
+                                if (rightArg.isUnbounded || rightArg.isOptional) {
+                                    pending.push([leftIndex, rightIndex + 1]);
+                                }
+
+                                const leftElement = leftArg.type;
+                                const rightElement = rightArg.type;
+
+                                const sameLiteral =
+                                    isTypeSame(leftElement, rightElement) &&
+                                    ((isClassInstance(leftElement) && isLiteralType(leftElement)) ||
+                                        isNoneInstance(leftElement));
+
+                                if (!sameLiteral) {
+                                    const widenedLeftElement = evaluator.stripLiteralValue(leftElement);
+                                    const widenedRightElement = evaluator.stripLiteralValue(rightElement);
+                                    const directResult = evaluator.getTypeOfMagicMethodCall(
+                                        widenedLeftElement,
+                                        magicMethodName,
+                                        [{ type: widenedRightElement }],
+                                        errorNode,
+                                        undefined
+                                    );
+                                    const reflectedResult = directResult
+                                        ? undefined
+                                        : evaluator.getTypeOfMagicMethodCall(
+                                              widenedRightElement,
+                                              binaryOperatorMap[operator][1],
+                                              [{ type: widenedLeftElement }],
+                                              errorNode,
+                                              undefined
+                                          );
+
+                                    if (!directResult && !reflectedResult) {
+                                        elementsOrderable = false;
+                                        break;
+                                    }
+                                }
+
+                                if (
+                                    isClassInstance(leftElement) &&
+                                    isClassInstance(rightElement) &&
+                                    isLiteralType(leftElement) &&
+                                    isLiteralType(rightElement) &&
+                                    ClassType.isSameGenericClass(leftElement, rightElement) &&
+                                    (typeof leftElement.priv.literalValue === 'string' ||
+                                        typeof leftElement.priv.literalValue === 'number' ||
+                                        typeof leftElement.priv.literalValue === 'bigint' ||
+                                        typeof leftElement.priv.literalValue === 'boolean') &&
+                                    leftElement.priv.literalValue !== rightElement.priv.literalValue
+                                ) {
+                                    continue;
+                                }
+
+                                pending.push([leftIndex + 1, rightIndex + 1]);
+                                if (leftArg.isUnbounded) {
+                                    pending.push([leftIndex, rightIndex + 1]);
+                                }
+                                if (rightArg.isUnbounded) {
+                                    pending.push([leftIndex + 1, rightIndex]);
+                                }
+                            }
+
+                            if (elementsOrderable) {
+                                const widenedLeft = specializeTupleClass(
+                                    leftSubtypeExpanded,
+                                    leftArgs.map((arg) => ({ ...arg, type: evaluator.stripLiteralValue(arg.type) })),
+                                    leftSubtypeExpanded.priv.isTypeArgExplicit,
+                                    leftSubtypeExpanded.priv.isUnpacked
+                                );
+                                const widenedRight = specializeTupleClass(
+                                    rightSubtypeExpanded,
+                                    rightArgs.map((arg) => ({ ...arg, type: evaluator.stripLiteralValue(arg.type) })),
+                                    rightSubtypeExpanded.priv.isTypeArgExplicit,
+                                    rightSubtypeExpanded.priv.isUnpacked
+                                );
+                                resultTypeResult = evaluator.getTypeOfMagicMethodCall(
+                                    widenedLeft,
+                                    magicMethodName,
+                                    [{ type: widenedRight, isIncomplete: rightTypeResult.isIncomplete }],
+                                    errorNode,
+                                    inferenceContext
+                                );
+                            }
                         }
                     }
 
