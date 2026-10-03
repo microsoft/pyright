@@ -8,7 +8,13 @@
 
 import * as assert from 'assert';
 
-import { containsLiteralType, mapSignatures, transformTypePair } from '../analyzer/typeUtils';
+import {
+    allSubtypes,
+    containsLiteralType,
+    mapSignatures,
+    someSubtypes,
+    transformTypePair,
+} from '../analyzer/typeUtils';
 import {
     AnyType,
     ClassType,
@@ -26,6 +32,7 @@ import {
     TypeCategory,
     TypeVarScopeType,
     TypeVarType,
+    UnionableType,
     UnionType,
     UnknownType,
     Variance,
@@ -230,4 +237,85 @@ function createClass(name: string) {
 function replacePair(source: Type, target: Type) {
     return (sourceNode: Type, targetNode: Type) =>
         sourceNode === source && targetNode === target ? targetNode : undefined;
+}
+
+test('AllSubtypes', () => {
+    const unionType = createUnion(createClassType('A'), createClassType('B'), createClassType('C'));
+    const visitedSubtypes: Type[] = [];
+
+    const result = allSubtypes(unionType, (subtype) => {
+        visitedSubtypes.push(subtype);
+        return visitedSubtypes.length < 2;
+    });
+
+    assert.strictEqual(result, false);
+    assert.strictEqual(visitedSubtypes.length, 2);
+
+    assert.strictEqual(
+        allSubtypes(unionType, () => {
+            return true;
+        }),
+        true
+    );
+
+    const singleType = createClassType('D');
+    assert.strictEqual(
+        allSubtypes(singleType, (subtype) => {
+            assert.strictEqual(subtype, singleType);
+            return true;
+        }),
+        true
+    );
+});
+
+test('SomeSubtypes', () => {
+    const unionType = createUnion(createClassType('A'), createClassType('B'), createClassType('C'));
+    const visitedSubtypes: Type[] = [];
+
+    const result = someSubtypes(unionType, (subtype) => {
+        visitedSubtypes.push(subtype);
+        return visitedSubtypes.length === 2;
+    });
+
+    assert.strictEqual(result, true);
+    assert.strictEqual(visitedSubtypes.length, 2);
+
+    assert.strictEqual(
+        someSubtypes(unionType, () => {
+            return false;
+        }),
+        false
+    );
+
+    const singleType = createClassType('D');
+    assert.strictEqual(
+        someSubtypes(singleType, (subtype) => {
+            assert.strictEqual(subtype, singleType);
+            return false;
+        }),
+        false
+    );
+});
+
+function createClassType(name: string, flags = ClassTypeFlags.None) {
+    const classType = ClassType.createInstantiable(
+        name,
+        name,
+        '',
+        Uri.empty(),
+        flags,
+        0,
+        /* declaredMetaclass*/ undefined,
+        /* effectiveMetaclass */ undefined
+    );
+    classType.shared.mro.push(classType);
+    return classType;
+}
+
+function createUnion(...subtypes: UnionableType[]) {
+    const unionType = UnionType.create();
+    subtypes.forEach((subtype) => {
+        UnionType.addType(unionType, subtype);
+    });
+    return unionType;
 }
