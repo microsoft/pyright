@@ -31,3 +31,18 @@ def valid_short_circuit() -> None:
     _ = (0, 1, "a") < (1, "b", 2)
     _ = (0, "a", 1) < (0, "b", "c")
     _ = (1, "a") < (1, "a", None)
+
+
+def invalid_nested() -> None:
+    _ = ((1j,), 0) < ((2j,), 1)  # This should generate an error.
+    _ = ([1j], 0) < ([2j], 1)  # This should generate an error.
+    _ = (([1j],), 0) <= (([2j],), 1)  # This should generate an error.
+    _ = ([1j], 0) > ([2j], 1)  # This should generate an error.
+    _ = ((1j,), 0) >= ((2j,), 1)  # This should generate an error.
+
+
+def valid_nested() -> None:
+    _ = ((1,), 0) < ((2,), 1)
+    _ = ([1], 0) < ([2], 1)
+    _ = (([1],), 0) < (([2],), 1)
+    _ = (0, [1j]) < (1, [2j])
