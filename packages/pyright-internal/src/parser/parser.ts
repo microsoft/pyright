@@ -3523,22 +3523,28 @@ export class Parser {
             return leftExpr;
         }
 
+        let isWalrusSyntaxError = false;
         if (!this._assignmentExpressionsAllowed) {
             // Assignment expressions are disallowed anywhere within the iterable
             // expression of a comprehension's "for" clause, even if parenthesized.
             // This differs from the "requires surrounding parentheses" case below.
             this._addSyntaxError(LocMessage.walrusNotAllowedInComprehension(), walrusToken);
+            isWalrusSyntaxError = true;
         } else if (disallowAssignmentExpression) {
             this._addSyntaxError(LocMessage.walrusNotAllowed(), walrusToken);
+            isWalrusSyntaxError = true;
         }
 
         if (PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_8)) {
             this._addSyntaxError(LocMessage.walrusIllegal(), walrusToken);
+            isWalrusSyntaxError = true;
         }
 
         const rightExpr = this._parseTestExpression(/* allowAssignmentExpression */ false);
 
-        return AssignmentExpressionNode.create(this._getOwnerKey(), leftExpr, walrusToken, rightExpr);
+        const node = AssignmentExpressionNode.create(this._getOwnerKey(), leftExpr, walrusToken, rightExpr);
+        node.d.isWalrusSyntaxError = isWalrusSyntaxError;
+        return node;
     }
 
     // or_test: and_test ('or' and_test)*
@@ -4042,6 +4048,9 @@ export class Parser {
                         PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_10)
                     ) {
                         this._addSyntaxError(LocMessage.assignmentExprInSubscript(), valueExpr);
+                        if (valueExpr.nodeType === ParseNodeType.AssignmentExpression) {
+                            valueExpr.d.isWalrusSyntaxError = true;
+                        }
                     }
                 }
             }
@@ -4567,6 +4576,7 @@ export class Parser {
                     !keyExpression.d.hasParens
                 ) {
                     this._addSyntaxError(LocMessage.walrusNotAllowed(), keyExpression.d.walrusToken);
+                    keyExpression.d.isWalrusSyntaxError = true;
                 }
             }
 
