@@ -392,6 +392,30 @@ test('Operator1', () => {
     TestUtils.validateResults(analysisResults, 5);
 });
 
+test('Tuple24', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple24.py']);
+
+    TestUtils.validateResults(analysisResults, 6, 0, 2);
+});
+
+test('Tuple25', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple25.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Tuple26', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple26.py']);
+
+    TestUtils.validateResults(analysisResults, 21);
+});
+
+test('Tuple27', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple27.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Operator2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator2.py']);
 
