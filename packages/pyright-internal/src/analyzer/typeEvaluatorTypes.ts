@@ -16,12 +16,14 @@ import { TextRange } from '../common/textRange';
 import {
     ArgCategory,
     ArgumentNode,
+    AssignmentNode,
     CallNode,
     CaseNode,
     ClassNode,
     DecoratorNode,
     ExpressionNode,
     FunctionNode,
+    IndexNode,
     MatchNode,
     NameNode,
     ParamCategory,
@@ -288,6 +290,36 @@ export interface TypeResult<T extends Type = Type> {
 
 export interface TypeResultWithNode extends TypeResult {
     node: ParseNode;
+}
+
+export type EvaluationOperationRequest =
+    | { kind: 'query'; node: ExpressionNode }
+    | { kind: 'expression'; node: ExpressionNode; flags: EvalFlags; context?: InferenceContext }
+    | { kind: 'statement'; node: AssignmentNode; evaluate: () => void };
+
+// Installed once by the owning evaluator; valid only during that evaluator's lifetime.
+export interface EvaluationCacheIsolation {
+    // Isolate the registered root's runtime, expected, TypeForm, and speculative caches.
+    // Always restore on failure/cancellation. Retain successful non-speculative entries
+    // only when requested. Native speculative scopes must be disjoint; return inference
+    // is forbidden. Unowned entries and their diagnostics remain ordinary evaluator work.
+    // The controller owns diagnostic capture/publication, not this cache transaction.
+    isolate(root: ParseNode, callback: () => TypeResult, retain?: boolean): TypeResult;
+
+    // Evict only the registered root's entries, outside speculation and return inference.
+    evict(root: ParseNode): void;
+}
+
+// Shared production boundary between evaluator caches and whole-operation control.
+export interface EvaluationOperationController {
+    // Each bounded root owns an exact, stable set of node IDs during an operation.
+    readonly roots: ReadonlyMap<ParseNode, ReadonlySet<number>>;
+    installCacheIsolation(isolation: EvaluationCacheIsolation): void;
+    route?(request: EvaluationOperationRequest): { result?: TypeResult } | undefined;
+    dispatch(node: ExpressionNode, flags: EvalFlags, context?: InferenceContext): TypeResult | undefined;
+    project(node: ExpressionNode, result: TypeResult): TypeResult;
+    beforeCall(node: CallNode): void;
+    dispose?(): void;
 }
 
 // Describes deprecation details about a symbol accessed via a member
@@ -701,6 +733,7 @@ export interface TypeEvaluator {
 
     isNodeReachable: (node: ParseNode, sourceNode?: ParseNode | undefined) => boolean;
     isAfterNodeReachable: (node: ParseNode) => boolean;
+    isKeyPresentInTypedDict: (node: IndexNode) => boolean;
     getNodeReachability: (node: ParseNode, sourceNode?: ParseNode | undefined) => Reachability;
     getAfterNodeReachability: (node: ParseNode) => Reachability;
 
@@ -843,6 +876,7 @@ export interface TypeEvaluator {
     getNoneType: () => Type;
     getUnionClassType(): Type;
     getTypeClassType(): ClassType | undefined;
+    getFunctionClassType(type: FunctionType | OverloadedType): ClassType | undefined;
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     getTypeCheckerInternalsType: (node: ParseNode, symbolName: string) => Type | undefined;
     inferReturnTypeIfNecessary: (type: Type) => void;

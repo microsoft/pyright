@@ -1,227 +1,203 @@
-# This sample tests that an Any argument that matches multiple overloaded
-# __init__ methods with different "self" specializations does not simply
-# select the first overload.
+# This sample checks class-local constructor and method aliases.
 
-from contextlib import nullcontext
-from typing import Any, Generic, TypeVar, overload
+from typing import Generic, Never, TypeVar, assert_type, overload
+
+
+class BaseClass:
+    pass
+
+
+class DemoSerializer(BaseClass):
+    def __init_impl(
+        self,
+        registry_client: str,
+        schema_str: str,
+        conf: dict[str, object] | None = None,
+    ) -> None:
+        self.registry_client = registry_client
+        self.schema_str = schema_str
+        self.conf = conf or {}
+
+    __init__ = __init_impl
+
+
+DemoSerializer(registry_client="registry", schema_str="schema", conf={"key": "value"})
+DemoSerializer(registry_client="registry", schema_str="schema")
+DemoSerializer("registry", "schema")
+reveal_type(
+    DemoSerializer.__init__,
+    expected_text="(self: DemoSerializer, registry_client: str, schema_str: str, conf: dict[str, object] | None = None) -> None",
+)
+
+# This should generate an error because schema_str is required.
+DemoSerializer("registry")
+
+# This should generate an error because registry_client must be a string.
+DemoSerializer(123, "schema")
+
+# This should generate an error because unexpected is not a parameter.
+DemoSerializer("registry", "schema", unexpected=True)
+
+
+class Base:
+    @overload
+    def __init__(self, value: int) -> None: ...
+    @overload
+    def __init__(self, value: str) -> None: ...
+    def __init__(self, value: int | str) -> None: ...
+
+
+class Derived(Base):
+    @overload
+    def impl(self, text: bytes) -> None: ...
+    @overload
+    def impl(self, text: list[str]) -> None: ...
+    def impl(self, text: bytes | list[str]) -> None: ...
+
+    __init__ = impl
+
+
+class Inherited(Derived):
+    pass
+
+
+Derived(b"value")
+Derived(["value"])
+Inherited(text=b"value")
+Inherited(["value"])
 
 T = TypeVar("T")
 
 
-def func1(items: Any, value: int) -> None:
-    with nullcontext(items) as v1:
-        reveal_type(v1, expected_text="Any")
+class Box(Generic[T]):
+    def impl(self, value: T) -> None:
+        self.value = value
 
-        for _ in v1:
-            pass
-
-    with nullcontext(value) as v2:
-        reveal_type(v2, expected_text="int")
-
-    with nullcontext() as v3:
-        reveal_type(v3, expected_text="None")
+    __init__ = impl
 
 
-class ClassA(Generic[T]):
-    @overload
-    def __init__(self: "ClassA[int]", x: int) -> None: ...
-
-    @overload
-    def __init__(self: "ClassA[str]", x: str) -> None: ...
-
-    def __init__(self, x: Any) -> None:
-        pass
+assert_type(Box(1), Box[int])
+assert_type(Box("value").value, str)
 
 
-def func2(a: Any, b: int, c: str) -> None:
-    reveal_type(ClassA(a), expected_text="ClassA[Unknown]")
-    reveal_type(ClassA(b), expected_text="ClassA[int]")
-    reveal_type(ClassA(c), expected_text="ClassA[str]")
+class NewBase:
+    def __new__(cls, value: int) -> "NewBase":
+        return object.__new__(cls)
 
 
-class ClassB(Generic[T]):
-    @overload
-    def __init__(self: "ClassB[int]", x: int, y: int) -> None: ...
+class NewDerived(NewBase):
+    @staticmethod
+    def impl(class_type: type["NewDerived"], text: str) -> "NewDerived":
+        return object.__new__(class_type)
 
-    @overload
-    def __init__(self: "ClassB[int]", x: str, y: int) -> None: ...
-
-    def __init__(self, x: Any, y: int) -> None:
-        pass
+    __new__ = impl
 
 
-def func3(a: Any) -> None:
-    # Both overloads produce the same specialization, so the result is
-    # not ambiguous.
-    reveal_type(ClassB(a, 1), expected_text="ClassB[int]")
+assert_type(NewDerived(text="value"), NewDerived)
+reveal_type(NewDerived, expected_text="type[NewDerived]")
+
+# This should generate an error because text is required.
+NewDerived()
+
+# This should generate an error because text must be a string.
+NewDerived(text=1)
 
 
-def func4(a):
-    # An unannotated parameter is Unknown rather than an explicit Any. It
-    # takes the same code path, so it must not pick the first overload either.
-    reveal_type(ClassA(a), expected_text="ClassA[Unknown]")
-    reveal_type(ClassB(a, 1), expected_text="ClassB[int]")
-
-from typing_extensions import TypeVar as TypeVarWithDefault
-
-U = TypeVarWithDefault("U", default=bytes)
-V = TypeVarWithDefault("V", default=bool)
+def make(class_type: type["ModuleAlias"], text: str) -> "ModuleAlias":
+    return object.__new__(class_type)
 
 
-class ClassC(Generic[U, V]):
-    @overload
-    def __init__(self: "ClassC[str, int]", x: int) -> None: ...
-
-    @overload
-    def __init__(self: "ClassC[str, str]", x: str) -> None: ...
-
-    def __init__(self, x: Any) -> None:
-        pass
+class ModuleAlias:
+    __new__ = make
 
 
-def func5(a: Any) -> None:
-    # Keep the shared str argument. Conflicting arguments are unknown, not
-    # the unrelated default bool (nor the first overload's int).
-    reveal_type(ClassC(a), expected_text="ClassC[str, Unknown]")
-    reveal_type(ClassC(1), expected_text="ClassC[str, int]")
-    reveal_type(ClassC("a"), expected_text="ClassC[str, str]")
+assert_type(ModuleAlias(text="value"), ModuleAlias)
 
 
-def func6(a) -> None:
-    reveal_type(ClassC(a), expected_text="ClassC[str, Unknown]")
+class ReturnsBase(NewBase):
+    @staticmethod
+    def impl(class_type: type["ReturnsBase"], text: str) -> NewBase:
+        return object.__new__(NewBase)
+
+    __new__ = impl
+
+    def __init__(self, value: int) -> None: ...
 
 
-from typing_extensions import TypeVarTuple, Unpack
-
-Ts = TypeVarTuple("Ts")
+assert_type(ReturnsBase(text="value"), NewBase)
 
 
-class ClassD(Generic[Unpack[Ts]]):
-    @overload
-    def __init__(self: "ClassD[int, str]", x: int) -> None: ...
-
-    @overload
-    def __init__(self: "ClassD[int, bytes]", x: str) -> None: ...
-
-    def __init__(self, x: Any) -> None:
-        pass
-
-    def values(self) -> tuple[Unpack[Ts]]:
-        raise NotImplementedError
+class SubclassBase:
+    def __init_subclass__(cls, value: int) -> None: ...
 
 
-def func7(a: Any) -> None:
-    value = ClassD(a)
-    reveal_type(value, expected_text="ClassD[int, Unknown]")
-    reveal_type(value.values()[1], expected_text="Unknown")
-    first, second = value.values()
-    reveal_type(first, expected_text="int")
-    reveal_type(second, expected_text="Unknown")
+class SubclassDerived(SubclassBase, value=1):
+    @classmethod
+    def impl(cls, text: str) -> None: ...
+
+    __init_subclass__ = impl
 
 
-def func8(a) -> None:
-    reveal_type(ClassD(a), expected_text="ClassD[int, Unknown]")
-    reveal_type(ClassD(1), expected_text="ClassD[int, str]")
-    reveal_type(ClassD("a"), expected_text="ClassD[int, bytes]")
-
-
-class ClassE(Generic[Unpack[Ts]]):
-    @overload
-    def __init__(self: "ClassE[int]", x: int) -> None: ...
-
-    @overload
-    def __init__(self: "ClassE[str, bytes]", x: str) -> None: ...
-
-    def __init__(self, x: Any) -> None:
-        pass
-
-
-def func9(a: Any) -> None:
-    # Different pack lengths must not invent a fixed one-element pack.
-    reveal_type(ClassE(a), expected_text="ClassE[*tuple[Unknown, ...]]")
-
-
-class Animal:
+class Child(SubclassDerived, text="value"):
     pass
 
 
-class Dog(Animal):
-    def bark(self) -> None:
-        pass
+class PostBase:
+    def __post_init__(self, value: int) -> None: ...
 
 
-T_co = TypeVar("T_co", covariant=True)
+class PostDerived(PostBase):
+    def impl(self, text: str) -> None: ...
+
+    __post_init__ = impl
 
 
-class Box(Generic[T_co]):
-    @overload
-    def __init__(self: "Box[Dog]", value: int) -> None: ...
-    @overload
-    def __init__(self: "Box[Animal]", value: str) -> None: ...
-    def __init__(self, value: Any) -> None:
-        pass
-
-    def get(self) -> T_co:
-        raise NotImplementedError
+PostDerived().__post_init__(text="value")
 
 
-def explicit_covariant(value: Any) -> None:
-    result = Box[Dog](value)
-    reveal_type(result, expected_text="Box[Dog]")
-    result.get().bark()
-    reveal_type(Box[Animal](value), expected_text="Box[Animal]")
-    reveal_type(Box(value), expected_text="Box[Animal]")
+class MethodBase:
+    def method(self, value: int) -> object:
+        return value
+
+    def __call__(self, value: int) -> object:
+        return value
+
+    def __getitem__(self, value: int) -> object:
+        return value
 
 
-def explicit_covariant_unknown(value) -> None:
-    reveal_type(Box[Dog](value), expected_text="Box[Dog]")
+class MethodDerived(MethodBase):
+    def impl(self, value: int) -> str:
+        return str(value)
+
+    method = impl
+    __call__ = impl
+    __getitem__ = impl
 
 
-from typing import TypeAlias
-
-T_alias = TypeVar("T_alias")
-
-
-class AliasBox(Generic[T_alias]):
-    def __init__(self: "AliasBox[int]", value: int) -> None: ...
-
-    def get(self) -> T_alias:
-        raise NotImplementedError
+assert_type(MethodDerived().method(1), str)
+assert_type(MethodDerived()(1), str)
+assert_type(MethodDerived()[1], str)
 
 
-Alias: TypeAlias = AliasBox[T_alias]
-reveal_type(AliasBox(1), expected_text="AliasBox[int]")
-reveal_type(Alias(1), expected_text="AliasBox[int]")
-reveal_type(Alias(1).get(), expected_text="int")
+class Invalid:
+    @staticmethod
+    def impl(value: str) -> "Invalid":
+        return object.__new__(Invalid)
+
+    __new__ = impl
 
 
-DogBox: TypeAlias = Box[Dog]
-GenericBox: TypeAlias = Box[T_co]
+# This should generate an error because __new__ receives a class, not a string.
+Invalid()
 
 
-def explicit_alias(value: Any) -> None:
-    reveal_type(DogBox(value), expected_text="Box[Dog]")
-    reveal_type(GenericBox[Dog](value), expected_text="Box[Dog]")
+class NeverCreated:
+    @staticmethod
+    def impl(class_type: type["NeverCreated"], text: str) -> Never:
+        raise RuntimeError(text)
+
+    __new__ = impl
 
 
-U_alias = TypeVar("U_alias")
-
-
-class Pair(Generic[T_alias, U_alias]):
-    def __init__(self: "Pair[int, str]", value: str) -> None: ...
-
-
-IntPair: TypeAlias = Pair[int, U_alias]
-TextPair: TypeAlias = Pair[T_alias, str]
-
-reveal_type(Pair("text"), expected_text="Pair[int, str]")
-reveal_type(IntPair("text"), expected_text="Pair[int, str]")
-reveal_type(TextPair("text"), expected_text="Pair[int, str]")
-
-
-class AnimalPair(Generic[T_co, U_alias]):
-    def __init__(self: "AnimalPair[Animal, str]", value: str) -> None: ...
-
-
-DogPair: TypeAlias = AnimalPair[Dog, U_alias]
-reveal_type(DogPair("text"), expected_text="AnimalPair[Dog, str]")
+assert_type(NeverCreated(text="value"), Never)

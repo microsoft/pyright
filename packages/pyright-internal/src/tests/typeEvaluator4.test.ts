@@ -576,7 +576,7 @@ test('FunctionAssignabilityPositionalParamMessage1', () => {
         [
             'Argument of type "(a: int, b: int, /) -> int" cannot be assigned to parameter "func" of type "(int) -> int" in function "decorator"',
             '  Type "(a: int, b: int, /) -> int" is not assignable to type "(int) -> int"',
-            '    Position-only parameter mismatch; expected 2 but received 1',
+            '    Position-only parameter mismatch; expected 1 but received 2',
             '    Function accepts too many positional parameters; expected 1 but received 2',
         ].join('\n')
     );
@@ -641,7 +641,7 @@ test('Unions3', () => {
 test('Unions4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unions4.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Unions5', () => {
@@ -654,6 +654,12 @@ test('Unions6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unions6.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Unions7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unions7.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('ParamSpec1', () => {

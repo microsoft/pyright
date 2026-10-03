@@ -14,7 +14,8 @@
 import { ConsoleInterface } from '../common/console';
 import { assert, fail } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { ArgCategory, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ArgCategory, ExpressionNode, IndexNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
@@ -34,11 +35,18 @@ import {
     FlowPreFinallyGate,
     FlowVariableAnnotation,
     FlowWildcardImport,
+    isCodeFlowSupportedForReference,
 } from './codeFlowTypes';
 import { formatControlFlowGraph } from './codeFlowUtils';
 import { getBoundCallMethod, getBoundNewMethod } from './constructors';
 import { DeclarationType } from './declaration';
-import { isMatchingExpression, isPartialMatchingExpression, printExpression } from './parseTreeUtils';
+import {
+    getEvaluationScopeNode,
+    isImplicitRevealTypeName,
+    isMatchingExpression,
+    isPartialMatchingExpression,
+    printExpression,
+} from './parseTreeUtils';
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment } from './typedDicts';
@@ -48,6 +56,7 @@ import {
     ClassType,
     combineTypes,
     FunctionType,
+    isAnyOrUnknown,
     isClass,
     isClassInstance,
     isFunction,
@@ -59,6 +68,7 @@ import {
     isTypeSame,
     isTypeVar,
     isTypeVarTuple,
+    isUnion,
     maxTypeRecursionCount,
     NeverType,
     OverloadedType,
@@ -119,6 +129,7 @@ export interface CodeFlowEngine {
     createCodeFlowAnalyzer: () => CodeFlowAnalyzer;
     getFlowNodeReachability: (flowNode: FlowNode, sourceFlowNode?: FlowNode, ignoreNoReturn?: boolean) => Reachability;
     narrowConstrainedTypeVar: (flowNode: FlowNode, typeVar: TypeVarType) => Type | undefined;
+    isKeyPresentInTypedDict: (node: IndexNode) => boolean;
     printControlFlowGraph: (
         flowNode: FlowNode,
         reference: CodeFlowReferenceExpressionNode | undefined,
@@ -502,7 +513,7 @@ export function getCodeFlowEngine(
                         return setCacheEntry(curFlowNode, NeverType.createNever(), /* isIncomplete */ false);
                     }
 
-                    if (curFlowNode.flags & FlowFlags.VariableAnnotation) {
+                    if (curFlowNode.flags & (FlowFlags.VariableAnnotation | FlowFlags.Mutation)) {
                         const varAnnotationNode = curFlowNode as FlowVariableAnnotation;
                         curFlowNode = varAnnotationNode.antecedent;
                         continue;
@@ -1244,6 +1255,159 @@ export function getCodeFlowEngine(
         };
     }
 
+    // Proves presence only for this indexed read, without attaching a key/value
+    // correlation to types that can escape the guard's execution.
+    function isKeyPresentInTypedDict(node: IndexNode): boolean {
+        const flowNode = nodeInfo.getFlowNode(node);
+        const reference = node.d.leftExpr;
+        const key = node.d.items[0].d.valueExpr;
+        if (!flowNode || !isCodeFlowSupportedForReference(reference) || !isCodeFlowSupportedForReference(key)) {
+            return false;
+        }
+
+        function getReferenceRoot(expression: ExpressionNode): ExpressionNode {
+            while (expression.nodeType === ParseNodeType.MemberAccess || expression.nodeType === ParseNodeType.Index) {
+                expression = expression.d.leftExpr;
+            }
+            return expression;
+        }
+
+        function getRootSymbolId(expression: ExpressionNode): number | undefined {
+            expression = getReferenceRoot(expression);
+            if (expression.nodeType === ParseNodeType.AssignmentExpression) {
+                expression = expression.d.name;
+            }
+            return expression.nodeType === ParseNodeType.Name
+                ? evaluator.lookUpSymbolRecursive(expression, expression.d.value, /* honorCodeFlow */ false)?.symbol.id
+                : undefined;
+        }
+
+        function getPresenceScope(expression: ParseNode) {
+            let scope = getEvaluationScopeNode(expression, nodeInfo).node;
+            while (
+                scope.nodeType === ParseNodeType.Comprehension &&
+                (scope.parent?.nodeType === ParseNodeType.List ||
+                    scope.parent?.nodeType === ParseNodeType.Set ||
+                    scope.parent?.nodeType === ParseNodeType.Dictionary)
+            ) {
+                scope = getEvaluationScopeNode(scope.parent, nodeInfo).node;
+            }
+            return scope;
+        }
+
+        function matches(reference: ExpressionNode, expression: ExpressionNode): boolean {
+            if (!isMatchingExpression(reference, expression)) {
+                return false;
+            }
+            const symbolId = getRootSymbolId(reference);
+            return symbolId !== undefined && symbolId === getRootSymbolId(expression);
+        }
+
+        const pending = [flowNode];
+        const visited = new Set<number>();
+        const maxPresenceFlowNodes = 256;
+        const presenceScope = getPresenceScope(node);
+
+        while (pending.length > 0) {
+            evaluator.checkForCancellation();
+            const current = pending.pop()!;
+            if (visited.has(current.id)) {
+                continue;
+            }
+            visited.add(current.id);
+            if (visited.size > maxPresenceFlowNodes) {
+                return false;
+            }
+
+            if (current.flags & (FlowFlags.UnreachableStructural | FlowFlags.UnreachableStaticCondition)) {
+                continue;
+            }
+
+            if (current.flags & FlowFlags.Call) {
+                const call = current as FlowCall;
+                const callee = call.node.d.leftExpr;
+                // The implicit reveal_type is a checker intrinsic, not a
+                // potentially mutating call. Its arguments still precede it.
+                if (
+                    isImplicitRevealTypeName(callee) &&
+                    !evaluator.lookUpSymbolRecursive(callee, callee.d.value, /* honorCodeFlow */ false)
+                ) {
+                    pending.push(call.antecedent);
+                    continue;
+                }
+                return false;
+            }
+
+            if (current.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
+                const condition = current as FlowCondition;
+                const expression = condition.expression;
+                if (
+                    expression.nodeType === ParseNodeType.BinaryOperation &&
+                    (expression.d.operator === OperatorType.In || expression.d.operator === OperatorType.NotIn) &&
+                    matches(key, expression.d.leftExpr) &&
+                    matches(reference, expression.d.rightExpr)
+                ) {
+                    const rightRoot = getReferenceRoot(expression.d.rightExpr);
+                    // The left operand was evaluated before any rebinding in the right operand.
+                    // A self-assignment is inert, but other assignments may invalidate that key.
+                    if (
+                        rightRoot.nodeType === ParseNodeType.AssignmentExpression &&
+                        !isMatchingExpression(rightRoot.d.name, rightRoot.d.rightExpr)
+                    ) {
+                        return false;
+                    }
+                    if (getPresenceScope(expression) !== presenceScope) {
+                        return false;
+                    }
+                    if ((expression.d.operator === OperatorType.In) === !!(current.flags & FlowFlags.TrueCondition)) {
+                        continue;
+                    }
+                    return false;
+                }
+                pending.push(condition.antecedent);
+                continue;
+            }
+
+            if (current.flags & (FlowFlags.Assignment | FlowFlags.Mutation)) {
+                const assignment = current as FlowAssignment;
+                if (
+                    current.flags & FlowFlags.Unbind ||
+                    matches(reference, assignment.node) ||
+                    matches(key, assignment.node) ||
+                    isPartialMatchingExpression(reference, assignment.node) ||
+                    isPartialMatchingExpression(key, assignment.node) ||
+                    // A mutation through an alias can replace part of a member
+                    // or indexed reference even if its spelling does not match.
+                    ((reference.nodeType !== ParseNodeType.Name || key.nodeType !== ParseNodeType.Name) &&
+                        (assignment.node.nodeType === ParseNodeType.MemberAccess ||
+                            assignment.node.nodeType === ParseNodeType.Index))
+                ) {
+                    return false;
+                }
+                pending.push(assignment.antecedent);
+                continue;
+            }
+
+            if (current.flags & FlowFlags.BranchLabel && !(current.flags & FlowFlags.PostContextManager)) {
+                pending.push(...(current as FlowLabel).antecedents);
+                continue;
+            }
+
+            if (
+                current.flags &
+                (FlowFlags.VariableAnnotation | FlowFlags.TrueNeverCondition | FlowFlags.FalseNeverCondition)
+            ) {
+                pending.push((current as FlowVariableAnnotation | FlowCondition).antecedent);
+                continue;
+            }
+
+            // Do not carry the proof across calls, loop backedges, scope entries,
+            // or exception-handling gates whose effects are not established here.
+            return false;
+        }
+        return true;
+    }
+
     // Determines whether the specified flowNode can be reached by any
     // control flow path within the execution context. If sourceFlowNode
     // is specified, it returns true only if at least one control flow
@@ -1333,6 +1497,7 @@ export function getCodeFlowEngine(
                     curFlowNode.flags &
                     (FlowFlags.VariableAnnotation |
                         FlowFlags.Assignment |
+                        FlowFlags.Mutation |
                         FlowFlags.WildcardImport |
                         FlowFlags.ExhaustedMatch)
                 ) {
@@ -1561,6 +1726,7 @@ export function getCodeFlowEngine(
                     curFlowNode.flags &
                     (FlowFlags.VariableAnnotation |
                         FlowFlags.Assignment |
+                        FlowFlags.Mutation |
                         FlowFlags.WildcardImport |
                         FlowFlags.TrueNeverCondition |
                         FlowFlags.FalseNeverCondition |
@@ -1784,9 +1950,16 @@ export function getCodeFlowEngine(
             const callTypeResult = evaluator.getTypeOfExpression(node.d.leftExpr, EvalFlags.CallBaseDefaults);
             const callType = callTypeResult.type;
 
-            doForEachSubtype(callType, (callSubtype) => {
+            const callSubtypes = isUnion(callType) ? callType.priv.subtypes : [callType];
+            for (let callSubtype of callSubtypes) {
                 // Track the number of subtypes we've examined.
                 subtypeCount++;
+
+                // Any and Unknown can represent callables that return normally, so this call
+                // cannot be proven not to return.
+                if (isAnyOrUnknown(callSubtype)) {
+                    return false;
+                }
 
                 if (isInstantiableClass(callSubtype)) {
                     // Does the class have a custom metaclass that implements a `__call__` method?
@@ -1794,7 +1967,7 @@ export function getCodeFlowEngine(
                     // in this case that the __call__ method is not a NoReturn type.
                     const metaclassCallResult = getBoundCallMethod(evaluator, node, callSubtype);
                     if (metaclassCallResult) {
-                        return;
+                        continue;
                     }
 
                     const newMethodResult = getBoundNewMethod(evaluator, node, callSubtype);
@@ -1851,7 +2024,7 @@ export function getCodeFlowEngine(
                         }
                     }
                 }
-            });
+            }
 
             // The call is considered NoReturn if all subtypes evaluate to NoReturn.
             const callIsNoReturn = subtypeCount > 0 && noReturnTypeCount === subtypeCount;
@@ -2028,26 +2201,35 @@ export function getCodeFlowEngine(
         assert(symbolWithScope !== undefined);
         const decls = symbolWithScope!.symbol.getDeclarations();
 
-        // Normally the wildcard import contributes its own alias declaration, so we can
-        // identify it by the import node directly. But wildcard-imported multipart modules
-        // may be merged into an existing alias declaration (for example, when
-        // `import mylib.a` is followed by `from x import *` and `x` imports `mylib.b`).
-        // In that case, fall back to the merged multipart alias so code flow preserves the
-        // imported module type instead of degrading the name to Unknown.
-        //
-        // First-match is safe here because the binder merges all multipart imports for the
-        // same base name into a single symbol whose module info carries the union of all
-        // submodule paths. Every surviving alias declaration for that symbol therefore
-        // carries equivalent module info after the merge.
-        const wildcardDecl =
-            decls.find((decl) => decl.node === flowNode.node) ??
-            decls.find(
-                (decl) =>
-                    decl.type === DeclarationType.Alias &&
-                    !decl.symbolName &&
-                    decl.firstNamePart === name &&
-                    decl.loadSymbolsFromPath
-            );
+        let wildcardDecl = decls.find((decl) => decl.node === flowNode.node);
+
+        // The binder may merge a wildcard-imported module into an existing declaration.
+        // Match the exported module using the same identity as the binder, not the local
+        // name, which can be an alias (e.g. "np" rather than "numpy").
+        if (!wildcardDecl && !importInfo.isNativeLib && importInfo.resolvedUris.length > 0) {
+            const resolvedPath = importInfo.resolvedUris[importInfo.resolvedUris.length - 1];
+            const importedDecls = nodeInfo
+                .getFileInfo(flowNode.node)
+                .importLookup(resolvedPath)
+                ?.symbolTable.get(name)
+                ?.getDeclarations();
+            const importedDecl = importedDecls?.[importedDecls.length - 1];
+
+            if (
+                importedDecl?.type === DeclarationType.Alias &&
+                !importedDecl.symbolName &&
+                importedDecl.firstNamePart
+            ) {
+                wildcardDecl = decls.find(
+                    (decl) =>
+                        decl.type === DeclarationType.Alias &&
+                        !decl.symbolName &&
+                        decl.moduleName === importedDecl.moduleName &&
+                        decl.firstNamePart === importedDecl.firstNamePart &&
+                        decl.loadSymbolsFromPath
+                );
+            }
+        }
 
         if (!wildcardDecl) {
             return UnknownType.create();
@@ -2077,6 +2259,7 @@ export function getCodeFlowEngine(
         createCodeFlowAnalyzer,
         getFlowNodeReachability,
         narrowConstrainedTypeVar,
+        isKeyPresentInTypedDict,
         printControlFlowGraph,
     };
 }

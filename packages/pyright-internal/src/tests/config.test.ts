@@ -500,6 +500,57 @@ describe(`config test'}`, () => {
         assert.ok(deserialized.findExecEnvironment(UriEx.file('foo/bar.py')));
     });
 
+    test.each([undefined, true, false])(
+        'automatic overload results preserve default/internal override %s through serialization and service cloning',
+        (override) => {
+            const fs = new TestFileSystem(/* ignoreCase */ true);
+            const root = Uri.file(process.cwd(), fs);
+            const config = new ConfigOptions(root);
+            if (override !== undefined) {
+                config.experimentalOverloadResults = override;
+            }
+            const sp = createServiceProvider(fs, new NullConsole());
+            const host = new TestAccessHost();
+            // Project configuration must not expose or override the internal baseline escape hatch.
+            config.initializeFromJson({ experimentalOverloadResults: !override }, root, sp, host);
+            const restored = deserialize<ConfigOptions>(serialize(config));
+            assert.strictEqual(restored.experimentalOverloadResults, override ?? true);
+            const service = new AnalyzerService('<overload-default>', sp, {
+                configOptions: restored,
+                hostFactory: () => host,
+                shouldRunAnalysis: () => false,
+            });
+            const cloned = service.clone('<overload-clone>', 'overload-clone');
+            try {
+                for (const target of [service, cloned]) {
+                    assert.strictEqual(target.getConfigOptions().experimentalOverloadResults, override ?? true);
+                    assert.strictEqual(!!target.test_program.experimentalOverloadResultController, override !== false);
+                }
+            } finally {
+                cloned.dispose();
+                service.dispose();
+                sp.dispose();
+            }
+        }
+    );
+
+    test('automatic overload results default survives omitted serialized property and configuration reload', () => {
+        const config = new ConfigOptions(UriEx.file(process.cwd()));
+        delete config.experimentalOverloadResults;
+        assert.strictEqual(deserialize<ConfigOptions>(serialize(config)).experimentalOverloadResults, true);
+        const service = createAnalyzer();
+        try {
+            for (const fromLanguageServer of [false, true]) {
+                const options = new CommandLineOptions(undefined, fromLanguageServer);
+                service.setOptions(options);
+                assert.strictEqual(service.getConfigOptions().experimentalOverloadResults, true);
+                assert.ok(service.test_program.experimentalOverloadResultController);
+            }
+        } finally {
+            service.dispose();
+        }
+    });
+
     test('Config watcher reloads when pyproject.toml is created', () => {
         const fs = new TestFileSystem(/* ignoreCase */ true);
         const cons = new NullConsole();

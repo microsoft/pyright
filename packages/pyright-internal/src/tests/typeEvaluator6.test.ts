@@ -97,33 +97,8 @@ test('OverloadCall10', () => {
 
 test('OverloadCall11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall11.py']);
-    TestUtils.validateResults(analysisResults, 2);
-    // These diagnostics record the restored conformance gap, not the required overload semantics.
-    assert.deepStrictEqual(
-        analysisResults[0].errors.map((diagnostic) => ({
-            rule: diagnostic.getRule(),
-            range: diagnostic.range,
-            message: diagnostic.message,
-        })),
-        [
-            {
-                rule: DiagnosticRule.reportAssignmentType,
-                range: { start: { line: 28, character: 28 }, end: { line: 28, character: 34 } },
-                message:
-                    'Type "list[int]" is not assignable to declared type "list[str]"\n' +
-                    '\u00a0\u00a0"list[int]" is not assignable to "list[str]"\n' +
-                    '\u00a0\u00a0\u00a0\u00a0Type parameter "_T@list" is invariant, but "int" is not the same as "str"\n' +
-                    '\u00a0\u00a0\u00a0\u00a0Consider switching from "list" to "Sequence" which is covariant',
-            },
-            {
-                rule: DiagnosticRule.reportArgumentType,
-                range: { start: { line: 31, character: 18 }, end: { line: 31, character: 25 } },
-                message:
-                    'Argument of type "Literal[\'value\']" cannot be assigned to parameter "object" of type "int" in function "append"\n' +
-                    '\u00a0\u00a0"Literal[\'value\']" is not assignable to "int"',
-            },
-        ]
-    );
+    // Both invariant assignments and both append operations are valid witnesses.
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('OverloadCall12', () => {
@@ -822,7 +797,12 @@ test('Comparison1', () => {
 
     configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['comparison1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 7);
+    TestUtils.validateResults(analysisResults2, 16);
+
+    // Bytes promotions make two of the identity comparisons assignable.
+    configOptions.diagnosticRuleSet.disableBytesTypePromotions = false;
+    const analysisResults3 = TestUtils.typeAnalyzeSampleFiles(['comparison1.py'], configOptions);
+    TestUtils.validateResults(analysisResults3, 14);
 });
 
 test('Comparison2', () => {
@@ -1122,6 +1102,20 @@ test('Constructor34', () => {
 
 test('Constructor35', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor35.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+    assert.deepStrictEqual(analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()).sort(), [
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportGeneralTypeIssues,
+    ]);
+});
+
+test('ConstructorAmbiguousSelf', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorAmbiguousSelf.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

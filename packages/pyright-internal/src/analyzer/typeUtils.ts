@@ -847,20 +847,20 @@ export function preserveUnknown(type1: Type, type2: Type): AnyType | UnknownType
     }
 }
 
-// Determines whether the specified type is a type that can be
-// combined with other types for a union.
-export function isUnionableType(subtypes: Type[]): boolean {
-    // If all of the subtypes are TypeForm types, we know that they
-    // are unionable.
-    if (subtypes.every((t) => t.props?.typeForm !== undefined)) {
+// Determines whether the two types will produce a union using the "|" operator.
+export function isUnionable(leftType: Type, rightType: Type): boolean {
+    // If both types are TypeForm types, we know that they are unionable.
+    if (leftType.props?.typeForm !== undefined && rightType.props?.typeForm !== undefined) {
         return true;
     }
 
-    let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
-
-    for (const subtype of subtypes) {
-        typeFlags &= subtype.flags;
+    // Special forms like Any and Never are unionable even though their
+    // types represent both instances and instantiable types.
+    if (leftType.props?.specialForm !== undefined && rightType.props?.specialForm !== undefined) {
+        return true;
     }
+
+    const typeFlags = leftType.flags & rightType.flags;
 
     // All subtypes need to be instantiable. Some types (like Any
     // and None) are both instances and instantiable. It's OK to
@@ -959,6 +959,9 @@ export function addConditionToType<T extends Type>(
         case TypeCategory.Function:
             return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
 
+        case TypeCategory.OverloadResult:
+            return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
+
         case TypeCategory.Overloaded:
             return OverloadedType.create(
                 OverloadedType.getOverloads(type).map((t) => addConditionToType(t, condition))
@@ -986,6 +989,7 @@ export function getTypeCondition(type: Type): TypeCondition[] | undefined {
 
         case TypeCategory.Class:
         case TypeCategory.Function:
+        case TypeCategory.OverloadResult:
             return type.props?.condition;
     }
 }
@@ -1261,28 +1265,28 @@ export function isSentinelLiteral(type: Type): boolean {
     return isClassInstance(type) && type.priv.literalValue instanceof SentinelLiteral;
 }
 
-export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
-    class ContainsLiteralTypeWalker extends TypeWalker {
-        foundLiteral = false;
+class ContainsLiteralTypeWalker extends TypeWalker {
+    foundLiteral = false;
 
-        constructor(private _includeTypeArgs: boolean) {
-            super();
-        }
-
-        override visitClass(classType: ClassType): void {
-            if (isClassInstance(classType)) {
-                if (isLiteralLikeType(classType)) {
-                    this.foundLiteral = true;
-                    this.cancelWalk();
-                }
-            }
-
-            if (this._includeTypeArgs) {
-                super.visitClass(classType);
-            }
-        }
+    constructor(private _includeTypeArgs: boolean) {
+        super();
     }
 
+    override visitClass(classType: ClassType): void {
+        if (isClassInstance(classType)) {
+            if (isLiteralLikeType(classType)) {
+                this.foundLiteral = true;
+                this.cancelWalk();
+            }
+        }
+
+        if (this._includeTypeArgs) {
+            super.visitClass(classType);
+        }
+    }
+}
+
+export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
     const walker = new ContainsLiteralTypeWalker(includeTypeArgs);
     walker.walk(type);
     return walker.foundLiteral;
@@ -1774,7 +1778,18 @@ export function lookUpClassMember(
     // define any instance variables, and it's by far the most common metaclass.
     if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
         const metaMemberItr = getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers);
-        const metaMember = metaMemberItr.next()?.value;
+        let metaMember = metaMemberItr.next()?.value;
+
+        // type.__dict__ describes class namespaces, not instance dictionaries.
+        if (
+            memberName === '__dict__' &&
+            isClassInstance(classType) &&
+            metaMember &&
+            isClass(metaMember.classType) &&
+            ClassType.isBuiltIn(metaMember.classType, 'type')
+        ) {
+            metaMember = undefined;
+        }
 
         // If the metaclass defines the member and we didn't hit an Unknown
         // class in the metaclass MRO, use the metaclass member.

@@ -237,7 +237,8 @@ export class Checker extends ParseTreeWalker {
         private _evaluator: TypeEvaluator,
         parseResults: ParserOutput,
         private _dependentFiles: ParserOutput[] | undefined,
-        nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+        nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
+        private _walkOperation?: (node: ParseNode, callback: () => void) => void
     ) {
         // Forward the reader to the base walker so the structural walk expands both tier-1
         // (parser-derived) and tier-2 (evaluator-discovered, e.g. `cast("Foo", v)`) string
@@ -293,6 +294,18 @@ export class Checker extends ParseTreeWalker {
     }
 
     override walk(node: ParseNode) {
+        if (this._walkOperation) {
+            this._walkOperation(node, () => {
+                if (!this._nodeInfo.isCodeUnreachable(node)) {
+                    super.walk(node);
+                } else {
+                    this._evaluator.suppressDiagnostics(node, () => {
+                        super.walk(node);
+                    });
+                }
+            });
+            return;
+        }
         if (!this._nodeInfo.isCodeUnreachable(node)) {
             super.walk(node);
         } else {
@@ -4025,11 +4038,15 @@ export class Checker extends ParseTreeWalker {
 
         const action = rule === DiagnosticRule.reportUnusedImport ? { action: Commands.unusedImport } : undefined;
         if (nameNode) {
-            this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
-                LocMessage.unaccessedSymbol().format({ name: nameNode.d.value }),
-                nameNode,
-                action
-            );
+            const isAllowedUnusedVariable =
+                rule === DiagnosticRule.reportUnusedVariable && nameNode.d.value.startsWith('_');
+            if (!isAllowedUnusedVariable) {
+                this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
+                    LocMessage.unaccessedSymbol().format({ name: nameNode.d.value }),
+                    nameNode,
+                    action
+                );
+            }
 
             if (rule !== undefined && message && diagnosticLevel !== 'none') {
                 this._evaluator.addDiagnostic(rule, message, nameNode);
@@ -6775,7 +6792,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         // Constructors are exempt.
-        if (this._isMethodExemptFromLsp(overrideFunction.shared.name)) {
+        if (SymbolNameUtils.isMethodExemptFromLsp(overrideFunction.shared.name)) {
             return;
         }
 
@@ -6799,12 +6816,6 @@ export class Checker extends ParseTreeWalker {
             }),
             funcNode.d.name
         );
-    }
-
-    // Determines whether the name is exempt from Liskov Substitution Principle rules.
-    private _isMethodExemptFromLsp(name: string): boolean {
-        const exemptMethods = ['__init__', '__new__', '__init_subclass__', '__post_init__'];
-        return exemptMethods.some((n) => n === name);
     }
 
     // Determines whether the type is a function or overloaded function with an @override
@@ -7022,7 +7033,7 @@ export class Checker extends ParseTreeWalker {
             // are synthesized, and they can result in many overloads. We assume they
             // are correct and will not produce any errors.
             if (
-                this._isMethodExemptFromLsp(memberName) ||
+                SymbolNameUtils.isMethodExemptFromLsp(memberName) ||
                 SymbolNameUtils.isPrivateName(memberName) ||
                 ClassType.isTypedDictClass(childClassType)
             ) {

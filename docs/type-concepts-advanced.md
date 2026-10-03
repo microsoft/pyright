@@ -105,6 +105,27 @@ def func2(val: float | None):
 
 In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `float` (specifically, a value of 0.0) or `None` in the negative case.
 
+### TypedDict Key Presence
+
+When a key has a union of string literal types, a membership check can establish that an indexed read of that same key is safe:
+
+```python
+class Data(TypedDict, total=False):
+    a: int
+    b: str
+
+def read(data: Data):
+    for key in ("a", "b"):
+        if key in data:
+            value = data[key]  # int | str, without an optional-key access error
+```
+
+This proves presence only for the checked dictionary and key, not for every literal alternative. It does not correlate value types with assignment targets or make undeclared keys valid. In particular, a union of open TypedDicts may contain an undeclared key whose value type is unknown.
+
+The presence check must hold on every incoming control-flow path. Reassigning the dictionary or key, deleting an item, or crossing a call, loop boundary, or exception-handling gate can prevent this proof. A guard inside a loop applies to reads within that iteration; it does not associate values carried from earlier iterations with the current key. Existing single-literal TypedDict narrowing is unchanged.
+
+The guard must also apply when the read executes. A generator expression cannot use a guard outside its deferred body, although a guard within that body can establish presence. Its first iterable is evaluated immediately and can still use an enclosing guard, as can an eager list, set, or dictionary comprehension. Assignment expressions in the right operand of the membership test prevent this proof unless they simply assign a name to itself; they may change the key after the left operand has already been evaluated.
+
 ### Aliased Conditional Expression
 
 Pyright also supports a type guard expression `c`, where `c` is an identifier that refers to a local variable that is assigned one of the above supported type guard expression forms. These are called “aliased conditional expressions”. Examples include `c = a is not None` and `c = isinstance(a, str)`. When “c” is used within a conditional check, it can be used to narrow the type of expression `a`.
@@ -326,9 +347,10 @@ Some functions or methods can return one of several different types. In cases wh
 
 3. If only one overload remains, it is the “winner”.
 
-4. If more than one overload remains, the “winner” is chosen based on the order in which the overloads are declared. In general, the first remaining overload is the “winner”. There are two exceptions to this rule.
+4. If more than one overload remains, the “winner” is chosen based on the order in which the overloads are declared. In general, the first remaining overload is the “winner”. The following exceptions apply.
     Exception 1: When an `*args` (unpacked) argument matches a `*args` parameter in one of the overload signatures, this overrides the normal order-based rule.
     Exception 2: When two or more overloads match because an argument evaluates to `Any` or `Unknown`, the matching overload is ambiguous. In this case, pyright examines the return types of the remaining overloads and eliminates types that are duplicates or are subsumed by (i.e. proper subtypes of) other types in the list. If only one type remains after this coalescing step, that type is used. If more than one type remains after this coalescing step, the type of the call expression evaluates to `Unknown`. For example, if two overloads are matched due to an argument that evaluates to `Any`, and those two overloads have return types of `str` and `LiteralString`, pyright will coalesce this to just `str` because `LiteralString` is a proper subtype of `str`. If the two overloads have return types of `str` and `bytes`, the call expression will evaluate to `Unknown` because `str` and `bytes` have no overlap.
+    Exception 3: For supported local assignments with nested invariant `Any` arguments, such as `list[Any]`, Pyright can retain multiple fully known return alternatives. For example, `list[int]` and `list[str]` are displayed as `OverloadResult[list[int], list[str]]`. Each supported operation must succeed for one complete alternative; this is not an ordinary union or `Any`. This behavior is enabled by default within a [bounded local-use and proof domain](overloadResultExperiment.md); unsupported cases retain ordinary behavior.
 
 5. If no overloads remain, Pyright considers whether any of the arguments are union types. If so, these union types are expanded into their constituent subtypes, and the entire process of overload matching is repeated with the expanded argument types. If two or more overloads match, the union of their respective return types form the final return type for the call expression. This "union expansion" can result in a combinatoric explosion if many arguments evaluate to union types. For example, if four arguments are present, and they all evaluate to unions that expand to ten subtypes, this could result in 10^4 combinations. Pyright expands unions for arguments left to right and halts expansion when the number of signatures exceeds 64.
 

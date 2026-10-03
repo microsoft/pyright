@@ -20,6 +20,83 @@
     "torch",
     "transformers"
   ],
+  "package_corpus": [
+    {
+      "package_name": "ansible",
+      "commit": "e8264c418ad2e87f92fa48f75cacfaa451cb38e4",
+      "check_paths": [
+        "lib/ansible"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "click",
+      "commit": "00e592cea702e0b2caa0dee42489fdb1c22cd845",
+      "check_paths": [
+        "src/click"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "homeassistant",
+      "commit": "f002c54d12077d6b906fa624f1c4bba11a71897d",
+      "check_paths": [
+        "homeassistant"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "numpy",
+      "commit": "db6ccacf630dd90f7c498e0d924bd47b66c83746",
+      "check_paths": [
+        "numpy"
+      ],
+      "exclude_directories": [
+        "tests"
+      ]
+    },
+    {
+      "package_name": "pandas",
+      "commit": "982854070758cd2015fc9e64395684546b1c5444",
+      "check_paths": [
+        "pandas"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "pytest",
+      "commit": "56b196e921acec0259d84622a570fde6032e15b5",
+      "check_paths": [
+        "src",
+        "testing"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "requests",
+      "commit": "414f0513c33883adf6f2b46901d4f0b38a455851",
+      "check_paths": [
+        "src/requests"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "torch",
+      "commit": "3ee692b380206d788625e0a4474d758f93571ee9",
+      "check_paths": [
+        "torch"
+      ],
+      "exclude_directories": []
+    },
+    {
+      "package_name": "transformers",
+      "commit": "2ef79f87a02111f8b49a72fb7d0c86b5b0bf10b7",
+      "check_paths": [
+        "src/transformers"
+      ],
+      "exclude_directories": []
+    }
+  ],
   "releases": [
     {
       "version": "1.1.406",
