@@ -38,6 +38,7 @@
         },
         "annotationNotSupported": "Type annotation not supported for this statement",
         "annotationRawString": "Type expressions cannot use raw string literals",
+        "annotationScopeExpression": "\"{operator}\" is not allowed within an annotation scope",
         "annotationSpansStrings": "Type expressions cannot span multiple string literals",
         "annotationStringEscape": "Type expressions cannot contain escape characters",
         "annotationTemplateString": {

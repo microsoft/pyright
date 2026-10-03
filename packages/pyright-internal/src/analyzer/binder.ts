@@ -23,6 +23,7 @@ import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { stripFileExtension } from '../common/pathUtils';
 import { convertTextRangeToRange } from '../common/positionUtils';
+import { PythonVersion, pythonVersion3_14 } from '../common/pythonVersion';
 import { TextRange, getEmptyRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { LocMessage } from '../localization/localize';
@@ -38,6 +39,7 @@ import {
     CallNode,
     CaseNode,
     ClassNode,
+    ComprehensionForNode,
     ComprehensionNode,
     ContinueNode,
     DelNode,
@@ -1233,9 +1235,12 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.d.rightExpr);
         });
 
+        const isInvalidAnnotation = this._reportDeferredAnnotationExpression(node, ':=');
         const evaluationNode = ParseTreeUtils.getEvaluationNodeForAssignmentExpression(node, this._nodeInfo);
         if (!evaluationNode) {
-            this._addSyntaxError(LocMessage.assignmentExprContext(), node);
+            if (!isInvalidAnnotation) {
+                this._addSyntaxError(LocMessage.assignmentExprContext(), node);
+            }
             this.walk(node.d.name);
         } else {
             // Bind the name to the containing scope. This special logic is required
@@ -1871,6 +1876,10 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitAwait(node: AwaitNode) {
+        if (this._reportDeferredAnnotationExpression(node, 'await')) {
+            return true;
+        }
+
         // Make sure this is within an async lambda or function.
         const execScopeNode = ParseTreeUtils.getExecutionScopeNode(node, this._nodeInfo);
         if (execScopeNode?.nodeType !== ParseNodeType.Function || !execScopeNode.d.isAsync) {
@@ -2473,7 +2482,11 @@ export class Binder extends ParseTreeWalker {
 
                         // Async for is not allowed outside of an async function
                         // unless we're in ipython mode.
-                        if (compr.d.asyncToken && !this._fileInfo.ipythonMode) {
+                        if (
+                            compr.d.asyncToken &&
+                            !this._reportDeferredAnnotationExpression(compr, 'async for') &&
+                            !this._fileInfo.ipythonMode
+                        ) {
                             if (!enclosingFunction || !enclosingFunction.d.isAsync) {
                                 // Allow if it's within a generator expression. Execution of
                                 // generator expressions is deferred and therefore can be
@@ -3055,11 +3068,20 @@ export class Binder extends ParseTreeWalker {
             if (!foundUnreachableStatement) {
                 this.walk(statement);
             } else {
+                // Annotation expression restrictions are syntax errors even in unreachable code.
+                // Validate them without binding names or evaluating the unreachable statements.
+                if (this._usesDeferredAnnotations()) {
+                    const annotationWalker = new AnnotationScopeExpressionWalker((node, operator) =>
+                        this._reportDeferredAnnotationExpression(node, operator)
+                    );
+                    annotationWalker.walk(statement);
+                }
+
                 // If we're within a function, we need to look for unreachable yield
                 // statements because they affect the behavior of the function (making
                 // it a generator) even if they're never executed.
                 if (this._targetFunctionDeclaration && !this._targetFunctionDeclaration.isGenerator) {
-                    const yieldFinder = new YieldFinder();
+                    const yieldFinder = new YieldFinder((node) => !this._isDeferredAnnotationExpression(node, 'yield'));
                     if (yieldFinder.checkContainsYield(statement)) {
                         this._targetFunctionDeclaration.isGenerator = true;
                     }
@@ -4781,19 +4803,23 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _bindYield(node: YieldNode | YieldFromNode) {
+        const isInvalidAnnotation = this._reportDeferredAnnotationExpression(
+            node,
+            node.nodeType === ParseNodeType.YieldFrom ? 'yield from' : 'yield'
+        );
         const functionNode = ParseTreeUtils.getEnclosingFunction(node);
 
-        if (!functionNode) {
+        if (!isInvalidAnnotation && !functionNode) {
             if (!ParseTreeUtils.getEnclosingLambda(node)) {
                 this._addSyntaxError(LocMessage.yieldOutsideFunction(), node);
             }
-        } else if (functionNode.d.isAsync && node.nodeType === ParseNodeType.YieldFrom) {
+        } else if (!isInvalidAnnotation && functionNode?.d.isAsync && node.nodeType === ParseNodeType.YieldFrom) {
             // PEP 525 indicates that 'yield from' is not allowed in an
             // async function.
             this._addSyntaxError(LocMessage.yieldFromOutsideAsync(), node);
         }
 
-        if (this._targetFunctionDeclaration) {
+        if (!isInvalidAnnotation && this._targetFunctionDeclaration) {
             if (!this._targetFunctionDeclaration.yieldStatements) {
                 this._targetFunctionDeclaration.yieldStatements = [];
             }
@@ -4806,6 +4832,99 @@ export class Binder extends ParseTreeWalker {
         }
 
         this._nodeInfo.setFlowNode(node, this._currentFlowNode!);
+    }
+
+    private _usesDeferredAnnotations() {
+        return (
+            this._fileInfo.futureImports.has('annotations') ||
+            PythonVersion.isGreaterOrEqualTo(this._fileInfo.executionEnvironment.pythonVersion, pythonVersion3_14)
+        );
+    }
+
+    private _reportDeferredAnnotationExpression(node: ParseNode, operator: string): boolean {
+        // Preserve the parser's more specific diagnostic without reporting the operator twice.
+        if (node.nodeType === ParseNodeType.AssignmentExpression && node.d.isWalrusSyntaxError) {
+            return false;
+        }
+
+        if (!this._isDeferredAnnotationExpression(node, operator)) {
+            return false;
+        }
+
+        this._addSyntaxError(LocMessage.annotationScopeExpression().format({ operator }), node);
+        return true;
+    }
+
+    private _isDeferredAnnotationExpression(node: ParseNode, operator: string): boolean {
+        if (!this._usesDeferredAnnotations()) {
+            return false;
+        }
+
+        let curNode: ParseNode | undefined = node;
+        let prevNode: ParseNode | undefined;
+        let prevPrevNode: ParseNode | undefined;
+
+        while (curNode) {
+            if (
+                (curNode.nodeType === ParseNodeType.Parameter && prevNode === curNode.d.annotation) ||
+                (curNode.nodeType === ParseNodeType.Function && prevNode === curNode.d.returnAnnotation) ||
+                (curNode.nodeType === ParseNodeType.TypeAnnotation && prevNode === curNode.d.annotation)
+            ) {
+                return true;
+            }
+
+            // A lambda's body has its own scope; its defaults are evaluated outside it.
+            if (curNode.nodeType === ParseNodeType.Lambda && prevNode === curNode.d.expr) {
+                return false;
+            }
+
+            if (curNode.nodeType === ParseNodeType.Comprehension) {
+                const firstFor = curNode.d.forIfNodes[0];
+                const isFirstIterable =
+                    prevNode === firstFor &&
+                    firstFor.nodeType === ParseNodeType.ComprehensionFor &&
+                    prevPrevNode === firstFor.d.iterableExpr;
+                if (!isFirstIterable) {
+                    // Eager comprehensions in a 3.14 annotation cannot suspend its
+                    // evaluation. Generator expressions still have their own async scope.
+                    // Stringized annotations in earlier versions allow async comprehensions.
+                    const isEagerComprehension =
+                        curNode.parent?.nodeType === ParseNodeType.List ||
+                        curNode.parent?.nodeType === ParseNodeType.Set ||
+                        curNode.parent?.nodeType === ParseNodeType.Dictionary;
+                    if (
+                        (operator !== 'await' && operator !== 'async for') ||
+                        !isEagerComprehension ||
+                        PythonVersion.isLessThan(this._fileInfo.executionEnvironment.pythonVersion, pythonVersion3_14)
+                    ) {
+                        return false;
+                    }
+                }
+            }
+
+            // Parsed forward references are not runtime expressions, unlike f-string fields.
+            if (curNode.nodeType === ParseNodeType.StringList && !curNode.d.strings.some((str) => str === prevNode)) {
+                return false;
+            }
+
+            if (
+                (curNode.nodeType === ParseNodeType.Parameter && curNode.parent?.nodeType !== ParseNodeType.Lambda) ||
+                curNode.nodeType === ParseNodeType.Function ||
+                curNode.nodeType === ParseNodeType.Class ||
+                curNode.nodeType === ParseNodeType.Module ||
+                curNode.nodeType === ParseNodeType.Assignment ||
+                curNode.nodeType === ParseNodeType.TypeAnnotation ||
+                curNode.nodeType === ParseNodeType.FunctionAnnotation
+            ) {
+                return false;
+            }
+
+            prevPrevNode = prevNode;
+            prevNode = curNode;
+            curNode = curNode.parent;
+        }
+
+        return false;
     }
 
     private _getUniqueFlowNodeId() {
@@ -4843,8 +4962,46 @@ export class Binder extends ParseTreeWalker {
     }
 }
 
+// Only checks syntax; it must not bind or evaluate unreachable code.
+class AnnotationScopeExpressionWalker extends ParseTreeWalker {
+    constructor(private readonly _reportExpression: (node: ParseNode, operator: string) => boolean) {
+        super();
+    }
+
+    override visitAssignmentExpression(node: AssignmentExpressionNode) {
+        this._reportExpression(node, ':=');
+        return true;
+    }
+
+    override visitAwait(node: AwaitNode) {
+        this._reportExpression(node, 'await');
+        return true;
+    }
+
+    override visitYield(node: YieldNode) {
+        this._reportExpression(node, 'yield');
+        return true;
+    }
+
+    override visitYieldFrom(node: YieldFromNode) {
+        this._reportExpression(node, 'yield from');
+        return true;
+    }
+
+    override visitComprehensionFor(node: ComprehensionForNode) {
+        if (node.d.asyncToken) {
+            this._reportExpression(node, 'async for');
+        }
+        return true;
+    }
+}
+
 export class YieldFinder extends ParseTreeWalker {
     private _containsYield = false;
+
+    constructor(private readonly _isValidYield: (node: YieldNode | YieldFromNode) => boolean = () => true) {
+        super();
+    }
 
     checkContainsYield(node: ParseNode) {
         this.walk(node);
@@ -4852,12 +5009,12 @@ export class YieldFinder extends ParseTreeWalker {
     }
 
     override visitYield(node: YieldNode): boolean {
-        this._containsYield = true;
+        this._containsYield ||= this._isValidYield(node);
         return false;
     }
 
     override visitYieldFrom(node: YieldFromNode): boolean {
-        this._containsYield = true;
+        this._containsYield ||= this._isValidYield(node);
         return false;
     }
 }
