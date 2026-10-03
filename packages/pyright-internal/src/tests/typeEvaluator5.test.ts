@@ -389,6 +389,29 @@ test('TypedDictReadOnly3WithGeneralTypeIssuesDisabled', () => {
     assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportTypedDictNotRequiredAccess);
 });
 
+test('TypedDictReadOnly4', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly4.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypedDictReadOnly5', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 29);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => diagnostic.range.start.line + 1).sort((a, b) => a - b),
+        [
+            15, 16, 17, 18, 22, 23, 26, 29, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 55,
+            56, 64,
+        ]
+    );
+});
+
 test('TypedDictClosed1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed1.py']);
     TestUtils.validateResults(analysisResults, 7);
