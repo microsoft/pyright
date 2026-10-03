@@ -1909,7 +1909,27 @@ export class Checker extends ParseTreeWalker {
                 /* inferenceContext */ undefined
             )?.type;
 
-            if (!boolReturnType || isAnyOrUnknown(boolReturnType)) {
+            if (!boolReturnType) {
+                // A None-valued __bool__ disables truth testing, even when __len__ exists.
+                if (isClassInstance(expandedSubtype)) {
+                    const boolMember = lookUpClassMember(
+                        expandedSubtype,
+                        '__bool__',
+                        MemberAccessFlags.SkipInstanceMembers
+                    );
+                    if (boolMember && isNoneInstance(this._evaluator.getTypeOfMember(boolMember))) {
+                        isTypeBool = false;
+                        diag.addMessage(
+                            LocAddendum.conditionalBoolNotCallable().format({
+                                operandType: this._evaluator.printType(expandedSubtype),
+                            })
+                        );
+                    }
+                }
+                return undefined;
+            }
+
+            if (isAnyOrUnknown(boolReturnType)) {
                 return undefined;
             }
 
