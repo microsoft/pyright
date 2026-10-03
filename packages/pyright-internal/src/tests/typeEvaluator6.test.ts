@@ -717,6 +717,14 @@ test('MatchClass8', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('MatchClass9', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass9.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MatchValue1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
