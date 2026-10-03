@@ -170,6 +170,7 @@ import {
     isUnbound,
     isUnion,
     isUnknown,
+    maxTypeRecursionCount,
 } from './types';
 import {
     ClassMember,
@@ -186,6 +187,7 @@ import {
     getSpecializedTupleType,
     getTypeVarArgsRecursive,
     getTypeVarScopeIds,
+    isCallableType,
     isInstantiableMetaclass,
     isLiteralType,
     isLiteralTypeOrUnion,
@@ -1910,18 +1912,27 @@ export class Checker extends ParseTreeWalker {
             )?.type;
 
             if (!boolReturnType) {
-                // A None-valued __bool__ disables truth testing, even when __len__ exists.
-                if (isClassInstance(expandedSubtype)) {
-                    const boolMember = lookUpClassMember(
+                // A non-callable __bool__ disables truth testing, even when __len__ exists.
+                if (isClass(expandedSubtype)) {
+                    const boolMember = this._evaluator.getTypeOfBoundMember(
+                        node,
                         expandedSubtype,
                         '__bool__',
-                        MemberAccessFlags.SkipInstanceMembers
+                        /* usage */ undefined,
+                        /* diag */ undefined,
+                        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
                     );
-                    if (boolMember && isNoneInstance(this._evaluator.getTypeOfMember(boolMember))) {
+                    if (boolMember && !boolMember.typeErrors) {
+                        const boolMemberType = this._evaluator.makeTopLevelTypeVarsConcrete(boolMember.type);
+                        if (this._isConditionalBoolCallable(boolMemberType, node)) {
+                            return undefined;
+                        }
+
                         isTypeBool = false;
                         diag.addMessage(
                             LocAddendum.conditionalBoolNotCallable().format({
                                 operandType: this._evaluator.printType(expandedSubtype),
+                                boolMemberType: this._evaluator.printType(boolMemberType),
                             })
                         );
                     }
@@ -1959,6 +1970,43 @@ export class Checker extends ParseTreeWalker {
                 node
             );
         }
+    }
+
+    private _isConditionalBoolCallable(type: Type, node: ExpressionNode, recursionCount = 0): boolean {
+        if (recursionCount > maxTypeRecursionCount) {
+            return true;
+        }
+
+        let isCallable = true;
+        doForEachSubtype(this._evaluator.makeTopLevelTypeVarsConcrete(type), (subtype) => {
+            if (isNever(subtype)) {
+                return;
+            }
+
+            if (!isCallableType(subtype)) {
+                isCallable = false;
+                return;
+            }
+
+            if (isClass(subtype)) {
+                const callMember = this._evaluator.getTypeOfBoundMember(
+                    node,
+                    subtype,
+                    '__call__',
+                    /* usage */ undefined,
+                    /* diag */ undefined,
+                    MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
+                );
+                if (
+                    callMember &&
+                    !callMember.typeErrors &&
+                    !this._isConditionalBoolCallable(callMember.type, node, recursionCount + 1)
+                ) {
+                    isCallable = false;
+                }
+            }
+        });
+        return isCallable;
     }
 
     private _reportUnnecessaryConditionExpression(expression: ExpressionNode) {

@@ -1846,8 +1846,8 @@
             "comment": "{Locked='disableBytesTypePromotions','false','bytearray','memoryview'}"
         },
         "conditionalBoolNotCallable": {
-            "message": "Attribute __bool__ for type \"{operandType}\" has type \"None\", which is not callable",
-            "comment": "{Locked='__bool__','None'}"
+            "message": "Attribute __bool__ for type \"{operandType}\" has type \"{boolMemberType}\", which is not callable",
+            "comment": "{Locked='__bool__'}"
         },
         "conditionalRequiresBool": {
             "message": "Method __bool__ for type \"{operandType}\" returns type \"{boolReturnType}\" rather than \"bool\"",

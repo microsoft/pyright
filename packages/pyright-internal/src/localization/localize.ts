@@ -1296,7 +1296,7 @@ export namespace Localizer {
             );
         export const bytesTypePromotions = () => getRawString('DiagnosticAddendum.bytesTypePromotions');
         export const conditionalBoolNotCallable = () =>
-            new ParameterizedString<{ operandType: string }>(
+            new ParameterizedString<{ operandType: string; boolMemberType: string }>(
                 getRawString('DiagnosticAddendum.conditionalBoolNotCallable')
             );
         export const conditionalRequiresBool = () =>
