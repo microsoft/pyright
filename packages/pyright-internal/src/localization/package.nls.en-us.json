@@ -1845,6 +1845,10 @@
             "message": "Set disableBytesTypePromotions to false to enable type promotion behavior for \"bytearray\" and \"memoryview\"",
             "comment": "{Locked='disableBytesTypePromotions','false','bytearray','memoryview'}"
         },
+        "conditionalBoolNotCallable": {
+            "message": "Attribute __bool__ for type \"{operandType}\" has type \"None\", which is not callable",
+            "comment": "{Locked='__bool__','None'}"
+        },
         "conditionalRequiresBool": {
             "message": "Method __bool__ for type \"{operandType}\" returns type \"{boolReturnType}\" rather than \"bool\"",
             "comment": "{Locked='__bool__'}"
