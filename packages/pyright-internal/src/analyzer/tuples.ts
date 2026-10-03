@@ -37,6 +37,7 @@ import {
 import {
     convertToInstance,
     doForEachSubtype,
+    expandUnpackedTypeVarsInTupleArgs,
     getContainerDepth,
     InferenceContext,
     isLiteralType,
@@ -386,6 +387,22 @@ export function adjustTupleTypeArgs(
     const destUnboundedOrVariadicIndex = destTypeArgs.findIndex(
         (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
     );
+
+    // An unpacked TypeVar in the source stands for any tuple that matches its
+    // upper bound. Unless it lines up with a variadic element in the dest,
+    // replace it with the entries of its bound.
+    if ((flags & AssignTypeFlags.Contravariant) === 0) {
+        const linesUpWithDestVariadic =
+            destUnboundedOrVariadicIndex >= 0 &&
+            !destTypeArgs[destUnboundedOrVariadicIndex].isUnbounded &&
+            srcTypeArgs.length === destTypeArgs.length &&
+            isUnpackedTypeVar(srcTypeArgs[destUnboundedOrVariadicIndex].type);
+
+        if (!linesUpWithDestVariadic) {
+            srcTypeArgs.splice(0, srcTypeArgs.length, ...expandUnpackedTypeVarsInTupleArgs(srcTypeArgs));
+        }
+    }
+
     let srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
     const srcVariadicIndex = srcTypeArgs.findIndex((t) => isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type));
 
@@ -476,7 +493,8 @@ export function adjustTupleTypeArgs(
         if (destUnboundedOrVariadicIndex >= 0 && srcArgsToCapture >= 0) {
             // If the dest contains a variadic element, determine which source
             // args map to this element and package them up into an unpacked tuple.
-            if (isTypeVarTuple(destTypeArgs[destUnboundedOrVariadicIndex].type)) {
+            const destVariadicType = destTypeArgs[destUnboundedOrVariadicIndex].type;
+            if (isTypeVarTuple(destVariadicType) || isUnpackedTypeVar(destVariadicType)) {
                 const tupleClass = evaluator.getTupleClassType();
 
                 if (tupleClass && isInstantiableClass(tupleClass)) {
@@ -486,7 +504,10 @@ export function adjustTupleTypeArgs(
 
                     // If we're left with a single unpacked variadic type var, there's no
                     // need to wrap it in a nested tuple.
-                    if (removedArgs.length === 1 && isUnpackedTypeVarTuple(removedArgs[0].type)) {
+                    if (
+                        removedArgs.length === 1 &&
+                        (isUnpackedTypeVarTuple(removedArgs[0].type) || isUnpackedTypeVar(removedArgs[0].type))
+                    ) {
                         variadicTuple = removedArgs[0].type;
                     } else {
                         // Package up the remaining type arguments into a tuple object.
