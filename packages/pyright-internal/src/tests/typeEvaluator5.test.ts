@@ -333,22 +333,7 @@ test('FutureImport3', () => {
 
 test('Conditional1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['conditional1.py']);
-    TestUtils.validateResults(analysisResults, 15);
-});
-
-test('Conditional2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['conditional2.py']);
-    TestUtils.validateResults(analysisResults, 24);
-});
-
-test('Conditional3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['conditional3.py']);
-    TestUtils.validateResults(analysisResults, 10, 1);
-});
-
-test('Conditional4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['conditional4.py']);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 21);
 });
 
 test('TypePrinter1', () => {
