@@ -170,7 +170,6 @@ import {
     isUnbound,
     isUnion,
     isUnknown,
-    maxTypeRecursionCount,
 } from './types';
 import {
     ClassMember,
@@ -187,7 +186,6 @@ import {
     getSpecializedTupleType,
     getTypeVarArgsRecursive,
     getTypeVarScopeIds,
-    isCallableType,
     isInstantiableMetaclass,
     isLiteralType,
     isLiteralTypeOrUnion,
@@ -1903,7 +1901,7 @@ export class Checker extends ParseTreeWalker {
             }
 
             // Invoke the __bool__ method on the type.
-            const boolReturnType = this._evaluator.getTypeOfMagicMethodCall(
+            let boolReturnType = this._evaluator.getTypeOfMagicMethodCall(
                 expandedSubtype,
                 '__bool__',
                 [],
@@ -1912,7 +1910,8 @@ export class Checker extends ParseTreeWalker {
             )?.type;
 
             if (!boolReturnType) {
-                // A non-callable __bool__ disables truth testing, even when __len__ exists.
+                // The magic-method helper does not handle class-valued or union callables.
+                // Validate the bound member's zero-argument call, including binding failures.
                 if (isClass(expandedSubtype)) {
                     const boolMember = this._evaluator.getTypeOfBoundMember(
                         node,
@@ -1922,21 +1921,48 @@ export class Checker extends ParseTreeWalker {
                         /* diag */ undefined,
                         MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
                     );
-                    if (boolMember && !boolMember.typeErrors) {
-                        const boolMemberType = this._evaluator.makeTopLevelTypeVarsConcrete(boolMember.type);
-                        if (this._isConditionalBoolCallable(boolMemberType, node)) {
+                    if (boolMember && !isNever(boolMember.type)) {
+                        const callResult = boolMember.typeErrors
+                            ? undefined
+                            : this._evaluator.useSpeculativeMode(node, () =>
+                                  this._evaluator.validateCallArgs(
+                                      node,
+                                      [],
+                                      boolMember,
+                                      /* constraints */ undefined,
+                                      /* skipUnknownArgCheck */ true,
+                                      /* inferenceContext */ undefined
+                                  )
+                              );
+                        if (boolMember.typeErrors || callResult?.argumentErrors) {
+                            isTypeBool = false;
+                            diag.addMessage(
+                                LocAddendum.conditionalBoolNotCallable().format({
+                                    operandType: this._evaluator.printType(expandedSubtype),
+                                })
+                            );
                             return undefined;
                         }
-
-                        isTypeBool = false;
-                        diag.addMessage(
-                            LocAddendum.conditionalBoolNotCallable().format({
-                                operandType: this._evaluator.printType(expandedSubtype),
-                                boolMemberType: this._evaluator.printType(boolMemberType),
-                            })
-                        );
+                        boolReturnType = callResult?.returnType
+                            ? this._evaluator.makeTopLevelTypeVarsConcrete(callResult.returnType)
+                            : undefined;
+                        // Preserve support for gradual callable unions without accepting known non-bool results.
+                        if (
+                            boolReturnType &&
+                            isUnion(boolReturnType) &&
+                            boolReturnType.priv.subtypes.every(
+                                (subtype) =>
+                                    isAnyOrUnknown(subtype) ||
+                                    (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'bool'))
+                            )
+                        ) {
+                            return undefined;
+                        }
                     }
                 }
+            }
+
+            if (!boolReturnType) {
                 return undefined;
             }
 
@@ -1970,43 +1996,6 @@ export class Checker extends ParseTreeWalker {
                 node
             );
         }
-    }
-
-    private _isConditionalBoolCallable(type: Type, node: ExpressionNode, recursionCount = 0): boolean {
-        if (recursionCount > maxTypeRecursionCount) {
-            return true;
-        }
-
-        let isCallable = true;
-        doForEachSubtype(this._evaluator.makeTopLevelTypeVarsConcrete(type), (subtype) => {
-            if (isNever(subtype)) {
-                return;
-            }
-
-            if (!isCallableType(subtype)) {
-                isCallable = false;
-                return;
-            }
-
-            if (isClass(subtype)) {
-                const callMember = this._evaluator.getTypeOfBoundMember(
-                    node,
-                    subtype,
-                    '__call__',
-                    /* usage */ undefined,
-                    /* diag */ undefined,
-                    MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
-                );
-                if (
-                    callMember &&
-                    !callMember.typeErrors &&
-                    !this._isConditionalBoolCallable(callMember.type, node, recursionCount + 1)
-                ) {
-                    isCallable = false;
-                }
-            }
-        });
-        return isCallable;
     }
 
     private _reportUnnecessaryConditionExpression(expression: ExpressionNode) {

@@ -207,6 +207,7 @@ def invalid_non_callable_conditionals(
     bad_callable: BoolIsBadCallable,
     nested_bad_callable: BoolIsNestedBadCallable,
     generic: GenericNonCallableBool[int],
+    union: BoolIsCallableUnion,
 ):
     # This should generate an error.
     if integer:
@@ -241,6 +242,9 @@ def invalid_non_callable_conditionals(
     # This should generate an error.
     if ClassWithIntBool:
         pass
+    # This should generate an error because one callable returns int.
+    if union:
+        pass
 
 
 def valid_conditionals(
@@ -271,7 +275,6 @@ def valid_callable_conditionals(
     never: BoolIsNever,
     callback: BoolIsCallback,
     generic: GenericCallableBool[Callable[[], bool]],
-    union: BoolIsCallableUnion,
 ):
     if instance:
         pass
@@ -284,6 +287,4 @@ def valid_callable_conditionals(
     if callback:
         pass
     if generic:
-        pass
-    if union:
         pass
