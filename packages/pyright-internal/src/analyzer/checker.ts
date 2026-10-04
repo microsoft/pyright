@@ -1900,77 +1900,51 @@ export class Checker extends ParseTreeWalker {
                 return undefined;
             }
 
-            // Invoke the __bool__ method on the type.
-            let boolReturnType = this._evaluator.getTypeOfMagicMethodCall(
+            if (!isClass(expandedSubtype)) {
+                return undefined;
+            }
+
+            const boolMember = this._evaluator.getTypeOfBoundMember(
+                node,
                 expandedSubtype,
                 '__bool__',
-                [],
-                node,
-                /* inferenceContext */ undefined
-            )?.type;
-
-            if (!boolReturnType) {
-                // The magic-method helper does not handle class-valued or union callables.
-                // Validate the bound member's zero-argument call, including binding failures.
-                if (isClass(expandedSubtype)) {
-                    const boolMember = this._evaluator.getTypeOfBoundMember(
-                        node,
-                        expandedSubtype,
-                        '__bool__',
-                        /* usage */ undefined,
-                        /* diag */ undefined,
-                        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
-                    );
-                    if (boolMember && !isNever(boolMember.type)) {
-                        const callResult = boolMember.typeErrors
-                            ? undefined
-                            : this._evaluator.useSpeculativeMode(node, () =>
-                                  this._evaluator.validateCallArgs(
-                                      node,
-                                      [],
-                                      boolMember,
-                                      /* constraints */ undefined,
-                                      /* skipUnknownArgCheck */ true,
-                                      /* inferenceContext */ undefined
-                                  )
-                              );
-                        if (boolMember.typeErrors || callResult?.argumentErrors) {
-                            isTypeBool = false;
-                            diag.addMessage(
-                                LocAddendum.conditionalBoolNotCallable().format({
-                                    operandType: this._evaluator.printType(expandedSubtype),
-                                })
-                            );
-                            return undefined;
-                        }
-                        boolReturnType = callResult?.returnType
-                            ? this._evaluator.makeTopLevelTypeVarsConcrete(callResult.returnType)
-                            : undefined;
-                        // Preserve support for gradual callable unions without accepting known non-bool results.
-                        if (
-                            boolReturnType &&
-                            isUnion(boolReturnType) &&
-                            boolReturnType.priv.subtypes.every(
-                                (subtype) =>
-                                    isAnyOrUnknown(subtype) ||
-                                    (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'bool'))
-                            )
-                        ) {
-                            return undefined;
-                        }
-                    }
-                }
-            }
-
-            if (!boolReturnType) {
+                /* usage */ undefined,
+                /* diag */ undefined,
+                MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
+            );
+            if (!boolMember || isNever(boolMember.type)) {
                 return undefined;
             }
 
-            if (isAnyOrUnknown(boolReturnType)) {
+            const callResult = boolMember.typeErrors
+                ? undefined
+                : this._evaluator.useSpeculativeMode(node, () =>
+                      this._evaluator.validateCallArgs(
+                          node,
+                          [],
+                          boolMember,
+                          /* constraints */ undefined,
+                          /* skipUnknownArgCheck */ true,
+                          /* inferenceContext */ undefined
+                      )
+                  );
+            if (boolMember.typeErrors || callResult?.argumentErrors) {
+                isTypeBool = false;
+                diag.addMessage(
+                    LocAddendum.conditionalBoolNotCallable().format({
+                        operandType: this._evaluator.printType(expandedSubtype),
+                    })
+                );
                 return undefined;
             }
 
-            if (isClassInstance(boolReturnType) && ClassType.isBuiltIn(boolReturnType, 'bool')) {
+            const boolReturnType = callResult?.returnType;
+            if (
+                !boolReturnType ||
+                isAnyOrUnknown(boolReturnType) ||
+                (!isNever(boolReturnType) &&
+                    this._evaluator.assignType(this._evaluator.getBuiltInObject(node, 'bool'), boolReturnType))
+            ) {
                 return undefined;
             }
 

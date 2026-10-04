@@ -346,6 +346,11 @@ test('Conditional3', () => {
     TestUtils.validateResults(analysisResults, 8, 1);
 });
 
+test('Conditional4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['conditional4.py']);
+    TestUtils.validateResults(analysisResults, 5);
+});
+
 test('TypePrinter1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typePrinter1.py']);
     TestUtils.validateResults(analysisResults, 0);
