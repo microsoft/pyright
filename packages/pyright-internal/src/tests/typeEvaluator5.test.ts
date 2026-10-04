@@ -343,7 +343,7 @@ test('Conditional2', () => {
 
 test('Conditional3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['conditional3.py']);
-    TestUtils.validateResults(analysisResults, 8, 1);
+    TestUtils.validateResults(analysisResults, 10, 1);
 });
 
 test('Conditional4', () => {

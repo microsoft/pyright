@@ -45,6 +45,18 @@ class BoolIsIntConstructor:
     __bool__ = int
 
 
+class BoolIsTypeConstructor:
+    __bool__ = type
+
+
+class TypeConstructorMeta(type):
+    __bool__ = type
+
+
+class ClassWithTypeConstructor(metaclass=TypeConstructorMeta):
+    pass
+
+
 class RequiresArgumentMeta(type):
     def __bool__(cls, required: int) -> bool:
         return required > 0
@@ -121,6 +133,7 @@ def invalid_conditionals(
     mixed_return: BoolPropertyReturnsUnion,
     mixed_arity: BoolPropertyArityUnion,
     int_constructor: BoolIsIntConstructor,
+    type_constructor: BoolIsTypeConstructor,
 ):
     # This should generate an error.
     if required:
@@ -142,6 +155,12 @@ def invalid_conditionals(
         pass
     # This should generate an error.
     if int_constructor:
+        pass
+    # This should generate an error.
+    if type_constructor:
+        pass
+    # This should generate an error.
+    if ClassWithTypeConstructor:
         pass
     # This should generate an error.
     if ClassRequiresArgument:
