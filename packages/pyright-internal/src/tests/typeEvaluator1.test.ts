@@ -12,6 +12,7 @@ import * as assert from 'assert';
 
 import { ScopeType } from '../analyzer/scope';
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
@@ -331,6 +332,19 @@ test('TypeNarrowingTypeIs1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypeIs1.py']);
 
     TestUtils.validateResults(analysisResults, 3);
+});
+
+test('TypeGuardMethod1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuardMethod1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [276, DiagnosticRule.reportAttributeAccessIssue],
+            [282, DiagnosticRule.reportAttributeAccessIssue],
+        ]
+    );
 });
 
 test('TypeNarrowingTypeEquals1', () => {

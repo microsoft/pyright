@@ -26,6 +26,7 @@ import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { Declaration, DeclarationType } from './declaration';
 import { transformTypeForEnumMember } from './enums';
+import { getParamListDetails, ParamKind } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import { getScopeForNode, isScopeContainedWithin } from './scopeUtils';
@@ -707,100 +708,187 @@ export function getTypeNarrowingCallback(
         }
 
         // Look for a TypeGuard function.
-        if (testExpression.d.args.length >= 1) {
-            const arg0Expr = testExpression.d.args[0].d.valueExpr;
-            if (isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
-                // Does this look like it's a custom type guard function?
-                let isPossiblyTypeGuard = false;
-
-                const isFunctionReturnTypeGuard = (type: FunctionType) => {
-                    const returnType = type.shared.declaredReturnType;
-                    if (!returnType) {
-                        return false;
+        const isFunctionReturnTypeGuard = (type: FunctionType): boolean => {
+            const returnType = type.shared.declaredReturnType;
+            if (!returnType) {
+                return false;
+            }
+            if (isClassInstance(returnType)) {
+                return ClassType.isBuiltIn(returnType, ['TypeGuard', 'TypeIs']);
+            }
+            if (isUnion(returnType)) {
+                let isAllGuards = true;
+                doForEachSubtype(returnType, (subtype) => {
+                    if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, ['TypeGuard', 'TypeIs'])) {
+                        isAllGuards = false;
                     }
-                    if (isClassInstance(returnType)) {
-                        return ClassType.isBuiltIn(returnType, ['TypeGuard', 'TypeIs']);
-                    }
-                    if (isUnion(returnType)) {
-                        let isAllGuards = true;
-                        doForEachSubtype(returnType, (subtype) => {
-                            if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, ['TypeGuard', 'TypeIs'])) {
-                                isAllGuards = false;
-                            }
-                        });
-                        return isAllGuards;
-                    }
-                    return false;
-                };
+                });
+                return isAllGuards;
+            }
+            return false;
+        };
 
-                const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.d.leftExpr,
-                    EvalFlags.CallBaseDefaults
-                );
-                const callType = callTypeResult.type;
+        // Reject unrelated references before evaluating the callee.
+        if (
+            testExpression.d.args.some((arg) => isMatchingExpressionOrWalrusRhs(evaluator, reference, arg.d.valueExpr))
+        ) {
+            const callTypeResult = evaluator.getTypeOfExpression(testExpression.d.leftExpr, EvalFlags.CallBaseDefaults);
+            const callType = callTypeResult.type;
 
-                if (isFunction(callType) && isFunctionReturnTypeGuard(callType)) {
-                    isPossiblyTypeGuard = true;
-                } else if (
-                    isOverloaded(callType) &&
-                    OverloadedType.getOverloads(callType).some((o) => isFunctionReturnTypeGuard(o))
+            let isPossiblyTypeGuard = false;
+            if (isFunction(callType)) {
+                isPossiblyTypeGuard = isFunctionReturnTypeGuard(callType);
+            } else if (isOverloaded(callType)) {
+                isPossiblyTypeGuard = OverloadedType.getOverloads(callType).some(isFunctionReturnTypeGuard);
+            } else if (isClassInstance(callType)) {
+                // A callable object's __call__ may be overloaded, a property or have
+                // an inferred return type, so rely on the evaluated call below.
+                isPossiblyTypeGuard = true;
+            }
+
+            if (isPossiblyTypeGuard) {
+                const functionReturnTypeResult = evaluator.getTypeOfExpression(testExpression);
+                const functionReturnType = functionReturnTypeResult.type;
+                let typeGuardType: Type | undefined;
+                let isStrictTypeGuard = false;
+
+                if (
+                    isClassInstance(functionReturnType) &&
+                    ClassType.isBuiltIn(functionReturnType, ['TypeGuard', 'TypeIs']) &&
+                    functionReturnType.priv.typeArgs &&
+                    functionReturnType.priv.typeArgs.length > 0
                 ) {
-                    isPossiblyTypeGuard = true;
-                } else if (isClassInstance(callType)) {
-                    isPossiblyTypeGuard = true;
+                    isStrictTypeGuard = ClassType.isBuiltIn(functionReturnType, 'TypeIs');
+                    typeGuardType = functionReturnType.priv.typeArgs[0];
+                } else if (isUnion(functionReturnType)) {
+                    const typeGuardSubtypes: ClassType[] = [];
+                    let isAllGuards = true;
+
+                    doForEachSubtype(functionReturnType, (subtype) => {
+                        if (
+                            isClassInstance(subtype) &&
+                            ClassType.isBuiltIn(subtype, ['TypeGuard', 'TypeIs']) &&
+                            subtype.priv.typeArgs &&
+                            subtype.priv.typeArgs.length > 0
+                        ) {
+                            typeGuardSubtypes.push(subtype);
+                        } else {
+                            isAllGuards = false;
+                        }
+                    });
+
+                    if (isAllGuards && typeGuardSubtypes.length > 0) {
+                        // A union of type guards cannot be strict in the negative case because at runtime
+                        // only one arm of the overload/union is selected. Treating it as strict would
+                        // unsoundly eliminate types in the negative branch.
+                        isStrictTypeGuard = false;
+                        typeGuardType = combineTypes(typeGuardSubtypes.map((subtype) => subtype.priv.typeArgs![0]));
+                    }
                 }
 
-                if (isPossiblyTypeGuard) {
-                    // Evaluate the type guard call expression.
-                    const functionReturnTypeResult = evaluator.getTypeOfExpression(testExpression);
-                    const functionReturnType = functionReturnTypeResult.type;
+                if (typeGuardType) {
+                    // Map only guard-returning calls. Ordinary callable predicates
+                    // do not need their virtual parameter lists expanded.
+                    const getTargetArgExpr = (fnType: FunctionType): ExpressionNode | undefined => {
+                        // Callable-valued attributes can have binding metadata without a method receiver.
+                        const isUnbound =
+                            fnType.shared.methodClass !== undefined &&
+                            !FunctionType.isStaticMethod(fnType) &&
+                            fnType.priv.strippedFirstParamType === undefined;
 
-                    let typeGuardType: Type | undefined;
-                    let isStrictTypeGuard = false;
-
-                    if (
-                        isClassInstance(functionReturnType) &&
-                        ClassType.isBuiltIn(functionReturnType, ['TypeGuard', 'TypeIs']) &&
-                        functionReturnType.priv.typeArgs &&
-                        functionReturnType.priv.typeArgs.length > 0
-                    ) {
-                        isStrictTypeGuard = ClassType.isBuiltIn(functionReturnType, 'TypeIs');
-                        typeGuardType = functionReturnType.priv.typeArgs[0];
-                    } else if (isUnion(functionReturnType)) {
-                        const typeGuardSubtypes: ClassType[] = [];
-                        let isAllGuards = true;
-
-                        doForEachSubtype(functionReturnType, (subtype) => {
-                            if (
-                                isClassInstance(subtype) &&
-                                ClassType.isBuiltIn(subtype, ['TypeGuard', 'TypeIs']) &&
-                                subtype.priv.typeArgs &&
-                                subtype.priv.typeArgs.length > 0
-                            ) {
-                                typeGuardSubtypes.push(subtype);
-                            } else {
-                                isAllGuards = false;
+                        const targetIndex = isUnbound ? 1 : 0;
+                        const getPositionalArgExpr = (): ExpressionNode | undefined => {
+                            // Unpacking before the guarded position obscures its argument expression.
+                            let positionalIndex = 0;
+                            for (const arg of testExpression.d.args) {
+                                if (arg.d.name) {
+                                    continue;
+                                }
+                                if (arg.d.argCategory !== ArgCategory.Simple) {
+                                    return undefined;
+                                }
+                                if (positionalIndex === targetIndex) {
+                                    return arg.d.valueExpr;
+                                }
+                                positionalIndex++;
                             }
-                        });
 
-                        if (isAllGuards && typeGuardSubtypes.length > 0) {
-                            // A union of type guards cannot be strict in the negative case because at runtime
-                            // only one arm of the overload/union is selected. Treating it as strict would
-                            // unsoundly eliminate types in the negative branch.
-                            isStrictTypeGuard = false;
-                            typeGuardType = combineTypes(typeGuardSubtypes.map((subtype) => subtype.priv.typeArgs![0]));
+                            return undefined;
+                        };
+
+                        // Simple leading parameters bind positionally without expanding the rest of the signature.
+                        const firstParam = fnType.shared.parameters[0];
+                        const targetParam = fnType.shared.parameters[targetIndex];
+                        if (
+                            firstParam?.category === ParamCategory.Simple &&
+                            firstParam.name &&
+                            targetParam?.category === ParamCategory.Simple &&
+                            targetParam.name
+                        ) {
+                            const positionalArgExpr = getPositionalArgExpr();
+                            if (positionalArgExpr) {
+                                return positionalArgExpr;
+                            }
                         }
+
+                        const paramDetails = getParamListDetails(fnType);
+                        if (targetIndex >= paramDetails.params.length) {
+                            return undefined;
+                        }
+
+                        const target = paramDetails.params[targetIndex];
+                        if (
+                            target.param.category !== ParamCategory.Simple &&
+                            target.param.category !== ParamCategory.ArgsList
+                        ) {
+                            return undefined;
+                        }
+
+                        if (
+                            (target.kind === ParamKind.Standard || target.kind === ParamKind.Keyword) &&
+                            target.param.name
+                        ) {
+                            const kwArg = testExpression.d.args.find(
+                                (arg) =>
+                                    arg.d.argCategory === ArgCategory.Simple &&
+                                    arg.d.name?.d.value === target.param.name
+                            );
+                            if (kwArg) {
+                                return kwArg.d.valueExpr;
+                            }
+                        }
+
+                        if (target.kind === ParamKind.Keyword) {
+                            return undefined;
+                        }
+
+                        return getPositionalArgExpr();
+                    };
+
+                    let arg0Expr: ExpressionNode | undefined;
+                    const overloadsUsed = functionReturnTypeResult.overloadsUsedForCall;
+                    if (overloadsUsed && overloadsUsed.length > 0) {
+                        arg0Expr = getTargetArgExpr(overloadsUsed[0]);
+                        for (let i = 1; arg0Expr && i < overloadsUsed.length; i++) {
+                            if (getTargetArgExpr(overloadsUsed[i]) !== arg0Expr) {
+                                arg0Expr = undefined;
+                                break;
+                            }
+                        }
+                    } else if (isFunction(callType)) {
+                        arg0Expr = getTargetArgExpr(callType);
                     }
 
-                    if (typeGuardType) {
+                    if (arg0Expr && isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
                         const isIncomplete = !!callTypeResult.isIncomplete || !!functionReturnTypeResult.isIncomplete;
+                        const guardType = typeGuardType;
 
                         return (type: Type) => {
                             return {
                                 type: narrowTypeForUserDefinedTypeGuard(
                                     evaluator,
                                     type,
-                                    typeGuardType!,
+                                    guardType,
                                     isPositiveTest,
                                     isStrictTypeGuard,
                                     testExpression,
