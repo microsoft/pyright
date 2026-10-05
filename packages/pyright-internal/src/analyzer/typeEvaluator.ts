@@ -350,6 +350,7 @@ import {
     isNoneInstance,
     isNoneTypeClass,
     isOptionalType,
+    isOverlapOnlyByOmission,
     isPartlyUnknown,
     isProperty,
     isSentinelLiteral,
@@ -25788,6 +25789,7 @@ export function createTypeEvaluator(
                             /* diag */ undefined,
                             /* constraints */ undefined,
                             /* selfConstraints */ undefined,
+                            AssignTypeFlags.Default,
                             recursionCount
                         )
                     ) {
@@ -28234,6 +28236,53 @@ export function createTypeEvaluator(
         }
     }
 
+    // Determines whether the dest accepts every argument list the source
+    // accepts, apart from parameters that overlap only when omitted.
+    function isParamListOverlapOnlyByOmission(
+        destType: FunctionType,
+        srcType: FunctionType,
+        destParamDetails: ParamListDetails,
+        srcParamDetails: ParamListDetails,
+        recursionCount: number
+    ): boolean {
+        if (destParamDetails.params.length !== srcParamDetails.params.length) {
+            return false;
+        }
+
+        const destScopeIds = getTypeVarScopeIds(destType);
+        const srcScopeIds = getTypeVarScopeIds(srcType);
+        const constraints = new ConstraintTracker();
+
+        return destParamDetails.params.every((destParam, index) => {
+            const srcParam = srcParamDetails.params[index];
+
+            if (
+                destParam.kind !== srcParam.kind ||
+                destParam.param.category !== srcParam.param.category ||
+                destParam.param.name !== srcParam.param.name
+            ) {
+                return false;
+            }
+
+            if (destParam.defaultType && srcParam.defaultType) {
+                if (isOverlapOnlyByOmission(destParam.type, destParam.defaultType, srcParam.type)) {
+                    return true;
+                }
+            } else if (srcParam.defaultType) {
+                return false;
+            }
+
+            return assignType(
+                makeTypeVarsFree(destParam.type, destScopeIds),
+                makeTypeVarsBound(srcParam.type, srcScopeIds),
+                /* diag */ undefined,
+                constraints,
+                AssignTypeFlags.Default,
+                recursionCount
+            );
+        });
+    }
+
     function assignFunction(
         destType: FunctionType,
         srcType: FunctionType,
@@ -28268,6 +28317,20 @@ export function createTypeEvaluator(
             isContra ? destParamDetails : srcParamDetails,
             isContra ? srcParamDetails : destParamDetails
         );
+
+        let paramListOmissionResult: boolean | undefined;
+        const checkParamListOmission = () => {
+            if (paramListOmissionResult === undefined) {
+                paramListOmissionResult = isParamListOverlapOnlyByOmission(
+                    destType,
+                    srcType,
+                    destParamDetails,
+                    srcParamDetails,
+                    recursionCount
+                );
+            }
+            return paramListOmissionResult;
+        };
 
         const targetIncludesParamSpec = isContra ? !!srcParamSpec : !!destParamSpec;
 
@@ -28348,6 +28411,12 @@ export function createTypeEvaluator(
                 // be a match.
                 if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
                     if (srcParam.defaultType) {
+                        if (
+                            isOverlapOnlyByOmission(destParamType, destParam.defaultType, srcParamType) &&
+                            checkParamListOmission()
+                        ) {
+                            canAssign = false;
+                        }
                         continue;
                     }
                 }
@@ -28781,6 +28850,12 @@ export function createTypeEvaluator(
                     // be a match.
                     if (srcParamInfo.defaultType && destParamInfo.defaultType) {
                         if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
+                            if (
+                                isOverlapOnlyByOmission(destParamInfo.type, destParamInfo.defaultType, srcParamType) &&
+                                checkParamListOmission()
+                            ) {
+                                canAssign = false;
+                            }
                             destParamMap.delete(srcParamInfo.param.name);
                             return;
                         }

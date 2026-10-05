@@ -526,7 +526,11 @@ function assignToProtocolInternal(
 
     let typesAreConsistent = true;
     const checkedSymbolSet = new Set<string>();
-    let assignTypeFlags = flags & (AssignTypeFlags.OverloadOverlap | AssignTypeFlags.PartialOverloadOverlap);
+    let assignTypeFlags =
+        flags &
+        (AssignTypeFlags.OverloadOverlap |
+            AssignTypeFlags.PartialOverloadOverlap |
+            AssignTypeFlags.RejectCyclicLowerBound);
 
     assignTypeFlags |= containsLiteralType(srcType, /* includeTypeArgs */ true)
         ? AssignTypeFlags.RetainLiteralsForTypeVar
@@ -779,6 +783,7 @@ function assignToProtocolInternal(
                             subDiag?.createAddendum(),
                             protocolConstraints,
                             selfSolution,
+                            assignTypeFlags,
                             recursionCount
                         )
                     ) {
