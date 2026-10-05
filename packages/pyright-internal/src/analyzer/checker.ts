@@ -2691,33 +2691,35 @@ export class Checker extends ParseTreeWalker {
 
         for (let i = 0; i < prevOverloads.length; i++) {
             const prevOverload = prevOverloads[i];
-            if (this._isOverlappingOverload(prevOverload, functionType, /* partialOverlap */ true)) {
-                const prevReturnType = FunctionType.getEffectiveReturnType(prevOverload);
-                const returnType = FunctionType.getEffectiveReturnType(functionType);
+            const prevReturnType = FunctionType.getEffectiveReturnType(prevOverload);
+            const returnType = FunctionType.getEffectiveReturnType(functionType);
 
-                if (
-                    prevReturnType &&
-                    returnType &&
-                    !this._evaluator.assignType(
-                        returnType,
-                        prevReturnType,
-                        /* diag */ undefined,
-                        /* constraints */ undefined,
-                        AssignTypeFlags.RejectCyclicLowerBound
-                    )
-                ) {
-                    const altNode = this._findNodeForOverload(node, prevOverload);
-                    this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportOverlappingOverload,
-                        LocMessage.overloadReturnTypeMismatch().format({
-                            name: node.d.name.d.value,
-                            newIndex: prevOverloads.length + 1,
-                            prevIndex: i + 1,
-                        }),
-                        (altNode || node).d.name
-                    );
-                    break;
-                }
+            if (
+                !prevReturnType ||
+                !returnType ||
+                this._evaluator.assignType(
+                    returnType,
+                    prevReturnType,
+                    /* diag */ undefined,
+                    /* constraints */ undefined,
+                    AssignTypeFlags.RejectCyclicLowerBound
+                )
+            ) {
+                continue;
+            }
+
+            if (this._isOverlappingOverload(prevOverload, functionType, /* partialOverlap */ true)) {
+                const altNode = this._findNodeForOverload(node, prevOverload);
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportOverlappingOverload,
+                    LocMessage.overloadReturnTypeMismatch().format({
+                        name: node.d.name.d.value,
+                        newIndex: prevOverloads.length + 1,
+                        prevIndex: i + 1,
+                    }),
+                    (altNode || node).d.name
+                );
+                break;
             }
         }
     }
