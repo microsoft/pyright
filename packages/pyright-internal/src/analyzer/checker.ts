@@ -2839,7 +2839,8 @@ export class Checker extends ParseTreeWalker {
             AssignTypeFlags.SkipReturnTypeCheck |
                 AssignTypeFlags.Contravariant |
                 AssignTypeFlags.SkipSelfClsTypeCheck |
-                AssignTypeFlags.DisallowExtraKwargsForTd
+                AssignTypeFlags.DisallowExtraKwargsForTd |
+                AssignTypeFlags.EnforceOverloadImplCallDomain
         );
 
         // Now check the return types.
