@@ -3141,6 +3141,7 @@ export function createTypeEvaluator(
             const setter = getBoundMagicMethod(declaredType, '__set__');
             if (setter && isFunction(setter) && setter.shared.parameters.length >= 2) {
                 declaredType = FunctionType.getParamType(setter, 1);
+                bindFunction = false;
 
                 if (isAnyOrUnknown(declaredType)) {
                     return undefined;
