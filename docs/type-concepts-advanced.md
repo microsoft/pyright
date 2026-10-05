@@ -84,6 +84,8 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 
 Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, subscripts that are integer literals (e.g. `a[2]` or `a[-1]`), and call expressions. Other operators (such as arithmetic operators or other subscripts) are not supported.
 
+For user-defined `TypeGuard` and `TypeIs` calls, Pyright narrows the argument corresponding to the first parameter after any method receiver (`self` or `cls`). This applies to bound and unbound methods, including method aliases, and arguments supplied by keyword. Guards with gradual (`...`), tuple-unpacked, or variadic positional parameter lists support narrowing of explicit positional arguments. If selected overloads identify different guarded arguments, or argument unpacking obscures the guarded expression, Pyright does not apply narrowing.
+
 Some type guards are able to narrow in both the positive and negative cases. Positive cases are used in `if` statements, and negative cases are used in `else` statements. (Positive and negative cases are flipped if the type guard expression is preceded by a `not` operator.) In some cases, the type can be narrowed only in the positive or negative case but not both. Consider the following examples:
 
 ```python

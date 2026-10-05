@@ -728,101 +728,27 @@ export function getTypeNarrowingCallback(
             return false;
         };
 
-        const callTypeResult = evaluator.getTypeOfExpression(testExpression.d.leftExpr, EvalFlags.CallBaseDefaults);
-        const callType = callTypeResult.type;
-
-        let isPossiblyTypeGuard = false;
-        if (isFunction(callType)) {
-            isPossiblyTypeGuard = isFunctionReturnTypeGuard(callType);
-        } else if (isOverloaded(callType)) {
-            isPossiblyTypeGuard = OverloadedType.getOverloads(callType).some(isFunctionReturnTypeGuard);
-        } else if (isClassInstance(callType)) {
-            // A callable object's __call__ may be overloaded, a property or have
-            // an inferred return type, so rely on the evaluated call below.
-            isPossiblyTypeGuard = true;
-        }
-
-        // Avoid evaluating the call unless one of its arguments could be the reference.
+        // Reject unrelated references before evaluating the callee.
         if (
-            isPossiblyTypeGuard &&
-            !testExpression.d.args.some((arg) => isMatchingExpressionOrWalrusRhs(evaluator, reference, arg.d.valueExpr))
+            testExpression.d.args.some((arg) => isMatchingExpressionOrWalrusRhs(evaluator, reference, arg.d.valueExpr))
         ) {
-            isPossiblyTypeGuard = false;
-        }
+            const callTypeResult = evaluator.getTypeOfExpression(testExpression.d.leftExpr, EvalFlags.CallBaseDefaults);
+            const callType = callTypeResult.type;
 
-        if (isPossiblyTypeGuard) {
-            // Maps the guarded (first non-receiver) parameter of the signature
-            // used for the call to its argument expression. Returns undefined if
-            // the mapping is ambiguous, in which case no narrowing is applied.
-            const getTargetArgExpr = (fnType: FunctionType): ExpressionNode | undefined => {
-                const isUnbound =
-                    testExpression.d.leftExpr.nodeType === ParseNodeType.MemberAccess &&
-                    fnType.priv.boundToType !== undefined &&
-                    isInstantiableClass(fnType.priv.boundToType) &&
-                    !FunctionType.isStaticMethod(fnType) &&
-                    fnType.priv.strippedFirstParamType === undefined;
-
-                const paramDetails = getParamListDetails(fnType);
-                const targetIndex = isUnbound ? 1 : 0;
-                if (targetIndex >= paramDetails.params.length) {
-                    return undefined;
-                }
-
-                const target = paramDetails.params[targetIndex];
-                if (target.param.category !== ParamCategory.Simple || target.kind === ParamKind.ExpandedArgs) {
-                    return undefined;
-                }
-
-                if (target.kind !== ParamKind.Positional && target.param.name) {
-                    const kwArg = testExpression.d.args.find(
-                        (arg) => arg.d.argCategory === ArgCategory.Simple && arg.d.name?.d.value === target.param.name
-                    );
-                    if (kwArg) {
-                        return kwArg.d.valueExpr;
-                    }
-                }
-
-                if (target.kind === ParamKind.Keyword) {
-                    return undefined;
-                }
-
-                // Map positional arguments to parameters. If an unpacked argument
-                // appears at or before the target index, the mapping is ambiguous,
-                // so don't attempt to narrow.
-                let positionalIndex = 0;
-                for (const arg of testExpression.d.args) {
-                    if (arg.d.name) {
-                        continue;
-                    }
-                    if (arg.d.argCategory !== ArgCategory.Simple) {
-                        return undefined;
-                    }
-                    if (positionalIndex === targetIndex) {
-                        return arg.d.valueExpr;
-                    }
-                    positionalIndex++;
-                }
-
-                return undefined;
-            };
-
-            // Evaluate the type guard call expression and map the argument
-            // through the signature that was actually used for the call.
-            const functionReturnTypeResult = evaluator.getTypeOfExpression(testExpression);
-            const functionReturnType = functionReturnTypeResult.type;
-
-            let arg0Expr: ExpressionNode | undefined;
-            const overloadsUsed = functionReturnTypeResult.overloadsUsedForCall;
-            if (overloadsUsed && overloadsUsed.length > 0) {
-                const targetArgs = overloadsUsed.map(getTargetArgExpr);
-                if (targetArgs.every((arg) => arg === targetArgs[0])) {
-                    arg0Expr = targetArgs[0];
-                }
-            } else if (isFunction(callType)) {
-                arg0Expr = getTargetArgExpr(callType);
+            let isPossiblyTypeGuard = false;
+            if (isFunction(callType)) {
+                isPossiblyTypeGuard = isFunctionReturnTypeGuard(callType);
+            } else if (isOverloaded(callType)) {
+                isPossiblyTypeGuard = OverloadedType.getOverloads(callType).some(isFunctionReturnTypeGuard);
+            } else if (isClassInstance(callType)) {
+                // A callable object's __call__ may be overloaded, a property or have
+                // an inferred return type, so rely on the evaluated call below.
+                isPossiblyTypeGuard = true;
             }
 
-            if (arg0Expr && isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
+            if (isPossiblyTypeGuard) {
+                const functionReturnTypeResult = evaluator.getTypeOfExpression(testExpression);
+                const functionReturnType = functionReturnTypeResult.type;
                 let typeGuardType: Type | undefined;
                 let isStrictTypeGuard = false;
 
@@ -861,22 +787,117 @@ export function getTypeNarrowingCallback(
                 }
 
                 if (typeGuardType) {
-                    const isIncomplete = !!callTypeResult.isIncomplete || !!functionReturnTypeResult.isIncomplete;
+                    // Map only guard-returning calls. Ordinary callable predicates
+                    // do not need their virtual parameter lists expanded.
+                    const getTargetArgExpr = (fnType: FunctionType): ExpressionNode | undefined => {
+                        // Callable-valued attributes can have binding metadata without a method receiver.
+                        const isUnbound =
+                            fnType.shared.methodClass !== undefined &&
+                            !FunctionType.isStaticMethod(fnType) &&
+                            fnType.priv.strippedFirstParamType === undefined;
 
-                    return (type: Type) => {
-                        return {
-                            type: narrowTypeForUserDefinedTypeGuard(
-                                evaluator,
-                                type,
-                                typeGuardType!,
-                                isPositiveTest,
-                                isStrictTypeGuard,
-                                testExpression,
-                                nodeInfo
-                            ),
-                            isIncomplete,
+                        const targetIndex = isUnbound ? 1 : 0;
+                        const getPositionalArgExpr = (): ExpressionNode | undefined => {
+                            // Unpacking before the guarded position obscures its argument expression.
+                            let positionalIndex = 0;
+                            for (const arg of testExpression.d.args) {
+                                if (arg.d.name) {
+                                    continue;
+                                }
+                                if (arg.d.argCategory !== ArgCategory.Simple) {
+                                    return undefined;
+                                }
+                                if (positionalIndex === targetIndex) {
+                                    return arg.d.valueExpr;
+                                }
+                                positionalIndex++;
+                            }
+
+                            return undefined;
                         };
+
+                        // Simple leading parameters bind positionally without expanding the rest of the signature.
+                        const firstParam = fnType.shared.parameters[0];
+                        const targetParam = fnType.shared.parameters[targetIndex];
+                        if (
+                            firstParam?.category === ParamCategory.Simple &&
+                            firstParam.name &&
+                            targetParam?.category === ParamCategory.Simple &&
+                            targetParam.name
+                        ) {
+                            const positionalArgExpr = getPositionalArgExpr();
+                            if (positionalArgExpr) {
+                                return positionalArgExpr;
+                            }
+                        }
+
+                        const paramDetails = getParamListDetails(fnType);
+                        if (targetIndex >= paramDetails.params.length) {
+                            return undefined;
+                        }
+
+                        const target = paramDetails.params[targetIndex];
+                        if (
+                            target.param.category !== ParamCategory.Simple &&
+                            target.param.category !== ParamCategory.ArgsList
+                        ) {
+                            return undefined;
+                        }
+
+                        if (
+                            (target.kind === ParamKind.Standard || target.kind === ParamKind.Keyword) &&
+                            target.param.name
+                        ) {
+                            const kwArg = testExpression.d.args.find(
+                                (arg) =>
+                                    arg.d.argCategory === ArgCategory.Simple &&
+                                    arg.d.name?.d.value === target.param.name
+                            );
+                            if (kwArg) {
+                                return kwArg.d.valueExpr;
+                            }
+                        }
+
+                        if (target.kind === ParamKind.Keyword) {
+                            return undefined;
+                        }
+
+                        return getPositionalArgExpr();
                     };
+
+                    let arg0Expr: ExpressionNode | undefined;
+                    const overloadsUsed = functionReturnTypeResult.overloadsUsedForCall;
+                    if (overloadsUsed && overloadsUsed.length > 0) {
+                        arg0Expr = getTargetArgExpr(overloadsUsed[0]);
+                        for (let i = 1; arg0Expr && i < overloadsUsed.length; i++) {
+                            if (getTargetArgExpr(overloadsUsed[i]) !== arg0Expr) {
+                                arg0Expr = undefined;
+                                break;
+                            }
+                        }
+                    } else if (isFunction(callType)) {
+                        arg0Expr = getTargetArgExpr(callType);
+                    }
+
+                    if (arg0Expr && isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
+                        const isIncomplete = !!callTypeResult.isIncomplete || !!functionReturnTypeResult.isIncomplete;
+                        const guardType = typeGuardType;
+
+                        return (type: Type) => {
+                            return {
+                                type: narrowTypeForUserDefinedTypeGuard(
+                                    evaluator,
+                                    type,
+                                    guardType,
+                                    isPositiveTest,
+                                    isStrictTypeGuard,
+                                    testExpression,
+                                    nodeInfo
+                                ),
+                                isIncomplete,
+                            };
+                        };
+                    }
                 }
             }
         }
