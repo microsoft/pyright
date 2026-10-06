@@ -36,6 +36,7 @@ import { getTypedDictMembersForClass } from './typedDicts';
 import { AssignTypeFlags, EvalFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     AnyType,
+    ClassDetailsShared,
     ClassType,
     ClassTypeFlags,
     combineTypes,
@@ -2769,12 +2770,22 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: C
     return combineTypes(typesToCombine);
 }
 
+function hasUnresolvedMetaclassInMro(classType: ClassType): boolean {
+    return classType.shared.mro.some(
+        (baseClass) =>
+            !isInstantiableClass(baseClass) || !!(baseClass.shared.flags & ClassTypeFlags.HasUnresolvedMetaclass)
+    );
+}
+
 // Determines whether an equality comparison ("==" or "!=") involving the
 // specified class object is guaranteed to have identity semantics. This
 // requires that the class is statically closed (it cannot be a subclass
 // with a different metaclass), is not generic (specialized aliases compare
 // by value), and its metaclass does not override "__eq__" or "__ne__".
-function hasIdentityEqualitySemantics(classType: ClassType): boolean {
+function hasIdentityEqualitySemantics(
+    classType: ClassType,
+    metaclassEqualityResults: Map<ClassDetailsShared, boolean>
+): boolean {
     if (classType.priv.includeSubclasses && !ClassType.isFinal(classType)) {
         return false;
     }
@@ -2783,7 +2794,30 @@ function hasIdentityEqualitySemantics(classType: ClassType): boolean {
         return false;
     }
 
-    return !customMetaclassSupportsMethod(classType, '__eq__') && !customMetaclassSupportsMethod(classType, '__ne__');
+    const metaclass = classType.shared.effectiveMetaclass;
+    if (
+        !metaclass ||
+        !isInstantiableClass(metaclass) ||
+        hasUnresolvedMetaclassInMro(classType) ||
+        hasUnresolvedMetaclassInMro(metaclass)
+    ) {
+        return false;
+    }
+
+    if (ClassType.isBuiltIn(metaclass, 'type')) {
+        return true;
+    }
+
+    // Cloned metaclasses share method definitions, but the class-specific checks above cannot be shared.
+    const cachedResult = metaclassEqualityResults.get(metaclass.shared);
+    if (cachedResult !== undefined) {
+        return cachedResult;
+    }
+
+    const result =
+        !customMetaclassSupportsMethod(classType, '__eq__') && !customMetaclassSupportsMethod(classType, '__ne__');
+    metaclassEqualityResults.set(metaclass.shared, result);
+    return result;
 }
 
 // Attempts to narrow a type based on a comparison with a class using "is" or
@@ -2795,16 +2829,30 @@ function narrowTypeForClassComparison(
     isPositiveTest: boolean,
     isIsOperator = true
 ): Type {
-    if (!isIsOperator && !hasIdentityEqualitySemantics(classType)) {
+    // Limit reuse to this invocation so results cannot outlive the evaluation that established them.
+    const metaclassEqualityResults = isIsOperator ? undefined : new Map<ClassDetailsShared, boolean>();
+    if (metaclassEqualityResults && !hasIdentityEqualitySemantics(classType, metaclassEqualityResults)) {
         return referenceType;
     }
 
     return mapSubtypes(referenceType, (subtype) => {
+        // Multiple class constraints expand to a union with distinct conditions, which equality cannot narrow.
+        if (
+            metaclassEqualityResults &&
+            isTypeVar(subtype) &&
+            !subtype.shared.recursiveAlias &&
+            subtype.shared.constraints.length > 1 &&
+            subtype.shared.constraints.every(isClassInstance)
+        ) {
+            return subtype;
+        }
+
         let concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
         if (
-            !isIsOperator &&
-            (!isInstantiableClass(concreteSubtype) || !hasIdentityEqualitySemantics(concreteSubtype))
+            metaclassEqualityResults &&
+            (!isInstantiableClass(concreteSubtype) ||
+                !hasIdentityEqualitySemantics(concreteSubtype, metaclassEqualityResults))
         ) {
             return subtype;
         }

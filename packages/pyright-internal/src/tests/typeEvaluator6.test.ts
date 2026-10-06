@@ -268,6 +268,22 @@ test('TypeGuard4', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeGuard5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard5.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()),
+        [DiagnosticRule.reportAttributeAccessIssue, DiagnosticRule.reportAttributeAccessIssue]
+    );
+    assert.ok(analysisResults[0].errors[0].message.includes('type[FactoryClass]'));
+    assert.ok(analysisResults[0].errors[1].message.includes('type[FactoryChild]'));
+});
+
+test('TypeGuard6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard6.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeIs1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs1.py']);
     TestUtils.validateResults(analysisResults, 2);
