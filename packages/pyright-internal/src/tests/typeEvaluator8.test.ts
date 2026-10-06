@@ -13,6 +13,7 @@ import * as assert from 'assert';
 import { EvalFlags } from '../analyzer/typeEvaluatorTypes';
 import { ClassType, isClassInstance, isInstantiableClass, UnknownType } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8, pythonVersion3_12 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
@@ -861,6 +862,25 @@ test('Descriptor5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor5.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Descriptor6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor6.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Descriptor7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor7.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [82, DiagnosticRule.reportOptionalOperand],
+            [134, DiagnosticRule.reportAttributeAccessIssue],
+        ]
+    );
 });
 
 test('Partial1', () => {
