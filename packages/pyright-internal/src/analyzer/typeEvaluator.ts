@@ -19388,6 +19388,9 @@ export function createTypeEvaluator(
                             classType.shared.flags |= ClassTypeFlags.SupportsAbstractMethods;
                         }
                     }
+                } else {
+                    // Callable metaclasses can return classes with different equality semantics.
+                    classType.shared.flags |= ClassTypeFlags.HasUnresolvedMetaclass;
                 }
             }
 

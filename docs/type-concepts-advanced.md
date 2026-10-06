@@ -65,6 +65,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `type(x) == T` and `type(x) != T`
 * `x is L` and `x is not L` (where L is an expression that evaluates to a literal type)
 * `x is C` and `x is not C` (where C is a class)
+* `x == C` and `x != C` (where C is a class and the compared class objects have statically known identity-based equality)
 * `x == L` and `x != L` (where L is an expression that evaluates to a literal type)
 * `x.y is None` and `x.y is not None` (where x is a type that is distinguished by a field with a None)
 * `x.y is E` and `x.y is not E` (where E is a literal enum or bool and x is a type that is distinguished by a field with a literal type)
@@ -85,6 +86,8 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, subscripts that are integer literals (e.g. `a[2]` or `a[-1]`), and call expressions. Other operators (such as arithmetic operators or other subscripts) are not supported.
 
 For user-defined `TypeGuard` and `TypeIs` calls, Pyright narrows the argument corresponding to the first parameter after any method receiver (`self` or `cls`). This applies to bound and unbound methods, including method aliases, and arguments supplied by keyword. Guards with gradual (`...`), tuple-unpacked, or variadic positional parameter lists support narrowing of explicit positional arguments. If selected overloads identify different guarded arguments, or argument unpacking obscures the guarded expression, Pyright does not apply narrowing.
+
+Class equality guards can narrow exact or final, non-generic class objects whose metaclasses have known default equality semantics. Alternatives with open subclass hierarchies, generic aliases, custom equality methods, or uncertain metaclasses are retained. Callable metaclass factories and unknown metaclass ancestry do not establish identity-based equality. Constrained type variables that expand to unions are retained rather than narrowed by these equality guards. Identity guards (`is` and `is not`) do not have these equality-specific restrictions.
 
 Some type guards are able to narrow in both the positive and negative cases. Positive cases are used in `if` statements, and negative cases are used in `else` statements. (Positive and negative cases are flipped if the type guard expression is preceded by a `not` operator.) In some cases, the type can be narrowed only in the positive or negative case but not both. Consider the following examples:
 
