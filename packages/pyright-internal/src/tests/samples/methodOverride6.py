@@ -238,3 +238,96 @@ class Parent5_1(Parent5):
     # This should generate an error because the overloads are
     # incompatible
     def m1(self, x: bytes | str) -> bytes | str: ...
+
+
+class Parent6:
+    @overload
+    def m1(self, a: int, /) -> int: ...
+
+    @overload
+    def m1(self, a: int, b: int, c: int, /) -> int: ...
+
+    def m1(self, *args: int) -> int:
+        return 0
+
+
+class Child6_1(Parent6):
+    @overload
+    def m1(self) -> int: ...
+
+    @overload
+    def m1(self, a: int, /) -> int: ...
+
+    @overload
+    def m1(self, a: int, b: int, c: int, /) -> int: ...
+
+    def m1(self, *args: int) -> int:
+        return 0
+
+
+class Child6_2(Parent6):
+    @overload
+    def m1(self, a: int, /) -> int: ...
+
+    @overload
+    def m1(self, a: int, b: int, /) -> int: ...
+
+    @overload
+    def m1(self, a: int, b: int, c: int, /) -> int: ...
+
+    def m1(self, *args: int) -> int:
+        return 0
+
+
+class Child6_3(Parent6):
+    @overload
+    def m1(self, a: int, b: int, c: int, /) -> int: ...
+
+    @overload
+    def m1(self) -> int: ...
+
+    @overload
+    def m1(self, a: int, /) -> int: ...
+
+    # This should generate an error because the overloads are
+    # in the wrong order.
+    def m1(self, *args: int) -> int:
+        return 0
+
+
+class Child6_4(Parent6):
+    @overload
+    def m1(self, a: int, b: int, c: int, /) -> int: ...
+
+    @overload
+    def m1(self) -> int: ...
+
+    # This should generate an error because the first base
+    # overload is not handled.
+    def m1(self, *args: int) -> int:
+        return 0
+
+
+class Parent7:
+    @overload
+    def m1(self, x: int) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    @overload
+    def m1(self, x: bytes) -> bytes: ...
+
+    def m1(self, x: int | str | bytes) -> int | str | bytes: ...
+
+
+class Child7_1(Parent7):
+    @overload
+    def m1(self, x: int) -> int: ...
+
+    @overload
+    def m1(self, x: bytes) -> bytes: ...
+
+    # This should generate an error because the second base
+    # overload is not handled.
+    def m1(self, x: int | bytes) -> int | bytes: ...

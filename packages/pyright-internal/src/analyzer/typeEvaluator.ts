@@ -29346,14 +29346,16 @@ export function createTypeEvaluator(
             });
         }
 
-        // For an overloaded method overriding an overloaded method, the overrides
-        // must all match and be in the correct order. It is OK if the base method
-        // has additional overloads that are not present in the override.
+        // For an overloaded method overriding an overloaded method, the base
+        // overloads must all be matched and in the correct order. It is OK if the
+        // override has additional overloads that are not present in the base method.
 
         let previousMatchIndex = -1;
         const baseOverloads = OverloadedType.getOverloads(baseMethod);
+        const overrideOverloads = OverloadedType.getOverloads(overrideMethod);
+        const matchedIndices = new Set<number>();
 
-        for (const overrideOverload of OverloadedType.getOverloads(overrideMethod)) {
+        for (const overrideOverload of overrideOverloads) {
             let possibleMatchIndex: number | undefined;
 
             let matchIndex = baseOverloads.findIndex((baseOverload, index) => {
@@ -29385,7 +29387,7 @@ export function createTypeEvaluator(
             }
 
             if (matchIndex < 0) {
-                break;
+                continue;
             }
 
             if (matchIndex < previousMatchIndex) {
@@ -29393,23 +29395,36 @@ export function createTypeEvaluator(
                 return false;
             }
 
+            matchedIndices.add(matchIndex);
             previousMatchIndex = matchIndex;
         }
 
-        if (previousMatchIndex < baseOverloads.length - 1) {
-            const unmatchedOverloads = baseOverloads.slice(previousMatchIndex + 1);
+        const isEveryOverloadHandled = baseOverloads.every((baseOverload, index) => {
+            if (matchedIndices.has(index)) {
+                return true;
+            }
 
             // See if all of the remaining overrides are nonapplicable.
-            if (
-                !baseClass ||
-                unmatchedOverloads.some((overload) => {
-                    return isOverrideMethodApplicable(overload, baseClass);
-                })
-            ) {
-                // We didn't find matches for all of the base overloads.
-                diag.addMessage(LocAddendum.overrideOverloadNoMatch());
-                return false;
+            if (baseClass && !isOverrideMethodApplicable(baseOverload, baseClass)) {
+                return true;
             }
+
+            // An override overload that matched a different base overload
+            // can also handle this one.
+            return overrideOverloads.some((overrideOverload) => {
+                return validateOverrideMethodInternal(
+                    baseOverload,
+                    overrideOverload,
+                    /* diag */ undefined,
+                    enforceParamNames
+                );
+            });
+        });
+
+        if (!isEveryOverloadHandled) {
+            // We didn't find matches for all of the base overloads.
+            diag.addMessage(LocAddendum.overrideOverloadNoMatch());
+            return false;
         }
 
         return true;
