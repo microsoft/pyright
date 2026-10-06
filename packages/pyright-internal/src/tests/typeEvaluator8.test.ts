@@ -1514,3 +1514,9 @@ test('TypeForm9', () => {
 
     TestUtils.validateResults(analysisResults, 10);
 });
+
+test('Tuple28', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple28.py']);
+
+    TestUtils.validateResults(analysisResults, 26);
+});

@@ -1299,20 +1299,68 @@ function canOrderTupleElements(
 
                 const widenedLeft = evaluator.stripLiteralValue(leftSubtype);
                 const widenedRight = evaluator.stripLiteralValue(rightSubtype);
-                return !(
-                    evaluator.getTypeOfMagicMethodCall(
-                        widenedLeft,
-                        binaryOperatorMap[operator][0],
-                        [{ type: widenedRight }],
-                        errorNode,
-                        undefined
-                    ) ||
-                    evaluator.getTypeOfMagicMethodCall(
-                        widenedRight,
-                        binaryOperatorMap[operator][1],
-                        [{ type: widenedLeft }],
-                        errorNode,
-                        undefined
+                let reflectedFirst = false;
+                if (
+                    isClassInstance(widenedLeft) &&
+                    isClassInstance(widenedRight) &&
+                    !ClassType.isSameGenericClass(widenedLeft, widenedRight)
+                ) {
+                    const leftClass = ClassType.cloneAsInstantiable(widenedLeft);
+                    for (const base of widenedRight.shared.mro) {
+                        if (--remainingChecks < 0) {
+                            return true;
+                        }
+                        if (isClass(base) && ClassType.isSameGenericClass(base, leftClass)) {
+                            reflectedFirst = true;
+                            break;
+                        }
+                    }
+                }
+                const firstType = reflectedFirst ? widenedRight : widenedLeft;
+                const secondType = reflectedFirst ? widenedLeft : widenedRight;
+                const methods = binaryOperatorMap[operator];
+                const firstResult = evaluator.getTypeOfMagicMethodCall(
+                    firstType,
+                    methods[reflectedFirst ? 1 : 0],
+                    [{ type: secondType }],
+                    errorNode,
+                    undefined
+                );
+                if (firstResult) {
+                    // The tuple fallback models a bool result only. NotImplemented
+                    // declines the first method, so check the other method too.
+                    if (
+                        someSubtypes(
+                            firstResult.type,
+                            (subtype) =>
+                                !isClassInstance(subtype) ||
+                                (!ClassType.isBuiltIn(subtype, 'bool') &&
+                                    subtype.shared.fullName !== 'types.NotImplementedType')
+                        )
+                    ) {
+                        return true;
+                    }
+                    if (
+                        !someSubtypes(
+                            firstResult.type,
+                            (subtype) => !isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, 'bool')
+                        )
+                    ) {
+                        return false;
+                    }
+                }
+                const secondResult = evaluator.getTypeOfMagicMethodCall(
+                    secondType,
+                    methods[reflectedFirst ? 0 : 1],
+                    [{ type: firstType }],
+                    errorNode,
+                    undefined
+                );
+                return (
+                    !secondResult ||
+                    someSubtypes(
+                        secondResult.type,
+                        (subtype) => !isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, 'bool')
                     )
                 );
             })
