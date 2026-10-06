@@ -24,6 +24,21 @@ class NonDataProtocol(Protocol):
     def method1(self) -> int: ...
 
 
+@runtime_checkable
+class SlotsProtocol(Protocol):
+    __slots__ = ()
+
+    def method1(self) -> int: ...
+
+
+@runtime_checkable
+class SlotsDataProtocol(Protocol):
+    __slots__ = ()
+
+    @property
+    def value(self) -> int: ...
+
+
 def func2(a: Any):
     if isinstance(a, DataProtocol):
         return
@@ -42,4 +57,12 @@ def func2(a: Any):
         return
 
     if issubclass(a, NonDataProtocol):
+        return
+
+    # A __slots__ declaration is not a protocol data member.
+    if issubclass(a, SlotsProtocol):
+        return
+
+    # This should generate an error because properties are data members.
+    if issubclass(a, SlotsDataProtocol):
         return

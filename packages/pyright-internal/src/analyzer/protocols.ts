@@ -16,6 +16,7 @@ import { ConstraintSolution } from './constraintSolution';
 import { assignTypeVar } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { DeclarationType } from './declaration';
+import { getDecoratorName } from './parseTreeUtils';
 import { assignProperty } from './properties';
 import { Symbol } from './symbol';
 import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
@@ -224,12 +225,23 @@ export function isMethodOnlyProtocol(classType: ClassType): boolean {
         }
     }
 
-    for (const [, symbol] of ClassType.getSymbolTable(classType)) {
-        if (symbol.isIgnoredForProtocolMatch()) {
+    for (const [name, symbol] of ClassType.getSymbolTable(classType)) {
+        if (symbol.isIgnoredForProtocolMatch() || name === '__slots__') {
             continue;
         }
 
-        if (symbol.getDeclarations().some((decl) => decl.type !== DeclarationType.Function)) {
+        if (
+            symbol.getDeclarations().some((decl) => {
+                if (decl.type !== DeclarationType.Function) {
+                    return true;
+                }
+
+                return decl.node.d.decorators.some((decorator) => {
+                    const decoratorName = getDecoratorName(decorator);
+                    return decoratorName === 'property' || decoratorName?.endsWith('.property');
+                });
+            })
+        ) {
             return false;
         }
     }
