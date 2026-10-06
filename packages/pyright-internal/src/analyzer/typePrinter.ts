@@ -1493,7 +1493,12 @@ class UniqueNameMap {
         const aliasInfo = type.props?.typeAliasInfo;
         if (aliasInfo) {
             let expandTypeAlias = true;
-            if ((this._printTypeFlags & PrintTypeFlags.ExpandTypeAlias) === 0) {
+            // Recursive references expose their alias name and arguments even
+            // when the surrounding type alias is expanded.
+            if (
+                (this._printTypeFlags & PrintTypeFlags.ExpandTypeAlias) === 0 ||
+                (isTypeVar(type) && type.shared.recursiveAlias)
+            ) {
                 expandTypeAlias = false;
             } else {
                 if (recursionTypes.find((t) => t === type)) {

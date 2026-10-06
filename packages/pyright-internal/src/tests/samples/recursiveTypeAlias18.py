@@ -1,5 +1,5 @@
 # This sample tests that the type arguments of a specialized generic
-# recursive type alias are retained when the type is printed.
+# recursive type alias are retained and their names disambiguated when printed.
 
 from typing import Callable, TypeAlias, TypeVar, assert_type
 
@@ -91,6 +91,27 @@ type Alias13[T = int] = tuple[T, Alias13[T] | None]
 def func13(x: Alias13, y: Alias13[str]):
     reveal_type(x, expected_text="tuple[int, Alias13[int] | None]")
     reveal_type(y, expected_text="tuple[str, Alias13[str] | None]")
+
+
+class A:
+    class C:
+        pass
+
+
+class B:
+    class C:
+        pass
+
+
+type Alias14[T] = tuple[A.C, Alias14[T] | None]
+
+
+def func14(x: Alias14[B.C]):
+    reveal_type(
+        x,
+        expected_text="tuple[recursiveTypeAlias18.A.C, Alias14[recursiveTypeAlias18.B.C] | None]",
+    )
+    reveal_type(x[1], expected_text="Alias14[C] | None")
 
 
 # The specialization is also reflected in diagnostic messages.
