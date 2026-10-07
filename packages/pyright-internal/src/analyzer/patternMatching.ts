@@ -40,6 +40,7 @@ import {
     narrowTypeForDiscriminatedDictEntryComparison,
     narrowTypeForDiscriminatedLiteralFieldComparison,
     narrowTypeForDiscriminatedTupleComparison,
+    narrowTypeForInstanceOrSubclass,
 } from './typeGuards';
 import {
     AnyType,
@@ -866,7 +867,8 @@ function narrowTypeBasedOnClassPattern(
     type: Type,
     pattern: PatternClassNode,
     isPositiveTest: boolean,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    nodeInfo: AnalyzerNodeInfoAccessor,
+    allowIntersections = true
 ): Type {
     let exprType = evaluator.getTypeOfExpression(pattern.d.className, EvalFlags.CallBaseDefaults).type;
 
@@ -1023,7 +1025,7 @@ function narrowTypeBasedOnClassPattern(
         }
     }
 
-    return evaluator.mapSubtypesExpandTypeVars(
+    const narrowedType = evaluator.mapSubtypesExpandTypeVars(
         exprType,
         /* options */ undefined,
         (expandedSubtype, unexpandedSubtype) => {
@@ -1207,6 +1209,39 @@ function narrowTypeBasedOnClassPattern(
             return undefined;
         }
     );
+
+    // Preserve ordinary union narrowing and nominal class-pattern behavior.
+    // Protocol intersections must still satisfy the pattern's arguments.
+    if (
+        allowIntersections &&
+        isNever(narrowedType) &&
+        isInstantiableClass(exprType) &&
+        ClassType.isProtocolClass(exprType)
+    ) {
+        const intersectionType = narrowTypeForInstanceOrSubclass(
+            evaluator,
+            type,
+            [exprType],
+            /* isInstanceCheck */ true,
+            /* isTypeIsCheck */ false,
+            /* isPositiveTest */ true,
+            pattern.d.className,
+            nodeInfo
+        );
+
+        if (!isNever(intersectionType)) {
+            return narrowTypeBasedOnClassPattern(
+                evaluator,
+                intersectionType,
+                pattern,
+                isPositiveTest,
+                nodeInfo,
+                /* allowIntersections */ false
+            );
+        }
+    }
+
+    return narrowedType;
 }
 
 // Some built-in classes are treated as special cases for the class pattern

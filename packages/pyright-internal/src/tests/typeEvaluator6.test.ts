@@ -717,6 +717,24 @@ test('MatchClass8', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('MatchClass9', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass9.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 0, undefined, undefined, 0);
+});
+
+test('MatchClass10', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass10.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 6);
+});
+
 test('MatchValue1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
