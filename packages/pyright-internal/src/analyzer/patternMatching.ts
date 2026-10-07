@@ -32,6 +32,7 @@ import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { CodeFlowReferenceExpressionNode } from './codeFlowTypes';
 import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
+import { isEnumClassWithMembers } from './enums';
 import { getTypeVarScopesForNode, isMatchingExpression } from './parseTreeUtils';
 import { getTypedDictMembersForClass } from './typedDicts';
 import { EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
@@ -888,6 +889,19 @@ function narrowTypeBasedOnClassPattern(
     if (!isPositiveTest) {
         // Don't attempt to narrow if the class type is a more complex type (e.g. a TypeVar or union).
         if (!isInstantiableClass(exprType)) {
+            return type;
+        }
+
+        // If the class in the pattern may be a subclass of the named class (for
+        // example, an expression of type type[X] rather than X itself), a failed
+        // match says nothing about the subject, so it can't be narrowed. A final
+        // class or an enum with members cannot have subclasses, so normal
+        // negative narrowing still applies.
+        if (
+            exprType.priv.includeSubclasses &&
+            !ClassType.isFinal(exprType) &&
+            !isEnumClassWithMembers(evaluator, exprType, nodeInfo)
+        ) {
             return type;
         }
 
