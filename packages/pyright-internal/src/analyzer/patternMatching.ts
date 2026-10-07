@@ -33,6 +33,7 @@ import { CodeFlowReferenceExpressionNode } from './codeFlowTypes';
 import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { getTypeVarScopesForNode, isMatchingExpression } from './parseTreeUtils';
+import { validateProtocolUnsafeOverlap } from './protocols';
 import { getTypedDictMembersForClass } from './typedDicts';
 import { EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
@@ -40,6 +41,7 @@ import {
     narrowTypeForDiscriminatedDictEntryComparison,
     narrowTypeForDiscriminatedLiteralFieldComparison,
     narrowTypeForDiscriminatedTupleComparison,
+    narrowTypeForInstanceOrSubclass,
 } from './typeGuards';
 import {
     AnyType,
@@ -867,7 +869,8 @@ function narrowTypeBasedOnClassPattern(
     type: Type,
     pattern: PatternClassNode,
     isPositiveTest: boolean,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    nodeInfo: AnalyzerNodeInfoAccessor,
+    allowIntersections = true
 ): Type {
     let exprType = evaluator.getTypeOfExpression(pattern.d.className, EvalFlags.CallBaseDefaults).type;
 
@@ -1022,9 +1025,24 @@ function narrowTypeBasedOnClassPattern(
 
             return isPositiveTest ? UnknownType.create() : type;
         }
+
+        if (allowIntersections && ClassType.isProtocolClass(exprType)) {
+            const expandedSubjectType = evaluator.mapSubtypesExpandTypeVars(
+                type,
+                /* options */ undefined,
+                (expandedSubtype) => expandedSubtype
+            );
+            validateProtocolUnsafeOverlap(
+                evaluator,
+                pattern.d.className,
+                ClassType.cloneAsInstance(exprType),
+                expandedSubjectType
+            );
+        }
     }
 
-    return evaluator.mapSubtypesExpandTypeVars(
+    let hasClassMatch = false;
+    const narrowedType = evaluator.mapSubtypesExpandTypeVars(
         exprType,
         /* options */ undefined,
         (expandedSubtype, unexpandedSubtype) => {
@@ -1147,6 +1165,8 @@ function narrowTypeBasedOnClassPattern(
                             return undefined;
                         }
 
+                        hasClassMatch = true;
+
                         // For a generic class pattern whose type parameters are bounded
                         // (e.g. `class Thing[T: bool]`), the subject may carry no type arguments,
                         // leaving the parameters unsolved. Fall back to each parameter's bound -
@@ -1208,6 +1228,41 @@ function narrowTypeBasedOnClassPattern(
             return undefined;
         }
     );
+
+    // Retry only failed class membership, not failed arguments. Otherwise nested
+    // impossible arguments can cause repeated descent through the same patterns.
+    if (
+        allowIntersections &&
+        !hasClassMatch &&
+        !isNever(type) &&
+        isNever(narrowedType) &&
+        isInstantiableClass(exprType) &&
+        ClassType.isProtocolClass(exprType)
+    ) {
+        const intersectionType = narrowTypeForInstanceOrSubclass(
+            evaluator,
+            type,
+            [exprType],
+            /* isInstanceCheck */ true,
+            /* isTypeIsCheck */ false,
+            /* isPositiveTest */ true,
+            pattern.d.className,
+            nodeInfo
+        );
+
+        if (!isNever(intersectionType)) {
+            return narrowTypeBasedOnClassPattern(
+                evaluator,
+                intersectionType,
+                pattern,
+                isPositiveTest,
+                nodeInfo,
+                /* allowIntersections */ false
+            );
+        }
+    }
+
+    return narrowedType;
 }
 
 // Some built-in classes are treated as special cases for the class pattern
@@ -2136,6 +2191,15 @@ export function assignTypeToPatternTargets(
 
         case ParseNodeType.PatternClass: {
             const argTypes: Type[][] = pattern.d.args.map((arg) => []);
+            const hasPositionalArgs = pattern.d.args.some((arg) => !arg.d.name);
+            let positionalArgNames: string[] | undefined;
+
+            if (hasPositionalArgs) {
+                const classType = evaluator.getTypeOfExpression(pattern.d.className, EvalFlags.CallBaseDefaults).type;
+                if (isInstantiableClass(classType)) {
+                    positionalArgNames = getPositionalMatchArgNames(evaluator, classType);
+                }
+            }
 
             evaluator.mapSubtypesExpandTypeVars(narrowedType, /* options */ undefined, (expandedSubtype) => {
                 if (isClassInstance(expandedSubtype)) {
@@ -2147,22 +2211,21 @@ export function assignTypeToPatternTargets(
                                 argTypes[index].push(concreteSubtype);
                             });
                         } else if (isClassInstance(concreteSubtype)) {
-                            // Are there any positional arguments? If so, try to get the mappings for
-                            // these arguments by fetching the __match_args__ symbol from the class.
-                            let positionalArgNames: string[] = [];
-                            if (pattern.d.args.some((arg) => !arg.d.name)) {
-                                positionalArgNames = getPositionalMatchArgNames(
-                                    evaluator,
-                                    ClassType.cloneAsInstantiable(expandedSubtype)
-                                );
-                            }
+                            const argNames =
+                                positionalArgNames ??
+                                (hasPositionalArgs
+                                    ? getPositionalMatchArgNames(
+                                          evaluator,
+                                          ClassType.cloneAsInstantiable(expandedSubtype)
+                                      )
+                                    : []);
 
                             pattern.d.args.forEach((arg, index) => {
                                 const narrowedArgType = narrowTypeOfClassPatternArg(
                                     evaluator,
                                     arg,
                                     index,
-                                    positionalArgNames,
+                                    argNames,
                                     ClassType.cloneAsInstantiable(expandedSubtype),
                                     /* isPositiveTest */ true,
                                     nodeInfo

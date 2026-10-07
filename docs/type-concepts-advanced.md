@@ -110,6 +110,12 @@ def func2(val: float | None):
 
 In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `float` (specifically, a value of 0.0) or `None` in the negative case.
 
+### Class Pattern Matching
+
+Class patterns in `match` statements narrow the subject using the pattern class and its argument patterns. Positional captures use the pattern class's `__match_args__`, even if the subject's class defines a different tuple.
+
+When a non-final subject class has no ordinary match for a runtime-checkable protocol, Pyright can narrow it to a subclass that satisfies both types, retaining members from each. Pattern arguments must still be compatible. Unsafe protocol overlap is reported, just as it is for an explicit `isinstance` check.
+
 ### TypedDict Key Presence
 
 When a key has a union of string literal types, a membership check can establish that an indexed read of that same key is safe:
