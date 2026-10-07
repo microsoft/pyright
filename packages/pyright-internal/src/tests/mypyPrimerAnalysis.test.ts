@@ -1055,7 +1055,7 @@ describe('mypy_primer analysis', () => {
         expect(() => renderReport(f.manifest, f.report, 100)).toThrow(new Error('Invalid PR attribution for example'));
     });
 
-    test('uses a short non-blocking notice only for canonical SymPy-only changes', () => {
+    test('keeps normal analysis for canonical SymPy-only changes', () => {
         const f = fixture(
             sample
                 .replace(/example/g, 'sympy')
@@ -1063,14 +1063,7 @@ describe('mypy_primer analysis', () => {
         );
         f.report.projects[0].name = 'sympy';
         expect(renderReport(f.manifest, f.report, 100)).toStrictEqual({
-            body: [
-                ...expectedReportProvenance,
-                '**Only SymPy changed.** These differences are treated as non-blocking primer noise; no other project changed.',
-                '',
-                'Recorded changes: 1 added / 1 removed diagnostic headers; 1 added / 1 removed detail lines.',
-                '',
-                ...expectedReportFooter,
-            ].join('\n'),
+            body: expectedReport.body.replace(/example/g, 'sympy'),
             fullReport: expectedReport.fullReport.replace(/example/g, 'sympy'),
         });
         expect(() => renderReport(f.manifest, { projects: [] }, 100)).toThrow(
@@ -1079,6 +1072,47 @@ describe('mypy_primer analysis', () => {
         f.report.projects[0].explanation = '';
         expect(() => renderReport(f.manifest, f.report, 100)).toThrow('Expected nonempty text');
     });
+
+    test.each(['possible-regression', 'expected-improvement'])(
+        'keeps SymPy-only type-erasure warnings visible with a %s assessment',
+        (assessment) => {
+            const f = fixture(
+                [
+                    'sympy (https://github.com/sympy/sympy)',
+                    '+   .../projects/sympy/test.py:1:1 - error: "assert_type" mismatch: expected "int" but received "Any" (reportAssertTypeFailure)',
+                    '- 0 errors, 0 warnings, 0 informations',
+                    '+ 1 error, 0 warnings, 0 informations',
+                ].join('\n')
+            );
+            const report = {
+                projects: [
+                    {
+                        ...f.report.projects[0],
+                        name: 'sympy',
+                        assessment,
+                        evidence: [
+                            {
+                                url: 'https://typing.python.org/en/latest/spec/assert.html',
+                                detail: 'Type assertion specification.',
+                            },
+                        ],
+                    },
+                ],
+            };
+            const result = renderReport(f.manifest, report, 100);
+            expect(result.body).toContain(riskOverview);
+            expect(result.body).toContain('## Potential regressions');
+            expect(result.body).toContain('### sympy:');
+            expect(result.body).toContain(
+                '**Regression warning signals require review, regardless of the AI assessment:**'
+            );
+            expect(result.body).toContain('New assertions receive bare Any/Unknown instead of their expected type.');
+            expect(result.body).toContain('**Causal analysis:**');
+            expect(result.body).toContain('**Uncertainty / next check:**');
+            expect(result.body).toContain('<https://typing.python.org/en/latest/spec/assert.html>');
+            expect(result.body).not.toContain('non-blocking primer noise');
+        }
+    );
 
     test('keeps normal analysis for noncanonical SymPy and mixed-project changes', () => {
         const f = fixture();
