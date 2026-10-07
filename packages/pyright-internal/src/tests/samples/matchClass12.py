@@ -1,7 +1,7 @@
 # This sample tests unsafe protocol overlap in class patterns.
 
 from typing import Protocol, TypeVar, runtime_checkable
-from typing_extensions import assert_type
+from typing_extensions import assert_type  # pyright: ignore[reportMissingModuleSource]
 
 
 @runtime_checkable

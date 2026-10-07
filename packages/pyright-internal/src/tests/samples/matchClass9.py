@@ -1,7 +1,7 @@
 # This sample tests intersection narrowing for runtime-checkable protocol patterns.
 
 from typing import Generic, Protocol, TypeVar, runtime_checkable
-from typing_extensions import assert_type
+from typing_extensions import assert_type  # pyright: ignore[reportMissingModuleSource]
 
 
 class Foo:

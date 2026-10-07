@@ -1,7 +1,7 @@
 # This sample tests that impossible arguments do not trigger protocol intersections.
 
 from typing import Protocol, runtime_checkable
-from typing_extensions import assert_type
+from typing_extensions import assert_type  # pyright: ignore[reportMissingModuleSource]
 
 
 @runtime_checkable

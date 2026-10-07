@@ -1,7 +1,7 @@
 # This sample tests limits on protocol intersection narrowing in class patterns.
 
 from typing import Protocol, final, runtime_checkable
-from typing_extensions import assert_type
+from typing_extensions import assert_type  # pyright: ignore[reportMissingModuleSource]
 
 
 class Foo:
