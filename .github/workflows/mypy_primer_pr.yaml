@@ -14,25 +14,79 @@
 # 'num-shards' to n.
 
 name: Run mypy_primer on PR
+run-name: 'Run mypy_primer after Validation #${{ github.event.workflow_run.id }}'
 
 env:
   NODE_VERSION: '24.15.0' # Shipped with VS Code.
 
 on:
-  # Run on the creation or update of a PR.
-  pull_request:
-    paths:
-      - 'packages/pyright/**'
-      - 'packages/pyright-internal/src/**'
-      - 'packages/pyright-internal/typeshed-fallback/**'
+  workflow_run:
+    workflows:
+      - Validation
+    types:
+      - completed
+
+permissions:
+  contents: read
+  pull-requests: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_repository.id }}-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: true
 
 jobs:
+  resolve:
+    name: Resolve validated PR
+    if: >-
+      ${{ github.repository == 'microsoft/pyright' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      pr-number: ${{ steps.resolve.outputs.pr-number }}
+      merge-sha: ${{ steps.resolve.outputs.merge-sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Resolve primer revisions
+        id: resolve
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const resolve = require('./build/resolveValidatedPullRequest.js')
+            const validated = await resolve({ github, context, core })
+            if (!validated) return
+            const { pullRequest, files } = validated
+            const paths = [
+              'packages/pyright/',
+              'packages/pyright-internal/src/',
+              'packages/pyright-internal/typeshed-fallback/',
+            ]
+            if (!files.some((file) => paths.some((path) => file.filename.startsWith(path)))) {
+              core.notice('The pull request does not change primer inputs')
+              return
+            }
+            if (!pullRequest.merge_commit_sha) {
+              core.setFailed('The pull request does not have a merge commit to test')
+              return
+            }
+            const commit = await github.rest.repos.getCommit({
+              ...context.repo,
+              ref: pullRequest.merge_commit_sha,
+            })
+            if (commit.data.parents[1]?.sha !== context.payload.workflow_run.head_sha) {
+              core.setFailed('The merge commit does not use the validated pull request head')
+              return
+            }
+            core.setOutput('pr-number', pullRequest.number)
+            core.setOutput('merge-sha', pullRequest.merge_commit_sha)
+
   mypy_primer:
     name: Run mypy_primer on PR
+    needs: resolve
+    if: ${{ needs.resolve.outputs.pr-number != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -43,6 +97,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.resolve.outputs.merge-sha }}
+          persist-credentials: false
           path: pyright_to_test
           fetch-depth: 2
           fetch-tags: false
@@ -55,8 +111,6 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: 'pyright_to_test/pnpm-lock.yaml'
       - name: Install dependencies
         run: |
           python -m pip install -U pip
@@ -64,6 +118,7 @@ jobs:
       - name: Run mypy_primer
         shell: bash
         env:
+          PRIMER_SHA: ${{ needs.resolve.outputs.merge-sha }}
           # mypy_primer installs both the PR and base commits. The base commit can contain
           # historical peer dependency conflicts that should not block primer comparisons.
           NPM_CONFIG_LEGACY_PEER_DEPS: 'true'
@@ -71,22 +126,22 @@ jobs:
         run: |
           cd pyright_to_test
           echo "new commit"
-          git rev-list --format=%s --max-count=1 $GITHUB_SHA
-          git branch new_commit $GITHUB_SHA
+          git rev-list --format=%s --max-count=1 "$PRIMER_SHA"
+          git branch new_commit "$PRIMER_SHA"
 
-          MERGE_BASE=$(git rev-parse "$GITHUB_SHA^1")
+          MERGE_BASE=$(git rev-parse "$PRIMER_SHA^1")
           git checkout -b base_commit $MERGE_BASE
           echo "base commit"
           git rev-list --format=%s --max-count=1 base_commit
           # Keep the old checker source at the merge base, but use this PR's
           # dependency and bundler metadata so the old checkout can install and build.
           mapfile -t BASE_BUILD_FILES < <(
-            git ls-tree -r --name-only "$GITHUB_SHA" |
+            git ls-tree -r --name-only "$PRIMER_SHA" |
               grep -E '^(package(-lock)?\.json|pnpm-(lock|workspace)\.yaml|packages/[^/]+/package(-lock)?\.json|packages/[^/]+/rspack\.config\.js)$'
           )
           echo "Using build metadata for mypy_primer base:"
           printf '%s\n' "${BASE_BUILD_FILES[@]}"
-          git checkout $GITHUB_SHA -- "${BASE_BUILD_FILES[@]}"
+          git checkout "$PRIMER_SHA" -- "${BASE_BUILD_FILES[@]}"
           printf 'legacy-peer-deps=true\n' > .npmrc
           git add .npmrc "${BASE_BUILD_FILES[@]}"
           git config user.name github-actions[bot]
@@ -117,7 +172,7 @@ jobs:
       - if: ${{ matrix.shard-index == 0 }}
         name: Save PR number
         run: |
-          echo ${{ github.event.pull_request.number }} | tee pr_number.txt
+          echo ${{ needs.resolve.outputs.pr-number }} | tee pr_number.txt
       - if: ${{ matrix.shard-index == 0 }}
         name: Upload PR number
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

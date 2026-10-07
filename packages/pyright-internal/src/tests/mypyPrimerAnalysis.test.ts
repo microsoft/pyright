@@ -242,7 +242,9 @@ function fixture(contents = sample, headRepository = repository) {
         head_branch: 'feature',
         pull_requests: source.pullRequests.map((number) => ({ number })),
         run_started_at: '2026-09-10T00:00:00Z',
+        display_title: '',
     };
+    const validation = { ...run, id: 41, path: '.github/workflows/validation.yml' };
     const artifacts = [
         'mypy_primer_diffs_pr_number',
         ...Array.from({ length: 8 }, (_, shard) => `mypy_primer_diffs_${shard}`),
@@ -252,7 +254,7 @@ function fixture(contents = sample, headRepository = repository) {
     const request = jest.fn(
         async (route: string, parameters: Record<string, string | number>): Promise<{ data: unknown }> => {
             if (route === 'GET /repos/{owner}/{repo}/actions/runs/{run_id}') {
-                return { data: run };
+                return { data: parameters.run_id === 41 ? validation : run };
             }
             if (route.endsWith('/artifacts')) {
                 return { data: { artifacts } };
@@ -298,7 +300,7 @@ function fixture(contents = sample, headRepository = repository) {
             report: JSON.stringify(report),
         })),
     });
-    return { source, manifest, pr, run, artifacts, comments, associated, request, report, output };
+    return { source, manifest, pr, run, validation, artifacts, comments, associated, request, report, output };
 }
 
 describe('mypy_primer analysis', () => {
@@ -467,6 +469,37 @@ describe('mypy_primer analysis', () => {
         await expect(loadSource(f.request, repository, f.source)).rejects.toThrow('Missing');
         f.run.run_attempt = 2;
         await expect(loadSource(f.request, repository, f.source)).rejects.toThrow('matching');
+    });
+
+    test('uses the validated PR head for follow-up runs rather than the default branch', async () => {
+        const f = fixture(sample, 'contributor/pyright');
+        f.run.event = 'workflow_run';
+        f.run.display_title = 'Run mypy_primer after Validation #41';
+        f.run.head_sha = 'b'.repeat(40);
+        f.run.head_repository = { full_name: repository };
+        f.run.head_branch = 'main';
+        await expect(loadSource(f.request, repository, f.source)).resolves.toEqual(f.source);
+    });
+
+    test.each(['failure', 'cancelled'])('rejects unsuccessful %s source Validation', async (conclusion) => {
+        const f = fixture();
+        f.run.event = 'workflow_run';
+        f.run.display_title = 'Run mypy_primer after Validation #41';
+        f.validation.conclusion = conclusion;
+        await expect(loadSource(f.request, repository, f.source)).rejects.toThrow('successful pull request Validation');
+    });
+
+    test('rejects incorrect follow-up provenance', async () => {
+        const f = fixture();
+        f.run.event = 'workflow_run';
+        f.run.display_title = 'Unrelated run';
+        await expect(loadSource(f.request, repository, f.source)).rejects.toThrow('source Validation run');
+        f.run.display_title = 'Run mypy_primer after Validation #41';
+        f.validation.event = 'push';
+        await expect(loadSource(f.request, repository, f.source)).rejects.toThrow('successful pull request Validation');
+        f.validation.event = 'pull_request';
+        f.validation.path = '.github/workflows/other.yml';
+        await expect(loadSource(f.request, repository, f.source)).rejects.toThrow('successful pull request Validation');
     });
 
     test('rejects expired, duplicate, old-attempt, and oversized artifacts', async () => {
