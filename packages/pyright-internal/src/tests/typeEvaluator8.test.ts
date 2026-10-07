@@ -13,6 +13,7 @@ import * as assert from 'assert';
 import { EvalFlags } from '../analyzer/typeEvaluatorTypes';
 import { ClassType, isClassInstance, isInstantiableClass, UnknownType } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8, pythonVersion3_12 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
@@ -790,6 +791,12 @@ test('Self11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Self12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self12.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('UnusedVariable1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -800,6 +807,31 @@ test('UnusedVariable1', () => {
     configOptions.diagnosticRuleSet.reportUnusedVariable = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['unusedVariable1.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 3);
+});
+
+test('UnusedVariable2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    const sampleLines = TestUtils.readSampleFile('unusedVariable2.py').split(/\r?\n/);
+
+    const validateUnusedNames = (analysisResults: TestUtils.FileAnalysisResult[]) => {
+        const unusedNames = analysisResults[0].unusedCodes.map((diagnostic) => {
+            assert.strictEqual(diagnostic.range.start.line, diagnostic.range.end.line);
+            const line = sampleLines[diagnostic.range.start.line];
+            return line.slice(diagnostic.range.start.character, diagnostic.range.end.character);
+        });
+
+        assert.deepStrictEqual(unusedNames, ['arg', 'regular']);
+    };
+
+    configOptions.diagnosticRuleSet.reportUnusedVariable = 'none';
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['unusedVariable2.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, 2);
+    validateUnusedNames(analysisResults1);
+
+    configOptions.diagnosticRuleSet.reportUnusedVariable = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['unusedVariable2.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 1, 0, 0, 2);
+    validateUnusedNames(analysisResults2);
 });
 
 test('Descriptor1', () => {
@@ -824,6 +856,31 @@ test('Descriptor4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor4.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Descriptor5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor5.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Descriptor6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor6.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Descriptor7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor7.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [82, DiagnosticRule.reportOptionalOperand],
+            [134, DiagnosticRule.reportAttributeAccessIssue],
+        ]
+    );
 });
 
 test('Partial1', () => {

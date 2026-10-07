@@ -65,6 +65,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `type(x) == T` and `type(x) != T`
 * `x is L` and `x is not L` (where L is an expression that evaluates to a literal type)
 * `x is C` and `x is not C` (where C is a class)
+* `x == C` and `x != C` (where C is a class and the compared class objects have statically known identity-based equality)
 * `x == L` and `x != L` (where L is an expression that evaluates to a literal type)
 * `x.y is None` and `x.y is not None` (where x is a type that is distinguished by a field with a None)
 * `x.y is E` and `x.y is not E` (where E is a literal enum or bool and x is a type that is distinguished by a field with a literal type)
@@ -83,6 +84,10 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `x` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 
 Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, subscripts that are integer literals (e.g. `a[2]` or `a[-1]`), and call expressions. Other operators (such as arithmetic operators or other subscripts) are not supported.
+
+For user-defined `TypeGuard` and `TypeIs` calls, Pyright narrows the argument corresponding to the first parameter after any method receiver (`self` or `cls`). This applies to bound and unbound methods, including method aliases, and arguments supplied by keyword. Guards with gradual (`...`), tuple-unpacked, or variadic positional parameter lists support narrowing of explicit positional arguments. If selected overloads identify different guarded arguments, or argument unpacking obscures the guarded expression, Pyright does not apply narrowing.
+
+Class equality guards can narrow exact or final, non-generic class objects whose metaclasses have known default equality semantics. Alternatives with open subclass hierarchies, generic aliases, custom equality methods, or uncertain metaclasses are retained. Callable metaclass factories and unknown metaclass ancestry do not establish identity-based equality. Constrained type variables that expand to unions are retained rather than narrowed by these equality guards. Identity guards (`is` and `is not`) do not have these equality-specific restrictions.
 
 Some type guards are able to narrow in both the positive and negative cases. Positive cases are used in `if` statements, and negative cases are used in `else` statements. (Positive and negative cases are flipped if the type guard expression is preceded by a `not` operator.) In some cases, the type can be narrowed only in the positive or negative case but not both. Consider the following examples:
 
@@ -104,6 +109,27 @@ def func2(val: float | None):
 ```
 
 In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `float` (specifically, a value of 0.0) or `None` in the negative case.
+
+### TypedDict Key Presence
+
+When a key has a union of string literal types, a membership check can establish that an indexed read of that same key is safe:
+
+```python
+class Data(TypedDict, total=False):
+    a: int
+    b: str
+
+def read(data: Data):
+    for key in ("a", "b"):
+        if key in data:
+            value = data[key]  # int | str, without an optional-key access error
+```
+
+This proves presence only for the checked dictionary and key, not for every literal alternative. It does not correlate value types with assignment targets or make undeclared keys valid. In particular, a union of open TypedDicts may contain an undeclared key whose value type is unknown.
+
+The presence check must hold on every incoming control-flow path. Reassigning the dictionary or key, deleting an item, or crossing a call, loop boundary, or exception-handling gate can prevent this proof. A guard inside a loop applies to reads within that iteration; it does not associate values carried from earlier iterations with the current key. Existing single-literal TypedDict narrowing is unchanged.
+
+The guard must also apply when the read executes. A generator expression cannot use a guard outside its deferred body, although a guard within that body can establish presence. Its first iterable is evaluated immediately and can still use an enclosing guard, as can an eager list, set, or dictionary comprehension. Assignment expressions in the right operand of the membership test prevent this proof unless they simply assign a name to itself; they may change the key after the left operand has already been evaluated.
 
 ### Aliased Conditional Expression
 

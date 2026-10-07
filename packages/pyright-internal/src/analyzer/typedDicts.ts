@@ -1532,6 +1532,7 @@ export function getTypeOfIndexedTypedDict(
     let diag = new DiagnosticAddendum();
     let allDiagsInvolveNotRequiredKeys = true;
 
+    let isKeyPresent: boolean | undefined;
     const resultingType = mapSubtypes(indexType, (subtype) => {
         if (isAnyOrUnknown(subtype)) {
             return subtype;
@@ -1557,12 +1558,15 @@ export function getTypeOfIndexedTypedDict(
                 allDiagsInvolveNotRequiredKeys = false;
                 return UnknownType.create();
             } else if (!(entry.isRequired || entry.isProvided) && usage.method === 'get') {
-                diag.addMessage(
-                    LocAddendum.keyNotRequired().format({
-                        name: entryName,
-                        type: evaluator.printType(baseType),
-                    })
-                );
+                isKeyPresent ??= evaluator.isKeyPresentInTypedDict(node);
+                if (!isKeyPresent) {
+                    diag.addMessage(
+                        LocAddendum.keyNotRequired().format({
+                            name: entryName,
+                            type: evaluator.printType(baseType),
+                        })
+                    );
+                }
             } else if (entry.isReadOnly && usage.method !== 'get') {
                 diag.addMessage(
                     LocAddendum.keyReadOnly().format({

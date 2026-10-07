@@ -176,7 +176,7 @@ import * as ScopeUtils from './scopeUtils';
 import { createSentinelType } from './sentinel';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags, SynthesizedTypeInfo } from './symbol';
-import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { isConstantName, isMethodExemptFromLsp, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
 import { assignTupleTypeArgs, expandTuple, getSlicedTupleType, getTypeOfTuple, makeTupleObject } from './tuples';
 import {
@@ -239,6 +239,7 @@ import {
 } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
 import * as TypePrinter from './typePrinter';
+import { TypeWalker } from './typeWalker';
 import {
     AnyType,
     ClassType,
@@ -349,6 +350,7 @@ import {
     isNoneInstance,
     isNoneTypeClass,
     isOptionalType,
+    isOverlapOnlyByOmission,
     isPartlyUnknown,
     isProperty,
     isSentinelLiteral,
@@ -2837,12 +2839,14 @@ export function createTypeEvaluator(
 
         const argList: Arg[] = [];
         let previousCategory = ArgCategory.Simple;
+        let hasFakeArg = false;
 
         // Empty arguments do not enter the AST as nodes, but instead are left blank.
         // Instead, we detect when we appear to be between two known arguments or at the
         // end of the argument list and insert a fake argument of an unknown type to have
         // something to match later.
         function addFakeArg() {
+            hasFakeArg = true;
             argList.push({
                 argCategory: previousCategory,
                 typeResult: { type: UnknownType.create() },
@@ -2891,7 +2895,32 @@ export function createTypeEvaluator(
                 );
             });
 
-            const specializedType = solveAndApplyConstraints(type, constraints);
+            let specializedType: Type = type;
+            if (FunctionType.getParamSpecFromArgsKwargs(type)) {
+                const solution = solveConstraints(evaluatorInterface, constraints);
+
+                // The fake argument is used only to identify the active parameter. Preserve
+                // type variables in that parameter while specializing the forwarded ParamSpec.
+                if (hasFakeArg && callResult?.activeParam) {
+                    const activeParamIndex = type.shared.parameters.indexOf(callResult.activeParam);
+                    if (activeParamIndex >= 0) {
+                        getTypeVarArgsRecursive(FunctionType.getParamType(type, activeParamIndex)).forEach(
+                            (typeVar) => {
+                                if (!isParamSpec(typeVar)) {
+                                    solution.doForEachSolutionSet((solutionSet) => {
+                                        const solvedType = solutionSet.getType(typeVar);
+                                        if (!solvedType || isUnknown(solvedType)) {
+                                            solutionSet.setType(typeVar, typeVar);
+                                        }
+                                    });
+                                }
+                            }
+                        );
+                    }
+                }
+
+                specializedType = applySolvedTypeVars(type, solution);
+            }
             const finalType = isFunction(specializedType) ? specializedType : type;
             const hasActiveArg = argList.some((arg) => arg.active);
 
@@ -3757,6 +3786,11 @@ export function createTypeEvaluator(
         return undefined;
     }
 
+    function getFunctionClassType(type: FunctionType | OverloadedType): ClassType | undefined {
+        const classType = isMethodType(type) ? prefetched?.methodClass : prefetched?.functionClass;
+        return classType && isInstantiableClass(classType) ? classType : undefined;
+    }
+
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
         return (
             getTypeOfModule(node, symbolName, ['typing']) ?? getTypeOfModule(node, symbolName, ['typing_extensions'])
@@ -4098,6 +4132,30 @@ export function createTypeEvaluator(
                     );
                     if (memberInfo?.isTypeDeclared) {
                         declaredType = getTypeOfMember(memberInfo);
+                        if (
+                            isMethodExemptFromLsp(nameValue) &&
+                            memberInfo.symbol
+                                .getTypedDeclarations()
+                                .some((decl) => decl.type === DeclarationType.Function) &&
+                            isFunctionOrOverloaded(typeResult.type) &&
+                            isFunctionOrOverloaded(declaredType) &&
+                            !isFinalVariable(memberInfo.symbol)
+                        ) {
+                            const baseMethods = isFunction(declaredType)
+                                ? [declaredType]
+                                : [
+                                      ...OverloadedType.getOverloads(declaredType),
+                                      OverloadedType.getImplementation(declaredType),
+                                  ];
+                            if (
+                                !baseMethods.some(
+                                    (method) => method && isFunction(method) && FunctionType.isFinal(method)
+                                )
+                            ) {
+                                // Apply the same override exemptions to aliases and method definitions.
+                                declaredType = undefined;
+                            }
+                        }
                     }
                 }
             }
@@ -6718,6 +6776,22 @@ export function createTypeEvaluator(
         // Always look for a member with a declared type first.
         let memberInfo = lookUpClassMember(classType, memberName, flags | MemberAccessFlags.DeclaredTypesOnly);
 
+        // A class-level method alias retains its inferred signature, unlike an annotated variable.
+        if (
+            usage.method === 'get' &&
+            memberInfo?.skippedUndeclaredType &&
+            memberInfo.symbol.getTypedDeclarations().some((decl) => decl.type === DeclarationType.Function)
+        ) {
+            const inferredMember = lookUpClassMember(classType, memberName, flags);
+            if (
+                inferredMember?.isClassMember &&
+                !inferredMember.isInstanceMember &&
+                isFunctionOrOverloaded(getTypeOfMember(inferredMember))
+            ) {
+                memberInfo = inferredMember;
+            }
+        }
+
         // If we couldn't find a symbol with a declared type, use
         // a symbol with an inferred type.
         if (!memberInfo) {
@@ -7073,7 +7147,12 @@ export function createTypeEvaluator(
             MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
         );
 
-        if (!methodTypeResult || methodTypeResult.typeErrors) {
+        const deferredMethodType =
+            usage.method === 'get'
+                ? getDescriptorGetMethodWithDeferredSelfSpecialization(concreteMemberType, subDiag)
+                : undefined;
+
+        if ((!methodTypeResult || methodTypeResult.typeErrors) && !deferredMethodType) {
             // Provide special error messages for properties.
             if (ClassType.isPropertyClass(concreteMemberType) && usage.method !== 'get') {
                 const message =
@@ -7089,10 +7168,10 @@ export function createTypeEvaluator(
             return { type: memberType };
         }
 
-        const methodClassType = methodTypeResult.classType;
-        let methodType = methodTypeResult.type;
+        const methodClassType = methodTypeResult?.classType ?? concreteMemberType;
+        let methodType = deferredMethodType ?? methodTypeResult!.type;
 
-        if (methodTypeResult.typeErrors || !methodClassType) {
+        if (!methodClassType) {
             if (diag && subDiag) {
                 diag.addAddendum(subDiag);
             }
@@ -7167,8 +7246,8 @@ export function createTypeEvaluator(
 
         // Determine if we're calling __set__ on an asymmetric descriptor or property.
         let isAsymmetricAccessor = false;
-        if (usage.method === 'set' && isClass(methodClassType)) {
-            if (isAsymmetricDescriptorClass(methodClassType)) {
+        if (usage.method === 'set') {
+            if (isAsymmetricDescriptorClass(concreteMemberType)) {
                 isAsymmetricAccessor = true;
             }
         }
@@ -7289,6 +7368,87 @@ export function createTypeEvaluator(
         };
     }
 
+    function getDescriptorGetMethodWithDeferredSelfSpecialization(
+        concreteMemberType: ClassType,
+        diag: DiagnosticAddendum | undefined
+    ): FunctionType | OverloadedType | undefined {
+        const member = lookUpClassMember(concreteMemberType, '__get__');
+        if (!member || !isInstantiableClass(member.unspecializedClassType)) {
+            return undefined;
+        }
+
+        const unspecializedClassType = member.unspecializedClassType;
+        const declaringClassType = member.classType;
+        if (!isInstantiableClass(declaringClassType)) {
+            return undefined;
+        }
+        const declaringObjectType = ClassType.cloneAsInstance(declaringClassType);
+
+        const unspecializedMethodType = getEffectiveTypeOfSymbol(member.symbol);
+        if (!isFunctionOrOverloaded(unspecializedMethodType)) {
+            return undefined;
+        }
+
+        // A class ParamSpec used in Concatenate within the self annotation needs to be
+        // solved from the concrete descriptor, rather than specialized before self is bound.
+        const classParamSpecs = ClassType.getTypeParams(unspecializedClassType).filter(isParamSpec);
+        if (classParamSpecs.length === 0) {
+            return undefined;
+        }
+
+        const signatures = isFunction(unspecializedMethodType)
+            ? [unspecializedMethodType]
+            : OverloadedType.getOverloads(unspecializedMethodType);
+
+        const shouldDefer = signatures.some((signature) => {
+            if (signature.shared.parameters.length === 0) {
+                return false;
+            }
+
+            const selfParamType = FunctionType.getParamType(signature, 0);
+            if (!isClassInstance(selfParamType) || !ClassType.isSameGenericClass(selfParamType, declaringObjectType)) {
+                return false;
+            }
+
+            class ConcatenateParamSpecWalker extends TypeWalker {
+                found = false;
+
+                override visitFunction(type: FunctionType): void {
+                    const paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
+                    if (
+                        paramSpec &&
+                        FunctionType.cloneRemoveParamSpecArgsKwargs(type).shared.parameters.length > 0 &&
+                        classParamSpecs.some((classParamSpec) => isTypeSame(paramSpec, classParamSpec))
+                    ) {
+                        this.found = true;
+                        this.cancelWalk();
+                        return;
+                    }
+
+                    super.visitFunction(type);
+                }
+            }
+
+            const walker = new ConcatenateParamSpecWalker();
+            selfParamType.priv.typeArgs?.forEach((typeArg) => walker.walk(typeArg));
+
+            return walker.found;
+        });
+
+        if (!shouldDefer) {
+            return undefined;
+        }
+
+        return bindFunctionToClassOrObject(
+            declaringObjectType,
+            unspecializedMethodType,
+            declaringClassType,
+            /* treatConstructorAsClassMethod */ false,
+            concreteMemberType,
+            diag
+        );
+    }
+
     function bindMethodForMemberAccess(
         type: Type,
         concreteType: FunctionType | OverloadedType,
@@ -7346,14 +7506,38 @@ export function createTypeEvaluator(
 
         let isAsymmetric = false;
 
-        const getterSymbolResult = lookUpClassMember(classType, '__get__', MemberAccessFlags.SkipBaseClasses);
-        const setterSymbolResult = lookUpClassMember(classType, '__set__', MemberAccessFlags.SkipBaseClasses);
+        // Accessors can be defined at different levels of the descriptor's MRO.
+        // Ignore instance members so an instance attribute that happens to share
+        // a dunder name doesn't shadow the descriptor protocol during this check.
+        const accessorFlags = MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride;
+        const getterSymbolResult = lookUpClassMember(classType, '__get__', accessorFlags);
+        const setterSymbolResult = lookUpClassMember(classType, '__set__', accessorFlags);
 
         if (!getterSymbolResult || !setterSymbolResult) {
             isAsymmetric = false;
         } else {
             let getterType = getTypeOfMember(getterSymbolResult);
-            const setterType = getTypeOfMember(setterSymbolResult);
+            let setterType = getTypeOfMember(setterSymbolResult);
+
+            // The getter and setter can be declared on different classes. Specialize
+            // both against the concrete descriptor class so Self and inherited type
+            // variables are compared in the same context.
+            if (getterSymbolResult.classType && isInstantiableClass(getterSymbolResult.classType)) {
+                getterType = partiallySpecializeType(
+                    getterType,
+                    getterSymbolResult.classType,
+                    getTypeClassType(),
+                    classType
+                );
+            }
+            if (setterSymbolResult.classType && isInstantiableClass(setterSymbolResult.classType)) {
+                setterType = partiallySpecializeType(
+                    setterType,
+                    setterSymbolResult.classType,
+                    getTypeClassType(),
+                    classType
+                );
+            }
 
             // If this is an overload, find the appropriate overload.
             if (isOverloaded(getterType)) {
@@ -17629,8 +17813,9 @@ export function createTypeEvaluator(
 
         // Validate that we received at least two type arguments. One type argument
         // is allowed if it's an unpacked TypeVarTuple or tuple. None is also allowed
-        // since it is used to define NoReturn in typeshed stubs).
-        if (types.length === 1 && !allowSingleTypeArg && !isNoneInstance(types[0])) {
+        // since it is used to define NoReturn in typeshed stubs). No type arguments,
+        // as in "Union[()]", is a runtime error.
+        if (types.length === 0 || (types.length === 1 && !allowSingleTypeArg && !isNoneInstance(types[0]))) {
             if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeArguments, LocMessage.unionTypeArgCount(), errorNode);
             }
@@ -19170,6 +19355,9 @@ export function createTypeEvaluator(
             // Determine the effective metaclass.
             if (metaclassNode) {
                 let metaclassType = getTypeOfExpression(metaclassNode, exprFlags).type;
+                if (isAny(metaclassType)) {
+                    metaclassType = UnknownType.create();
+                }
                 if (isInstantiableClass(metaclassType) || isUnknown(metaclassType)) {
                     if (requiresSpecialization(metaclassType, { ignorePseudoGeneric: true })) {
                         addDiagnostic(
@@ -19200,6 +19388,9 @@ export function createTypeEvaluator(
                             classType.shared.flags |= ClassTypeFlags.SupportsAbstractMethods;
                         }
                     }
+                } else {
+                    // Callable metaclasses can return classes with different equality semantics.
+                    classType.shared.flags |= ClassTypeFlags.HasUnresolvedMetaclass;
                 }
             }
 
@@ -21088,7 +21279,10 @@ export function createTypeEvaluator(
             }
 
             if (isInstantiableClass(exceptionType)) {
-                if (ClassType.isBuiltIn(exceptionType, 'BaseException')) {
+                if (
+                    derivesFromStdlibClass(exceptionType, 'BaseException') &&
+                    !derivesFromStdlibClass(exceptionType, 'Exception')
+                ) {
                     includesBaseException = true;
                 }
                 return ClassType.cloneAsInstance(exceptionType);
@@ -25622,6 +25816,7 @@ export function createTypeEvaluator(
                             /* diag */ undefined,
                             /* constraints */ undefined,
                             /* selfConstraints */ undefined,
+                            AssignTypeFlags.Default,
                             recursionCount
                         )
                     ) {
@@ -28068,6 +28263,53 @@ export function createTypeEvaluator(
         }
     }
 
+    // Determines whether the dest accepts every argument list the source
+    // accepts, apart from parameters that overlap only when omitted.
+    function isParamListOverlapOnlyByOmission(
+        destType: FunctionType,
+        srcType: FunctionType,
+        destParamDetails: ParamListDetails,
+        srcParamDetails: ParamListDetails,
+        recursionCount: number
+    ): boolean {
+        if (destParamDetails.params.length !== srcParamDetails.params.length) {
+            return false;
+        }
+
+        const destScopeIds = getTypeVarScopeIds(destType);
+        const srcScopeIds = getTypeVarScopeIds(srcType);
+        const constraints = new ConstraintTracker();
+
+        return destParamDetails.params.every((destParam, index) => {
+            const srcParam = srcParamDetails.params[index];
+
+            if (
+                destParam.kind !== srcParam.kind ||
+                destParam.param.category !== srcParam.param.category ||
+                destParam.param.name !== srcParam.param.name
+            ) {
+                return false;
+            }
+
+            if (destParam.defaultType && srcParam.defaultType) {
+                if (isOverlapOnlyByOmission(destParam.type, destParam.defaultType, srcParam.type)) {
+                    return true;
+                }
+            } else if (srcParam.defaultType) {
+                return false;
+            }
+
+            return assignType(
+                makeTypeVarsFree(destParam.type, destScopeIds),
+                makeTypeVarsBound(srcParam.type, srcScopeIds),
+                /* diag */ undefined,
+                constraints,
+                AssignTypeFlags.Default,
+                recursionCount
+            );
+        });
+    }
+
     function assignFunction(
         destType: FunctionType,
         srcType: FunctionType,
@@ -28102,6 +28344,20 @@ export function createTypeEvaluator(
             isContra ? destParamDetails : srcParamDetails,
             isContra ? srcParamDetails : destParamDetails
         );
+
+        let paramListOmissionResult: boolean | undefined;
+        const checkParamListOmission = () => {
+            if (paramListOmissionResult === undefined) {
+                paramListOmissionResult = isParamListOverlapOnlyByOmission(
+                    destType,
+                    srcType,
+                    destParamDetails,
+                    srcParamDetails,
+                    recursionCount
+                );
+            }
+            return paramListOmissionResult;
+        };
 
         const targetIncludesParamSpec = isContra ? !!srcParamSpec : !!destParamSpec;
 
@@ -28182,6 +28438,12 @@ export function createTypeEvaluator(
                 // be a match.
                 if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
                     if (srcParam.defaultType) {
+                        if (
+                            isOverlapOnlyByOmission(destParamType, destParam.defaultType, srcParamType) &&
+                            checkParamListOmission()
+                        ) {
+                            canAssign = false;
+                        }
                         continue;
                     }
                 }
@@ -28257,8 +28519,8 @@ export function createTypeEvaluator(
         ) {
             diag?.createAddendum().addMessage(
                 LocAddendum.argsPositionOnly().format({
-                    expected: srcParamDetails.positionOnlyParamCount,
-                    received: destParamDetails.firstPositionOrKeywordIndex,
+                    expected: destParamDetails.firstPositionOrKeywordIndex,
+                    received: srcParamDetails.positionOnlyParamCount,
                 })
             );
             canAssign = false;
@@ -28615,6 +28877,12 @@ export function createTypeEvaluator(
                     // be a match.
                     if (srcParamInfo.defaultType && destParamInfo.defaultType) {
                         if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
+                            if (
+                                isOverlapOnlyByOmission(destParamInfo.type, destParamInfo.defaultType, srcParamType) &&
+                                checkParamListOmission()
+                            ) {
+                                canAssign = false;
+                            }
                             destParamMap.delete(srcParamInfo.param.name);
                             return;
                         }
@@ -29828,7 +30096,7 @@ export function createTypeEvaluator(
                 return functionType;
             }
 
-            if (FunctionType.isInstanceMethod(functionType)) {
+            if (FunctionType.isInstanceMethod(functionType) && !treatConstructorAsClassMethod) {
                 // If the baseType is a metaclass, don't specialize the function.
                 if (isInstantiableMetaclass(baseType)) {
                     return functionType;
@@ -29855,10 +30123,7 @@ export function createTypeEvaluator(
                 );
             }
 
-            if (
-                FunctionType.isClassMethod(functionType) ||
-                (treatConstructorAsClassMethod && FunctionType.isConstructorMethod(functionType))
-            ) {
+            if (FunctionType.isClassMethod(functionType) || treatConstructorAsClassMethod) {
                 const baseClass = isInstantiableClass(baseType) ? baseType : ClassType.cloneAsInstantiable(baseType);
                 const clsType = selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : undefined;
 
@@ -30352,6 +30617,7 @@ export function createTypeEvaluator(
         validateInitSubclassArgs,
         isNodeReachable,
         isAfterNodeReachable,
+        isKeyPresentInTypedDict: (node) => codeFlowEngine.isKeyPresentInTypedDict(node),
         getNodeReachability,
         getAfterNodeReachability,
         isAsymmetricAccessorAssignment,
@@ -30407,6 +30673,7 @@ export function createTypeEvaluator(
         getNoneType,
         getUnionClassType,
         getTypeClassType,
+        getFunctionClassType,
         getBuiltInObject,
         getTypingType,
         getTypeCheckerInternalsType,

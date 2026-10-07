@@ -86,16 +86,22 @@ jobs:
             const handoff = process.env.PRIMER_EVENT_NAME === 'workflow_dispatch'
               ? { runId: Number(process.env.PRIMER_RUN_ID), runAttempt: Number(process.env.PRIMER_RUN_ATTEMPT) }
               : JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'primer-context', 'primer-analysis-context.json'), 'utf8'));
+            if (handoff.skipped === true) {
+              core.notice('Skipping analysis: no primer inputs changed');
+              return;
+            }
             const source = await loadSource(github.request.bind(github), `${context.repo.owner}/${context.repo.repo}`, handoff);
             fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'primer-source.json'), JSON.stringify(source));
             return source.runId;
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: steps.source.outputs.result != ''
         with:
           pattern: mypy_primer_diffs_*
           run-id: ${{ steps.source.outputs.result }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/primer-input/raw
       - name: Count diagnostics and validate the current PR
+        if: steps.source.outputs.result != ''
         id: prepare
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:

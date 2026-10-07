@@ -281,6 +281,10 @@ function generateFunctionStub(
     const paramStrings: string[] = [];
     for (let i = 0; i < type.shared.parameters.length; i++) {
         const param = type.shared.parameters[i];
+        if (!param.name) {
+            paramStrings.push(param.category === ParamCategory.ArgsList ? '*' : '/');
+            continue;
+        }
         const paramParts: string[] = [];
 
         // Handle special parameter categories
@@ -291,11 +295,7 @@ function generateFunctionStub(
         }
 
         // Parameter name
-        if (param.name) {
-            paramParts.push(param.name);
-        } else {
-            paramParts.push('_');
-        }
+        paramParts.push(param.name);
 
         // Parameter type annotation
         if (param._type) {
