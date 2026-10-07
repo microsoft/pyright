@@ -624,7 +624,7 @@ export function getStringAnnotation(node: StringListNode, reader: AnalyzerNodeIn
         return undefined;
     }
 
-    const fileInfo = reader.getFileInfo(node);
+    const fileInfo = getAnalyzerFileInfoIdentity(reader.getFileInfo(node));
     return fileInfo ? reader.get(root)?.stringAnnotations?.get(fileInfo)?.get(node) : undefined;
 }
 
@@ -635,7 +635,7 @@ export function setStringAnnotation(
     reader: AnalyzerNodeInfoReader
 ) {
     const root = getParseTreeRoot(node);
-    const fileInfo = reader.getFileInfo(node);
+    const fileInfo = getAnalyzerFileInfoIdentity(reader.getFileInfo(node));
     const rootInfo = root ? reader.get(root) : undefined;
     if (!root || !fileInfo || !rootInfo) {
         throw new Error('String annotations require a bound parse tree');
@@ -652,6 +652,14 @@ export function setStringAnnotation(
     nestedAnnotations.forEach((nestedAnnotation, nestedNode) => {
         ownerAnnotations.set(nestedNode, nestedAnnotation);
     });
+}
+
+function getAnalyzerFileInfoIdentity(fileInfo: AnalyzerFileInfo | undefined): AnalyzerFileInfo | undefined {
+    return fileInfo
+        ? ((fileInfo as any)[globalThis.Symbol.for('pyright.analyzerFileInfo.identity')] as
+              | AnalyzerFileInfo
+              | undefined) ?? fileInfo
+        : undefined;
 }
 
 export function getFileInfoIfAvailable(node: ParseNode, reader: AnalyzerNodeInfoReader): AnalyzerFileInfo | undefined {

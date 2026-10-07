@@ -717,6 +717,9 @@ export const enum ClassTypeFlags {
     // The enum class body can modify its namespace in a way that the binder
     // cannot represent as statically-known member symbols.
     EnumMemberSetMayBeDynamicallyModified = 1 << 26,
+
+    // An explicit metaclass expression could not be resolved to a class type.
+    HasUnresolvedMetaclass = 1 << 27,
 }
 
 export interface DataClassBehaviors {

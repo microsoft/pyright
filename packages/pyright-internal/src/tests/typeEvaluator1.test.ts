@@ -12,6 +12,7 @@ import * as assert from 'assert';
 
 import { ScopeType } from '../analyzer/scope';
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
@@ -333,6 +334,19 @@ test('TypeNarrowingTypeIs1', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('TypeGuardMethod1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuardMethod1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [276, DiagnosticRule.reportAttributeAccessIssue],
+            [282, DiagnosticRule.reportAttributeAccessIssue],
+        ]
+    );
+});
+
 test('TypeNarrowingTypeEquals1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypeEquals1.py']);
 
@@ -582,7 +596,32 @@ test('TypeNarrowingTypedDict2', () => {
 test('TypeNarrowingTypedDict3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict3.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 12);
+});
+
+test('TypeNarrowingTypedDict4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict4.py']);
+
+    TestUtils.validateResults(analysisResults, 21);
+    expect(analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((a, b) => a - b)).toEqual([
+        118, 125, 132, 138, 144, 152, 159, 166, 174, 186, 193, 201, 208, 222, 236, 249, 264, 272, 279, 287, 321,
+    ]);
+});
+
+test('TypeNarrowingTypedDict5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict5.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+    expect(analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((a, b) => a - b)).toEqual([
+        22, 29, 46, 72, 79, 90,
+    ]);
+});
+
+test('CodeFlowMutation1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlowMutation1.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    expect(analysisResults[0].errors[0].range.start.line + 1).toBe(31);
 });
 
 test('typeNarrowingCallable1', () => {
@@ -1204,6 +1243,15 @@ test('Metaclass10', () => {
 test('Metaclass11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass11.py']);
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('Metaclass12', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass12.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('AssignmentExpr1', () => {
