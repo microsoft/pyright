@@ -112,11 +112,21 @@ jobs:
             for (const artifact of artifacts) {
               const match = artifact.name.match(pattern)
               if (!match || artifact.expired || !artifact.workflow_run?.id) continue
-              const run = await github.rest.actions.getWorkflowRun({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                run_id: artifact.workflow_run.id,
-              })
+              let run
+              try {
+                run = await github.rest.actions.getWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: artifact.workflow_run.id,
+                })
+              } catch (error) {
+                if (error.status !== 404) throw error
+                core.warning(
+                  `Skipping PR history artifact ${artifact.id}: ` +
+                  `workflow run ${artifact.workflow_run.id} is unavailable (404).`
+                )
+                continue
+              }
               if (run.data.path !== '.github/workflows/typecheck_benchmark_trigger.yml') continue
               retained.push({
                 id: artifact.id,
