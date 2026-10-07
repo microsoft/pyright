@@ -897,6 +897,105 @@ Regression threshold: `10.0%`
             "${{ always() && github.repository == 'microsoft/pyright' && needs.releases.result == 'success' }}",
         )
 
+    def test_pages_skips_unavailable_pr_history_runs(self) -> None:
+        script = r"""
+const assert = require('assert').strict;
+const fs = require('fs');
+const YAML = require('yaml');
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const workflow = YAML.parse(fs.readFileSync('.github/workflows/publish_pages.yml', 'utf8'));
+const script = workflow.jobs.publish.steps.find(
+    (step) => step.name === 'Find retained report artifacts'
+).with.script;
+const discover = new AsyncFunction('github', 'context', 'core', 'process', 'require', script);
+function artifact(id, changes = {}) {
+    return {
+        id, name: `typecheck-benchmark-history-pr-7-run-${id}-attempt-1-` +
+            `base-${'a'.repeat(40)}-candidate-${'b'.repeat(40)}`,
+        workflow_run: { id }, expired: false, created_at: '2026-10-07T00:00:00Z',
+        ...changes,
+    };
+}
+const artifacts = [
+    artifact(1),
+    artifact(2),
+    artifact(3),
+    artifact(4),
+    artifact(5, { expired: true }),
+    artifact(6, { name: 'unrelated' }),
+    artifact(7, { workflow_run: undefined }),
+];
+async function check(error, candidates = artifacts) {
+    const warnings = [];
+    const outputs = {};
+    const files = {};
+    const lookups = [];
+    const github = {
+        rest: { actions: {
+            listArtifactsForRepo: 'artifacts',
+            getWorkflowRun: async ({ owner, repo, run_id }) => {
+                assert.equal(owner, 'microsoft');
+                assert.equal(repo, 'pyright');
+                lookups.push(run_id);
+                if (run_id === 2 && error) throw error;
+                return { data: { path: run_id === 4
+                    ? '.github/workflows/unrelated.yml'
+                    : '.github/workflows/typecheck_benchmark_trigger.yml' } };
+            },
+        } },
+        paginate: async (method) => {
+            assert.equal(method, 'artifacts');
+            return candidates;
+        },
+    };
+    const core = {
+        warning: (message) => warnings.push(message),
+        setOutput: (name, value) => { outputs[name] = value; },
+        setFailed: (message) => { throw new Error(message); },
+    };
+    await discover(
+        github,
+        { repo: { owner: 'microsoft', repo: 'pyright' } },
+        core,
+        { env: { BENCHMARK_RUN_ID: '100', HISTORY_RUN_ID: '101' } },
+        (name) => {
+            assert.equal(name, 'fs');
+            return { writeFileSync: (path, contents) => { files[path] = contents; } };
+        }
+    );
+    return { warnings, outputs, lookups, retained: JSON.parse(files['pr-history-artifacts.json']) };
+}
+async function main() {
+    const result = await check({ status: 404 });
+    assert.deepEqual(result.lookups, [1, 2, 3, 4]);
+    assert.deepEqual(result.retained, [artifacts[0], artifacts[2]].map((artifact) => ({
+        id: artifact.id, name: artifact.name, run_id: artifact.workflow_run.id,
+        created_at: artifact.created_at,
+    })));
+    assert.deepEqual(result.warnings, [
+        'Skipping PR history artifact 2: workflow run 2 is unavailable (404).',
+    ]);
+    assert.deepEqual(result.outputs, { 'benchmark-run-id': '100', 'history-run-id': '101' });
+    const available = await check();
+    assert.deepEqual(available.retained.map((artifact) => artifact.id), [1, 2, 3]);
+    assert.deepEqual(available.warnings, []);
+    const missing = await check({ status: 404 }, [artifact(2)]);
+    assert.deepEqual(missing.retained, []);
+    assert.equal(missing.warnings.length, 1);
+    for (const error of [{ status: 403 }, { status: 429 }, { status: 500 }, new Error('network')]) {
+        await assert.rejects(check(error), (thrown) => thrown === error);
+    }
+}
+main().catch((error) => { console.error(error); process.exitCode = 1; });
+"""
+        subprocess.run(
+            ["node", "-e", script],
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
     def test_pr_benchmark_requires_authorized_comment(self) -> None:
         trigger_workflow_path = (
             REPO_ROOT
