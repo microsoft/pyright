@@ -245,7 +245,7 @@ test('OverloadOverlap1', () => {
 
     configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverlap1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 18);
+    TestUtils.validateResults(analysisResults, 26);
 });
 
 test('TypeGuard1', () => {
@@ -262,6 +262,27 @@ test('TypeGuard2', () => {
 
 test('TypeGuard3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeGuard4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeGuard5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard5.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()),
+        [DiagnosticRule.reportAttributeAccessIssue, DiagnosticRule.reportAttributeAccessIssue]
+    );
+    assert.ok(analysisResults[0].errors[0].message.includes('type[FactoryClass]'));
+    assert.ok(analysisResults[0].errors[1].message.includes('type[FactoryChild]'));
+});
+
+test('TypeGuard6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard6.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
@@ -1158,6 +1179,20 @@ test('Constructor34', () => {
             ],
         ]
     );
+});
+
+test('Constructor35', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor35.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+    assert.deepStrictEqual(analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()).sort(), [
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportGeneralTypeIssues,
+    ]);
 });
 
 test('ConstructorCallable1', () => {

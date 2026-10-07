@@ -36,3 +36,7 @@ The [binder](https://github.com/microsoft/pyright/blob/main/packages/pyright-int
 
 The [checker](https://github.com/microsoft/pyright/blob/main/packages/pyright-internal/src/analyzer/checker.ts) is responsible for checking all of the statements and expressions within a source file. It relies heavily on the [typeEvaluator](https://github.com/microsoft/pyright/blob/main/packages/pyright-internal/src/analyzer/typeEvaluator.ts) module, which performs most of the heavy lifting. The checker doesn’t run on all files, only those that require full diagnostic output. For example, if a source file is not part of the program but is imported by the program, the checker doesn’t need to run on it.
 
+## Type Evaluation Walkthroughs
+
+See [Overload Resolution and the NumPy Array Case](overload-resolution-numpy.md) for a detailed explanation of overloaded calls, callable compatibility, constraint inference, and requirement-first recursive protocol rejection.
+

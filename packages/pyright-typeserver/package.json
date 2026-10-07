@@ -45,6 +45,6 @@
         "pyright-typeserver": "pyright-typeserver.js"
     },
     "overrides": {
-        "tar": "7.5.11"
+        "tar": "7.5.19"
     }
 }

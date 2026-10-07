@@ -880,6 +880,30 @@ test('RecursiveTypeAlias17', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('RecursiveTypeAlias18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias18.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+
+    expect(analysisResults[0].errors[0].message.replace(/\u00a0/g, ' ')).toBe(
+        [
+            'Argument of type "Alias1[str]" cannot be assigned to parameter "x" of type "Alias1[int]" in function "func9"',
+            '  "tuple[str, Alias1[str] | None]" is not assignable to "tuple[int, Alias1[int] | None]"',
+            '    Tuple entry 1 is incorrect type',
+            '      "str" is not assignable to "int"',
+        ].join('\n')
+    );
+    expect(analysisResults[0].errors[1].message.replace(/\u00a0/g, ' ')).toBe(
+        [
+            'Argument of type "Alias1[str] | None" cannot be assigned to parameter "x" of type "Alias1[int]" in function "func9"',
+            '  Type "Alias1[str] | None" is not assignable to type "Alias1[int]"',
+            '    "tuple[str, Alias1[str] | None]" is not assignable to "tuple[int, Alias1[int] | None]"',
+            '      Tuple entry 1 is incorrect type',
+            '        "str" is not assignable to "int"',
+        ].join('\n')
+    );
+});
+
 test('Classes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes1.py']);
 

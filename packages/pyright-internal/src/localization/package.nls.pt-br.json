@@ -147,7 +147,7 @@
         "dictUnpackIsNotMapping": "Mapeamento esperado para o operador de desempacotamento de dicionário",
         "disjointBaseFunction": "@disjoint_base não pode ser aplicado a uma função",
         "disjointBaseIncompatible": "As classes base têm bases disjuntas incompatíveis: {bases}",
-        "disjointBaseProtocol": "@disjoint_base não pode ser aplicado a uma classe Protocolo",
+        "disjointBaseProtocol": "@disjoint_base não pode ser aplicado a uma classe Protocol",
         "disjointBaseTypedDict": "@disjoint_base não pode ser aplicado a uma classe TypedDict",
         "dunderAllSymbolNotPresent": "\"{name}\" está especificado no __all__ mas não está presente no módulo",
         "duplicateArgsParam": "Somente um parâmetro \"*\" permitido",

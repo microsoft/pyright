@@ -3649,17 +3649,28 @@ export class Binder extends ParseTreeWalker {
         }
 
         const prevFlowNode = this._currentFlowNode!;
-        if (!this._isCodeUnreachable() && isCodeFlowSupportedForReference(node)) {
+        // Record mutations even when the target cannot be narrowed, so presence
+        // proofs do not survive deletion or replacement through a variable index.
+        const isSupportedReference = isCodeFlowSupportedForReference(node);
+        let root: ExpressionNode = node;
+        if (!isSupportedReference) {
+            while (root.nodeType === ParseNodeType.Index || root.nodeType === ParseNodeType.MemberAccess) {
+                root = root.d.leftExpr;
+            }
+        }
+        if (!this._isCodeUnreachable() && (isSupportedReference || isCodeFlowSupportedForReference(root))) {
             const flowNode: FlowAssignment = {
-                flags: FlowFlags.Assignment,
-                id: this._getUniqueFlowNodeId(),
+                flags: isSupportedReference ? FlowFlags.Assignment : FlowFlags.Mutation,
+                // Presence-only mutations must not consume the type inference complexity budget.
+                id: isSupportedReference ? this._getUniqueFlowNodeId() : getUniqueFlowNodeId(),
                 node,
                 antecedent: this._currentFlowNode!,
                 targetSymbolId,
             };
 
-            const referenceKey = createKeyForReference(node);
-            this._currentScopeCodeFlowExpressions!.add(referenceKey);
+            if (isSupportedReference) {
+                this._currentScopeCodeFlowExpressions!.add(createKeyForReference(node));
+            }
 
             if (unbound) {
                 flowNode.flags |= FlowFlags.Unbind;
@@ -3667,7 +3678,7 @@ export class Binder extends ParseTreeWalker {
 
             // Assume that an assignment to a member access expression
             // can potentially generate an exception.
-            if (node.nodeType === ParseNodeType.MemberAccess) {
+            if (isSupportedReference && node.nodeType === ParseNodeType.MemberAccess) {
                 this._addExceptTargets(flowNode);
             }
             this._currentFlowNode = flowNode;
