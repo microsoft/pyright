@@ -117,3 +117,17 @@ def test12[T: tuple[str], U: tuple[int]](t1: tuple[*T], u1: tuple[*U], t2: tuple
 def test13[T: tuple[str, ...], U: tuple[int]](t: tuple[*T], u: tuple[*U]):
     reveal_type(t + u, expected_text="tuple[*tuple[str, ...], int]")
     reveal_type(t + (1,), expected_text="tuple[*T@test13, Literal[1]]")
+
+
+def test14[S: tuple[int, str]](t: list[tuple[*S]]):
+    # This should generate an error because list is invariant
+    # and S may be narrower than its bound.
+    v1: list[tuple[int, str]] = t
+    v2: list[tuple[*S]] = t
+
+
+def func15[S: tuple[int, str]](t: list[tuple[*S]]) -> S: ...
+
+
+def test15(t: list[tuple[bool, str]]):
+    reveal_type(func15(t), expected_text="tuple[bool, str]")

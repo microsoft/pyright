@@ -390,8 +390,9 @@ export function adjustTupleTypeArgs(
 
     // An unpacked TypeVar in the source stands for any tuple that matches its
     // upper bound. Unless it lines up with a variadic element in the dest,
-    // replace it with the entries of its bound.
-    if ((flags & AssignTypeFlags.Contravariant) === 0) {
+    // replace it with the entries of its bound. Skip this for invariance,
+    // since the TypeVar may be a narrower tuple than its bound.
+    if ((flags & (AssignTypeFlags.Contravariant | AssignTypeFlags.Invariant)) === 0) {
         const linesUpWithDestVariadic =
             destUnboundedOrVariadicIndex >= 0 &&
             !destTypeArgs[destUnboundedOrVariadicIndex].isUnbounded &&
