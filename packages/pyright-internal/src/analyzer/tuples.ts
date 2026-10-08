@@ -24,6 +24,7 @@ import {
     isAnyOrUnknown,
     isClassInstance,
     isInstantiableClass,
+    isTypeSame,
     isTypeVar,
     isTypeVarTuple,
     isUnion,
@@ -385,7 +386,8 @@ export function adjustTupleTypeArgs(
     flags: AssignTypeFlags
 ): boolean {
     // An unpacked TypeVar in the dest that is outside its solving scope and
-    // whose upper bound is an empty tuple contributes no entries, so remove it.
+    // whose upper bound is an empty tuple contributes no entries, so remove it
+    // unless the source contains the same TypeVar.
     const emptyBoundIndex = destTypeArgs.findIndex(
         (t) =>
             isUnpackedTypeVar(t.type) &&
@@ -397,7 +399,7 @@ export function adjustTupleTypeArgs(
             t.type.shared.boundType.priv.tupleTypeArgs?.length === 0
     );
 
-    if (emptyBoundIndex >= 0) {
+    if (emptyBoundIndex >= 0 && !srcTypeArgs.some((t) => isTypeSame(t.type, destTypeArgs[emptyBoundIndex].type))) {
         destTypeArgs.splice(emptyBoundIndex, 1);
     }
 

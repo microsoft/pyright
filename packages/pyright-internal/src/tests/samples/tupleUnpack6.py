@@ -133,8 +133,9 @@ def test15(t: list[tuple[bool, str]]):
     reveal_type(func15(t), expected_text="tuple[bool, str]")
 
 
-def test16[S: tuple[()]](callback: Callable[[tuple[*S]], None]) -> tuple[int, *S]:
+def test16[S: tuple[()]](callback: Callable[[tuple[*S]], None], t: list[tuple[*S]]) -> tuple[int, *S]:
     callback(())
+    v: list[tuple[*S]] = t
     return (1,)
 
 
@@ -153,3 +154,8 @@ def test18[T: tuple[int, int]](t1: tuple[bytes, *T], t2: tuple[int, int, *T, str
     reveal_type(func18(t1), expected_text="tuple[bytes, *T@test18]")
     reveal_type(func4(t2), expected_text="tuple[int, *T@test18]")
     return func18(t1)
+
+
+def test19[T: tuple[()]](t: tuple[bytes, *T]) -> tuple[bytes, *T]:
+    reveal_type(func18(t), expected_text="tuple[bytes, *T@test19]")
+    return func18(t)
