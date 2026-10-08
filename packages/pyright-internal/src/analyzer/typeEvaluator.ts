@@ -29848,10 +29848,47 @@ export function createTypeEvaluator(
                 return false;
             }
 
+            // An additional overload ahead of the match must not overlap the
+            // base overload and return an incompatible type.
+            const isOverlapping = overrideOverloads.some((overrideOverload, index) => {
+                return index < matchIndex && isOverrideMethodOverlapping(baseOverload, overrideOverload);
+            });
+
+            if (isOverlapping) {
+                diag.addMessage(LocAddendum.overrideOverloadNoMatch());
+                return false;
+            }
+
             previousMatchIndex = matchIndex;
         }
 
         return true;
+    }
+
+    function isOverrideMethodOverlapping(baseOverload: FunctionType, overrideOverload: FunctionType): boolean {
+        if (assignType(getEffectiveReturnType(baseOverload), getEffectiveReturnType(overrideOverload))) {
+            return false;
+        }
+
+        if (
+            FunctionType.isInstanceMethod(overrideOverload) ||
+            FunctionType.isClassMethod(overrideOverload) ||
+            FunctionType.isConstructorMethod(overrideOverload)
+        ) {
+            baseOverload = FunctionType.clone(baseOverload, /* stripFirstParam */ true);
+            overrideOverload = FunctionType.clone(overrideOverload, /* stripFirstParam */ true);
+        }
+
+        let flags = AssignTypeFlags.SkipReturnTypeCheck;
+        if (
+            assignType(baseOverload, overrideOverload, /* diag */ undefined, /* constraints */ undefined, flags) ||
+            assignType(overrideOverload, baseOverload, /* diag */ undefined, /* constraints */ undefined, flags)
+        ) {
+            return true;
+        }
+
+        flags |= AssignTypeFlags.OverloadOverlap | AssignTypeFlags.PartialOverloadOverlap;
+        return assignType(overrideOverload, baseOverload, /* diag */ undefined, /* constraints */ undefined, flags);
     }
 
     // Determines whether a child class override is applicable to a parent

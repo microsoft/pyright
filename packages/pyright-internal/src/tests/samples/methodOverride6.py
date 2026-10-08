@@ -331,3 +331,104 @@ class Child7_1(Parent7):
     # This should generate an error because the override does not
     # handle all overloads of the base method.
     def m1(self, x: int | bytes) -> int | bytes: ...
+
+
+class Parent8:
+    @overload
+    def m1(self, x: int, *, flag: bool) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    def m1(self, x: int | str, **kwargs: Any) -> int | str: ...
+
+
+class Child8_1(Parent8):
+    @overload
+    def m1(self, x: int, *, flag: bool) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    @overload
+    def m1(self, x: bytes) -> bytes: ...
+
+    @overload
+    def m1(self, x: int, *, flag: bool = False) -> int: ...
+
+    def m1(self, x: int | str | bytes, **kwargs: Any) -> int | str | bytes: ...
+
+
+class Child8_2(Parent8):
+    @overload
+    def m1(self, x: object, *, flag: bool) -> bytes: ...
+
+    @overload
+    def m1(self, x: int, *, flag: bool) -> int: ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
+    def m1(self, x: object, **kwargs: Any) -> int | str | bytes: ...
+
+
+class Parent9:
+    @overload
+    def m1(self, x: int | str) -> str: ...
+
+    @overload
+    def m1(self, x: object) -> object: ...
+
+    def m1(self, x: object) -> object: ...
+
+
+class Child9_1(Parent9):
+    @overload
+    def m1(self, x: int | str) -> str: ...
+
+    @overload
+    def m1(self, x: str | bytes) -> str: ...
+
+    @overload
+    def m1(self, x: object) -> object: ...
+
+    def m1(self, x: object) -> object: ...
+
+
+class Child9_2(Parent9):
+    @overload
+    def m1(self, x: str | bytes) -> bytes: ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def m1(self, x: int | str) -> str: ...
+
+    @overload
+    def m1(self, x: object) -> object: ...
+
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
+    def m1(self, x: object) -> object: ...
+
+
+class Parent12:
+    @overload
+    def m1(self, x: int) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    def m1(self, x: int | str) -> int | str: ...
+
+
+class Child12_1(Parent12):
+    @overload
+    def m1(self, x: int | str) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...  # pyright: ignore[reportOverlappingOverload]
+
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
+    def m1(self, x: int | str) -> int | str: ...
