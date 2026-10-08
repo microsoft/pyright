@@ -51,3 +51,28 @@ class BaseC:
 class SubclassC(BaseC):
     # This should generate an error because of the upper bound.
     def method1[T: SubclassC](self, x: T) -> T: ...
+
+
+class BaseF:
+    def method1(self, x: int) -> int: ...
+
+
+class SubclassF1(BaseF):
+    def method1[T](self, x: int | T) -> T | int: ...
+
+
+class SubclassF2(BaseF):
+    def method1[T: str](self, x: int | T) -> T | int: ...
+
+
+class SubclassF3(BaseF):
+    def method1[T: (str, bytes)](self, x: int | T) -> T | int: ...
+
+
+class SubclassF5(BaseF):
+    # This should generate an error because of a return type mismatch.
+    def method1[T = str](self, x: int | T) -> T | int: ...
+
+
+class SubclassF6(BaseF):
+    def method1[T = int](self, x: int | T) -> T | int: ...

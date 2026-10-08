@@ -30335,7 +30335,30 @@ export function createTypeEvaluator(
 
         // Now check the return type.
         const baseReturnType = getEffectiveReturnType(baseMethod);
-        const overrideReturnType = solveAndApplyConstraints(getEffectiveReturnType(overrideMethod), constraints);
+        let overrideReturnType = solveAndApplyConstraints(getEffectiveReturnType(overrideMethod), constraints);
+
+        // Replace unsolved TypeVars of the override in a union with their
+        // default, or eliminate them if they have no default, as is done for
+        // call return types.
+        const overrideScopeIds = getTypeVarScopeIds(overrideMethod);
+        const isUnsolvedTypeVar = (subtype: Type): subtype is TypeVarType => {
+            return isTypeVar(subtype) && !!subtype.priv.scopeId && overrideScopeIds.includes(subtype.priv.scopeId);
+        };
+        if (
+            isUnion(overrideReturnType) &&
+            !overrideReturnType.priv.subtypes.every((subtype) => {
+                return isUnsolvedTypeVar(subtype) && !subtype.shared.isDefaultExplicit;
+            })
+        ) {
+            overrideReturnType = mapSubtypes(overrideReturnType, (subtype) => {
+                if (isUnsolvedTypeVar(subtype)) {
+                    return subtype.shared.isDefaultExplicit
+                        ? solveAndApplyConstraints(subtype.shared.defaultType, constraints)
+                        : undefined;
+                }
+                return subtype;
+            });
+        }
 
         if (
             !assignType(
