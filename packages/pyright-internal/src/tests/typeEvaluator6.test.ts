@@ -1195,6 +1195,12 @@ test('Constructor35', () => {
     ]);
 });
 
+test('ConstructorAmbiguousSelf', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorAmbiguousSelf.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ConstructorCallable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable1.py']);
 
