@@ -3,6 +3,7 @@
 from typing import Any, Generic, Literal, TypeVar, overload
 
 _T = TypeVar("_T")
+_S = TypeVar("_S")
 
 
 class Parent1(Generic[_T]):
@@ -410,3 +411,38 @@ class Child9_2(Parent9):
     # This should generate an error because the first overload partially
     # overlaps the first base overload and returns an incompatible type.
     def m1(self, x: object) -> object: ...
+
+
+class Parent10(Generic[_T]):
+    @overload
+    def m1(self, x: int, /) -> _T | None: ...
+
+    @overload
+    def m1(self, x: int, default: _T, /) -> _T: ...
+
+    @overload
+    def m1(self, x: int, default: _S, /) -> _T | _S: ...
+
+    def m1(self, x: int, default: object = None, /) -> object: ...
+
+
+class Child10_1(Parent10[_T]):
+    @overload
+    def m1(self, x: int, /) -> _T | None: ...
+
+    @overload
+    def m1(self, x: int, default: _T | _S, /) -> _T | _S: ...
+
+    def m1(self, x: int, default: object = None, /) -> object: ...
+
+
+class Child10_2(Parent10[str]):
+    @overload
+    def m1(self, x: int, /) -> str | None: ...
+
+    @overload
+    def m1(self, x: int, default: str | _S, /) -> bytes | _S: ...
+
+    # This should generate an error because the second overload
+    # returns bytes for the second base overload.
+    def m1(self, x: int, default: object = None, /) -> object: ...

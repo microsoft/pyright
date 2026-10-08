@@ -29873,7 +29873,18 @@ export function createTypeEvaluator(
 
         // Now check the return type.
         const baseReturnType = getEffectiveReturnType(baseMethod);
-        const overrideReturnType = solveAndApplyConstraints(getEffectiveReturnType(overrideMethod), constraints);
+        const overrideDeclaredReturnType = getEffectiveReturnType(overrideMethod);
+        const overrideReturnType = solveAndApplyConstraints(overrideDeclaredReturnType, constraints, {
+            replaceUnsolved: {
+                scopeIds: getTypeVarScopeIds(overrideMethod),
+                unsolvedExemptTypeVars: getUnknownExemptTypeVarsForReturnType(
+                    overrideMethod,
+                    overrideDeclaredReturnType
+                ),
+                tupleClassType: getTupleClassType(),
+                eliminateUnsolvedInUnions: !isFunctionOrOverloaded(overrideDeclaredReturnType),
+            },
+        });
 
         if (
             !assignType(
