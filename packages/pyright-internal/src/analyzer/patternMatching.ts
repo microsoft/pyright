@@ -505,10 +505,11 @@ function narrowTypeBasedOnMappingPattern(
     type = transformPossibleRecursiveTypeAlias(type);
 
     if (!isPositiveTest) {
-        // Handle the case where the pattern consists only of a "**x" entry.
+        // Handle patterns that match any mapping: an empty pattern or one consisting only of a "**x" entry.
         if (
-            pattern.d.entries.length === 1 &&
-            pattern.d.entries[0].nodeType === ParseNodeType.PatternMappingExpandEntry
+            pattern.d.entries.length === 0 ||
+            (pattern.d.entries.length === 1 &&
+                pattern.d.entries[0].nodeType === ParseNodeType.PatternMappingExpandEntry)
         ) {
             const mappingInfo = getMappingPatternInfo(evaluator, type, pattern);
             return combineTypes(mappingInfo.filter((m) => !m.isDefinitelyMapping).map((m) => m.subtype));

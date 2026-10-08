@@ -1,7 +1,7 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain mapping patterns.
 
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 from typing_extensions import NotRequired  # pyright: ignore[reportMissingModuleSource]
 
@@ -152,3 +152,55 @@ def test_not_required_narrowing(subj: TD1) -> None:
 
             print(subj["v2"])
             print(subj["v3"])
+
+
+def test_empty_pattern_union(value_to_match: dict[str, int] | int) -> None:
+    match value_to_match:
+        case {}:
+            reveal_type(value_to_match, expected_text="dict[str, int]")
+        case _:
+            reveal_type(value_to_match, expected_text="int")
+
+
+class Empty(TypedDict):
+    pass
+
+
+def test_empty_pattern_typed_dict(value_to_match: Empty | int) -> None:
+    match value_to_match:
+        case {}:
+            reveal_type(value_to_match, expected_text="Empty")
+        case _:
+            reveal_type(value_to_match, expected_text="int")
+
+
+def test_empty_pattern_typed_dict_mixed(value_to_match: Empty | tuple[str, ...] | None) -> None:
+    match value_to_match:
+        case {}:
+            reveal_type(value_to_match, expected_text="Empty")
+        case _:
+            reveal_type(value_to_match, expected_text="tuple[str, ...] | None")
+
+
+def test_empty_pattern_nonmapping(value_to_match: dict[str, int] | tuple[str, ...]) -> None:
+    match value_to_match:
+        case {}:
+            reveal_type(value_to_match, expected_text="dict[str, int]")
+        case _:
+            reveal_type(value_to_match, expected_text="tuple[str, ...]")
+
+
+def test_empty_pattern_any(value_to_match: dict[str, int] | Any) -> None:
+    match value_to_match:
+        case {}:
+            reveal_type(value_to_match, expected_text="dict[str, int] | Any")
+        case _:
+            reveal_type(value_to_match, expected_text="Any")
+
+
+def test_empty_pattern_object(value_to_match: dict[str, int] | object) -> None:
+    match value_to_match:
+        case {}:
+            reveal_type(value_to_match, expected_text="dict[str, int] | object")
+        case _:
+            reveal_type(value_to_match, expected_text="object")
