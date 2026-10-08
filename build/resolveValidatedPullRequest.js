@@ -4,13 +4,13 @@
  * Licensed under the MIT license.
  */
 
-module.exports = async ({ github, context, core }) => {
+module.exports = async ({ github, context, core, requireSuccess = true }) => {
     const run = context.payload.workflow_run;
     if (
         run.name !== 'Validation' ||
         run.path !== '.github/workflows/validation.yml' ||
         run.event !== 'pull_request' ||
-        run.conclusion !== 'success' ||
+        (requireSuccess && run.conclusion !== 'success') ||
         run.repository.full_name !== `${context.repo.owner}/${context.repo.repo}`
     ) {
         core.notice('Only successful pull request Validation runs can start follow-up checks');
