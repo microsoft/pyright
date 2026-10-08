@@ -1520,3 +1520,9 @@ test('Tuple28', () => {
 
     TestUtils.validateResults(analysisResults, 26);
 });
+
+test('Tuple29', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple29.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+});

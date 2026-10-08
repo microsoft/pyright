@@ -1299,14 +1299,26 @@ function canOrderTupleElements(
 
                 const widenedLeft = evaluator.stripLiteralValue(leftSubtype);
                 const widenedRight = evaluator.stripLiteralValue(rightSubtype);
+                // Class objects dispatch comparison methods through their metaclasses.
+                const leftClass = isClass(widenedLeft)
+                    ? TypeBase.isInstance(widenedLeft)
+                        ? ClassType.cloneAsInstantiable(widenedLeft)
+                        : widenedLeft.shared.effectiveMetaclass
+                    : undefined;
+                const rightClass = isClass(widenedRight)
+                    ? TypeBase.isInstance(widenedRight)
+                        ? ClassType.cloneAsInstantiable(widenedRight)
+                        : widenedRight.shared.effectiveMetaclass
+                    : undefined;
                 let reflectedFirst = false;
                 if (
-                    isClassInstance(widenedLeft) &&
-                    isClassInstance(widenedRight) &&
-                    !ClassType.isSameGenericClass(widenedLeft, widenedRight)
+                    leftClass &&
+                    rightClass &&
+                    isInstantiableClass(leftClass) &&
+                    isInstantiableClass(rightClass) &&
+                    !ClassType.isSameGenericClass(leftClass, rightClass)
                 ) {
-                    const leftClass = ClassType.cloneAsInstantiable(widenedLeft);
-                    for (const base of widenedRight.shared.mro) {
+                    for (const base of rightClass.shared.mro) {
                         if (--remainingChecks < 0) {
                             return true;
                         }
