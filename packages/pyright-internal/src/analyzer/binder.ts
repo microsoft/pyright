@@ -2444,7 +2444,15 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitComprehension(node: ComprehensionNode): boolean {
-        const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
+        // Use evaluation scopes so lambda and class bodies act as non-async boundaries,
+        // while lambda defaults and class headers retain their enclosing context.
+        let enclosingScopeNode = ParseTreeUtils.getEvaluationScopeNode(node, this._nodeInfo).node;
+        while (
+            enclosingScopeNode.nodeType === ParseNodeType.Comprehension ||
+            enclosingScopeNode.nodeType === ParseNodeType.TypeParameterList
+        ) {
+            enclosingScopeNode = ParseTreeUtils.getEvaluationScopeNode(enclosingScopeNode.parent!, this._nodeInfo).node;
+        }
 
         // The first iterable is executed outside of the comprehension scope.
         if (node.d.forIfNodes.length > 0 && node.d.forIfNodes[0].nodeType === ParseNodeType.ComprehensionFor) {
@@ -2474,7 +2482,10 @@ export class Binder extends ParseTreeWalker {
                         // Async for is not allowed outside of an async function
                         // unless we're in ipython mode.
                         if (compr.d.asyncToken && !this._fileInfo.ipythonMode) {
-                            if (!enclosingFunction || !enclosingFunction.d.isAsync) {
+                            if (
+                                enclosingScopeNode.nodeType !== ParseNodeType.Function ||
+                                !enclosingScopeNode.d.isAsync
+                            ) {
                                 // Allow if it's within a generator expression. Execution of
                                 // generator expressions is deferred and therefore can be
                                 // run within the context of an async function later.
