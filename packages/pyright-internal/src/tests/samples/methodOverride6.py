@@ -331,3 +331,44 @@ class Child7_1(Parent7):
     # This should generate an error because the second base
     # overload is not handled.
     def m1(self, x: int | bytes) -> int | bytes: ...
+
+
+class Parent8:
+    @overload
+    def m1(self, x: int, *, flag: bool) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    def m1(self, x: int | str, **kwargs: Any) -> int | str: ...
+
+
+class Child8_1(Parent8):
+    @overload
+    def m1(self, x: int, *, flag: bool) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    @overload
+    def m1(self, x: bytes) -> bytes: ...
+
+    @overload
+    def m1(self, x: int, *, flag: bool = False) -> int: ...
+
+    def m1(self, x: int | str | bytes, **kwargs: Any) -> int | str | bytes: ...
+
+
+class Child8_2(Parent8):
+    @overload
+    def m1(self, x: object, *, flag: bool) -> bytes: ...
+
+    @overload
+    def m1(self, x: int, *, flag: bool) -> int: ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    # This should generate an error because the first overload
+    # intercepts calls to the first base overload.
+    def m1(self, x: object, **kwargs: Any) -> int | str | bytes: ...

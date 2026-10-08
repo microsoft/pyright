@@ -29346,52 +29346,55 @@ export function createTypeEvaluator(
             });
         }
 
-        // For an overloaded method overriding an overloaded method, the base
-        // overloads must all be matched and in the correct order. It is OK if the
-        // override has additional overloads that are not present in the base method.
+        // For an overloaded method overriding an overloaded method, each base
+        // overload must be matched by an override overload, and the matches must
+        // be in the same order. It is OK if the override has additional overloads
+        // that are not present in the base method.
 
         let previousMatchIndex = -1;
-        const baseOverloads = OverloadedType.getOverloads(baseMethod);
         const overrideOverloads = OverloadedType.getOverloads(overrideMethod);
         const matchedIndices = new Set<number>();
 
-        for (const overrideOverload of overrideOverloads) {
-            let possibleMatchIndex: number | undefined;
+        for (const baseOverload of OverloadedType.getOverloads(baseMethod)) {
+            // If the override isn't applicable for this base class, skip the check.
+            if (baseClass && !isOverrideMethodApplicable(baseOverload, baseClass)) {
+                continue;
+            }
 
-            let matchIndex = baseOverloads.findIndex((baseOverload, index) => {
-                // If the override isn't applicable for this base class, skip the check.
-                if (baseClass && !isOverrideMethodApplicable(baseOverload, baseClass)) {
-                    return false;
-                }
-
-                const isCompatible = validateOverrideMethodInternal(
+            const isCompatible = (overrideOverload: FunctionType) => {
+                return validateOverrideMethodInternal(
                     baseOverload,
                     overrideOverload,
                     /* diag */ undefined,
                     enforceParamNames
                 );
+            };
 
-                // If the override is compatible but the match is one that is below the previous
-                // matched index, keep looking for additional matches. Record the fact that
-                // we found at least one match.
-                if (isCompatible && index <= previousMatchIndex && possibleMatchIndex === undefined) {
-                    possibleMatchIndex = index;
-                    return false;
-                }
-
-                return isCompatible;
+            const matchIndex = overrideOverloads.findIndex((overrideOverload, index) => {
+                return index >= previousMatchIndex && isCompatible(overrideOverload);
             });
 
-            if (matchIndex < 0 && possibleMatchIndex !== undefined) {
-                matchIndex = possibleMatchIndex;
-            }
-
             if (matchIndex < 0) {
-                continue;
+                if (overrideOverloads.some((overrideOverload) => isCompatible(overrideOverload))) {
+                    diag.addMessage(LocAddendum.overrideOverloadOrder());
+                } else {
+                    diag.addMessage(LocAddendum.overrideOverloadNoMatch());
+                }
+                return false;
             }
 
-            if (matchIndex < previousMatchIndex) {
-                diag.addMessage(LocAddendum.overrideOverloadOrder());
+            // An additional overload ahead of the match would intercept calls
+            // that the base overload accepts.
+            const isIntercepted = overrideOverloads.some((overrideOverload, index) => {
+                return (
+                    index < matchIndex &&
+                    !matchedIndices.has(index) &&
+                    isOverloadParamOverlap(baseOverload, overrideOverload)
+                );
+            });
+
+            if (isIntercepted) {
+                diag.addMessage(LocAddendum.overrideOverloadNoMatch());
                 return false;
             }
 
@@ -29399,35 +29402,27 @@ export function createTypeEvaluator(
             previousMatchIndex = matchIndex;
         }
 
-        const isEveryOverloadHandled = baseOverloads.every((baseOverload, index) => {
-            if (matchedIndices.has(index)) {
-                return true;
-            }
+        return true;
+    }
 
-            // See if all of the remaining overrides are nonapplicable.
-            if (baseClass && !isOverrideMethodApplicable(baseOverload, baseClass)) {
-                return true;
-            }
-
-            // An override overload that matched a different base overload
-            // can also handle this one.
-            return overrideOverloads.some((overrideOverload) => {
-                return validateOverrideMethodInternal(
-                    baseOverload,
-                    overrideOverload,
-                    /* diag */ undefined,
-                    enforceParamNames
-                );
-            });
-        });
-
-        if (!isEveryOverloadHandled) {
-            // We didn't find matches for all of the base overloads.
-            diag.addMessage(LocAddendum.overrideOverloadNoMatch());
-            return false;
+    // Determines whether one overload accepts all of the arguments that the
+    // other accepts, ignoring the return types and any "self" or "cls" parameter.
+    function isOverloadParamOverlap(overload1: FunctionType, overload2: FunctionType): boolean {
+        if (
+            FunctionType.isInstanceMethod(overload2) ||
+            FunctionType.isClassMethod(overload2) ||
+            FunctionType.isConstructorMethod(overload2)
+        ) {
+            overload1 = FunctionType.clone(overload1, /* stripFirstParam */ true);
+            overload2 = FunctionType.clone(overload2, /* stripFirstParam */ true);
         }
 
-        return true;
+        const flags = AssignTypeFlags.SkipReturnTypeCheck;
+
+        return (
+            assignType(overload1, overload2, /* diag */ undefined, /* constraints */ undefined, flags) ||
+            assignType(overload2, overload1, /* diag */ undefined, /* constraints */ undefined, flags)
+        );
     }
 
     // Determines whether a child class override is applicable to a parent
