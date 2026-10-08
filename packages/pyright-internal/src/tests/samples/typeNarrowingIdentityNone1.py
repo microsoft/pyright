@@ -9,8 +9,8 @@ from typing_extensions import NewType
 
 
 class A:
-    def method(self) -> None:
-        pass
+    def method(self) -> int:
+        return 1
 
 
 T = TypeVar("T")
@@ -44,6 +44,11 @@ def f5(x: A | None, y: object):
         reveal_type(x, expected_text="A | None")
 
 
+def f6(x: A | None, y: A | int):
+    if x is y:
+        reveal_type(x, expected_text="A")
+
+
 def f7(x: A | None, y: int):
     u = x.unknown_method()  # type: ignore
     reveal_type(u, expected_text="Unknown")
@@ -66,14 +71,37 @@ def f9(x: TB | None, y: TB):
         reveal_type(x, expected_text="TB@f9")
 
 
+def f9b(x: A | None, y: TB | A, witness: TB):
+    if x is y:
+        reveal_type(x, expected_text="A")
+
+
 def f10(x: TC | None, y: TC):
     if x is y:
         reveal_type(x, expected_text="TC@f10")
 
 
+def f10b(x: A | None, y: TC | A, witness: TC):
+    if x is y:
+        reveal_type(x, expected_text="A")
+
+
 def f11(x: TBO | None, y: TBO):
     if x is y:
         reveal_type(x, expected_text="TBO@f11 | None")
+
+
+TCO = TypeVar("TCO", A, None)
+
+
+def f11b(x: A | None, y: TBO | A, witness: TBO):
+    if x is y:
+        reveal_type(x, expected_text="A | None")
+
+
+def f11c(x: A | None, y: TCO | A, witness: TCO):
+    if x is y:
+        reveal_type(x, expected_text="A | None")
 
 
 def f12(x: A | None, y: None):
@@ -87,7 +115,7 @@ def f13(x: A | None, y: Callable[[], A]):
 
 
 class P(Protocol):
-    def method(self) -> None: ...
+    def method(self) -> int: ...
 
 
 def f14(x: A | None, y: P):
@@ -130,3 +158,13 @@ def protobuf_shaped(t: TypeA | None) -> None:
     assert t is VAL1
     reveal_type(t, expected_text="TypeA")
     bar(t)
+
+
+def unsafe(x: A | None, y: T | A, witness: T) -> int:
+    if x is y:
+        reveal_type(x, expected_text="A | None")
+        return x.method()  # This should generate an error.
+    return 0
+
+
+unsafe(None, None, None)

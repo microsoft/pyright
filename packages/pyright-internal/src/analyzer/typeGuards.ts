@@ -295,21 +295,30 @@ export function getTypeNarrowingCallback(
                     // This is intentionally limited to removing None. In
                     // particular, don't attempt to intersect arbitrary nominal,
                     // protocol, or generic types here.
-                    if (
-                        adjIsPositiveTest &&
-                        !isAnyOrUnknown(rightType) &&
-                        (!isTypeVar(rightType) ||
-                            TypeVarType.hasBound(rightType) ||
-                            TypeVarType.hasConstraints(rightType))
-                    ) {
+                    if (adjIsPositiveTest && !isAnyOrUnknown(rightType)) {
                         const noneType = evaluator.getNoneType();
-                        const rightTypeCanBeNone = isTypeVar(rightType)
-                            ? rightType.shared.boundType
-                                ? evaluator.assignType(rightType.shared.boundType, noneType)
-                                : rightType.shared.constraints.some((constraint) =>
-                                      evaluator.assignType(constraint, noneType)
-                                  )
-                            : evaluator.assignType(rightType, noneType);
+                        const rightTypeCanBeNone = someSubtypes(rightType, (subtype) => {
+                            if (isAnyOrUnknown(subtype)) {
+                                return true;
+                            }
+
+                            if (isTypeVar(subtype)) {
+                                if (subtype.shared.boundType) {
+                                    return evaluator.assignType(subtype.shared.boundType, noneType);
+                                }
+
+                                if (subtype.shared.constraints.length > 0) {
+                                    return subtype.shared.constraints.some((constraint) =>
+                                        evaluator.assignType(constraint, noneType)
+                                    );
+                                }
+
+                                // An unconstrained TypeVar can be None.
+                                return true;
+                            }
+
+                            return evaluator.assignType(subtype, noneType);
+                        });
 
                         if (!rightTypeCanBeNone) {
                             return (type: Type) => {
