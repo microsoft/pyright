@@ -369,6 +369,44 @@ class Child8_2(Parent8):
     @overload
     def m1(self, x: str) -> str: ...
 
-    # This should generate an error because the first overload
-    # intercepts calls to the first base overload.
+    # This should generate an error because the first overload overlaps
+    # the first base overload and returns an incompatible type.
     def m1(self, x: object, **kwargs: Any) -> int | str | bytes: ...
+
+
+class Parent9:
+    @overload
+    def m1(self, x: int | str) -> str: ...
+
+    @overload
+    def m1(self, x: object) -> object: ...
+
+    def m1(self, x: object) -> object: ...
+
+
+class Child9_1(Parent9):
+    @overload
+    def m1(self, x: int | str) -> str: ...
+
+    @overload
+    def m1(self, x: str | bytes) -> str: ...
+
+    @overload
+    def m1(self, x: object) -> object: ...
+
+    def m1(self, x: object) -> object: ...
+
+
+class Child9_2(Parent9):
+    @overload
+    def m1(self, x: str | bytes) -> bytes: ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def m1(self, x: int | str) -> str: ...
+
+    @overload
+    def m1(self, x: object) -> object: ...
+
+    # This should generate an error because the first overload partially
+    # overlaps the first base overload and returns an incompatible type.
+    def m1(self, x: object) -> object: ...

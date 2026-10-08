@@ -29383,17 +29383,17 @@ export function createTypeEvaluator(
                 return false;
             }
 
-            // An additional overload ahead of the match would intercept calls
-            // that the base overload accepts.
-            const isIntercepted = overrideOverloads.some((overrideOverload, index) => {
+            // An additional overload ahead of the match must not overlap the
+            // base overload and return an incompatible type.
+            const isOverlapping = overrideOverloads.some((overrideOverload, index) => {
                 return (
                     index < matchIndex &&
                     !matchedIndices.has(index) &&
-                    isOverloadParamOverlap(baseOverload, overrideOverload)
+                    isOverrideMethodOverlapping(baseOverload, overrideOverload)
                 );
             });
 
-            if (isIntercepted) {
+            if (isOverlapping) {
                 diag.addMessage(LocAddendum.overrideOverloadNoMatch());
                 return false;
             }
@@ -29405,23 +29405,27 @@ export function createTypeEvaluator(
         return true;
     }
 
-    // Determines whether one overload accepts all of the arguments that the
-    // other accepts, ignoring the return types and any "self" or "cls" parameter.
-    function isOverloadParamOverlap(overload1: FunctionType, overload2: FunctionType): boolean {
+    function isOverrideMethodOverlapping(baseOverload: FunctionType, overrideOverload: FunctionType): boolean {
+        if (assignType(getEffectiveReturnType(baseOverload), getEffectiveReturnType(overrideOverload))) {
+            return false;
+        }
+
         if (
-            FunctionType.isInstanceMethod(overload2) ||
-            FunctionType.isClassMethod(overload2) ||
-            FunctionType.isConstructorMethod(overload2)
+            FunctionType.isInstanceMethod(overrideOverload) ||
+            FunctionType.isClassMethod(overrideOverload) ||
+            FunctionType.isConstructorMethod(overrideOverload)
         ) {
-            overload1 = FunctionType.clone(overload1, /* stripFirstParam */ true);
-            overload2 = FunctionType.clone(overload2, /* stripFirstParam */ true);
+            baseOverload = FunctionType.clone(baseOverload, /* stripFirstParam */ true);
+            overrideOverload = FunctionType.clone(overrideOverload, /* stripFirstParam */ true);
         }
 
         const flags = AssignTypeFlags.SkipReturnTypeCheck;
+        const partialFlags = flags | AssignTypeFlags.OverloadOverlap | AssignTypeFlags.PartialOverloadOverlap;
 
         return (
-            assignType(overload1, overload2, /* diag */ undefined, /* constraints */ undefined, flags) ||
-            assignType(overload2, overload1, /* diag */ undefined, /* constraints */ undefined, flags)
+            assignType(baseOverload, overrideOverload, /* diag */ undefined, /* constraints */ undefined, flags) ||
+            assignType(overrideOverload, baseOverload, /* diag */ undefined, /* constraints */ undefined, flags) ||
+            assignType(overrideOverload, baseOverload, /* diag */ undefined, /* constraints */ undefined, partialFlags)
         );
     }
 
