@@ -144,3 +144,12 @@ def test17[S: tuple[int]](callback: Callable[[tuple[*S]], None]):
 
     # This should generate an error because S has one entry.
     callback(())
+
+
+def func18[*Ts](t: tuple[*Ts]) -> tuple[*Ts]: ...
+
+
+def test18[T: tuple[int, int]](t1: tuple[bytes, *T], t2: tuple[int, int, *T, str]) -> tuple[bytes, *T]:
+    reveal_type(func18(t1), expected_text="tuple[bytes, *T@test18]")
+    reveal_type(func4(t2), expected_text="tuple[int, *T@test18]")
+    return func18(t1)

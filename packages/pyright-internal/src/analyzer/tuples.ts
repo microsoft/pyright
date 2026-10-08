@@ -406,17 +406,20 @@ export function adjustTupleTypeArgs(
     );
 
     // An unpacked TypeVar in the source stands for any tuple that matches its
-    // upper bound. Unless it lines up with a variadic element in the dest,
-    // replace it with the entries of its bound. Skip this for invariance,
-    // since the TypeVar may be a narrower tuple than its bound.
+    // upper bound. Unless it falls within the source entries captured by a
+    // variadic element in the dest, replace it with the entries of its bound.
+    // Skip this for invariance, since the TypeVar may be a narrower tuple
+    // than its bound.
     if ((flags & (AssignTypeFlags.Contravariant | AssignTypeFlags.Invariant)) === 0) {
-        const linesUpWithDestVariadic =
+        const srcTypeVarIndex = srcTypeArgs.findIndex((t) => isUnpackedTypeVar(t.type));
+        const capturedByDestVariadic =
+            srcTypeVarIndex >= 0 &&
             destUnboundedOrVariadicIndex >= 0 &&
             !destTypeArgs[destUnboundedOrVariadicIndex].isUnbounded &&
-            srcTypeArgs.length === destTypeArgs.length &&
-            isUnpackedTypeVar(srcTypeArgs[destUnboundedOrVariadicIndex].type);
+            srcTypeVarIndex >= destUnboundedOrVariadicIndex &&
+            srcTypeVarIndex <= destUnboundedOrVariadicIndex + srcTypeArgs.length - destTypeArgs.length;
 
-        if (!linesUpWithDestVariadic) {
+        if (!capturedByDestVariadic) {
             srcTypeArgs.splice(0, srcTypeArgs.length, ...expandUnpackedTypeVarsInTupleArgs(srcTypeArgs));
         }
     }
