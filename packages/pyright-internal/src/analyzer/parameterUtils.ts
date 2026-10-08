@@ -290,15 +290,16 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
                 // have any extra items), add a virtual **kwargs parameter to represent
                 // any additional items.
                 if (addKwargsForExtraItems) {
+                    const kwargsType = extraItemsType ?? AnyType.create();
                     addVirtualParam(
                         FunctionParam.create(
                             ParamCategory.KwargsDict,
-                            extraItemsType ?? AnyType.create(),
+                            kwargsType,
                             FunctionParamFlags.TypeDeclared,
                             'kwargs'
                         ),
                         index,
-                        extraItemsType
+                        kwargsType
                     );
 
                     result.kwargsIndex = result.params.length - 1;

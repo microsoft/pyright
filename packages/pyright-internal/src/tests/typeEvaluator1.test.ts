@@ -875,6 +875,33 @@ test('Lambda16', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Lambda17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda17.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Lambda18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda18.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportAssignmentType);
+});
+
+test('Lambda19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda19.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [11, DiagnosticRule.reportAssignmentType],
+            [12, DiagnosticRule.reportAssignmentType],
+            [13, DiagnosticRule.reportAssignmentType],
+        ]
+    );
+});
+
 test('Call1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call1.py']);
 
