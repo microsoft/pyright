@@ -384,6 +384,23 @@ export function adjustTupleTypeArgs(
     srcTypeArgs: TupleTypeArg[],
     flags: AssignTypeFlags
 ): boolean {
+    // An unpacked TypeVar in the dest that is outside its solving scope and
+    // whose upper bound is an empty tuple contributes no entries, so remove it.
+    const emptyBoundIndex = destTypeArgs.findIndex(
+        (t) =>
+            isUnpackedTypeVar(t.type) &&
+            TypeVarType.isBound(t.type) &&
+            !TypeVarType.isUnification(t.type) &&
+            !!t.type.shared.boundType &&
+            isClassInstance(t.type.shared.boundType) &&
+            isTupleClass(t.type.shared.boundType) &&
+            t.type.shared.boundType.priv.tupleTypeArgs?.length === 0
+    );
+
+    if (emptyBoundIndex >= 0) {
+        destTypeArgs.splice(emptyBoundIndex, 1);
+    }
+
     const destUnboundedOrVariadicIndex = destTypeArgs.findIndex(
         (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
     );

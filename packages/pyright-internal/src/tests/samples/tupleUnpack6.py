@@ -1,7 +1,7 @@
 # This sample tests assignment of a tuple to a tuple type that contains
 # an unpacked TypeVar whose upper bound is a tuple.
 
-from typing import Literal
+from typing import Callable, Literal
 
 
 class Box[S: tuple[int, ...]]:
@@ -131,3 +131,16 @@ def func15[S: tuple[int, str]](t: list[tuple[*S]]) -> S: ...
 
 def test15(t: list[tuple[bool, str]]):
     reveal_type(func15(t), expected_text="tuple[bool, str]")
+
+
+def test16[S: tuple[()]](callback: Callable[[tuple[*S]], None]) -> tuple[int, *S]:
+    callback(())
+    return (1,)
+
+
+def test17[S: tuple[int]](callback: Callable[[tuple[*S]], None]):
+    # This should generate an error because S may be narrower than its bound.
+    callback((1,))
+
+    # This should generate an error because S has one entry.
+    callback(())
