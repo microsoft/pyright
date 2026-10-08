@@ -1,7 +1,7 @@
 ---
 name: pyright-issue-fixer
 description: Resolves one evidence-backed Pyright issue with a focused patch, regression coverage, and a draft PR description.
-model: gpt-5.4
+model: gpt-5.6-luna
 disable-model-invocation: true
 ---
 
