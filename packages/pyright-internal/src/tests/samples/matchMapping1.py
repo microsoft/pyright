@@ -1,7 +1,7 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain mapping patterns.
 
-from typing import Any, Literal, TypedDict
+from typing import Any, Callable, Literal, TypedDict, TypeVar
 
 from typing_extensions import NotRequired  # pyright: ignore[reportMissingModuleSource]
 
@@ -204,3 +204,46 @@ def test_empty_pattern_object(value_to_match: dict[str, int] | object) -> None:
             reveal_type(value_to_match, expected_text="dict[str, int] | object")
         case _:
             reveal_type(value_to_match, expected_text="object")
+
+
+def test_empty_pattern_non_mapping_callable(value_to_match: Callable[[], int]) -> None:
+    match value_to_match:
+        case {}:
+            pass
+        case _:
+            reveal_type(value_to_match, expected_text="() -> int")
+            wrong: str = value_to_match()
+
+
+def test_empty_pattern_non_mapping_class(value_to_match: type[int]) -> None:
+    match value_to_match:
+        case {}:
+            pass
+        case _:
+            reveal_type(value_to_match, expected_text="type[int]")
+            wrong: str = value_to_match()
+
+
+T = TypeVar("T")
+C = TypeVar("C", dict[str, int], int)
+
+
+def test_empty_pattern_unconstrained_type_var(value_to_match: T) -> T:
+    match value_to_match:
+        case {}:
+            reveal_type(value_to_match, expected_text="T@test_empty_pattern_unconstrained_type_var")
+            wrong: str = 123
+        case _:
+            reveal_type(value_to_match, expected_text="T@test_empty_pattern_unconstrained_type_var")
+    return value_to_match
+
+
+def test_empty_pattern_constrained_type_var(value_to_match: C) -> C:
+    match value_to_match:
+        case {}:
+            reveal_type(value_to_match, expected_text="C@test_empty_pattern_constrained_type_var")
+            wrong: str = 123
+        case _:
+            reveal_type(value_to_match, expected_text="C@test_empty_pattern_constrained_type_var")
+            wrong: str = 123
+    return value_to_match

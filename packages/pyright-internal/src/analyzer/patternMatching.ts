@@ -1525,6 +1525,7 @@ function hasCustomEq(type: Type): boolean {
 // specified in PEP 634.
 function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: PatternAtomNode): MappingPatternInfo[] {
     const mappingInfo: MappingPatternInfo[] = [];
+    const isEmptyMappingPattern = node.nodeType === ParseNodeType.PatternMapping && node.d.entries.length === 0;
 
     doForEachSubtype(type, (subtype) => {
         const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
@@ -1538,6 +1539,17 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
                     key: concreteSubtype,
                     value: concreteSubtype,
                 },
+            });
+            return;
+        }
+
+        if (isEmptyMappingPattern && isTypeVar(subtype)) {
+            // The concrete type of a TypeVar doesn't preserve its identity. Keep the
+            // original TypeVar in both branches because it may be a mapping at runtime.
+            mappingInfo.push({
+                subtype,
+                isDefinitelyMapping: false,
+                isDefinitelyNotMapping: false,
             });
             return;
         }
@@ -1598,6 +1610,18 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
                 subtype,
                 isDefinitelyMapping: false,
                 isDefinitelyNotMapping: true,
+            });
+            return;
+        }
+
+        if (isEmptyMappingPattern) {
+            // Functions and instantiable classes aren't represented as class
+            // instances here. Preserve them conservatively rather than treating an
+            // unhandled type form as an impossible match.
+            mappingInfo.push({
+                subtype,
+                isDefinitelyMapping: false,
+                isDefinitelyNotMapping: false,
             });
         }
     });
