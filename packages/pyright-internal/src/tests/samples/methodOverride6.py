@@ -3,6 +3,7 @@
 from typing import Any, Generic, Literal, TypeVar, overload
 
 _T = TypeVar("_T")
+_S = TypeVar("_S")
 
 
 class Parent1(Generic[_T]):
@@ -238,3 +239,221 @@ class Parent5_1(Parent5):
     # This should generate an error because the overloads are
     # incompatible
     def m1(self, x: bytes | str) -> bytes | str: ...
+
+
+class Parent6:
+    @overload
+    def m1(self, a: int, /) -> int: ...
+
+    @overload
+    def m1(self, a: int, b: int, c: int, /) -> int: ...
+
+    def m1(self, *args: int) -> int:
+        return 0
+
+
+class Child6_1(Parent6):
+    @overload
+    def m1(self) -> int: ...
+
+    @overload
+    def m1(self, a: int, /) -> int: ...
+
+    @overload
+    def m1(self, a: int, b: int, c: int, /) -> int: ...
+
+    def m1(self, *args: int) -> int:
+        return 0
+
+
+class Child6_2(Parent6):
+    @overload
+    def m1(self, a: int, /) -> int: ...
+
+    @overload
+    def m1(self, a: int, b: int, /) -> int: ...
+
+    @overload
+    def m1(self, a: int, b: int, c: int, /) -> int: ...
+
+    def m1(self, *args: int) -> int:
+        return 0
+
+
+class Child6_3(Parent6):
+    @overload
+    def m1(self, a: int, b: int, c: int, /) -> int: ...
+
+    @overload
+    def m1(self) -> int: ...
+
+    @overload
+    def m1(self, a: int, /) -> int: ...
+
+    # This should generate an error because the overloads are
+    # in the wrong order.
+    def m1(self, *args: int) -> int:
+        return 0
+
+
+class Child6_4(Parent6):
+    @overload
+    def m1(self, a: int, b: int, c: int, /) -> int: ...
+
+    @overload
+    def m1(self) -> int: ...
+
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
+    def m1(self, *args: int) -> int:
+        return 0
+
+
+class Parent7:
+    @overload
+    def m1(self, x: int) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    @overload
+    def m1(self, x: bytes) -> bytes: ...
+
+    def m1(self, x: int | str | bytes) -> int | str | bytes: ...
+
+
+class Child7_1(Parent7):
+    @overload
+    def m1(self, x: int) -> int: ...
+
+    @overload
+    def m1(self, x: bytes) -> bytes: ...
+
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
+    def m1(self, x: int | bytes) -> int | bytes: ...
+
+
+class Parent8:
+    @overload
+    def m1(self, x: int, *, flag: bool) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    def m1(self, x: int | str, **kwargs: Any) -> int | str: ...
+
+
+class Child8_1(Parent8):
+    @overload
+    def m1(self, x: int, *, flag: bool) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    @overload
+    def m1(self, x: bytes) -> bytes: ...
+
+    @overload
+    def m1(self, x: int, *, flag: bool = False) -> int: ...
+
+    def m1(self, x: int | str | bytes, **kwargs: Any) -> int | str | bytes: ...
+
+
+class Child8_2(Parent8):
+    @overload
+    def m1(self, x: object, *, flag: bool) -> bytes: ...
+
+    @overload
+    def m1(self, x: int, *, flag: bool) -> int: ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
+    def m1(self, x: object, **kwargs: Any) -> int | str | bytes: ...
+
+
+class Parent9:
+    @overload
+    def m1(self, x: int | str) -> str: ...
+
+    @overload
+    def m1(self, x: object) -> object: ...
+
+    def m1(self, x: object) -> object: ...
+
+
+class Child9_1(Parent9):
+    @overload
+    def m1(self, x: int | str) -> str: ...
+
+    @overload
+    def m1(self, x: str | bytes) -> str: ...
+
+    @overload
+    def m1(self, x: object) -> object: ...
+
+    def m1(self, x: object) -> object: ...
+
+
+class Child9_2(Parent9):
+    @overload
+    def m1(self, x: str | bytes) -> bytes: ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def m1(self, x: int | str) -> str: ...
+
+    @overload
+    def m1(self, x: object) -> object: ...
+
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
+    def m1(self, x: object) -> object: ...
+
+
+class Parent10(Generic[_T]):
+    @overload
+    def m1(self, x: int, /) -> _T | None: ...
+
+    @overload
+    def m1(self, x: int, default: _T, /) -> _T: ...
+
+    @overload
+    def m1(self, x: int, default: _S, /) -> _T | _S: ...
+
+    def m1(self, x: int, default: object = None, /) -> object: ...
+
+
+class Child10_1(Parent10[_T]):
+    @overload
+    def m1(self, x: int, /) -> _T | None: ...
+
+    @overload
+    def m1(self, x: int, default: _T | _S, /) -> _T | _S: ...
+
+    def m1(self, x: int, default: object = None, /) -> object: ...
+
+
+class Child10_2(Parent10[str]):
+    @overload
+    def m1(self, x: int, /) -> str | None: ...
+
+    @overload
+    def m1(self, x: int, default: str | _S, /) -> bytes | _S: ...
+
+    # This should generate an error.
+    def m1(self, x: int, default: object = None, /) -> object: ...
+
+
+class Child10_3(Parent10[str]):
+    @overload
+    def m1(self, x: int, /) -> str | None: ...
+
+    @overload
+    def m1(self, x: int, default: str | _S, /) -> _S: ...
+
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
+    def m1(self, x: int, default: object = None, /) -> object: ...

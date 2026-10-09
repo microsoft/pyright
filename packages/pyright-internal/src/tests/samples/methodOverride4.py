@@ -51,3 +51,131 @@ class BaseC:
 class SubclassC(BaseC):
     # This should generate an error because of the upper bound.
     def method1[T: SubclassC](self, x: T) -> T: ...
+
+
+class BaseD:
+    def method1(self) -> int: ...
+
+
+class SubclassD[T](BaseD):
+    # This should generate an error.
+    def method1[S](self: "SubclassD[S]") -> S | int: ...
+
+
+class BaseE:
+    def method1(self) -> object: ...
+
+
+class SubclassE[T](BaseE):
+    def method1[S](self: "SubclassE[S]") -> S | int: ...
+
+
+class BaseF:
+    def method1(self, x: int) -> int: ...
+
+
+class SubclassF1(BaseF):
+    def method1[T](self, x: int | T) -> T | int: ...
+
+
+class SubclassF2(BaseF):
+    # This should generate an error because of a return type mismatch.
+    def method1[T: str](self, x: int | T) -> T | int: ...
+
+
+class SubclassF3(BaseF):
+    # This should generate an error because of a return type mismatch.
+    def method1[T: (str, bytes)](self, x: int | T) -> T | int: ...
+
+
+class SubclassF4[T](BaseF):
+    # This should generate an error because of a parameter type mismatch.
+    def method1[S](self: "SubclassF4[S]", x: S) -> int: ...
+
+
+class SubclassF5(BaseF):
+    # This should generate an error because of a return type mismatch.
+    def method1[T = str](self, x: int | T) -> T | int: ...
+
+
+class SubclassF6(BaseF):
+    def method1[T = int](self, x: int | T) -> T | int: ...
+
+
+class BaseG:
+    @classmethod
+    def method1(cls, x: int) -> int: ...
+
+
+class SubclassG[T](BaseG):
+    # This should generate an error because of a parameter type mismatch.
+    @classmethod
+    def method1[S](cls: "type[SubclassG[S]]", x: S) -> int: ...
+
+
+class BaseH[T]:
+    def method1[S](self: "BaseH[S]", x: S) -> S: ...
+
+
+class SubclassH(BaseH[int]):
+    def method1(self, x: int) -> int: ...
+
+
+class BaseI[T]:
+    def method1[S](self: "BaseI[S]", x: S) -> int: ...
+
+
+# This should generate an error because the base classes define
+# method1 in an incompatible way.
+class SubclassI(BaseI[str], BaseF): ...
+
+
+class BaseJ:
+    def method1[T: BaseJ](self: T, x: T) -> None: ...
+
+
+class SubclassJ1(BaseJ):
+    # This should generate an error because of a parameter type mismatch.
+    def method1[T: SubclassJ1](self: T, x: T) -> None: ...
+
+
+class SubclassJ2(BaseJ):
+    # This should generate an error because of a parameter type mismatch.
+    def method1(self, x: "SubclassJ2") -> None: ...
+
+
+class BaseK[T]:
+    def method1[S](self: "BaseK[S]", x: S) -> S: ...
+
+
+class BaseL[T]:
+    def method1(self, x: T) -> T: ...
+
+
+class SubclassK1[T](BaseK[T], BaseL[T]): ...
+
+
+# This should generate an error because the base classes define
+# method1 in an incompatible way.
+class SubclassK2[T](BaseK[T], BaseF): ...
+
+
+class BaseM[T]:
+    def method1[S](self: "BaseM[S]", x: "BaseM[S]") -> None: ...
+
+
+class BaseN[T]:
+    def method1(self, x: BaseM[T]) -> None: ...
+
+
+class SubclassM1[T](BaseM[T]):
+    def method1(self, x: BaseM[T]) -> None: ...
+
+
+class SubclassM2[T](BaseM[T]):
+    def method1[S](self: "SubclassM2[S]", x: BaseM[S]) -> None: ...
+
+
+# This should generate an error because the base classes define
+# method1 in an incompatible way.
+class SubclassM3[T](BaseM[int], BaseN[T]): ...
