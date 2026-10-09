@@ -58,6 +58,8 @@ jobs:
           # historical peer dependency conflicts that should not block primer comparisons.
           NPM_CONFIG_LEGACY_PEER_DEPS: 'true'
           NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+          # Avoid nondeterministic SymPy results caused by clearing Pyright's type cache near the default heap limit.
+          NODE_OPTIONS: '--max-old-space-size=8192'
         run: |
           cd pyright_to_test
           echo "new commit"

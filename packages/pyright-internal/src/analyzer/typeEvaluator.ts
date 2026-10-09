@@ -699,6 +699,7 @@ export function createTypeEvaluator(
     let typeCache = new Map<number, TypeCacheEntry>();
     let typeFormTypeCache = new Map<number, TypeFormTypeCacheEntry[]>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
+    let exceptionTargetSymbolCache = new Map<number, boolean>();
     let expectedTypeCache = new Map<number, ExpectedTypeCacheEntry>();
     let asymmetricAccessorAssignmentCache = new Set<number>();
     let deferredClassCompletions: DeferredClassCompletion[] = [];
@@ -778,6 +779,7 @@ export function createTypeEvaluator(
         typeCache = new Map<number, TypeCacheEntry>();
         typeFormTypeCache = new Map<number, TypeFormTypeCacheEntry[]>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
+        exceptionTargetSymbolCache = new Map<number, boolean>();
         expectedTypeCache = new Map<number, ExpectedTypeCacheEntry>();
         asymmetricAccessorAssignmentCache = new Set<number>();
     }
@@ -16257,31 +16259,79 @@ export function createTypeEvaluator(
             // lambda depends on itself.
             writeTypeCache(node, { type: functionType, isIncomplete: true }, EvalFlags.None);
 
-            // We assume for simplicity that the parameter signature of the lambda is
-            // the same as the expected type. If this isn't the case, we'll use
-            // object for any lambda parameters that don't match. We could make this
-            // more sophisticated in the future, but it becomes very complex to handle
-            // all of the permutations.
+            // Match positional parameters in order, but allow keyword-only parameters
+            // to be reordered. Unmatched parameters without defaults use Unknown.
             let sawParamMismatch = false;
+            let expectedParamIndex = 0;
+            let expectedKeywordParams: Map<string, VirtualParamDetails> | undefined;
+            const positionOnlySeparatorIndex = node.d.params.findIndex(
+                (param) => param.d.category === ParamCategory.Simple && !param.d.name
+            );
 
             node.d.params.forEach((param, index) => {
                 let paramType: Type | undefined;
 
                 if (expectedParamDetails && !sawParamMismatch) {
-                    if (index < expectedParamDetails.params.length) {
-                        const expectedParam = expectedParamDetails.params[index];
+                    const isKeywordOnlySeparator = param.d.category === ParamCategory.ArgsList && !param.d.name;
+
+                    if (isKeywordOnlySeparator) {
+                        if (
+                            expectedParamIndex < expectedParamDetails.params.length &&
+                            expectedParamDetails.params[expectedParamIndex].kind !== ParamKind.Keyword
+                        ) {
+                            sawParamMismatch = true;
+                        }
+                    } else if (expectedParamIndex < expectedParamDetails.params.length) {
+                        let expectedParam = expectedParamDetails.params[expectedParamIndex];
+                        const isPositionOnlyParam =
+                            (positionOnlySeparatorIndex >= 0 && index < positionOnlySeparatorIndex) ||
+                            (positionOnlySeparatorIndex < 0 &&
+                                paramsArePositionOnly &&
+                                !!param.d.name &&
+                                isPrivateName(param.d.name.d.value));
+
+                        if (
+                            expectedParam.kind === ParamKind.Keyword &&
+                            expectedParam.param.category === ParamCategory.Simple &&
+                            param.d.category === ParamCategory.Simple &&
+                            param.d.name &&
+                            !isPositionOnlyParam &&
+                            param.d.name.d.value !== expectedParam.param.name
+                        ) {
+                            if (!expectedKeywordParams) {
+                                expectedKeywordParams = new Map();
+                                for (const keywordParam of expectedParamDetails.params) {
+                                    if (
+                                        keywordParam.kind === ParamKind.Keyword &&
+                                        keywordParam.param.category === ParamCategory.Simple &&
+                                        keywordParam.param.name
+                                    ) {
+                                        expectedKeywordParams.set(keywordParam.param.name, keywordParam);
+                                    }
+                                }
+                            }
+                            expectedParam = expectedKeywordParams.get(param.d.name.d.value) ?? expectedParam;
+                        }
+
+                        const isCompatibleKeywordParam =
+                            expectedParam.kind !== ParamKind.Keyword ||
+                            expectedParam.param.category === ParamCategory.KwargsDict ||
+                            (!isPositionOnlyParam && param.d.name?.d.value === expectedParam.param.name);
 
                         // If the parameter category matches and both of the parameters are
                         // either separators (/ or *) or not separators, copy the type
                         // from the expected parameter.
                         if (
                             expectedParam.param.category === param.d.category &&
-                            !param.d.name === !expectedParam.param.name
+                            !param.d.name === !expectedParam.param.name &&
+                            isCompatibleKeywordParam
                         ) {
                             paramType = expectedParam.type;
                         } else {
                             sawParamMismatch = true;
                         }
+
+                        expectedParamIndex++;
                     } else if (param.d.defaultValue) {
                         // If the lambda param has a default value but there is no associated
                         // parameter in the expected type, assume that the default value is
@@ -16295,6 +16345,22 @@ export function createTypeEvaluator(
                     paramType = inferParamTypeFromDefaultValue(param.d.defaultValue);
                 }
 
+                if (param.d.defaultValue) {
+                    const defaultValueResult = getTypeOfExpression(
+                        param.d.defaultValue,
+                        EvalFlags.ConvertEllipsisToAny,
+                        makeInferenceContext(paramType)
+                    );
+                    if (defaultValueResult.isIncomplete) {
+                        isIncomplete = true;
+                    }
+
+                    // The lambda can also be called with its own default value.
+                    if (paramType && !assignType(paramType, defaultValueResult.type)) {
+                        paramType = combineTypes([paramType, stripLiteralValue(defaultValueResult.type)]);
+                    }
+                }
+
                 if (param.d.name) {
                     writeTypeCache(
                         param.d.name,
@@ -16303,11 +16369,6 @@ export function createTypeEvaluator(
                         },
                         EvalFlags.None
                     );
-                }
-
-                if (param.d.defaultValue) {
-                    // Evaluate the default value if it's present.
-                    getTypeOfExpression(param.d.defaultValue, EvalFlags.ConvertEllipsisToAny);
                 }
 
                 // Determine whether we need to insert an implied position-only parameter.
@@ -21323,9 +21384,8 @@ export function createTypeEvaluator(
             return getExceptionType(subType, node.d.typeExpr!);
         });
 
-        // If this is an except group, wrap the exception type in an ExceptionGroup
-        // or BaseExceptionGroup depending on whether the target exception is
-        // a BaseException.
+        // If this is an except group, use a BaseExceptionGroup when it can contain
+        // an exception outside the Exception hierarchy.
         if (node.d.isExceptGroup) {
             targetType = getBuiltInObject(node, includesBaseException ? 'BaseExceptionGroup' : 'ExceptionGroup', [
                 targetType,
@@ -24963,8 +25023,26 @@ export function createTypeEvaluator(
             // This will avoid a pathological performance condition for unannotated
             // code that reassigns the same variable hundreds of times. If the symbol
             // effectively has an "Any" annotation, it won't be narrowed.
-            if (symbol.getDeclarations().length > maxDeclarationsToUseForInference) {
-                return { type: UnknownType.create() };
+            const declarations = symbol.getDeclarations();
+            if (declarations.length > maxDeclarationsToUseForInference) {
+                let isExceptionVariable = exceptionTargetSymbolCache.get(symbol.id);
+                if (isExceptionVariable === undefined) {
+                    isExceptionVariable = declarations.every((decl) => {
+                        if (decl.type !== DeclarationType.Variable) {
+                            return false;
+                        }
+
+                        const parent = decl.node.parent;
+                        return parent?.nodeType === ParseNodeType.Except && parent.d.name === decl.node;
+                    });
+                    exceptionTargetSymbolCache.set(symbol.id, isExceptionVariable);
+                }
+
+                // Exception targets get their types from code flow. Don't let the
+                // declaration-count safeguard turn repeated targets into declared Unknown.
+                if (!isExceptionVariable) {
+                    return { type: UnknownType.create() };
+                }
             }
 
             // There was no declaration with a defined type.

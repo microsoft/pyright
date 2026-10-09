@@ -711,19 +711,7 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
             : []),
         ...footer,
     ].join('\n');
-    let body = expandedBody.length <= 60000 ? expandedBody : compactBody;
-    const onlyProject = manifest.projects.length === 1 ? manifest.projects[0] : undefined;
-    if (onlyProject?.name === 'sympy' && onlyProject.url === 'https://github.com/sympy/sympy') {
-        body = [
-            ...provenance,
-            '**Only SymPy changed.** These differences are treated as non-blocking primer noise; no other project changed.',
-            '',
-            `Recorded changes: ${onlyProject.added} added / ${onlyProject.removed} removed diagnostic headers; ` +
-                `${onlyProject.detailLinesAdded} added / ${onlyProject.detailLinesRemoved} removed detail lines.`,
-            '',
-            ...footer,
-        ].join('\n');
-    }
+    const body = expandedBody.length <= 60000 ? expandedBody : compactBody;
     if (body.length > 60000) {
         throw new Error('The report exceeds the comment limit; refusing to omit projects');
     }
