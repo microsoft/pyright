@@ -26527,8 +26527,54 @@ export function createTypeEvaluator(
                     );
                 }
 
-                if (assignTypeVar(evaluatorInterface, srcType, destType, diag, constraints, flags, recursionCount)) {
+                const srcTypeVar = srcType as TypeVarType;
+
+                if (assignTypeVar(evaluatorInterface, srcTypeVar, destType, diag, constraints, flags, recursionCount)) {
                     return true;
+                }
+
+                if (isUnion(destType) && TypeVarType.hasBound(srcTypeVar)) {
+                    const boundType = srcTypeVar.shared.boundType!;
+
+                    if (
+                        !assignType(
+                            boundType,
+                            makeTopLevelTypeVarsConcrete(destType),
+                            /* diag */ undefined,
+                            /* constraints */ undefined,
+                            AssignTypeFlags.Default,
+                            recursionCount
+                        )
+                    ) {
+                        const inBoundSubtypes = destType.priv.subtypes.filter((destSubtype) =>
+                            assignType(
+                                boundType,
+                                makeTopLevelTypeVarsConcrete(destSubtype),
+                                /* diag */ undefined,
+                                /* constraints */ undefined,
+                                AssignTypeFlags.Default,
+                                recursionCount
+                            )
+                        );
+
+                        // An out-of-bound member should not force inference to select an arbitrary
+                        // in-bound member. Preserve all viable members so other arguments can
+                        // provide a narrower constraint.
+                        if (
+                            inBoundSubtypes.length > 0 &&
+                            assignTypeVar(
+                                evaluatorInterface,
+                                srcTypeVar,
+                                combineTypes(inBoundSubtypes),
+                                diag,
+                                constraints,
+                                flags,
+                                recursionCount
+                            )
+                        ) {
+                            return true;
+                        }
+                    }
                 }
 
                 // If the dest type is a union, only one of the subtypes needs to match.
@@ -26538,7 +26584,7 @@ export function createTypeEvaluator(
                         if (
                             assignTypeVar(
                                 evaluatorInterface,
-                                srcType as TypeVarType,
+                                srcTypeVar,
                                 destSubtype,
                                 diag,
                                 constraints,
