@@ -1,7 +1,6 @@
 ---
 name: pyright-issue-fixer
 description: Resolves one evidence-backed Pyright issue with a focused patch, regression coverage, and a draft PR description.
-model: gpt-5.6-luna
 disable-model-invocation: true
 ---
 
@@ -30,7 +29,7 @@ If skill invocation is unavailable, read `.github/skills/pyright-issue-analysis/
     the fork's default branch is the target. Never merge or approve your own PR.
 -   Before an authorized commit, run the relevant lint checks. Include the required Copilot co-author trailer and
     comply with the repository test policy's commit-message requirements.
--   Use only OpenAI models if delegating work. Keep the investigation focused; do not delegate the same code paths
+-   Inherit the user's model settings when delegating work. Keep the investigation focused; do not delegate the same code paths
     to multiple agents.
 
 ## Final response

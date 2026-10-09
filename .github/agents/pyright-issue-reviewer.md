@@ -1,8 +1,7 @@
 ---
 name: pyright-issue-reviewer
 description: Investigates one Pyright issue and drafts an evidence-based maintainer response without changing code or publishing.
-model: gpt-5.6-luna
-disable-model-invocation: true
+disable-model-invocation: false
 tools:
     - read
     - search
