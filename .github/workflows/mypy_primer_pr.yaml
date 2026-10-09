@@ -42,9 +42,17 @@ jobs:
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: pr-follow-up-mypy_primer-${{ github.event.workflow_run.head_sha }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: write
     outputs:
       pr-number: ${{ steps.resolve.outputs.pr-number }}
       merge-sha: ${{ steps.resolve.outputs.merge-sha }}
+      check-id: ${{ steps.resolve.outputs.check-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -58,16 +66,13 @@ jobs:
             const resolve = require('./build/resolveValidatedPullRequest.js')
             const validated = await resolve({ github, context, core })
             if (!validated) return
-            const { pullRequest, files } = validated
-            const paths = [
-              'packages/pyright/',
-              'packages/pyright-internal/src/',
-              'packages/pyright-internal/typeshed-fallback/',
-            ]
-            if (!files.some((file) => paths.some((path) => file.filename.startsWith(path)))) {
-              core.notice('The pull request does not change primer inputs')
-              return
-            }
+            const { pullRequest } = validated
+            const report = require('./build/reportPullRequestCheck.js')
+            const checkId = await report({
+              github, context, name: 'mypy_primer', headSha: pullRequest.head.sha,
+              status: 'in_progress', summary: 'Running mypy_primer after successful Validation.',
+            })
+            core.setOutput('check-id', checkId)
             if (!pullRequest.merge_commit_sha) {
               core.setFailed('The pull request does not have a merge commit to test')
               return
@@ -181,3 +186,33 @@ jobs:
         with:
           name: mypy_primer_diffs_pr_number
           path: pr_number.txt
+
+  report:
+    name: Report mypy_primer check
+    needs: [resolve, mypy_primer]
+    if: ${{ always() && needs.resolve.outputs.check-id != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          CHECK_ID: ${{ needs.resolve.outputs.check-id }}
+          RESOLVE_RESULT: ${{ needs.resolve.result }}
+          PRIMER_RESULT: ${{ needs.mypy_primer.result }}
+        with:
+          script: |
+            const report = require('./build/reportPullRequestCheck.js')
+            const results = [process.env.RESOLVE_RESULT, process.env.PRIMER_RESULT]
+            const conclusion = results.includes('failure') ? 'failure'
+              : results.includes('cancelled') ? 'cancelled'
+              : process.env.PRIMER_RESULT
+            await report({
+              github, context, name: 'mypy_primer', checkId: process.env.CHECK_ID,
+              conclusion, summary: `mypy_primer: ${conclusion}. See the workflow run for shard results.`,
+            })

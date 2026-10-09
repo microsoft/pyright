@@ -119,10 +119,16 @@ result contract, and the comparator rejects mismatched environments.
 
 Pull requests that change `packages/pyright-internal/src/analyzer/` automatically run the hosted
 benchmark only after `Validation` succeeds, including all test platforms, type checking, style, and
-the build. `mypy_primer` also waits for successful Validation and retains its own path filters. For
+the build. `mypy_primer` also waits for successful Validation and runs on every pull request. For
 external contributors, both wait for a maintainer to approve workflows to run before Validation can
 start. Subsequent commits require successful Validation for the new head before either check runs.
 The trusted triggers run from the base repository and reject outdated PR heads.
+
+Both follow-up checks appear on the PR head as queued while Validation runs, then report their
+execution results with links to the workflow runs. If Validation does not pass, both are skipped;
+the benchmark is also skipped for PRs without analyzer changes. Check reporting does not change
+branch protection. Only trusted reporting jobs receive permission to write checks; jobs executing
+the candidate code keep read-only repository access.
 
 To run the benchmark again, or to run it for another pull request, a maintainer can comment exactly
 `/benchmark` on an open or merged pull request. The command must be the entire comment. The trusted

@@ -27,12 +27,17 @@ jobs:
       actions: read
       contents: read
       pull-requests: read
+      checks: write
     runs-on: ubuntu-latest
+    concurrency:
+      group: pr-follow-up-Type checker benchmark-${{ github.event.workflow_run.head_sha || github.event.issue.number }}
+      cancel-in-progress: false
     outputs:
       pr-number: ${{ steps.resolve.outputs.pr-number }}
       head-sha: ${{ steps.resolve.outputs.head-sha }}
       base-sha: ${{ steps.resolve.outputs.base-sha }}
       merge-sha: ${{ steps.resolve.outputs.merge-sha }}
+      check-id: ${{ steps.resolve.outputs.check-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,6 +57,12 @@ jobs:
               const { pullRequest, files } = validated
               issueNumber = pullRequest.number
               if (!files.some((file) => file.filename.startsWith('packages/pyright-internal/src/analyzer/'))) {
+                const report = require('./build/reportPullRequestCheck.js')
+                await report({
+                  github, context, name: 'Type checker benchmark', headSha: pullRequest.head.sha,
+                  status: 'completed', conclusion: 'skipped',
+                  summary: 'Not run because the pull request does not change analyzer sources.',
+                })
                 core.notice('The pull request does not change analyzer sources')
                 return
               }
@@ -105,6 +116,12 @@ jobs:
                 return
               }
             }
+            const report = require('./build/reportPullRequestCheck.js')
+            const checkId = await report({
+              github, context, name: 'Type checker benchmark', headSha: pullRequest.data.head.sha,
+              status: 'in_progress', summary: 'Running analyzer benchmarks after successful Validation.',
+            })
+            core.setOutput('check-id', checkId)
             let candidateRef
             if (pullRequest.data.merged) {
               candidateRef = pullRequest.data.merge_commit_sha
@@ -165,3 +182,33 @@ jobs:
       head_sha: ${{ needs.trigger.outputs.head-sha }}
       base_sha: ${{ needs.trigger.outputs.base-sha }}
       merge_sha: ${{ needs.trigger.outputs.merge-sha }}
+
+  report:
+    name: Report benchmark check
+    needs: [trigger, benchmark]
+    if: ${{ always() && needs.trigger.outputs.check-id != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          CHECK_ID: ${{ needs.trigger.outputs.check-id }}
+          TRIGGER_RESULT: ${{ needs.trigger.result }}
+          BENCHMARK_RESULT: ${{ needs.benchmark.result }}
+        with:
+          script: |
+            const report = require('./build/reportPullRequestCheck.js')
+            const results = [process.env.TRIGGER_RESULT, process.env.BENCHMARK_RESULT]
+            const conclusion = results.includes('failure') ? 'failure'
+              : results.includes('cancelled') ? 'cancelled'
+              : process.env.BENCHMARK_RESULT
+            await report({
+              github, context, name: 'Type checker benchmark', checkId: process.env.CHECK_ID,
+              conclusion, summary: `Type checker benchmark: ${conclusion}. See the workflow run for results.`,
+            })
