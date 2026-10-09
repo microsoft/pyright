@@ -4,7 +4,7 @@
 from typing import NotRequired, TypedDict, reveal_type
 
 
-class HomogeneousTD(TypedDict):
+class HomogeneousTD(TypedDict, extra_items=int):
     a: int
     b: int
 
@@ -66,3 +66,35 @@ def test_unpack_extra_items_into_dict(td: ExtraItemsTD):
     # Unpacking extra_items=str TypedDict into dict display under strictDictionaryInference (or combineTypes)
     # includes extraItems valueType str. In default mode, int | str falls back to Unknown.
     reveal_type(res5, expected_text="dict[str, Unknown]")
+
+
+class OpenTD(TypedDict):
+    a: int
+
+
+class HiddenTD(OpenTD):
+    hidden: bytes
+
+
+class ClosedOptionalTD(TypedDict, closed=True):
+    a: int
+    b: NotRequired[str]
+
+
+def test_open_copy(td: OpenTD):
+    # An open TypedDict can contain additional values of any type.
+    res6 = {**td}
+    reveal_type(res6, expected_text="dict[str, Unknown]")
+
+    # This should generate an error because extra values need not be int.
+    target: dict[str, int] = {**td}
+    object_target: dict[str, object] = {**td}
+
+
+def test_hidden_subtype(td: HiddenTD):
+    test_open_copy(td)
+
+
+def test_closed_optional_default(td: ClosedOptionalTD):
+    res7 = {**td}
+    reveal_type(res7, expected_text="dict[str, Unknown]")
