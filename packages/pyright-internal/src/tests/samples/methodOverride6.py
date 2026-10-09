@@ -446,3 +446,15 @@ class Child10_2(Parent10[str]):
     # This should generate an error because the second overload
     # returns bytes for the second base overload.
     def m1(self, x: int, default: object = None, /) -> object: ...
+
+
+class Child10_3(Parent10[str]):
+    @overload
+    def m1(self, x: int, /) -> str | None: ...
+
+    @overload
+    def m1(self, x: int, default: str | _S, /) -> _S: ...
+
+    # This should generate an error because the second overload
+    # returns an unsolved TypeVar for the second base overload.
+    def m1(self, x: int, default: object = None, /) -> object: ...

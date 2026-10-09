@@ -29873,18 +29873,17 @@ export function createTypeEvaluator(
 
         // Now check the return type.
         const baseReturnType = getEffectiveReturnType(baseMethod);
-        const overrideDeclaredReturnType = getEffectiveReturnType(overrideMethod);
-        const overrideReturnType = solveAndApplyConstraints(overrideDeclaredReturnType, constraints, {
-            replaceUnsolved: {
-                scopeIds: getTypeVarScopeIds(overrideMethod),
-                unsolvedExemptTypeVars: getUnknownExemptTypeVarsForReturnType(
-                    overrideMethod,
-                    overrideDeclaredReturnType
-                ),
-                tupleClassType: getTupleClassType(),
-                eliminateUnsolvedInUnions: !isFunctionOrOverloaded(overrideDeclaredReturnType),
-            },
-        });
+        let overrideReturnType = solveAndApplyConstraints(getEffectiveReturnType(overrideMethod), constraints);
+
+        // Eliminate unsolved TypeVars of the override from a union, as is
+        // done for call return types.
+        const overrideScopeIds = getTypeVarScopeIds(overrideMethod);
+        const isUnsolvedTypeVar = (subtype: Type) => {
+            return isTypeVar(subtype) && !!subtype.priv.scopeId && overrideScopeIds.includes(subtype.priv.scopeId);
+        };
+        if (isUnion(overrideReturnType) && !overrideReturnType.priv.subtypes.every(isUnsolvedTypeVar)) {
+            overrideReturnType = removeFromUnion(overrideReturnType, isUnsolvedTypeVar);
+        }
 
         if (
             !assignType(
