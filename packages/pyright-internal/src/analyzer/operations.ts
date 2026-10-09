@@ -32,6 +32,7 @@ import {
     getLiteralTypeClassName,
     getTypeCondition,
     getUnionSubtypeCount,
+    isLiteralType,
     isNoneInstance,
     isOptionalType,
     isTupleClass,
@@ -52,6 +53,7 @@ import {
     NeverType,
     Type,
     TypeBase,
+    TupleTypeArg,
     UnknownType,
     combineTypes,
     isAnyOrUnknown,
@@ -60,7 +62,9 @@ import {
     isFunctionOrOverloaded,
     isInstantiableClass,
     isNever,
+    isTypeSame,
     isUnion,
+    maxTypeRecursionCount,
 } from './types';
 
 // Maps binary operators to the magic methods that implement them.
@@ -1245,6 +1249,206 @@ function validateContainmentOperation(
     return { type, magicMethodDeprecationInfo: deprecatedInfo };
 }
 
+// Limit the fallback's work across alignments and nested containers. If ordering
+// cannot be proven within this budget, retain the original operator diagnostic.
+function canOrderTupleElements(
+    evaluator: TypeEvaluator,
+    leftArgs: TupleTypeArg[],
+    rightArgs: TupleTypeArg[],
+    operator: OperatorType,
+    errorNode: ExpressionNode
+): boolean {
+    let remainingChecks = 1024;
+
+    const canOrderElements = (left: Type, right: Type, recursionCount: number): boolean => {
+        if (--remainingChecks < 0 || recursionCount > maxTypeRecursionCount) {
+            return false;
+        }
+
+        return !someSubtypes(left, (leftSubtype) =>
+            someSubtypes(right, (rightSubtype) => {
+                if (--remainingChecks < 0) {
+                    return true;
+                }
+                if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
+                    return false;
+                }
+
+                if (isClassInstance(leftSubtype) && isClassInstance(rightSubtype)) {
+                    if (
+                        isTupleClass(leftSubtype) &&
+                        isTupleClass(rightSubtype) &&
+                        leftSubtype.priv.tupleTypeArgs &&
+                        rightSubtype.priv.tupleTypeArgs
+                    ) {
+                        return !canOrderArgs(
+                            leftSubtype.priv.tupleTypeArgs,
+                            rightSubtype.priv.tupleTypeArgs,
+                            recursionCount
+                        );
+                    }
+
+                    if (ClassType.isBuiltIn(leftSubtype, 'list') && ClassType.isBuiltIn(rightSubtype, 'list')) {
+                        return !canOrderElements(
+                            leftSubtype.priv.typeArgs?.[0] ?? UnknownType.create(),
+                            rightSubtype.priv.typeArgs?.[0] ?? UnknownType.create(),
+                            recursionCount + 1
+                        );
+                    }
+                }
+
+                const widenedLeft = evaluator.stripLiteralValue(leftSubtype);
+                const widenedRight = evaluator.stripLiteralValue(rightSubtype);
+                // Class objects dispatch comparison methods through their metaclasses.
+                const leftClass = isClass(widenedLeft)
+                    ? TypeBase.isInstance(widenedLeft)
+                        ? ClassType.cloneAsInstantiable(widenedLeft)
+                        : widenedLeft.shared.effectiveMetaclass
+                    : undefined;
+                const rightClass = isClass(widenedRight)
+                    ? TypeBase.isInstance(widenedRight)
+                        ? ClassType.cloneAsInstantiable(widenedRight)
+                        : widenedRight.shared.effectiveMetaclass
+                    : undefined;
+                let reflectedFirst = false;
+                if (
+                    leftClass &&
+                    rightClass &&
+                    isInstantiableClass(leftClass) &&
+                    isInstantiableClass(rightClass) &&
+                    !ClassType.isSameGenericClass(leftClass, rightClass)
+                ) {
+                    for (const base of rightClass.shared.mro) {
+                        if (--remainingChecks < 0) {
+                            return true;
+                        }
+                        if (isClass(base) && ClassType.isSameGenericClass(base, leftClass)) {
+                            reflectedFirst = true;
+                            break;
+                        }
+                    }
+                }
+                const firstType = reflectedFirst ? widenedRight : widenedLeft;
+                const secondType = reflectedFirst ? widenedLeft : widenedRight;
+                const methods = binaryOperatorMap[operator];
+                const firstResult = evaluator.getTypeOfMagicMethodCall(
+                    firstType,
+                    methods[reflectedFirst ? 1 : 0],
+                    [{ type: secondType }],
+                    errorNode,
+                    undefined
+                );
+                if (firstResult) {
+                    // The tuple fallback models a bool result only. NotImplemented
+                    // declines the first method, so check the other method too.
+                    if (
+                        someSubtypes(
+                            firstResult.type,
+                            (subtype) =>
+                                !isClassInstance(subtype) ||
+                                (!ClassType.isBuiltIn(subtype, 'bool') &&
+                                    subtype.shared.fullName !== 'types.NotImplementedType')
+                        )
+                    ) {
+                        return true;
+                    }
+                    if (
+                        !someSubtypes(
+                            firstResult.type,
+                            (subtype) => !isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, 'bool')
+                        )
+                    ) {
+                        return false;
+                    }
+                }
+                const secondResult = evaluator.getTypeOfMagicMethodCall(
+                    secondType,
+                    methods[reflectedFirst ? 0 : 1],
+                    [{ type: firstType }],
+                    errorNode,
+                    undefined
+                );
+                return (
+                    !secondResult ||
+                    someSubtypes(
+                        secondResult.type,
+                        (subtype) => !isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, 'bool')
+                    )
+                );
+            })
+        );
+    };
+
+    const canOrderArgs = (leftArgs: TupleTypeArg[], rightArgs: TupleTypeArg[], recursionCount: number): boolean => {
+        // An unbounded argument can consume zero or more positions.
+        // Check every reachable alignment before retrying tuple ordering.
+        const pending = [[0, 0]];
+        const visited = new Set<string>();
+
+        while (pending.length > 0) {
+            const [leftIndex, rightIndex] = pending.pop()!;
+            const position = `${leftIndex},${rightIndex}`;
+            if (visited.has(position)) {
+                continue;
+            }
+            if (--remainingChecks < 0) {
+                return false;
+            }
+            visited.add(position);
+
+            if (leftIndex === leftArgs.length || rightIndex === rightArgs.length) {
+                continue;
+            }
+
+            const leftArg = leftArgs[leftIndex];
+            const rightArg = rightArgs[rightIndex];
+            if (leftArg.isUnbounded || leftArg.isOptional) {
+                pending.push([leftIndex + 1, rightIndex]);
+            }
+            if (rightArg.isUnbounded || rightArg.isOptional) {
+                pending.push([leftIndex, rightIndex + 1]);
+            }
+
+            const leftElement = leftArg.type;
+            const rightElement = rightArg.type;
+
+            const sameLiteral =
+                isTypeSame(leftElement, rightElement) &&
+                ((isClassInstance(leftElement) && isLiteralType(leftElement)) || isNoneInstance(leftElement));
+
+            if (!sameLiteral && !canOrderElements(leftElement, rightElement, recursionCount + 1)) {
+                return false;
+            }
+
+            if (
+                isClassInstance(leftElement) &&
+                isClassInstance(rightElement) &&
+                isLiteralType(leftElement) &&
+                isLiteralType(rightElement) &&
+                ClassType.isSameGenericClass(leftElement, rightElement) &&
+                (typeof leftElement.priv.literalValue === 'string' ||
+                    typeof leftElement.priv.literalValue === 'number' ||
+                    typeof leftElement.priv.literalValue === 'bigint' ||
+                    typeof leftElement.priv.literalValue === 'boolean') &&
+                leftElement.priv.literalValue !== rightElement.priv.literalValue
+            ) {
+                continue;
+            }
+
+            pending.push([leftIndex + 1, rightIndex + 1]);
+            if (leftArg.isUnbounded) {
+                pending.push([leftIndex, rightIndex + 1]);
+            }
+            if (rightArg.isUnbounded) {
+                pending.push([leftIndex + 1, rightIndex]);
+            }
+        }
+        return true;
+    };
+
+    return canOrderArgs(leftArgs, rightArgs, 0);
+}
+
 function validateArithmeticOperation(
     evaluator: TypeEvaluator,
     operator: OperatorType,
@@ -1370,6 +1574,49 @@ function validateArithmeticOperation(
                                 errorNode,
                                 inferenceContext
                             );
+                        }
+                    }
+
+                    if (!resultTypeResult) {
+                        // Built-in tuple ordering compares element types rather than the
+                        // literal values inferred for each tuple expression. Retry only
+                        // after the original and reflected methods have been checked so
+                        // custom comparison methods retain the precise operand types.
+                        if (
+                            (operator === OperatorType.LessThan ||
+                                operator === OperatorType.LessThanOrEqual ||
+                                operator === OperatorType.GreaterThan ||
+                                operator === OperatorType.GreaterThanOrEqual) &&
+                            isClassInstance(leftSubtypeExpanded) &&
+                            isTupleClass(leftSubtypeExpanded) &&
+                            leftSubtypeExpanded.priv.tupleTypeArgs &&
+                            isClassInstance(rightSubtypeExpanded) &&
+                            isTupleClass(rightSubtypeExpanded) &&
+                            rightSubtypeExpanded.priv.tupleTypeArgs
+                        ) {
+                            const leftArgs = leftSubtypeExpanded.priv.tupleTypeArgs;
+                            const rightArgs = rightSubtypeExpanded.priv.tupleTypeArgs;
+                            if (canOrderTupleElements(evaluator, leftArgs, rightArgs, operator, errorNode)) {
+                                const widenedLeft = specializeTupleClass(
+                                    leftSubtypeExpanded,
+                                    leftArgs.map((arg) => ({ ...arg, type: evaluator.stripLiteralValue(arg.type) })),
+                                    leftSubtypeExpanded.priv.isTypeArgExplicit,
+                                    leftSubtypeExpanded.priv.isUnpacked
+                                );
+                                const widenedRight = specializeTupleClass(
+                                    rightSubtypeExpanded,
+                                    rightArgs.map((arg) => ({ ...arg, type: evaluator.stripLiteralValue(arg.type) })),
+                                    rightSubtypeExpanded.priv.isTypeArgExplicit,
+                                    rightSubtypeExpanded.priv.isUnpacked
+                                );
+                                resultTypeResult = evaluator.getTypeOfMagicMethodCall(
+                                    widenedLeft,
+                                    magicMethodName,
+                                    [{ type: widenedRight, isIncomplete: rightTypeResult.isIncomplete }],
+                                    errorNode,
+                                    inferenceContext
+                                );
+                            }
                         }
                     }
 
