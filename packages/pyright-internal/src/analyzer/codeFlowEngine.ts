@@ -49,7 +49,7 @@ import {
 } from './parseTreeUtils';
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
-import { narrowForKeyAssignment } from './typedDicts';
+import { narrowForKeyAssignment, narrowForKeyDeletion } from './typedDicts';
 import { EvalFlags, Reachability, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { getTypeNarrowingCallback } from './typeGuards';
 import {
@@ -513,7 +513,10 @@ export function getCodeFlowEngine(
                         return setCacheEntry(curFlowNode, NeverType.createNever(), /* isIncomplete */ false);
                     }
 
-                    if (curFlowNode.flags & (FlowFlags.VariableAnnotation | FlowFlags.Mutation)) {
+                    if (
+                        curFlowNode.flags & FlowFlags.VariableAnnotation ||
+                        (curFlowNode.flags & FlowFlags.Mutation && !(curFlowNode.flags & FlowFlags.Unbind))
+                    ) {
                         const varAnnotationNode = curFlowNode as FlowVariableAnnotation;
                         curFlowNode = varAnnotationNode.antecedent;
                         continue;
@@ -533,7 +536,7 @@ export function getCodeFlowEngine(
                         continue;
                     }
 
-                    if (curFlowNode.flags & FlowFlags.Assignment) {
+                    if (curFlowNode.flags & (FlowFlags.Assignment | FlowFlags.Mutation)) {
                         const assignmentFlowNode = curFlowNode as FlowAssignment;
                         const targetNode = assignmentFlowNode.node;
 
@@ -542,6 +545,7 @@ export function getCodeFlowEngine(
                         // comprehension introduces a new scope).
                         if (reference) {
                             if (
+                                !(curFlowNode.flags & FlowFlags.Mutation) &&
                                 options?.targetSymbolId === assignmentFlowNode.targetSymbolId &&
                                 isMatchingExpression(reference, targetNode)
                             ) {
@@ -587,48 +591,70 @@ export function getCodeFlowEngine(
                                 return setCacheEntry(curFlowNode, flowTypeResult?.type, !!flowTypeResult?.isIncomplete);
                             }
 
-                            // Is this a simple assignment to an index expression? If so, it could
-                            // be assigning to a TypedDict, which requires narrowing of the expression's
-                            // base type.
+                            // Assigning or deleting a TypedDict key changes its known presence.
                             if (
                                 targetNode.nodeType === ParseNodeType.Index &&
                                 isMatchingExpression(reference, targetNode.d.leftExpr)
                             ) {
                                 if (
-                                    targetNode.parent?.nodeType === ParseNodeType.Assignment &&
                                     targetNode.d.items.length === 1 &&
                                     !targetNode.d.trailingComma &&
                                     !targetNode.d.items[0].d.name &&
-                                    targetNode.d.items[0].d.argCategory === ArgCategory.Simple &&
-                                    targetNode.d.items[0].d.valueExpr.nodeType === ParseNodeType.StringList &&
-                                    targetNode.d.items[0].d.valueExpr.d.strings.length === 1 &&
-                                    targetNode.d.items[0].d.valueExpr.d.strings[0].nodeType === ParseNodeType.String
+                                    targetNode.d.items[0].d.argCategory === ArgCategory.Simple
                                 ) {
-                                    const keyValue = targetNode.d.items[0].d.valueExpr.d.strings[0].d.value;
-                                    const narrowedResult = preventRecursion(assignmentFlowNode, () => {
-                                        const flowTypeResult = getTypeFromFlowNode(assignmentFlowNode.antecedent);
+                                    const keyNode = targetNode.d.items[0].d.valueExpr;
+                                    const isKeyDeletion = (assignmentFlowNode.flags & FlowFlags.Unbind) !== 0;
+                                    let keyValue: string | undefined;
+                                    if (
+                                        keyNode.nodeType === ParseNodeType.StringList &&
+                                        keyNode.d.strings.length === 1 &&
+                                        keyNode.d.strings[0].nodeType === ParseNodeType.String
+                                    ) {
+                                        keyValue = keyNode.d.strings[0].d.value;
+                                    }
 
-                                        if (flowTypeResult.type) {
-                                            flowTypeResult.type = mapSubtypes(flowTypeResult.type, (subtype) => {
-                                                if (isClass(subtype) && ClassType.isTypedDictClass(subtype)) {
-                                                    return narrowForKeyAssignment(subtype, keyValue);
-                                                }
-                                                return subtype;
-                                            });
-                                        }
+                                    if (
+                                        isKeyDeletion ||
+                                        (targetNode.parent?.nodeType === ParseNodeType.Assignment &&
+                                            keyValue !== undefined)
+                                    ) {
+                                        const narrowedResult = preventRecursion(assignmentFlowNode, () => {
+                                            const flowTypeResult = getTypeFromFlowNode(assignmentFlowNode.antecedent);
+                                            let keyTypeResult: TypeResult | undefined;
 
-                                        return flowTypeResult;
-                                    });
+                                            if (flowTypeResult.type) {
+                                                flowTypeResult.type = mapSubtypes(flowTypeResult.type, (subtype) => {
+                                                    if (isClass(subtype) && ClassType.isTypedDictClass(subtype)) {
+                                                        if (isKeyDeletion) {
+                                                            keyTypeResult ??= evaluator.getTypeOfExpression(keyNode);
+                                                            return narrowForKeyDeletion(subtype, keyTypeResult.type);
+                                                        } else if (keyValue !== undefined) {
+                                                            return narrowForKeyAssignment(subtype, keyValue);
+                                                        }
+                                                    }
+                                                    return subtype;
+                                                });
+                                            }
 
-                                    return setCacheEntry(
-                                        curFlowNode,
-                                        narrowedResult?.type,
-                                        !!narrowedResult?.isIncomplete
-                                    );
+                                            if (keyTypeResult?.isIncomplete) {
+                                                flowTypeResult.isIncomplete = true;
+                                            }
+                                            return flowTypeResult;
+                                        });
+
+                                        return setCacheEntry(
+                                            curFlowNode,
+                                            narrowedResult?.type,
+                                            !!narrowedResult?.isIncomplete
+                                        );
+                                    }
                                 }
                             }
 
-                            if (isPartialMatchingExpression(reference, targetNode)) {
+                            if (
+                                !(curFlowNode.flags & FlowFlags.Mutation) &&
+                                isPartialMatchingExpression(reference, targetNode)
+                            ) {
                                 // If the node partially matches the reference, we need to "kill" any narrowed
                                 // types further above this point. For example, if we see the sequence
                                 //    a.b = 3

@@ -573,9 +573,15 @@ function narrowTypeBasedOnMappingPattern(
             return type;
         }
 
+        const keyNames = keyEntryInfos.map((entry) => entry.keyValue);
         return mapSubtypes(type, (subtype) => {
             if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
-                const typedDictMembers = getTypedDictMembersForClass(evaluator, subtype, /* allowNarrowed */ true);
+                const typedDictMembers = getTypedDictMembersForClass(
+                    evaluator,
+                    subtype,
+                    /* allowNarrowed */ true,
+                    keyNames
+                );
 
                 const matchesAllEntries = keyEntryInfos.every((entryInfo) => {
                     const member = typedDictMembers.knownItems.get(entryInfo.keyValue);
@@ -589,6 +595,10 @@ function narrowTypeBasedOnMappingPattern(
                     }
 
                     const memberValueType = member.valueType;
+                    if (isNoneInstance(memberValueType)) {
+                        return entryInfo.valueTypes.some(isNoneInstance);
+                    }
+
                     if (!isClassInstance(memberValueType) || memberValueType.priv.literalValue === undefined) {
                         return false;
                     }

@@ -814,6 +814,23 @@ test('MatchMapping1', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('MatchMapping2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchMapping2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 8);
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportReturnType).length,
+        7
+    );
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportTypedDictNotRequiredAccess)
+            .length,
+        1
+    );
+});
+
 test('MatchLiteral1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
