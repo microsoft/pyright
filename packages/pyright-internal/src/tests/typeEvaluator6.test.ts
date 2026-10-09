@@ -14,7 +14,13 @@ import * as TypeGuards from '../analyzer/typeGuards';
 import { isInstantiableClass } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_12, pythonVersion3_8 } from '../common/pythonVersion';
+import {
+    pythonVersion3_10,
+    pythonVersion3_11,
+    pythonVersion3_12,
+    pythonVersion3_13,
+    pythonVersion3_8,
+} from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -819,6 +825,23 @@ test('MatchMapping2', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchMapping2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 8);
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportReturnType).length,
+        7
+    );
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportTypedDictNotRequiredAccess)
+            .length,
+        1
+    );
+});
+
+test('MatchMapping3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchMapping3.py'], configOptions);
     TestUtils.validateResults(analysisResults, 8);
     assert.strictEqual(
         analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportReturnType).length,

@@ -42,6 +42,7 @@ import { getBoundCallMethod, getBoundNewMethod } from './constructors';
 import { DeclarationType } from './declaration';
 import {
     getEvaluationScopeNode,
+    getTypedDictKeyDeletionCall,
     isImplicitRevealTypeName,
     isMatchingExpression,
     isPartialMatchingExpression,
@@ -530,6 +531,43 @@ export function getCodeFlowEngine(
                         // so we can assume that the code before this is unreachable.
                         if (isCallNoReturn(evaluator, callFlowNode)) {
                             return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
+                        }
+
+                        const deletionCall = reference ? getTypedDictKeyDeletionCall(callFlowNode.node) : undefined;
+                        if (deletionCall && reference && isMatchingExpression(reference, deletionCall.d.leftExpr)) {
+                            const narrowedResult = preventRecursion(callFlowNode, () => {
+                                const flowTypeResult = getTypeFromFlowNode(callFlowNode.antecedent);
+                                let keyTypeResult: TypeResult | undefined;
+
+                                if (flowTypeResult.type) {
+                                    flowTypeResult.type = mapSubtypes(flowTypeResult.type, (subtype) => {
+                                        if (isClass(subtype) && ClassType.isTypedDictClass(subtype)) {
+                                            const keyArg = callFlowNode.node.d.args[0];
+                                            if (
+                                                (deletionCall.d.member.d.value === 'pop' ||
+                                                    deletionCall.d.member.d.value === '__delitem__') &&
+                                                keyArg &&
+                                                keyArg.d.argCategory === ArgCategory.Simple &&
+                                                !keyArg.d.name
+                                            ) {
+                                                keyTypeResult ??= evaluator.getTypeOfExpression(keyArg.d.valueExpr);
+                                            }
+                                            return narrowForKeyDeletion(
+                                                subtype,
+                                                keyTypeResult?.type ?? UnknownType.create()
+                                            );
+                                        }
+                                        return subtype;
+                                    });
+                                }
+
+                                if (keyTypeResult?.isIncomplete) {
+                                    flowTypeResult.isIncomplete = true;
+                                }
+                                return flowTypeResult;
+                            });
+
+                            return setCacheEntry(curFlowNode, narrowedResult?.type, !!narrowedResult?.isIncomplete);
                         }
 
                         curFlowNode = callFlowNode.antecedent;

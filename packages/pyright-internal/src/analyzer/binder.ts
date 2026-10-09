@@ -3617,6 +3617,11 @@ export class Binder extends ParseTreeWalker {
         if (!this._isCodeUnreachable()) {
             this._addExceptTargets(this._currentFlowNode!);
 
+            const deletionCall = ParseTreeUtils.getTypedDictKeyDeletionCall(node);
+            if (deletionCall && isCodeFlowSupportedForReference(deletionCall.d.leftExpr)) {
+                this._currentScopeCodeFlowExpressions!.add(createKeyForReference(deletionCall.d.leftExpr));
+            }
+
             const flowNode: FlowCall = {
                 flags: FlowFlags.Call,
                 id: this._getUniqueFlowNodeId(),
@@ -3670,6 +3675,11 @@ export class Binder extends ParseTreeWalker {
 
             if (isSupportedReference) {
                 this._currentScopeCodeFlowExpressions!.add(createKeyForReference(node));
+            }
+
+            // Key presence changes the containing TypedDict's narrowed type.
+            if (node.nodeType === ParseNodeType.Index && isCodeFlowSupportedForReference(node.d.leftExpr)) {
+                this._currentScopeCodeFlowExpressions!.add(createKeyForReference(node.d.leftExpr));
             }
 
             if (unbound) {
