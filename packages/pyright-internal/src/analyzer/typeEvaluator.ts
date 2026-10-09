@@ -29288,7 +29288,9 @@ export function createTypeEvaluator(
         overrideMethod: FunctionType | OverloadedType,
         baseClass: ClassType | undefined,
         diag: DiagnosticAddendum,
-        enforceParamNames = true
+        enforceParamNames = true,
+        baseClassSelf?: ClassType,
+        childClassSelf?: ClassType
     ): boolean {
         // If we're overriding a non-method with a method, report it as an error.
         // This occurs when a non-property overrides a property.
@@ -29300,7 +29302,14 @@ export function createTypeEvaluator(
         if (isFunction(baseMethod)) {
             // Handle the easy case - a simple function overriding another simple function.
             if (isFunction(overrideMethod)) {
-                return validateOverrideMethodInternal(baseMethod, overrideMethod, diag, enforceParamNames);
+                return validateOverrideMethodInternal(
+                    baseMethod,
+                    overrideMethod,
+                    baseClassSelf,
+                    childClassSelf,
+                    diag,
+                    enforceParamNames
+                );
             }
 
             const overloadsAndImpl = [...OverloadedType.getOverloads(overrideMethod)];
@@ -29316,6 +29325,8 @@ export function createTypeEvaluator(
                     return validateOverrideMethodInternal(
                         baseMethod,
                         overrideOverload,
+                        baseClassSelf,
+                        childClassSelf,
                         /* diag */ undefined,
                         enforceParamNames
                     );
@@ -29340,6 +29351,8 @@ export function createTypeEvaluator(
                 return validateOverrideMethodInternal(
                     overload,
                     overrideMethod,
+                    baseClassSelf,
+                    childClassSelf,
                     diag?.createAddendum(),
                     enforceParamNames
                 );
@@ -29353,7 +29366,7 @@ export function createTypeEvaluator(
 
         let previousMatchIndex = -1;
         const overrideOverloads = OverloadedType.getOverloads(overrideMethod);
-        const matchedIndices = new Set<number>();
+        const matchedOverloads: FunctionType[] = [];
 
         for (const baseOverload of OverloadedType.getOverloads(baseMethod)) {
             // If the override isn't applicable for this base class, skip the check.
@@ -29365,6 +29378,8 @@ export function createTypeEvaluator(
                 return validateOverrideMethodInternal(
                     baseOverload,
                     overrideOverload,
+                    baseClassSelf,
+                    childClassSelf,
                     /* diag */ undefined,
                     enforceParamNames
                 );
@@ -29388,7 +29403,7 @@ export function createTypeEvaluator(
             const isOverlapping = overrideOverloads.some((overrideOverload, index) => {
                 return (
                     index < matchIndex &&
-                    !matchedIndices.has(index) &&
+                    !matchedOverloads.includes(overrideOverload) &&
                     isOverrideMethodOverlapping(baseOverload, overrideOverload)
                 );
             });
@@ -29398,7 +29413,7 @@ export function createTypeEvaluator(
                 return false;
             }
 
-            matchedIndices.add(matchIndex);
+            matchedOverloads.push(overrideOverloads[matchIndex]);
             previousMatchIndex = matchIndex;
         }
 
@@ -29419,14 +29434,16 @@ export function createTypeEvaluator(
             overrideOverload = FunctionType.clone(overrideOverload, /* stripFirstParam */ true);
         }
 
-        const flags = AssignTypeFlags.SkipReturnTypeCheck;
-        const partialFlags = flags | AssignTypeFlags.OverloadOverlap | AssignTypeFlags.PartialOverloadOverlap;
-
-        return (
+        let flags = AssignTypeFlags.SkipReturnTypeCheck;
+        if (
             assignType(baseOverload, overrideOverload, /* diag */ undefined, /* constraints */ undefined, flags) ||
-            assignType(overrideOverload, baseOverload, /* diag */ undefined, /* constraints */ undefined, flags) ||
-            assignType(overrideOverload, baseOverload, /* diag */ undefined, /* constraints */ undefined, partialFlags)
-        );
+            assignType(overrideOverload, baseOverload, /* diag */ undefined, /* constraints */ undefined, flags)
+        ) {
+            return true;
+        }
+
+        flags |= AssignTypeFlags.OverloadOverlap | AssignTypeFlags.PartialOverloadOverlap;
+        return assignType(overrideOverload, baseOverload, /* diag */ undefined, /* constraints */ undefined, flags);
     }
 
     // Determines whether a child class override is applicable to a parent
@@ -29472,6 +29489,32 @@ export function createTypeEvaluator(
         );
     }
 
+    // Solves the TypeVars in an annotated "self" or "cls" parameter against
+    // the class that "self" refers to, as is done when the method is bound.
+    function partiallySpecializeOverrideMethod(method: FunctionType, selfClass: ClassType): FunctionType {
+        if (
+            method.shared.parameters.length === 0 ||
+            !FunctionParam.isTypeDeclared(method.shared.parameters[0]) ||
+            !(
+                FunctionType.isInstanceMethod(method) ||
+                FunctionType.isClassMethod(method) ||
+                FunctionType.isConstructorMethod(method)
+            )
+        ) {
+            return method;
+        }
+
+        const constraints = new ConstraintTracker();
+        const selfType = FunctionType.isInstanceMethod(method) ? selfClass : ClassType.cloneAsInstantiable(selfClass);
+
+        if (!assignType(FunctionType.getParamType(method, 0), selfType, /* diag */ undefined, constraints)) {
+            return method;
+        }
+
+        const specializedFunction = solveAndApplyConstraints(method, constraints);
+        return isFunction(specializedFunction) ? specializedFunction : method;
+    }
+
     // Determines whether the override method is compatible with the overridden method.
     // This is used both for parent/child overrides and implicit overrides for peer
     // classes in a multi-inheritance case. If enforceParamNames is true, the parameter
@@ -29479,9 +29522,19 @@ export function createTypeEvaluator(
     function validateOverrideMethodInternal(
         baseMethod: FunctionType,
         overrideMethod: FunctionType,
+        baseClassSelf: ClassType | undefined,
+        childClassSelf: ClassType | undefined,
         diag: DiagnosticAddendum | undefined,
         enforceParamNames: boolean
     ): boolean {
+        if (baseClassSelf) {
+            baseMethod = partiallySpecializeOverrideMethod(baseMethod, baseClassSelf);
+        }
+
+        if (childClassSelf) {
+            overrideMethod = partiallySpecializeOverrideMethod(overrideMethod, childClassSelf);
+        }
+
         const baseParamDetails = getParamListDetails(baseMethod);
         const overrideParamDetails = getParamListDetails(overrideMethod);
         const constraints = new ConstraintTracker();
@@ -29876,10 +29929,16 @@ export function createTypeEvaluator(
         let overrideReturnType = solveAndApplyConstraints(getEffectiveReturnType(overrideMethod), constraints);
 
         // Eliminate unsolved TypeVars of the override from a union, as is
-        // done for call return types.
+        // done for call return types, unless they have a bound or constraints.
         const overrideScopeIds = getTypeVarScopeIds(overrideMethod);
         const isUnsolvedTypeVar = (subtype: Type) => {
-            return isTypeVar(subtype) && !!subtype.priv.scopeId && overrideScopeIds.includes(subtype.priv.scopeId);
+            return (
+                isTypeVar(subtype) &&
+                !!subtype.priv.scopeId &&
+                overrideScopeIds.includes(subtype.priv.scopeId) &&
+                !TypeVarType.hasBound(subtype) &&
+                !TypeVarType.hasConstraints(subtype)
+            );
         };
         if (isUnion(overrideReturnType) && !overrideReturnType.priv.subtypes.every(isUnsolvedTypeVar)) {
             overrideReturnType = removeFromUnion(overrideReturnType, isUnsolvedTypeVar);

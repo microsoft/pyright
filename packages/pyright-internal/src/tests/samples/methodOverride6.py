@@ -303,8 +303,8 @@ class Child6_4(Parent6):
     @overload
     def m1(self) -> int: ...
 
-    # This should generate an error because the first base
-    # overload is not handled.
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
     def m1(self, *args: int) -> int:
         return 0
 
@@ -329,8 +329,8 @@ class Child7_1(Parent7):
     @overload
     def m1(self, x: bytes) -> bytes: ...
 
-    # This should generate an error because the second base
-    # overload is not handled.
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
     def m1(self, x: int | bytes) -> int | bytes: ...
 
 
@@ -370,8 +370,8 @@ class Child8_2(Parent8):
     @overload
     def m1(self, x: str) -> str: ...
 
-    # This should generate an error because the first overload overlaps
-    # the first base overload and returns an incompatible type.
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
     def m1(self, x: object, **kwargs: Any) -> int | str | bytes: ...
 
 
@@ -408,8 +408,8 @@ class Child9_2(Parent9):
     @overload
     def m1(self, x: object) -> object: ...
 
-    # This should generate an error because the first overload partially
-    # overlaps the first base overload and returns an incompatible type.
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
     def m1(self, x: object) -> object: ...
 
 
@@ -443,8 +443,7 @@ class Child10_2(Parent10[str]):
     @overload
     def m1(self, x: int, default: str | _S, /) -> bytes | _S: ...
 
-    # This should generate an error because the second overload
-    # returns bytes for the second base overload.
+    # This should generate an error.
     def m1(self, x: int, default: object = None, /) -> object: ...
 
 
@@ -455,6 +454,6 @@ class Child10_3(Parent10[str]):
     @overload
     def m1(self, x: int, default: str | _S, /) -> _S: ...
 
-    # This should generate an error because the second overload
-    # returns an unsolved TypeVar for the second base overload.
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
     def m1(self, x: int, default: object = None, /) -> object: ...
