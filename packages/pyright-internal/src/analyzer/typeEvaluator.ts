@@ -29928,20 +29928,33 @@ export function createTypeEvaluator(
         const baseReturnType = getEffectiveReturnType(baseMethod);
         let overrideReturnType = solveAndApplyConstraints(getEffectiveReturnType(overrideMethod), constraints);
 
-        // Eliminate unsolved TypeVars of the override from a union, as is
-        // done for call return types, unless they have a bound or constraints.
+        // Replace unsolved TypeVars of the override in a union with their
+        // default, or eliminate them if they have no default, bound or
+        // constraints, as is done for call return types.
         const overrideScopeIds = getTypeVarScopeIds(overrideMethod);
-        const isUnsolvedTypeVar = (subtype: Type) => {
+        const isUnsolvedTypeVar = (subtype: Type): subtype is TypeVarType => {
+            return isTypeVar(subtype) && !!subtype.priv.scopeId && overrideScopeIds.includes(subtype.priv.scopeId);
+        };
+        const isEliminable = (subtype: Type) => {
             return (
-                isTypeVar(subtype) &&
-                !!subtype.priv.scopeId &&
-                overrideScopeIds.includes(subtype.priv.scopeId) &&
+                isUnsolvedTypeVar(subtype) &&
+                !subtype.shared.isDefaultExplicit &&
                 !TypeVarType.hasBound(subtype) &&
                 !TypeVarType.hasConstraints(subtype)
             );
         };
-        if (isUnion(overrideReturnType) && !overrideReturnType.priv.subtypes.every(isUnsolvedTypeVar)) {
-            overrideReturnType = removeFromUnion(overrideReturnType, isUnsolvedTypeVar);
+        if (isUnion(overrideReturnType) && !overrideReturnType.priv.subtypes.every(isEliminable)) {
+            overrideReturnType = mapSubtypes(overrideReturnType, (subtype) => {
+                if (isEliminable(subtype)) {
+                    return undefined;
+                }
+
+                if (isUnsolvedTypeVar(subtype) && subtype.shared.isDefaultExplicit) {
+                    return solveAndApplyConstraints(subtype.shared.defaultType, constraints);
+                }
+
+                return subtype;
+            });
         }
 
         if (

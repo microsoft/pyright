@@ -93,6 +93,15 @@ class SubclassF4[T](BaseF):
     def method1[S](self: "SubclassF4[S]", x: S) -> int: ...
 
 
+class SubclassF5(BaseF):
+    # This should generate an error because of a return type mismatch.
+    def method1[T = str](self, x: int | T) -> T | int: ...
+
+
+class SubclassF6(BaseF):
+    def method1[T = int](self, x: int | T) -> T | int: ...
+
+
 class BaseG:
     @classmethod
     def method1(cls, x: int) -> int: ...
