@@ -1,7 +1,7 @@
 # This sample tests indexing of tuples with slice expressions.
 
 
-from typing import TypeVarTuple
+from typing import SupportsIndex, TypeVarTuple, overload
 
 
 def func1(val1: tuple[int, str, None], val2: tuple[int, ...]):
@@ -97,3 +97,41 @@ def func4(val1: tuple[str, int]):
 
     x4 = val1[:-3]
     reveal_type(x4, expected_text="tuple[()]")
+
+
+def func5(val1: tuple[int, str, bool]):
+    x1 = val1[2:1]
+    reveal_type(x1, expected_text="tuple[()]")
+
+    x2 = val1[-1:-2]
+    reveal_type(x2, expected_text="tuple[()]")
+
+    x3 = val1[5:1]
+    reveal_type(x3, expected_text="tuple[()]")
+
+    x4 = val1[True:False]
+    reveal_type(x4, expected_text="tuple[()]")
+
+    x5 = val1[2:1:None]
+    reveal_type(x5, expected_text="tuple[()]")
+
+    x6 = val1[False:True]
+    reveal_type(x6, expected_text="tuple[int]")
+
+    x7 = val1[1::None]
+    reveal_type(x7, expected_text="tuple[str, bool]")
+
+
+class CustomTuple(tuple[int, str]):
+    @overload
+    def __getitem__(self, key: SupportsIndex) -> int | str: ...
+    @overload
+    def __getitem__(self, key: slice) -> tuple[int, str]: ...
+    def __getitem__(self, key: SupportsIndex | slice) -> int | str | tuple[int, str]:
+        return 42
+
+
+def func6(val1: CustomTuple):
+    # A subclass that overrides __getitem__ should use the override.
+    x1 = val1[2:1]
+    reveal_type(x1, expected_text="tuple[int, str]")
