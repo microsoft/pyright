@@ -15657,7 +15657,7 @@ export function createTypeEvaluator(
                         );
 
                         tdEntries.knownItems.forEach((entry, name) => {
-                            if (entry.isRequired || entry.isProvided) {
+                            if (!expectedTypedDictEntries || entry.isRequired || entry.isProvided) {
                                 keyTypes.push({
                                     node: entryNode,
                                     type: ClassType.cloneWithLiteral(strObject, name),
@@ -15667,6 +15667,7 @@ export function createTypeEvaluator(
                         });
 
                         if (!expectedTypedDictEntries) {
+                            // Open TypedDicts can contain extra items with arbitrary value types.
                             keyTypes.push({ node: entryNode, type: ClassType.cloneAsInstance(strObject) });
                             valueTypes.push({
                                 node: entryNode,

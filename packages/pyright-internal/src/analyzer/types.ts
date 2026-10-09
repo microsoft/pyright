@@ -4174,6 +4174,16 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
     for (let i = 0; i < unionType.priv.subtypes.length; i++) {
         const type = unionType.priv.subtypes[i];
 
+        // Distinct nominal classes cannot merge. Built-ins can match through aliases when combining bool literals.
+        if (
+            isClass(type) &&
+            isClass(typeToAdd) &&
+            type.shared.fullName !== typeToAdd.shared.fullName &&
+            (!ClassType.isBuiltIn(type) || !ClassType.isBuiltIn(typeToAdd))
+        ) {
+            continue;
+        }
+
         // Does this type already exist in the types array?
         if (isTypeSame(type, typeToAdd, { honorTypeForm: true })) {
             return;
