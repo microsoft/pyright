@@ -4225,7 +4225,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
             // existing type, see if one of them is a proper subset of the other.
             if (ClassType.isTypedDictClass(type) && ClassType.isSameGenericClass(type, typeToAdd)) {
                 // Do not proceed if the TypedDicts are generic and have different type arguments.
-                if (!type.priv.typeArgs && !typeToAdd.priv.typeArgs) {
+                if (_isTypedDictTypeArgsSame(type, typeToAdd)) {
                     if (ClassType.isTypedDictNarrower(typeToAdd, type)) {
                         return;
                     } else if (ClassType.isTypedDictNarrower(type, typeToAdd)) {
@@ -4252,4 +4252,23 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
     }
 
     UnionType.addType(unionType, typeToAdd);
+}
+
+// Determines whether two TypedDict classes have the same type arguments.
+// Narrowed copies of a generic TypedDict share their type args, so they
+// can be combined like those of a non-generic TypedDict. Without this,
+// each "in" or assignment narrowing doubles the size of the union.
+function _isTypedDictTypeArgsSame(type1: ClassType, type2: ClassType): boolean {
+    const typeArgs1 = type1.priv.typeArgs;
+    const typeArgs2 = type2.priv.typeArgs;
+
+    if (typeArgs1 === typeArgs2) {
+        return true;
+    }
+
+    if (!typeArgs1 || !typeArgs2 || typeArgs1.length !== typeArgs2.length) {
+        return false;
+    }
+
+    return typeArgs1.every((typeArg, index) => isTypeSame(typeArg, typeArgs2[index]));
 }
