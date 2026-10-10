@@ -2162,8 +2162,17 @@ export class Program {
         skipFileNeededCheck = false,
         isImplicitImport = false
     ): boolean {
-        if (!this._isFileNeeded(fileToBind, skipFileNeededCheck) || !fileToBind.sourceFile.isBindingRequired()) {
+        if (!this._isFileNeeded(fileToBind, skipFileNeededCheck)) {
             return !fileToBind.sourceFile.isBindingRequired();
+        }
+
+        if (
+            !fileToBind.sourceFile.isBindingRequired() &&
+            (fileToBind.sourceFile.isBindingInProgress() ||
+                !fileToBind.builtinsImport ||
+                fileToBind.builtinsImport === fileToBind)
+        ) {
+            return true;
         }
 
         this._parseFile(fileToBind, content, skipFileNeededCheck);
@@ -2194,18 +2203,32 @@ export class Program {
             // Bind all of the implicit imports first. So we don't recurse into them.
             if (!isImplicitImport) {
                 this._bindImplicitImports(fileToBind);
-
-                // Binding the implicit imports may indirectly cause the current file to be bound.
-                // If so, return now to avoid "Bind called unnecessarily" assert in sourceFile.bind().
-                if (!fileToBind.sourceFile.isBindingRequired()) {
-                    return true;
-                }
             }
 
             // If it is not builtin module itself, we need to parse and bind
             // the builtin module.
             builtinsScope =
                 getScopeIfAvailable(fileToBind.chainedSourceFile) ?? getScopeIfAvailable(fileToBind.builtinsImport);
+
+            // Binding the implicit imports can indirectly bind the current file while its
+            // builtins module is still being bound. In that case, the current file may have
+            // been bound without its actual builtins scope. Rebind it now that the complete
+            // implicit import chain is available.
+            if (!fileToBind.sourceFile.isBindingRequired()) {
+                const parserOutput = fileToBind.sourceFile.getParserOutput();
+                const boundFileInfo = parserOutput
+                    ? AnalyzerNodeInfo.getFileInfo(parserOutput.parseTree, this._analyzerNodeInfoContext)
+                    : undefined;
+
+                if (builtinsScope && boundFileInfo?.builtinsScope !== builtinsScope) {
+                    fileToBind.sourceFile.markReanalysisRequired(
+                        /* forceRebinding */ true,
+                        this._analyzerNodeInfoContext
+                    );
+                } else {
+                    return true;
+                }
+            }
         }
 
         if (fileToBind.sourceFile.isParseRequired()) {
