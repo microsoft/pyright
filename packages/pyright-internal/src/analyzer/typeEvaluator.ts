@@ -405,6 +405,7 @@ import {
 
 interface GetTypeArgsOptions {
     isAnnotatedClass?: boolean;
+    isReadOnlyAnnotation?: boolean;
     hasCustomClassGetItem?: boolean;
     isFinalAnnotation?: boolean;
     isClassVarAnnotation?: boolean;
@@ -8522,6 +8523,8 @@ export function createTypeEvaluator(
                         isInstantiableClass(concreteSubtype) && ClassType.isBuiltIn(concreteSubtype, 'Final');
                     const isClassVarAnnotation =
                         isInstantiableClass(concreteSubtype) && ClassType.isBuiltIn(concreteSubtype, 'ClassVar');
+                    const isReadOnlyAnnotation =
+                        isInstantiableClass(concreteSubtype) && ClassType.isBuiltIn(concreteSubtype, 'ReadOnly');
 
                     // This feature is currently experimental.
                     const supportsTypedDictTypeArg =
@@ -8533,6 +8536,7 @@ export function createTypeEvaluator(
                         hasCustomClassGetItem: hasCustomClassGetItem || !isGenericClass,
                         isFinalAnnotation,
                         isClassVarAnnotation,
+                        isReadOnlyAnnotation,
                         supportsTypedDictTypeArg,
                     });
 
@@ -9036,9 +9040,14 @@ export function createTypeEvaluator(
                 EvalFlags.NoSpecialize |
                 EvalFlags.NoParamSpec |
                 EvalFlags.NoTypeVarTuple |
-                EvalFlags.AllowRequired |
                 EvalFlags.EnforceVarianceConsistency
             );
+
+            // Required and NotRequired may appear inside ReadOnly and Annotated
+            // wrappers, but not within an ordinary generic type argument.
+            if (!options?.isAnnotatedClass && !options?.isReadOnlyAnnotation) {
+                adjFlags &= ~EvalFlags.AllowRequired;
+            }
 
             if (!options?.isAnnotatedClass) {
                 adjFlags |= EvalFlags.NoClassVar | EvalFlags.NoFinal;
