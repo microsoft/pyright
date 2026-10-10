@@ -5782,6 +5782,15 @@ export function createTypeEvaluator(
             return type;
         }
 
+        // A generic type alias whose value is one of its own type parameters
+        // (e.g. "type Identity[T] = T") evaluates to that type parameter, but
+        // a reference to the alias by name is not a use of the type variable.
+        // The type parameter is scoped to the alias, so it must not be matched
+        // by name against a type parameter of an enclosing class or function.
+        if (type.priv.scopeId && type.priv.scopeId === type.props?.typeAliasInfo?.shared.typeVarScopeId) {
+            return type;
+        }
+
         // If the TypeVar doesn't have a scope ID, try to assign one.
         if (!type.priv.scopeId) {
             type = assignTypeVarScopeId(node, type, flags);
