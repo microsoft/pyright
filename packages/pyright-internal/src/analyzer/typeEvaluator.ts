@@ -6686,6 +6686,33 @@ export function createTypeEvaluator(
                 assertNever(baseType);
         }
 
+        // A super proxy forwards attribute reads, but assignments and deletions
+        // apply to the proxy itself rather than to the bound object. Keep the
+        // member type for subsequent analysis while reporting this invalid use.
+        if (
+            type &&
+            !isIncomplete &&
+            usage.method !== 'get' &&
+            node.d.leftExpr.nodeType === ParseNodeType.Call &&
+            node.d.leftExpr.d.leftExpr.nodeType === ParseNodeType.Name &&
+            node.d.leftExpr.d.leftExpr.d.value === 'super'
+        ) {
+            const callBaseType = getTypeOfExpression(node.d.leftExpr.d.leftExpr, EvalFlags.CallBaseDefaults).type;
+            if (
+                isInstantiableClass(callBaseType) &&
+                !callBaseType.priv.includeSubclasses &&
+                ClassType.isBuiltIn(callBaseType, 'super')
+            ) {
+                const diagMessage = usage.method === 'set' ? LocMessage.memberSet() : LocMessage.memberDelete();
+                addDiagnostic(
+                    DiagnosticRule.reportAttributeAccessIssue,
+                    diagMessage.format({ name: memberName, type: 'super' }),
+                    node.d.member
+                );
+                typeErrors = true;
+            }
+        }
+
         // If type is undefined, emit a general error message indicating that the
         // member could not be accessed.
         if (!type) {
