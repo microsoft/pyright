@@ -6670,7 +6670,10 @@ export function createTypeEvaluator(
                     const altType = hasSelf ? prefetched?.methodClass : prefetched?.functionClass;
                     type = getTypeOfMemberAccessWithBaseType(
                         node,
-                        { type: altType ? convertToInstance(altType) : UnknownType.create() },
+                        {
+                            type: altType ? convertToInstance(altType) : UnknownType.create(),
+                            isIncomplete: baseTypeResult.isIncomplete,
+                        },
                         usage,
                         flags,
                         !hasSelf && !isBuiltinsFunction
@@ -20221,10 +20224,11 @@ export function createTypeEvaluator(
         // Apply all of the decorators in reverse order.
         decoratedType = preDecoratedType;
         let foundUnknown = false;
+        let isIncomplete = false;
         for (let i = node.d.decorators.length - 1; i >= 0; i--) {
             const decorator = node.d.decorators[i];
 
-            const newDecoratedType = useSignatureTracker(node.parent ?? node, () => {
+            const newDecoratedTypeResult = useSignatureTracker(node.parent ?? node, () => {
                 assert(decoratedType !== undefined);
                 return applyFunctionDecorator(
                     evaluatorInterface,
@@ -20235,6 +20239,11 @@ export function createTypeEvaluator(
                     nodeInfo
                 );
             });
+
+            const newDecoratedType = newDecoratedTypeResult.type;
+            if (newDecoratedTypeResult.isIncomplete) {
+                isIncomplete = true;
+            }
 
             const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
 
@@ -20269,7 +20278,7 @@ export function createTypeEvaluator(
 
         decoratedType = addOverloadsToFunctionType(evaluatorInterface, node, decoratedType, nodeInfo);
 
-        writeTypeCache(node, { type: decoratedType }, EvalFlags.None);
+        writeTypeCache(node, { type: decoratedType, isIncomplete }, EvalFlags.None);
 
         // Now that the decorator has been applied, we can clear the
         // "partially evaluated" flag.
