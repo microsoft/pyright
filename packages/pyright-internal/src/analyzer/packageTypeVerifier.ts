@@ -165,10 +165,12 @@ export class PackageTypeVerifier {
                 } else {
                     report.pyTypedPathUri = pyTypedInfo.pyTypedPath;
 
+                    const nativeModules = new Map<string, Uri[]>();
                     const publicModules = this._getListOfPublicModules(
                         report.moduleRootDirectoryUri,
                         report.isModuleSingleFile,
-                        trimmedModuleName
+                        trimmedModuleName,
+                        nativeModules
                     );
 
                     // If the filter eliminated all modules, report an error.
@@ -191,7 +193,7 @@ export class PackageTypeVerifier {
                     });
 
                     publicModules.forEach((moduleName) => {
-                        this._verifyTypesOfModule(moduleName, publicSymbols, report);
+                        this._verifyTypesOfModule(moduleName, publicSymbols, report, nativeModules.get(moduleName));
                     });
                 }
             }
@@ -275,8 +277,11 @@ export class PackageTypeVerifier {
     ) {
         const importResult = this._resolveImport(moduleName);
 
-        if (importResult.isImportFound) {
+        if (importResult.isImportFound && !importResult.isNativeLib) {
             const modulePath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
+            if (modulePath.isEmpty()) {
+                return;
+            }
             this._program.addTrackedFiles([modulePath], /* isThirdPartyImport */ true, /* isInPyTypedPackage */ true);
 
             const sourceFile = this._program.getBoundSourceFile(modulePath);
@@ -372,8 +377,30 @@ export class PackageTypeVerifier {
         }
     }
 
-    private _verifyTypesOfModule(moduleName: string, publicSymbols: PublicSymbolSet, report: PackageTypeReport) {
+    private _verifyTypesOfModule(
+        moduleName: string,
+        publicSymbols: PublicSymbolSet,
+        report: PackageTypeReport,
+        nativeModulePaths: Uri[] = []
+    ) {
         const importResult = this._resolveImport(moduleName);
+        const missingNativeStub =
+            importResult.isNativeLib ||
+            nativeModulePaths.some((nativePath) => {
+                const stubName = stripFileExtension(nativePath.fileName, /* multiDotExtension */ true) + '.pyi';
+                return !tryStat(this._serviceProvider.fs(), nativePath.getDirectory().combinePaths(stubName))?.isFile();
+            });
+
+        if (missingNativeStub) {
+            report.generalDiagnostics.push(
+                new Diagnostic(
+                    DiagnosticCategory.Error,
+                    `No type stub found for native module "${moduleName}"`,
+                    getEmptyRange()
+                )
+            );
+        }
+
         if (!importResult.isImportFound) {
             report.generalDiagnostics.push(
                 new Diagnostic(DiagnosticCategory.Error, `Could not resolve module "${moduleName}"`, getEmptyRange())
@@ -388,6 +415,11 @@ export class PackageTypeVerifier {
             );
         } else {
             const modulePath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
+            // Native files are discovered by name only. Never open or bind their
+            // contents. A namespace package has no source file to bind either.
+            if (importResult.isNativeLib || modulePath.isEmpty()) {
+                return;
+            }
 
             const module: ModuleInfo = {
                 name: moduleName,
@@ -421,9 +453,14 @@ export class PackageTypeVerifier {
 
     // Scans the directory structure for a list of public modules
     // within the package.
-    private _getListOfPublicModules(moduleRoot: Uri, isModuleSingleFile: boolean, moduleName: string): string[] {
+    private _getListOfPublicModules(
+        moduleRoot: Uri,
+        isModuleSingleFile: boolean,
+        moduleName: string,
+        nativeModules: Map<string, Uri[]>
+    ): string[] {
         const publicModules: string[] = [];
-        this._addPublicModulesRecursive(moduleRoot, isModuleSingleFile, moduleName, publicModules);
+        this._addPublicModulesRecursive(moduleRoot, isModuleSingleFile, moduleName, publicModules, nativeModules);
 
         // Make sure modules are unique. There may be duplicates if a ".py" and ".pyi"
         // exist for some modules.
@@ -444,7 +481,8 @@ export class PackageTypeVerifier {
         dirPath: Uri,
         isModuleSingleFile: boolean,
         modulePath: string,
-        publicModules: string[]
+        publicModules: string[],
+        nativeModules: Map<string, Uri[]>
     ) {
         const dirEntries = this._serviceProvider.fs().readdirEntriesSync(dirPath);
 
@@ -461,13 +499,18 @@ export class PackageTypeVerifier {
 
             if (isFile) {
                 const fileExtension = getFileExtension(entry.name);
+                const filePath = dirPath.combinePaths(entry.name);
+                const isNativeModule =
+                    ImportResolver.isSupportedImportFile(filePath) &&
+                    !ImportResolver.isSupportedImportSourceFile(filePath);
 
-                if (fileExtension === '.py' || fileExtension === '.pyi') {
-                    const nameWithoutExtension = stripFileExtension(entry.name);
+                if (fileExtension === '.py' || fileExtension === '.pyi' || isNativeModule) {
+                    const nameWithoutExtension = stripFileExtension(entry.name, /* multiDotExtension */ isNativeModule);
+                    let publicModuleName: string | undefined;
 
                     if (nameWithoutExtension === '__init__') {
                         if (!isModuleSingleFile) {
-                            publicModules.push(modulePath);
+                            publicModuleName = modulePath;
                         }
                     } else {
                         if (
@@ -476,21 +519,37 @@ export class PackageTypeVerifier {
                         ) {
                             if (isModuleSingleFile) {
                                 if (modulePath.endsWith(`.${nameWithoutExtension}`)) {
-                                    publicModules.push(modulePath);
+                                    publicModuleName = modulePath;
                                 }
                             } else {
-                                publicModules.push(`${modulePath}.${nameWithoutExtension}`);
+                                publicModuleName = `${modulePath}.${nameWithoutExtension}`;
                             }
+                        }
+                    }
+
+                    if (publicModuleName) {
+                        publicModules.push(publicModuleName);
+                        if (isNativeModule) {
+                            const nativePaths = nativeModules.get(publicModuleName) ?? [];
+                            nativePaths.push(filePath);
+                            nativeModules.set(publicModuleName, nativePaths);
                         }
                     }
                 }
             } else if (isDirectory && !isModuleSingleFile) {
-                if (!isPrivateOrProtectedName(entry.name) && this._isLegalModulePartName(entry.name)) {
+                // Hidden and dotted directories do not form a single public
+                // module name (for example, bundled libraries in ".libs").
+                if (
+                    !entry.name.includes('.') &&
+                    !isPrivateOrProtectedName(entry.name) &&
+                    this._isLegalModulePartName(entry.name)
+                ) {
                     this._addPublicModulesRecursive(
                         dirPath.combinePaths(entry.name),
                         isModuleSingleFile,
                         `${modulePath}.${entry.name}`,
-                        publicModules
+                        publicModules,
+                        nativeModules
                     );
                 }
             }
@@ -1520,9 +1579,12 @@ export class PackageTypeVerifier {
 
             // If it's a namespace package with no __init__.py(i), use the package
             // directory instead.
-            const moduleDirectory = resolvedPath
-                ? resolvedPath.getDirectory()
-                : importResult.packageDirectory ?? Uri.empty();
+            const moduleDirectory =
+                resolvedPath && !resolvedPath.isEmpty()
+                    ? resolvedPath.getDirectory()
+                    : importResult.packageDirectory?.combinePaths(...moduleName.split('.').slice(1)) ??
+                      importResult.searchPath?.combinePaths(...moduleName.split('.')) ??
+                      Uri.empty();
             let isModuleSingleFile = false;
             if (resolvedPath && !resolvedPath.isEmpty() && stripFileExtension(resolvedPath.fileName) !== '__init__') {
                 isModuleSingleFile = true;
