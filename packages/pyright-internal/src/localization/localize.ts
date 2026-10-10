@@ -222,6 +222,8 @@ export namespace Localizer {
         export const annotationFormatString = () => getRawString('Diagnostic.annotationFormatString');
         export const annotationNotSupported = () => getRawString('Diagnostic.annotationNotSupported');
         export const annotationRawString = () => getRawString('Diagnostic.annotationRawString');
+        export const annotationScopeExpression = () =>
+            new ParameterizedString<{ operator: string }>(getRawString('Diagnostic.annotationScopeExpression'));
         export const annotationSpansStrings = () => getRawString('Diagnostic.annotationSpansStrings');
         export const annotationStringEscape = () => getRawString('Diagnostic.annotationStringEscape');
         export const annotationTemplateString = () => getRawString('Diagnostic.annotationTemplateString');

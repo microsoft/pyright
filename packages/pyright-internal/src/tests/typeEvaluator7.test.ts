@@ -24,8 +24,10 @@ import {
     pythonVersion3_13,
     pythonVersion3_14,
     pythonVersion3_8,
+    pythonVersion3_9,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { LocMessage } from '../localization/localize';
 import { ParseNodeType } from '../parser/parseNodes';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
@@ -1409,6 +1411,98 @@ test('Annotated2', () => {
 
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('AnnotationScope1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const results313 = TestUtils.typeAnalyzeSampleFiles(['annotationScope1.py'], configOptions);
+    TestUtils.validateResults(results313, 0);
+
+    configOptions.defaultPythonVersion = pythonVersion3_14;
+    const results314 = TestUtils.typeAnalyzeSampleFiles(['annotationScope1.py'], configOptions);
+    TestUtils.validateResults(results314, 13);
+    const lines = TestUtils.readSampleFile('annotationScope1.py').split(/\r?\n/);
+    const expectedLines = lines.flatMap((line, index) => (line.trim() === '# scope error' ? [index + 1] : []));
+    assert.deepStrictEqual(
+        results314[0].errors.map((diagnostic) => diagnostic.range.start.line).sort((a, b) => a - b),
+        expectedLines
+    );
+});
+
+test('AnnotationScope2', () => {
+    for (const pythonVersion of [pythonVersion3_13, pythonVersion3_14]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const results = TestUtils.typeAnalyzeSampleFiles(['annotationScope2.py'], configOptions);
+        TestUtils.validateResults(results, 2);
+    }
+});
+
+test('AnnotationScope3 preserves parser diagnostics without duplicates', () => {
+    for (const pythonVersion of [pythonVersion3_13, pythonVersion3_14]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const results = TestUtils.typeAnalyzeSampleFiles(['annotationScope3.py'], configOptions);
+        TestUtils.validateResults(results, 5);
+        assert.deepStrictEqual(
+            results[0].errors.filter((error) => !error.getRule()).map((error) => error.message),
+            [
+                LocMessage.walrusNotAllowedInComprehension(),
+                LocMessage.walrusNotAllowed(),
+                LocMessage.walrusNotAllowed(),
+                LocMessage.walrusNotAllowed(),
+            ]
+        );
+    }
+});
+
+test('AnnotationScope4 preserves the Python 3.10 subscript syntax requirement', () => {
+    for (const pythonVersion of [pythonVersion3_9, pythonVersion3_10, pythonVersion3_14]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const results = TestUtils.typeAnalyzeSampleFiles(['annotationScope4.py'], configOptions);
+        TestUtils.validateResults(results, 1);
+        assert.strictEqual(
+            results[0].errors[0].message,
+            pythonVersion === pythonVersion3_9
+                ? LocMessage.walrusNotAllowed()
+                : LocMessage.annotationScopeExpression().format({ operator: ':=' })
+        );
+    }
+});
+
+// These new samples also check exact diagnostic locations and operators, so a
+// missed syntax error cannot be masked by an unrelated type error.
+for (const sample of ['annotationScope5.py', 'annotationScope6.py', 'annotationScope7.py', 'annotationScope8.py']) {
+    test(`AnnotationScope complete validation: ${sample}`, () => {
+        for (const pythonVersion of [pythonVersion3_13, pythonVersion3_14]) {
+            const configOptions = new ConfigOptions(Uri.empty());
+            configOptions.defaultPythonVersion = pythonVersion;
+            const results = TestUtils.typeAnalyzeSampleFiles([sample], configOptions);
+            const expectErrors = pythonVersion === pythonVersion3_14 || sample === 'annotationScope8.py';
+            const expected = TestUtils.readSampleFile(sample)
+                .split(/\r?\n/)
+                .flatMap((line, index) => {
+                    const marker = line.match(/# scope error: (.*)/);
+                    return expectErrors && marker
+                        ? [
+                              {
+                                  line: index + 1,
+                                  message: LocMessage.annotationScopeExpression().format({ operator: marker[1] }),
+                              },
+                          ]
+                        : [];
+                });
+            TestUtils.validateResults(results, expected.length);
+            assert.deepStrictEqual(
+                results[0].errors
+                    .map((error) => ({ line: error.range.start.line, message: error.message }))
+                    .sort((a, b) => a.line - b.line),
+                expected
+            );
+        }
+    });
+}
 
 test('Circular1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
