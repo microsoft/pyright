@@ -101,6 +101,27 @@ test('Import18', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('DunderBuiltinsStubWildcardImports', () => {
+    const code = `
+// @filename: __builtins__.pyi
+//// from a import *
+//// from b import *
+//// class C: ...
+
+// @filename: a.py
+//// class A: ...
+//// _b: B
+//// _c: C
+
+// @filename: b.py
+//// class B: ...
+//// _a: A
+//// _c: C
+    `;
+    const state = parseAndGetTestState(code).state;
+    state.verifyDiagnostics();
+});
+
 test('DunderAll1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
