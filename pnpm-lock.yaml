@@ -142,7 +142,7 @@ importers:
         version: 3.3.1
       smol-toml:
         specifier: ^1.8.0
-        version: 1.8.0
+        version: 1.9.0
       source-map-support:
         specifier: ^0.5.21
         version: 0.5.21
@@ -4490,8 +4490,8 @@ packages:
     resolution: {integrity: sha512-dWUG8F5sIIARXih1DTaQAX4SsiTXhInKf1buxdY9DIg4ZYPZK5nGM1VRIYmEbDbsHt7USo99xSLFu5Q1IqTmsg==}
     engines: {node: '>= 18'}
 
-  smol-toml@1.8.0:
-    resolution: {integrity: sha1-3F4JNoJfH+83vfLFaQgfcJ2KAJ8=}
+  smol-toml@1.9.0:
+    resolution: {integrity: sha512-hpd+HLON7HdZXqYchMM/+LaTTbdK0AU3NngIJ4KVyWbY9bfQqdL9cD+4yf6dUoU2Ap4VsU0JkQi6FxAI1B2mXQ==}
     engines: {node: '>= 18'}
 
   socks-proxy-agent@8.0.5:
@@ -4687,7 +4687,7 @@ packages:
     engines: {node: '>=6'}
 
   tar@7.5.19:
-    resolution: {integrity: sha1-2JFea3F/gDannYOcqUSBmLACsKc=}
+    resolution: {integrity: sha512-4LeEWl96twnS2Q7Bz4MGqgazLqO+hJN63GZxXoIqh1T3VweYD997gbU1ItNsQafqqXTXd5WFyFdReLtwvRBNiw==}
     engines: {node: '>=18'}
 
   terminal-link@4.0.0:
@@ -10011,7 +10011,7 @@ snapshots:
 
   smol-toml@1.6.1: {}
 
-  smol-toml@1.8.0: {}
+  smol-toml@1.9.0: {}
 
   socks-proxy-agent@8.0.5(supports-color@7.2.0):
     dependencies:
