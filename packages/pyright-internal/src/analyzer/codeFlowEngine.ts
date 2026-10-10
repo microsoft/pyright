@@ -579,7 +579,8 @@ export function getCodeFlowEngine(
                                         reference.nodeType === ParseNodeType.MemberAccess &&
                                         evaluator.isAsymmetricAccessorAssignment(targetNode)
                                     ) {
-                                        flowTypeResult = undefined;
+                                        // Reset to the read type so subsequent conditions can narrow it.
+                                        flowTypeResult = options?.typeAtStart;
                                     }
                                 }
 

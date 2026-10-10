@@ -10,6 +10,8 @@
 
 import * as assert from 'assert';
 
+import * as TypeGuards from '../analyzer/typeGuards';
+import { isInstantiableClass } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_12, pythonVersion3_8 } from '../common/pythonVersion';
@@ -260,6 +262,27 @@ test('TypeGuard2', () => {
 
 test('TypeGuard3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeGuard4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeGuard5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard5.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()),
+        [DiagnosticRule.reportAttributeAccessIssue, DiagnosticRule.reportAttributeAccessIssue]
+    );
+    assert.ok(analysisResults[0].errors[0].message.includes('type[FactoryClass]'));
+    assert.ok(analysisResults[0].errors[1].message.includes('type[FactoryChild]'));
+});
+
+test('TypeGuard6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard6.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
@@ -715,6 +738,64 @@ test('MatchClass8', () => {
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass8.py'], configOptions);
     TestUtils.validateResults(analysisResults, 3);
+});
+
+test('MatchClass9', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass9.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 0, undefined, undefined, 0);
+});
+
+test('MatchClass10', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass10.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 6);
+});
+
+test('MatchClass11', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass11.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4, 0, undefined, undefined, 0);
+    analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportArgumentType));
+});
+
+test('MatchClass12', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass12.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 7, 0, undefined, undefined, 0);
+    analysisResults[0].errors.forEach((diag) =>
+        assert.strictEqual(diag.getRule(), DiagnosticRule.reportGeneralTypeIssues)
+    );
+});
+
+test('MatchClass13', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+
+    const narrowSpy = jest.spyOn(TypeGuards, 'narrowTypeForInstanceOrSubclass');
+    try {
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass13.py'], configOptions);
+        TestUtils.validateResults(analysisResults, 1);
+        const protocolCalls = narrowSpy.mock.calls.filter(([, , filterTypes]) =>
+            filterTypes.some((type) => isInstantiableClass(type) && type.shared.name === 'RecursiveProtocol')
+        );
+        assert.strictEqual(protocolCalls.length, 0);
+    } finally {
+        narrowSpy.mockRestore();
+    }
 });
 
 test('MatchValue1', () => {

@@ -65,6 +65,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `type(x) == T` and `type(x) != T`
 * `x is L` and `x is not L` (where L is an expression that evaluates to a literal type)
 * `x is C` and `x is not C` (where C is a class)
+* `x == C` and `x != C` (where C is a class and the compared class objects have statically known identity-based equality)
 * `x == L` and `x != L` (where L is an expression that evaluates to a literal type)
 * `x.y is None` and `x.y is not None` (where x is a type that is distinguished by a field with a None)
 * `x.y is E` and `x.y is not E` (where E is a literal enum or bool and x is a type that is distinguished by a field with a literal type)
@@ -86,6 +87,8 @@ Expressions supported for type guards include simple names, member access chains
 
 For user-defined `TypeGuard` and `TypeIs` calls, Pyright narrows the argument corresponding to the first parameter after any method receiver (`self` or `cls`). This applies to bound and unbound methods, including method aliases, and arguments supplied by keyword. Guards with gradual (`...`), tuple-unpacked, or variadic positional parameter lists support narrowing of explicit positional arguments. If selected overloads identify different guarded arguments, or argument unpacking obscures the guarded expression, Pyright does not apply narrowing.
 
+Class equality guards can narrow exact or final, non-generic class objects whose metaclasses have known default equality semantics. Alternatives with open subclass hierarchies, generic aliases, custom equality methods, or uncertain metaclasses are retained. Callable metaclass factories and unknown metaclass ancestry do not establish identity-based equality. Constrained type variables that expand to unions are retained rather than narrowed by these equality guards. Identity guards (`is` and `is not`) do not have these equality-specific restrictions.
+
 Some type guards are able to narrow in both the positive and negative cases. Positive cases are used in `if` statements, and negative cases are used in `else` statements. (Positive and negative cases are flipped if the type guard expression is preceded by a `not` operator.) In some cases, the type can be narrowed only in the positive or negative case but not both. Consider the following examples:
 
 ```python
@@ -106,6 +109,12 @@ def func2(val: float | None):
 ```
 
 In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `float` (specifically, a value of 0.0) or `None` in the negative case.
+
+### Class Pattern Matching
+
+Class patterns in `match` statements narrow the subject using the pattern class and its argument patterns. Positional captures use the pattern class's `__match_args__`, even if the subject's class defines a different tuple.
+
+When a non-final subject class has no ordinary match for a runtime-checkable protocol, Pyright can narrow it to a subclass that satisfies both types, retaining members from each. Pattern arguments must still be compatible. Unsafe protocol overlap is reported, just as it is for an explicit `isinstance` check.
 
 ### TypedDict Key Presence
 

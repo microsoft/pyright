@@ -16,6 +16,7 @@ import { AssignTypeFlags } from '../analyzer/typeEvaluatorTypes';
 import { AnyType, ClassType, isClassInstance, TypeVarType, UnknownType } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticAddendum } from '../common/diagnostic';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
@@ -1228,6 +1229,39 @@ test('TypedDict29', () => {
 
     const repeatedModernResults = TestUtils.typeAnalyzeSampleFiles(['typedDict29.py'], modernConfigOptions);
     TestUtils.validateResults(repeatedModernResults, 0);
+});
+
+test('TypedDict31', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict31.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [[90, DiagnosticRule.reportAssignmentType]]
+    );
+});
+
+test('TypedDict32', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.diagnosticRuleSet.strictDictionaryInference = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict32.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 5);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]).sort(),
+        [
+            [102, DiagnosticRule.reportArgumentType],
+            [105, DiagnosticRule.reportAssignmentType],
+            [118, DiagnosticRule.reportArgumentType],
+            [126, DiagnosticRule.reportArgumentType],
+            [134, DiagnosticRule.reportArgumentType],
+        ]
+    );
 });
 
 test('TypedDictInline1', () => {

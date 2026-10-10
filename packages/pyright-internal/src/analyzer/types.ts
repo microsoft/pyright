@@ -717,6 +717,9 @@ export const enum ClassTypeFlags {
     // The enum class body can modify its namespace in a way that the binder
     // cannot represent as statically-known member symbols.
     EnumMemberSetMayBeDynamicallyModified = 1 << 26,
+
+    // An explicit metaclass expression could not be resolved to a class type.
+    HasUnresolvedMetaclass = 1 << 27,
 }
 
 export interface DataClassBehaviors {
@@ -4170,6 +4173,16 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
 
     for (let i = 0; i < unionType.priv.subtypes.length; i++) {
         const type = unionType.priv.subtypes[i];
+
+        // Distinct nominal classes cannot merge. Built-ins can match through aliases when combining bool literals.
+        if (
+            isClass(type) &&
+            isClass(typeToAdd) &&
+            type.shared.fullName !== typeToAdd.shared.fullName &&
+            (!ClassType.isBuiltIn(type) || !ClassType.isBuiltIn(typeToAdd))
+        ) {
+            continue;
+        }
 
         // Does this type already exist in the types array?
         if (isTypeSame(type, typeToAdd, { honorTypeForm: true })) {
