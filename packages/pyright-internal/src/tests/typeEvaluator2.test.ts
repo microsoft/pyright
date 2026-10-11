@@ -352,7 +352,7 @@ test('isInstance4', () => {
 test('isInstance5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance5.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('isInstance6', () => {
