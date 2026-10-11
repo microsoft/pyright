@@ -240,7 +240,7 @@ export function isMethodOnlyProtocol(classType: ClassType): boolean {
 
                 return decl.node.d.decorators.some((decorator) => {
                     const decoratorName = getDecoratorName(decorator);
-                    return decoratorName === 'property' || decoratorName?.endsWith('.property');
+                    return decoratorName === 'property' || decoratorName === 'builtins.property';
                 });
             })
         ) {
