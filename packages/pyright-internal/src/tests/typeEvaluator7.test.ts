@@ -1267,6 +1267,8 @@ test('TypedDict32', () => {
 test('TypedDict33', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = pythonVersion3_13;
+    // These typing checks need the typing_extensions stubs, not its runtime package.
+    configOptions.diagnosticRuleSet.reportMissingModuleSource = 'none';
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict33.py'], configOptions);
 
