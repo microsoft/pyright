@@ -57,6 +57,13 @@ def pop_unknown(t: Parent, k: Literal["a", "b"]):
     assert_type(t.pop(k, 0), object | int)
 
 
+def pop_mixed_unknown(p: Person, k: Literal["nickname", "missing"]):
+    assert_type(p.pop(k), str | object)
+    assert_type(p.pop(k, 0), str | object | int)
+    assert_type(Person.pop(p, k), str | object)
+    assert_type(Person.pop(p, k, 0), str | object | int)
+
+
 def pop_readonly(c: Config, k: Literal["host", "port"]):
     assert_type(c.pop(k), object | int)
 
