@@ -10305,7 +10305,8 @@ export function createTypeEvaluator(
         argParamMatches: MatchArgsToParamsResult[],
         constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck: boolean | undefined,
-        inferenceContext: InferenceContext | undefined
+        inferenceContext: InferenceContext | undefined,
+        skipFinalValidation = false
     ): CallResult {
         const returnTypes: Type[] = [];
         const specializedInitSelfTypes: Type[] = [];
@@ -10510,6 +10511,17 @@ export function createTypeEvaluator(
         // specializedInitSelfTypes rather than the last branch's constraints.
         if (constraints && isDefinitiveMatchFound) {
             constraints.copyFromClone(matchedOverloads[matchedOverloads.length - 1].constraints);
+        }
+
+        // A speculative refinement does not need to populate the type cache;
+        // the original call has already performed the normal final validation.
+        if (skipFinalValidation) {
+            return {
+                argumentErrors: false,
+                returnType: combineTypes(returnTypes),
+                isTypeIncomplete,
+                overloadsUsedForCall,
+            };
         }
 
         // And run through the first expanded argument list one more time to
@@ -10802,12 +10814,14 @@ export function createTypeEvaluator(
         typeResult: TypeResult<OverloadedType>,
         constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck: boolean | undefined,
-        inferenceContext: InferenceContext | undefined
+        inferenceContext: InferenceContext | undefined,
+        candidateOverloads?: FunctionType[]
     ): CallResult {
         const filteredMatchResults: MatchArgsToParamsResult[] = [];
         let contextFreeArgTypes: Type[] | undefined;
         let isTypeIncomplete = !!typeResult.isIncomplete;
         const type = typeResult.type;
+        const overloads = candidateOverloads ?? OverloadedType.getOverloads(type);
         const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         // Start by evaluating the types of the arguments without any expected
@@ -10817,7 +10831,7 @@ export function createTypeEvaluator(
         // cache or record any diagnostics at this stage.
         useSpeculativeMode(speculativeNode, () => {
             let overloadIndex = 0;
-            OverloadedType.getOverloads(type).forEach((overload) => {
+            overloads.forEach((overload) => {
                 // Consider only the functions that have the @overload decorator,
                 // not the final function that omits the overload. This is the
                 // intended behavior according to PEP 484.
@@ -10842,7 +10856,6 @@ export function createTypeEvaluator(
             // Skip the error message if we're in speculative mode because it's very
             // expensive, and we're going to suppress the diagnostic anyway.
             if (!canSkipDiagnosticForNode(errorNode)) {
-                const overloads = OverloadedType.getOverloads(type);
                 const functionName =
                     overloads.length > 0 && overloads[0].shared.name
                         ? overloads[0].shared.name
@@ -10936,7 +10949,8 @@ export function createTypeEvaluator(
                 filteredMatchResults,
                 constraints,
                 skipUnknownArgCheck,
-                inferenceContext
+                inferenceContext,
+                /* skipFinalValidation */ candidateOverloads !== undefined
             );
 
             if (callResult.isTypeIncomplete) {
@@ -11493,6 +11507,147 @@ export function createTypeEvaluator(
         return { symbol, symbolName, classType, hasImplementation };
     }
 
+    // The synthesized "get" and "pop" methods for a TypedDict include a
+    // catch-all overload that accepts any str key. When the key argument is a
+    // union of str literals, that catch-all overload matches before union
+    // expansion is attempted, which produces an overly-wide return type. This
+    // function evaluates the call separately for each literal key subtype
+    // (speculatively) and, if every subtype is accepted, returns the union of
+    // the resulting return types.
+    function refineTypedDictMethodCallForUnionKey(
+        errorNode: ExpressionNode,
+        argList: Arg[],
+        overloadedType: OverloadedType,
+        isCallTypeIncomplete: boolean,
+        constraints: ConstraintTracker | undefined,
+        inferenceContext: InferenceContext | undefined
+    ): { returnType: Type; isTypeIncomplete: boolean; overloadsUsedForCall: FunctionType[] } | undefined {
+        const overloads = OverloadedType.getOverloads(overloadedType);
+        const overload = overloads[0];
+        if (!overload || !FunctionType.isSynthesizedMethod(overload)) {
+            return undefined;
+        }
+
+        const methodName = overload.shared.name;
+        if (methodName !== 'get' && methodName !== 'pop') {
+            return undefined;
+        }
+
+        const isBound = isMethodType(overload);
+        const receiverType = isBound
+            ? overload.priv.strippedFirstParamType
+            : overload.shared.parameters.length > 0
+            ? FunctionType.getParamType(overload, 0)
+            : undefined;
+        if (!receiverType || !isClassInstance(receiverType) || !ClassType.isTypedDictClass(receiverType)) {
+            return undefined;
+        }
+
+        // Unbound generic methods have not specialized their field types from the
+        // receiver. Keep the normal result rather than refining it to Unknown.
+        if (
+            !isBound &&
+            (requiresSpecialization(receiverType) || containsAnyOrUnknown(receiverType, /* recurse */ true))
+        ) {
+            return undefined;
+        }
+
+        // Handle only simple positional calls: (key) or (key, default).
+        const keyIndex = isBound ? 0 : 1;
+        if (argList.length <= keyIndex || argList.length > keyIndex + 2) {
+            return undefined;
+        }
+        if (!argList.every((arg) => !arg.name && arg.argCategory === ArgCategory.Simple)) {
+            return undefined;
+        }
+
+        const keyArg = argList[keyIndex];
+        const keyTypeResult =
+            keyArg.typeResult ?? (keyArg.valueExpression ? getTypeOfExpression(keyArg.valueExpression) : undefined);
+        if (!keyTypeResult || !isUnion(keyTypeResult.type)) {
+            return undefined;
+        }
+
+        // Every subtype must be a str literal; otherwise keep the normal result.
+        const keySubtypes: ClassType[] = [];
+        let allStrLiterals = true;
+        doForEachSubtype(keyTypeResult.type, (subtype) => {
+            if (
+                isClassInstance(subtype) &&
+                ClassType.isBuiltIn(subtype, 'str') &&
+                typeof subtype.priv.literalValue === 'string'
+            ) {
+                keySubtypes.push(subtype);
+            } else {
+                allStrLiterals = false;
+            }
+        });
+        if (!allStrLiterals || keySubtypes.length < 2 || keySubtypes.length > maxSingleOverloadArgTypeExpansionCount) {
+            return undefined;
+        }
+
+        let isTypeIncomplete = !!keyTypeResult.isIncomplete;
+        const returnTypes: Type[] = [];
+        const overloadsUsedForCall = new Set<FunctionType>();
+
+        const succeeded = useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () => {
+            for (const keySubtype of keySubtypes) {
+                // Avoid revalidating unrelated keys and their default parameters.
+                const candidates = overloads.filter((candidate) => {
+                    const paramType = FunctionType.getParamType(candidate, keyIndex);
+                    return (
+                        isClassInstance(paramType) &&
+                        ClassType.isBuiltIn(paramType, 'str') &&
+                        (paramType.priv.literalValue === undefined ||
+                            paramType.priv.literalValue === keySubtype.priv.literalValue)
+                    );
+                });
+                if (candidates.length === 0) {
+                    return false;
+                }
+
+                const subtypeArgList = [...argList];
+                subtypeArgList[keyIndex] = {
+                    argCategory: ArgCategory.Simple,
+                    typeResult: { type: keySubtype, isIncomplete: keyTypeResult.isIncomplete },
+                };
+
+                const subtypeResult = validateOverloadedArgTypes(
+                    errorNode,
+                    subtypeArgList,
+                    { type: overloadedType, isIncomplete: isCallTypeIncomplete },
+                    constraints?.clone(),
+                    /* skipUnknownArgCheck */ true,
+                    inferenceContext,
+                    candidates
+                );
+
+                if (subtypeResult.isTypeIncomplete) {
+                    isTypeIncomplete = true;
+                }
+
+                if (subtypeResult.argumentErrors || !subtypeResult.returnType) {
+                    return false;
+                }
+
+                returnTypes.push(subtypeResult.returnType);
+                subtypeResult.overloadsUsedForCall?.forEach((matched) => overloadsUsedForCall.add(matched));
+            }
+
+            return true;
+        });
+
+        if (!succeeded) {
+            return undefined;
+        }
+
+        return {
+            returnType: combineTypes(returnTypes),
+            isTypeIncomplete,
+            overloadsUsedForCall: [...overloadsUsedForCall],
+        };
+    }
+
     function validateCallForOverloaded(
         errorNode: ExpressionNode,
         argList: Arg[],
@@ -11524,12 +11679,28 @@ export function createTypeEvaluator(
         let returnType = callResult.returnType ?? UnknownType.create();
         let isTypeIncomplete = !!callResult.isTypeIncomplete;
         let argumentErrors = !!callResult.argumentErrors;
+        let overloadsUsedForCall = callResult.overloadsUsedForCall;
 
         if (!argumentErrors) {
+            const refinedResult = refineTypedDictMethodCallForUnionKey(
+                errorNode,
+                argList,
+                expandedCallType,
+                isCallTypeIncomplete,
+                constraints,
+                inferenceContext
+            );
+            if (refinedResult?.isTypeIncomplete) {
+                isTypeIncomplete = true;
+            }
+            if (refinedResult) {
+                overloadsUsedForCall = refinedResult.overloadsUsedForCall;
+            }
+
             // Call the function transform logic to handle special-cased functions.
             const transformed = applyFunctionTransform(evaluatorInterface, errorNode, argList, expandedCallType, {
                 argumentErrors: !!callResult.argumentErrors,
-                returnType: callResult.returnType ?? UnknownType.create(isTypeIncomplete),
+                returnType: refinedResult?.returnType ?? callResult.returnType ?? UnknownType.create(isTypeIncomplete),
                 isTypeIncomplete,
             });
 
@@ -11547,7 +11718,7 @@ export function createTypeEvaluator(
             returnType,
             isTypeIncomplete,
             argumentErrors,
-            overloadsUsedForCall: callResult.overloadsUsedForCall,
+            overloadsUsedForCall,
             specializedInitSelfType: callResult.specializedInitSelfType,
         };
     }

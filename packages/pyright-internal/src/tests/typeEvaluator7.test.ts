@@ -1264,6 +1264,22 @@ test('TypedDict32', () => {
     );
 });
 
+test('TypedDict33', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    // These typing checks need the typing_extensions stubs, not its runtime package.
+    configOptions.diagnosticRuleSet.reportMissingModuleSource = 'none';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict33.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 8);
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAssignmentType)
+            .length,
+        2
+    );
+});
+
 test('TypedDictInline1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;

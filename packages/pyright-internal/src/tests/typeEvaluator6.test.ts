@@ -824,6 +824,8 @@ test('MatchMapping2', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_10;
+    // These typing checks need the typing_extensions stubs, not its runtime package.
+    configOptions.diagnosticRuleSet.reportMissingModuleSource = 'none';
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchMapping2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 8);
     assert.strictEqual(
