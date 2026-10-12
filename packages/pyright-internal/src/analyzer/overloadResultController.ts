@@ -128,7 +128,7 @@ type OperationMode =
     | 'materialize-witness'
     | 'context';
 interface Use {
-    node: NameNode;
+    node: ExpressionNode;
     value: TypeResult;
 }
 interface Inputs {
@@ -457,7 +457,7 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
         }
         assert(!generation.building.has(record));
         const outcome = this._build(generation, record);
-        const selected = record.annotated ? outcome.successes[0] : undefined;
+        const selected = record.annotated || outcome.baseline.failed ? outcome.successes[0] : undefined;
         this._trial(
             generation,
             record,
@@ -783,6 +783,13 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
 
     private _inputs(generation: Generation, record: LocalOverloadOperation): Inputs {
         const uses: Use[] = [];
+        if (record.reader && record.seed && record.expression.nodeType === ParseNodeType.Call) {
+            const value = record.expression.d.args[0]?.d.valueExpr;
+            if (value) {
+                const input = this._variant(generation, record, value, EvalFlags.None);
+                uses.push({ node: value, value: this._build(generation, input).canonical });
+            }
+        }
         for (const node of record.nodes) {
             if (node.nodeType !== ParseNodeType.Name || node === record.target) {
                 continue;
@@ -961,22 +968,25 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
                 !baseline.failed;
             const successes: Outcome['successes'] = [];
             let cutoff = false;
+            const nestedSeed = record.seed && record.expression !== record.seed.node;
             if (
                 !alias &&
                 !record.reader &&
-                (!record.target || !baseline.failed || record.annotated) &&
+                (!record.target || !baseline.failed || record.annotated || nestedSeed) &&
                 !baseline.result.isIncomplete
             ) {
                 const alternative = inputs.alternative?.value.type;
                 try {
                     let candidates: readonly Type[] = [];
-                    if (record.seed && !baseline.failed) {
+                    if (record.seed && (!baseline.failed || nestedSeed)) {
                         if (record.seed.automatic) {
                             // Discovery runs inside the same private ordinary cache
                             // and diagnostic transaction as the complete operation.
                             const discovery = this._trial(
                                 generation,
-                                record,
+                                nestedSeed
+                                    ? this._variant(generation, record, record.seed.node, EvalFlags.None)
+                                    : record,
                                 'candidate',
                                 inputs,
                                 undefined,
@@ -1043,11 +1053,13 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
                 const uncertainty =
                     record.seed?.uncertainty ??
                     (source && isOverloadResult(source) ? source.priv.uncertaintyKind : TypeCategory.Any);
+                // An inline operation can fail for the first receiver but succeed for another.
+                // Later uses must project that successful result, not the failed Unknown.
                 canonical = {
-                    ...baseline.result,
+                    ...(baseline.failed ? successes[0].outcome.result : baseline.result),
                     type: OverloadResultType.create(
                         successes.map((s) => s.outcome.result.type),
-                        baseline.result.type,
+                        baseline.failed ? successes[0].outcome.result.type : baseline.result.type,
                         uncertainty
                     ),
                 };
@@ -1057,7 +1069,7 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
                 value =
                     record.annotated && successes.length
                         ? successes[0].outcome.result
-                        : !baseline.failed
+                        : !baseline.failed || successes.length
                         ? canonical
                         : undefined;
             }

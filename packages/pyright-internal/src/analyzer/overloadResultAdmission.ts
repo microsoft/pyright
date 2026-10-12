@@ -13,8 +13,11 @@ import { DeclarationType } from './declaration';
 import type { FixedOverloadResultSeed, LocalOverloadOperation, OverloadResultLimits } from './overloadResultController';
 import { getEnclosingFunction, isImplicitRevealTypeName } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
+import { isFixedOverloadReturnShape, OverloadSelectionBudget } from './overloadResultSelector';
 import { Symbol } from './symbol';
 import { TypeEvaluator } from './typeEvaluatorTypes';
+import { ClassType, FunctionType, isClassInstance, isFunction, isFunctionOrOverloaded, OverloadedType } from './types';
+import { lookUpClassMember, partiallySpecializeType } from './typeUtils';
 
 export class OverloadResultAdmissionLimit extends Error {}
 
@@ -386,7 +389,74 @@ export function admitLocalOverloadResults(
                 typingFunction(name, ['assert_type', 'reveal_type'])
             );
         }
-        function projectionShape(call: CallNode) {
+        function projectionShape(call: CallNode, affected: ReadonlySet<LocalOverloadOperation>) {
+            if (
+                call.d.leftExpr.nodeType === ParseNodeType.MemberAccess &&
+                call.d.leftExpr.d.leftExpr.nodeType === ParseNodeType.Name
+            ) {
+                const budget = new OverloadSelectionBudget(limits.proofUnits);
+                // Expression queries here could cache a not-yet-activated producer.
+                // Inspect declarations without evaluating its reaching assignment.
+                for (const origin of affected) {
+                    charge();
+                    const producer = origin.seed?.node.d.leftExpr;
+                    if (
+                        producer?.nodeType !== ParseNodeType.MemberAccess ||
+                        producer.d.leftExpr.nodeType !== ParseNodeType.Name
+                    ) {
+                        return false;
+                    }
+                    const receiverSymbol = symbol(producer.d.leftExpr);
+                    const receiverType = receiverSymbol && evaluator.getDeclaredTypeOfSymbol(receiverSymbol).type;
+                    const method =
+                        receiverType && isClassInstance(receiverType)
+                            ? lookUpClassMember(receiverType, producer.d.member.d.value)
+                            : undefined;
+                    const producerType = method && evaluator.getDeclaredTypeOfSymbol(method.symbol).type;
+                    if (!producerType || !isFunctionOrOverloaded(producerType)) {
+                        return false;
+                    }
+                    const signatures = isFunction(producerType)
+                        ? [producerType]
+                        : OverloadedType.getOverloads(producerType);
+                    if (signatures.length > maxProjectionDeclarations) {
+                        return false;
+                    }
+                    for (const signature of signatures) {
+                        charge();
+                        const returnType = signature.shared.declaredReturnType;
+                        if (!returnType || !isClassInstance(returnType)) {
+                            return false;
+                        }
+                        const member = lookUpClassMember(returnType, call.d.leftExpr.d.member.d.value);
+                        const memberType = member && evaluator.getDeclaredTypeOfSymbol(member.symbol).type;
+                        if (
+                            !memberType ||
+                            !isFunction(memberType) ||
+                            !FunctionType.isInstanceMethod(memberType) ||
+                            !memberType.shared.declaration?.isMethod ||
+                            !memberType.shared.declaration.node.d.returnAnnotation ||
+                            !nodeSet.has(memberType.shared.declaration.node) ||
+                            !memberType.shared.methodClass ||
+                            !ClassType.isSameGenericClass(
+                                returnType,
+                                ClassType.cloneAsInstance(memberType.shared.methodClass)
+                            )
+                        ) {
+                            return false;
+                        }
+                        const specialized = partiallySpecializeType(memberType, returnType, undefined, returnType);
+                        const projected = isFunction(specialized) && FunctionType.getEffectiveReturnType(specialized);
+                        if (!projected || !isFixedOverloadReturnShape(projected, budget)) {
+                            return false;
+                        }
+                    }
+                }
+                for (let i = 0; i < budget.used; i++) {
+                    charge();
+                }
+                return affected.size > 0;
+            }
             if (call.d.leftExpr.nodeType !== ParseNodeType.Name) {
                 return false;
             }
@@ -446,15 +516,56 @@ export function admitLocalOverloadResults(
                 record.target &&
                 !record.annotated &&
                 record.expression.nodeType === ParseNodeType.Call &&
-                !projectionShape(record.expression)
+                !projectionShape(record.expression, affected)
             ) {
                 reject(affected, 'unsupported-stored-call-declaration');
             }
             inputs.set(record, affected);
         }
         for (const record of result.decisions.keys()) {
-            if (!record.target || record.expression !== record.seed?.node || record.root.parent !== record.fn.d.suite) {
+            const seed = record.seed!.node;
+            if (record.root.parent !== record.fn.d.suite) {
                 reject(new Set([record]), 'unsupported-seed-storage');
+                continue;
+            }
+            if (seed.d.leftExpr.nodeType !== ParseNodeType.MemberAccess) {
+                if (!record.target || record.expression !== seed) {
+                    reject(new Set([record]), 'unsupported-seed-storage');
+                }
+                continue;
+            }
+            let current: ParseNode | undefined = seed;
+            while (current && current !== record.expression) {
+                charge();
+                const child = current;
+                current = current.parent;
+                if (
+                    !current ||
+                    (current.nodeType !== ParseNodeType.MemberAccess &&
+                        current.nodeType !== ParseNodeType.Call &&
+                        current.nodeType !== ParseNodeType.Argument)
+                ) {
+                    reject(new Set([record]), 'unsupported-seed-storage');
+                    break;
+                }
+                if (current.nodeType === ParseNodeType.Argument) {
+                    const call: ParseNode | undefined = current.parent;
+                    if (
+                        call?.nodeType !== ParseNodeType.Call ||
+                        call !== record.expression ||
+                        call.d.args[0] !== current ||
+                        call.d.leftExpr.nodeType !== ParseNodeType.Name ||
+                        !diagnosticReader(call.d.leftExpr)
+                    ) {
+                        reject(new Set([record]), 'unsupported-seed-storage');
+                    }
+                } else if (
+                    current.nodeType === ParseNodeType.Call &&
+                    child.nodeType !== ParseNodeType.Argument &&
+                    current.d.leftExpr !== child
+                ) {
+                    reject(new Set([record]), 'unsupported-seed-storage');
+                }
             }
         }
         for (const record of result.records.values()) {
