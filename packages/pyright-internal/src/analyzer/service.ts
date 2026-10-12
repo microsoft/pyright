@@ -912,7 +912,8 @@ export class AnalyzerService {
         // precedence over `include` — a directory auto-detected as a virtual environment stays
         // excluded even when it is explicitly included. When disabled, no default excludes are
         // added and virtual-environment auto-detection is left off, so nothing is auto-excluded.
-        const useDefaultExcludes = commandLineOptions.configSettings.useDefaultExcludes ?? true;
+        const useDefaultExcludes =
+            configOptions.useDefaultExcludes ?? commandLineOptions.configSettings.useDefaultExcludes ?? true;
         if (useDefaultExcludes) {
             // Deduplicate against patterns the user already listed (by compiled regex source) so
             // specifying a custom exclude never silently drops — or duplicates — the defaults.
