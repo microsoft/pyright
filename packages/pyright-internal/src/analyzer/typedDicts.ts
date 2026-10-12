@@ -68,6 +68,7 @@ import {
     buildSolutionFromSpecializedClass,
     computeMroLinearization,
     convertToInstance,
+    doForEachSubtype,
     getTypeVarScopeId,
     isLiteralType,
     mapSubtypes,
@@ -831,7 +832,8 @@ export function synthesizeTypedDictClassMethods(
 export function getTypedDictMembersForClass(
     evaluator: TypeEvaluator,
     classType: ClassType,
-    allowNarrowed = false
+    allowNarrowed = false,
+    keyNames?: readonly string[]
 ): TypedDictEntries {
     // Were the entries already calculated and cached?
     if (!classType.shared.typedDictEntries) {
@@ -858,13 +860,13 @@ export function getTypedDictMembersForClass(
 
     // Create a specialized copy of the entries so the caller can mutate them.
     const entries = new Map<string, TypedDictEntry>();
-    classType.shared.typedDictEntries!.knownItems.forEach((value, key) => {
+    const addEntry = (value: TypedDictEntry, key: string, isNarrowed: boolean) => {
         const tdEntry = { ...value };
         tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, solution);
 
         // If the class is "Partial", make all entries optional and convert all
         // read-only entries to Never.
-        if (classType.priv.isTypedDictPartial) {
+        if (classType.priv.isTypedDictPartial && !isNarrowed) {
             tdEntry.isRequired = false;
 
             if (tdEntry.isReadOnly) {
@@ -875,15 +877,24 @@ export function getTypedDictMembersForClass(
         }
 
         entries.set(key, tdEntry);
-    });
+    };
 
-    // Apply narrowed types on top of existing entries if present.
-    if (allowNarrowed && classType.priv.typedDictNarrowedEntries) {
-        classType.priv.typedDictNarrowedEntries.forEach((value, key) => {
-            const tdEntry = { ...value };
-            tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, solution);
-            entries.set(key, tdEntry);
+    if (keyNames) {
+        // Avoid specializing unrelated fields when the caller needs only a few keys.
+        keyNames.forEach((key) => {
+            const narrowedEntry = allowNarrowed ? classType.priv.typedDictNarrowedEntries?.get(key) : undefined;
+            const entry = narrowedEntry ?? classType.shared.typedDictEntries!.knownItems.get(key);
+            if (entry) {
+                addEntry(entry, key, narrowedEntry !== undefined);
+            }
         });
+    } else {
+        classType.shared.typedDictEntries!.knownItems.forEach((value, key) => addEntry(value, key, false));
+
+        // Apply narrowed types on top of existing entries if present.
+        if (allowNarrowed && classType.priv.typedDictNarrowedEntries) {
+            classType.priv.typedDictNarrowedEntries.forEach((value, key) => addEntry(value, key, true));
+        }
     }
 
     let extraItems = classType.shared.typedDictEntries?.extraItems;
@@ -1656,6 +1667,43 @@ export function narrowForKeyAssignment(classType: ClassType, key: string) {
         isReadOnly: tdEntry.isReadOnly,
         valueType: tdEntry.valueType,
     });
+
+    return ClassType.cloneForNarrowedTypedDictEntries(classType, narrowedEntries);
+}
+
+// Forget optional-key narrowing for every key that the deletion could remove.
+export function narrowForKeyDeletion(classType: ClassType, keyType: Type) {
+    if (!classType.shared.typedDictEntries || !classType.priv.typedDictNarrowedEntries) {
+        return classType;
+    }
+
+    const deletedKeys = new Set<string>();
+    let mayDeleteAnyKey = false;
+    doForEachSubtype(keyType, (subtype) => {
+        if (
+            isClassInstance(subtype) &&
+            ClassType.isBuiltIn(subtype, 'str') &&
+            typeof subtype.priv.literalValue === 'string'
+        ) {
+            deletedKeys.add(subtype.priv.literalValue);
+        } else {
+            mayDeleteAnyKey = true;
+        }
+    });
+
+    const narrowedEntries = new Map(classType.priv.typedDictNarrowedEntries);
+    narrowedEntries.forEach((_, key) => {
+        if (
+            (mayDeleteAnyKey || deletedKeys.has(key)) &&
+            !classType.shared.typedDictEntries!.knownItems.get(key)?.isRequired
+        ) {
+            narrowedEntries.delete(key);
+        }
+    });
+
+    if (narrowedEntries.size === classType.priv.typedDictNarrowedEntries.size) {
+        return classType;
+    }
 
     return ClassType.cloneForNarrowedTypedDictEntries(classType, narrowedEntries);
 }
