@@ -1270,7 +1270,12 @@ test('TypedDict33', () => {
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict33.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 8);
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAssignmentType)
+            .length,
+        2
+    );
 });
 
 test('TypedDictInline1', () => {

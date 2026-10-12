@@ -1,7 +1,7 @@
 # This sample tests the "get" and "pop" methods of a TypedDict when
 # the key argument is a union of str literals.
 
-from typing import Any, Literal, NotRequired, ReadOnly, TypedDict, assert_type
+from typing import Any, Generic, Literal, NotRequired, ReadOnly, TypeVar, TypedDict, assert_type, overload
 
 from typing_extensions import TypedDict as TypedDictExt
 
@@ -77,3 +77,61 @@ def setdefault_readonly(c: Config, k: Literal["host", "port"]):
 def setdefault_mixed(p: Person, k: str | Literal["name"]):
     # This should generate two errors because "str" is not a known key.
     p.setdefault(k, "")
+
+
+T = TypeVar("T")
+
+
+class Box(TypedDict, Generic[T], total=False):
+    a: T
+    b: list[T]
+
+
+IntBox = Box[int]
+
+
+def pop_generic(t: Box[int], k: Literal["a", "b"]):
+    assert_type(t.pop(k, 0), int | list[int])
+    assert_type(IntBox.pop(t, k, 0), int | list[int])
+    assert_type(Box.pop(t, k, 0), object | int)
+
+    # This should generate an error because the result can be list[int].
+    bound: int | list[str] = t.pop(k, 0)
+
+    # This should generate an error rather than accepting an Unknown result.
+    unbound: int | list[str] = Box.pop(t, k, 0)
+
+
+def get_generic(t: Box[T], k: Literal["a", "b"], default: T):
+    assert_type(t.get(k), T | list[T] | None)
+    assert_type(t.get(k, default), T | list[T])
+    assert_type(t.pop(k, default), T | list[T])
+
+
+@overload
+def take(value: list[float]) -> int: ...
+
+
+@overload
+def take(value: bytes) -> bytes: ...
+
+
+def take(value: list[float] | bytes) -> int | bytes:
+    return value if isinstance(value, bytes) else len(value)
+
+
+def get_contextual_default(t: Closed, k: Literal["missing1", "missing2"]):
+    assert_type(take(t.get(k, [1])), int)
+    assert_type(take(t.get("missing1", [1])), int)
+    direct: list[float] = t.get(k, [1])
+    assert_type(direct, list[float])
+
+
+class Lists(TypedDict):
+    a: NotRequired[list[float]]
+    b: NotRequired[list[float]]
+
+
+def contextual_optional_default(t: Lists, k: Literal["a", "b"]):
+    assert_type(take(t.get(k, [1])), int)
+    assert_type(t.pop(k, [1]), list[float] | list[int])
