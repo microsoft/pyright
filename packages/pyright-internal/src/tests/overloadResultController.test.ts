@@ -914,6 +914,198 @@ test.each(['check-first', 'value-first', 'inline-first', 'projection-first', 'fa
     }
 );
 
+test.each(['check-first', 'reader-first', 'value-first'])(
+    'AutomaticOverloadResult inline reader failures preserve native diagnostics: %s',
+    (order) => {
+        const definitions = readSampleFile('overloadResultMethods1.py').split('\ndef assigned')[0];
+        const source = `${definitions}
+from typing import assert_type
+def negative(value: Container[Any], concrete: Container[int]) -> None:
+    reveal_type(value.copy().nonexistent_member())
+    reveal_type(value.copy().item().nonexistent_member())
+    reveal_type(value.copy().accept(3.14))
+    assert_type(value.copy().nonexistent_member(), int)
+    assert_type(value.copy().item().nonexistent_member(), int)
+    assert_type(value.copy().accept(3.14), int)
+    reveal_type(concrete.copy().nonexistent_member())
+    assert_type(concrete.copy().nonexistent_member(), int)
+def positive(value: Container[Any]) -> None:
+    reveal_type(value.copy().item().upper())
+`;
+        const automatic = create(source, { automatic: true });
+        const ordinary = create(source, false);
+        try {
+            const evaluator = automatic.program.evaluator!;
+            const reader = automatic.nodes.find(
+                (node): node is CallNode =>
+                    node.nodeType === ParseNodeType.Call &&
+                    node.d.leftExpr.nodeType === ParseNodeType.Name &&
+                    node.d.leftExpr.d.value === 'reveal_type' &&
+                    getEnclosingFunction(node)?.d.name.d.value === 'negative'
+            )!;
+            if (order !== 'check-first') {
+                const node = order === 'reader-first' ? reader : reader.d.args[0].d.valueExpr;
+                evaluator.getTypeOfExpression(node);
+                evaluator.getTypeOfExpression(node);
+            }
+            const diagnostics = automatic.analyze();
+            const positiveLine = source.slice(0, source.indexOf('def positive')).split('\n').length - 1;
+            assert.deepStrictEqual(
+                diagnostics.filter((d) => d.range.start.line < positiveLine),
+                ordinary.analyze().filter((d) => d.range.start.line < positiveLine)
+            );
+            for (const [text, rule] of [
+                ['value.copy().nonexistent_member()', 'reportAttributeAccessIssue'],
+                ['value.copy().item().nonexistent_member()', 'reportAttributeAccessIssue'],
+                ['value.copy().accept(3.14)', 'reportArgumentType'],
+            ]) {
+                for (const readerName of ['reveal_type', 'assert_type']) {
+                    const line = source.slice(0, source.indexOf(`${readerName}(${text}`)).split('\n').length - 1;
+                    assert.deepStrictEqual(
+                        diagnostics
+                            .filter((d) => d.category === DiagnosticCategory.Error && d.range.start.line === line)
+                            .map((d) => d.rule)
+                            .sort(),
+                        (readerName === 'assert_type' ? [rule, 'reportAssertTypeFailure'] : [rule]).sort()
+                    );
+                }
+            }
+            assert.ok(
+                diagnostics.some((d) => d.message === 'Type of "value.copy().item().upper()" is "OverloadResult[str]"')
+            );
+            assert.equal(
+                diagnostics.filter((d) => d.category === DiagnosticCategory.Error && d.range.start.line >= positiveLine)
+                    .length,
+                0
+            );
+            assert.deepStrictEqual(automatic.info.getFileInfo(automatic.module).diagnosticSink.fetchAndClear(), []);
+        } finally {
+            automatic.dispose();
+            ordinary.dispose();
+        }
+    }
+);
+
+test.each([
+    { inline: false, unused: false, gradual: false },
+    { inline: false, unused: true, gradual: false },
+    { inline: false, unused: true, gradual: true },
+    { inline: true, unused: false, gradual: false },
+    { inline: true, unused: true, gradual: false },
+    { inline: true, unused: true, gradual: true },
+])('AutomaticOverloadResult stored projections require untransformed receiver declarations: %j', (shape) => {
+    const source = `from typing import Any, Generic, TypeVar, overload, reveal_type
+T = TypeVar("T")
+class Projected(Generic[T]):
+    def item(self) -> ${shape.gradual ? 'Any' : 'T'}:
+        raise NotImplementedError
+class Container(Generic[T]):
+    @overload
+    def copy(self: "Container[int]") -> "Container[int]": ...
+    @overload
+    def copy(self: "Container[str]") -> "Container[str]": ...
+    def copy(self) -> "Container[Any]":
+        return self
+    def project(self) -> Projected[T]:
+        raise NotImplementedError
+${shape.unused ? '    def item(self) -> int:\n        raise NotImplementedError' : ''}
+def positive(value: Container[Any]) -> None:
+    ret = value.copy()${shape.inline ? '.project()' : ''}
+    alias = ret
+    projected = alias${shape.inline ? '' : '.project()'}
+    projected_alias = projected
+    item = projected_alias.item()
+    reveal_type(ret)
+    reveal_type(projected)
+    reveal_type(item)
+    item.upper()
+    item.nonexistent_member()
+`;
+    const automatic = create(source, { automatic: true });
+    const ordinary = create(source, false);
+    try {
+        assert.deepStrictEqual(automatic.analyze(), ordinary.analyze());
+        const evaluator = automatic.program.evaluator!;
+        assert.equal(
+            evaluator.printType(evaluator.getType(automatic.name('item', 'positive', 2))!),
+            shape.gradual ? 'Any' : 'int'
+        );
+        assert.equal(automatic.program.experimentalOverloadResultController!.getAutomaticStats().selected, 0);
+        assert.deepStrictEqual(automatic.info.getFileInfo(automatic.module).diagnosticSink.fetchAndClear(), []);
+    } finally {
+        automatic.dispose();
+        ordinary.dispose();
+    }
+});
+
+test('AutomaticOverloadResult stored projections preserve Name-only receiver aliases', () => {
+    const definitions = readSampleFile('overloadResultMethods1.py').split('\ndef assigned')[0];
+    const source = `${definitions}
+def positive(value: Container[Any]) -> None:
+    ret = value.copy()
+    first = ret
+    second = first
+    item = second.item()
+    reveal_type(item)
+    item.upper()
+    item.bit_length()
+    item.nonexistent_member()
+`;
+    const automatic = create(source, { automatic: true });
+    try {
+        const diagnostics = automatic.analyze();
+        const evaluator = automatic.program.evaluator!;
+        assert.equal(
+            evaluator.printType(evaluator.getType(automatic.name('item', 'positive', 2))!),
+            'OverloadResult[int, str]'
+        );
+        const errors = diagnostics.filter((d) => d.category === DiagnosticCategory.Error);
+        assert.deepStrictEqual(
+            errors.map((d) => d.rule),
+            ['reportAttributeAccessIssue']
+        );
+        assert.equal(
+            errors[0].range.start.line,
+            source.slice(0, source.indexOf('item.nonexistent_member()')).split('\n').length - 1
+        );
+        assert.deepStrictEqual(automatic.info.getFileInfo(automatic.module).diagnosticSink.fetchAndClear(), []);
+    } finally {
+        automatic.dispose();
+    }
+});
+
+test('AutomaticOverloadResult inline readers avoid duplicate ordinary evaluation', () => {
+    const definitions = readSampleFile('overloadResultMethods1.py').split('\ndef assigned')[0];
+    const source = `${definitions}
+def positive(value: Container[Any]) -> None:
+    reveal_type(value.copy().item().upper())
+`;
+    const automatic = create(source, { automatic: true });
+    try {
+        const reader = automatic.nodes.find(
+            (node): node is CallNode =>
+                node.nodeType === ParseNodeType.Call &&
+                node.d.leftExpr.nodeType === ParseNodeType.Name &&
+                node.d.leftExpr.d.value === 'reveal_type'
+        )!;
+        const root = reader.parent!;
+        const evaluator = automatic.program.evaluator!;
+        for (let round = 0; round < 2; round++) {
+            assert.equal(evaluator.printType(evaluator.getTypeOfExpression(reader).type), 'OverloadResult[str]');
+        }
+        const trials = automatic.events.filter((event) => event.kind === 'trial' && event.root === root);
+        assert.deepStrictEqual(
+            trials.map((event) => event.kind === 'trial' && event.mode),
+            ['reader']
+        );
+        const diagnostics = automatic.analyze();
+        assert.equal(diagnostics.filter((d) => d.category === DiagnosticCategory.Error).length, 0);
+        assert.deepStrictEqual(automatic.info.getFileInfo(automatic.module).diagnosticSink.fetchAndClear(), []);
+    } finally {
+        automatic.dispose();
+    }
+});
+
 test.each([{ candidates: 1 }, { calls: 0 }, { proofUnits: 0 }, { rootNodes: 1 }])(
     'AutomaticOverloadResult specialized receiver cutoffs retain ordinary contracts: %j',
     (limits) => {

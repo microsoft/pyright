@@ -394,6 +394,24 @@ export function admitLocalOverloadResults(
                 call.d.leftExpr.nodeType === ParseNodeType.MemberAccess &&
                 call.d.leftExpr.d.leftExpr.nodeType === ParseNodeType.Name
             ) {
+                let receiver = result.reaching.get(call.d.leftExpr.d.leftExpr);
+                const visited = new Set<LocalOverloadOperation>();
+                while (receiver?.expression.nodeType === ParseNodeType.Name) {
+                    charge();
+                    if (visited.has(receiver)) {
+                        return false;
+                    }
+                    visited.add(receiver);
+                    receiver = result.reaching.get(receiver.expression);
+                }
+                if (
+                    !receiver?.seed ||
+                    receiver.expression !== receiver.seed.node ||
+                    affected.size !== 1 ||
+                    !affected.has(receiver)
+                ) {
+                    return false;
+                }
                 const budget = new OverloadSelectionBudget(limits.proofUnits);
                 // Expression queries here could cache a not-yet-activated producer.
                 // Inspect declarations without evaluating its reaching assignment.

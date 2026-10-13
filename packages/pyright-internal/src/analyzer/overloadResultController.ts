@@ -787,7 +787,10 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
             const value = record.expression.d.args[0]?.d.valueExpr;
             if (value) {
                 const input = this._variant(generation, record, value, EvalFlags.None);
-                uses.push({ node: value, value: this._build(generation, input).canonical });
+                const outcome = this._build(generation, input);
+                if (!outcome.canonical.isIncomplete && (!outcome.baseline.failed || outcome.successes.length > 0)) {
+                    uses.push({ node: value, value: outcome.canonical });
+                }
             }
         }
         for (const node of record.nodes) {
@@ -960,7 +963,8 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
         generation.building.add(record);
         try {
             const inputs = this._inputs(generation, record);
-            const baseline = this._trial(generation, record, 'baseline', inputs);
+            const inlineReader = record.reader && !!record.seed;
+            const baseline = this._trial(generation, record, inlineReader ? 'reader' : 'baseline', inputs);
             const alias =
                 !!record.target &&
                 !record.annotated &&
@@ -1044,7 +1048,7 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
                 }
             }
             let canonical = baseline.result;
-            if (record.reader) {
+            if (record.reader && !inlineReader) {
                 canonical = this._trial(generation, record, 'reader', inputs).result;
             } else if (alias) {
                 canonical = inputs.alternative!.value;

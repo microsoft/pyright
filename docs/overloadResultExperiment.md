@@ -28,8 +28,11 @@ calls on function parameters. A method receiver must belong to the same invarian
 nominal class as its declared `self` specializations; its explicit positional
 arguments must also be supported function parameters. Zero-argument methods and
 inline member/call chains are supported, including the value argument of
-`reveal_type` and `assert_type`. Assigned results, aliases, and declared local
-method projections retain complete alternatives.
+`reveal_type` and `assert_type`. Assigned results and aliases retain complete
+alternatives. Stored declared local method projections are admitted only on
+an untransformed producer result or its Name-only aliases. Successive stored
+projections and stored projections on transformed inline results remain ordinary;
+inline member/call chains are still supported.
 
 Nested invariant and nominal generic shapes remain bounded by the selector's
 proof domain. Constructors, class/static methods, inherited receiver adaptation,
@@ -81,9 +84,13 @@ The existing private cache transactions, baseline operations, real alternative
 validations and diagnostic publication then perform the work.
 
 Inline diagnostic readers obtain the alternatives for their complete value
-expression without substituting into type arguments. An inline operation that
-fails for the ordinary first receiver can still have a complete successful
-alternative. Its stored value and subsequent baseline projections use that
+expression without substituting into type arguments. A failed value with no
+successful witness is evaluated natively by the reader so its diagnostics are
+preserved. After building that value, the reader expression is evaluated once
+in reader mode rather than also performing a duplicate ordinary baseline.
+Checker publication still performs a complete native reader operation.
+An inline operation that fails for the ordinary first receiver can still have a
+complete successful alternative. Its stored value and subsequent baseline projections use that
 successful result, not the failed `Unknown`, so later invalid members remain
 errors. Local method-projection admission inspects declarations and specializes
 their declared returns without evaluating reaching assignments; preflight must
