@@ -12,7 +12,7 @@ Source files under `protocol/`. Grouped by the functional area each file was ass
 ## Unmapped Implementation
 
 - [protocol/tspSupplemental.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/typeServer/protocol/tspSupplemental.ts#L1-L62) — Defines Pyright-specific TSP notifications for registering and removing virtual file redirects
-- [protocol/typeServerProtocol.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/typeServer/protocol/typeServerProtocol.ts#L1-L1400) — Defines JSON-serializable interfaces, requests, and notifications for the Python Type Server Protocol
+- [protocol/typeServerProtocol.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/typeServer/protocol/typeServerProtocol.ts#L1-L1408) — Defines the JSON-serializable Type Server Protocol interfaces, types, and request/notification contracts for Pyright's type server
 
 ## Cross-subsystem dependencies
 

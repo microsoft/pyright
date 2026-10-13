@@ -4,11 +4,9 @@
  *
  * Regression tests for SourceEnumerator symlink handling.
  *
- * A symlink that resolves outside every include root (e.g. a link to filesystem
- * root "/" or "C:\") is not a recursive cycle, so the `_seenDirs` guard does not
- * catch it. Before the fix, following such a link would enumerate directories
- * that don't belong to the workspace -- in the worst case the entire disk --
- * which made Pylance hang.
+ * Symlinks to filesystem roots or include-root ancestors can expand enumeration
+ * beyond the workspace without forming a recursive cycle. They must be blocked
+ * without rejecting legitimate external package directories.
  *
  * Issue: https://github.com/microsoft/pylance-release/issues/6006
  *
@@ -43,6 +41,10 @@ class MockFs {
     private readonly _symlinks = new Map<string, Uri>();
     // Guards against runaway enumeration so a regression can't hang the suite.
     private _readCount = 0;
+
+    get readCount(): number {
+        return this._readCount;
+    }
 
     addDir(path: string, children: string[]): void {
         this._nodes.set(makeUri(path).key, { type: 'dir', children });
@@ -171,26 +173,74 @@ test('symlink to filesystem root is not followed', () => {
     const matches = enumerate(['/workspace'], mock);
 
     expect(matches.has(makeUri('/workspace/app.py').key)).toBe(true);
-    // Files under the symlink are recorded with the symlink path prefix. Without
-    // the containment guard the whole filesystem-root subtree would be pulled in.
     expect(matches.has(makeUri('/workspace/link/secret.py').key)).toBe(false);
     expect(matches.has(makeUri('/workspace/link/etc/deep.py').key)).toBe(false);
+    expect(mock.readCount).toBe(1);
 });
 
-test('symlink to a sibling directory outside the workspace is skipped', () => {
-    const mock = new MockFs();
-    mock.addDir('/workspace', ['app.py', 'esc']);
-    mock.addFile('/workspace/app.py');
-    mock.addSymlink('/workspace/esc', '/other');
+test.each(['/other', 'D:/package', '//server/share/package'])(
+    'external package symlink to %s is followed',
+    (target) => {
+        const mock = new MockFs();
+        mock.addDir('/workspace', ['app.py', 'esc']);
+        mock.addFile('/workspace/app.py');
+        mock.addSymlink('/workspace/esc', target);
 
-    mock.addDir('/other', ['x.py']);
-    mock.addFile('/other/x.py');
+        mock.addDir(target, ['x.py']);
+        mock.addFile(makeUri(target).combinePaths('x.py').getFilePath());
+
+        const matches = enumerate(['/workspace'], mock);
+
+        expect(matches.has(makeUri('/workspace/app.py').key)).toBe(true);
+        expect(matches.has(makeUri('/workspace/esc/x.py').key)).toBe(true);
+        expect(mock.readCount).toBe(2);
+    }
+);
+
+test('symlink from an external package to its parent does not enumerate sibling packages', () => {
+    const mock = new MockFs();
+    mock.addDir('/workspace', ['package']);
+    mock.addSymlink('/workspace/package', '/packages/a');
+    mock.addDir('/packages', ['a', 'b']);
+    mock.addDir('/packages/a', ['a.py', 'parent']);
+    mock.addFile('/packages/a/a.py');
+    mock.addSymlink('/packages/a/parent', '/packages');
+    mock.addDir('/packages/b', ['b.py']);
+    mock.addFile('/packages/b/b.py');
 
     const matches = enumerate(['/workspace'], mock);
 
-    expect(matches.has(makeUri('/workspace/app.py').key)).toBe(true);
-    // Recorded under the symlink path prefix; must not be pulled in.
-    expect(matches.has(makeUri('/workspace/esc/x.py').key)).toBe(false);
+    expect(matches).toEqual(new Set([makeUri('/workspace/package/a.py').key]));
+    expect(mock.readCount).toBe(2);
+});
+
+test.each(['C:/', 'D:/', '//server/', '//server/share/'])('symlink to filesystem root %s is not followed', (target) => {
+    const mock = new MockFs();
+    mock.addDir('C:/workspace', ['app.py', 'link']);
+    mock.addFile('C:/workspace/app.py');
+    mock.addSymlink('C:/workspace/link', target);
+    mock.addDir(target, ['secret.py']);
+    mock.addFile(makeUri(target).combinePaths('secret.py').getFilePath());
+
+    const matches = enumerate(['C:/workspace'], mock);
+
+    expect(matches).toEqual(new Set([makeUri('C:/workspace/app.py').key]));
+    expect(mock.readCount).toBe(1);
+});
+
+test('symlink to a strict ancestor outside the include root is not followed', () => {
+    const mock = new MockFs();
+    mock.addDir('/home/user/workspace', ['app.py', 'link']);
+    mock.addFile('/home/user/workspace/app.py');
+    mock.addSymlink('/home/user/workspace/link', '/home');
+    mock.addDir('/home', ['secret.py', 'user']);
+    mock.addFile('/home/secret.py');
+    mock.addDir('/home/user', ['workspace']);
+
+    const matches = enumerate(['/home/user/workspace'], mock);
+
+    expect(matches).toEqual(new Set([makeUri('/home/user/workspace/app.py').key]));
+    expect(mock.readCount).toBe(1);
 });
 
 test('symlink within the workspace is followed', () => {
@@ -235,4 +285,66 @@ test('symlink back to the include root itself does not crash and stays bounded',
     const matches = enumerate(['/workspace'], mock);
 
     expect(matches.has(makeUri('/workspace/app.py').key)).toBe(true);
+    expect(mock.readCount).toBe(1);
+});
+
+test('recursive links between external packages stay bounded', () => {
+    const mock = new MockFs();
+    mock.addDir('/workspace', ['package_a']);
+    mock.addSymlink('/workspace/package_a', '/packages/a');
+    mock.addDir('/packages/a', ['a.py', 'package_b']);
+    mock.addFile('/packages/a/a.py');
+    mock.addSymlink('/packages/a/package_b', '/packages/b');
+    mock.addDir('/packages/b', ['b.py', 'package_a']);
+    mock.addFile('/packages/b/b.py');
+    mock.addSymlink('/packages/b/package_a', '/packages/a');
+
+    const matches = enumerate(['/workspace'], mock);
+
+    expect(matches).toEqual(
+        new Set([makeUri('/workspace/package_a/a.py').key, makeUri('/workspace/package_a/package_b/b.py').key])
+    );
+    expect(mock.readCount).toBe(3);
+});
+
+test('filesystem root link inside an external package is not followed', () => {
+    const mock = new MockFs();
+    mock.addDir('/workspace', ['package']);
+    mock.addSymlink('/workspace/package', '/packages/a');
+    mock.addDir('/packages/a', ['a.py', 'root']);
+    mock.addFile('/packages/a/a.py');
+    mock.addSymlink('/packages/a/root', '/');
+    mock.addDir('/', ['secret.py']);
+    mock.addFile('/secret.py');
+
+    const matches = enumerate(['/workspace'], mock);
+
+    expect(matches).toEqual(new Set([makeUri('/workspace/package/a.py').key]));
+    expect(mock.readCount).toBe(2);
+});
+
+test('include root that is itself a symlink is followed', () => {
+    const mock = new MockFs();
+    mock.addSymlink('/workspace', '/packages/a');
+    mock.addDir('/packages/a', ['a.py', 'self']);
+    mock.addFile('/packages/a/a.py');
+    mock.addSymlink('/packages/a/self', '/packages/a');
+
+    const matches = enumerate(['/workspace'], mock);
+
+    expect(matches).toEqual(new Set([makeUri('/workspace/a.py').key]));
+    expect(mock.readCount).toBe(1);
+});
+
+test('ancestor covered by another explicit include root remains included', () => {
+    const mock = new MockFs();
+    mock.addDir('/parent', ['app.py', 'workspace']);
+    mock.addFile('/parent/app.py');
+    mock.addDir('/parent/workspace', ['link']);
+    mock.addSymlink('/parent/workspace/link', '/parent');
+
+    const matches = enumerate(['/parent/workspace', '/parent'], mock);
+
+    expect(matches).toEqual(new Set([makeUri('/parent/workspace/link/app.py').key, makeUri('/parent/app.py').key]));
+    expect(mock.readCount).toBe(4);
 });
