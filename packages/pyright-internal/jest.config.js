@@ -4,7 +4,7 @@
  * Configuration for jest tests.
  */
 
-// When PYLANCE_JEST_TRANSPILE_ONLY=1 (set by pyrx CI), switch ts-jest into transpile-only
+// When PYLANCE_JEST_TRANSPILE_ONLY=1 (set by Validation and pyrx CI), switch ts-jest into transpile-only
 // mode via `isolatedModules: true` (uses `tsc.transpileModule`, no type checking — much
 // faster). Tests are still type-checked by the dedicated `Typecheck` CI job. When unset
 // (default / local dev), ts-jest runs with full type-checking so type errors still surface.
