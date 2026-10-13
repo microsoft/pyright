@@ -168,6 +168,7 @@ import {
     VirtualParamDetails,
 } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
+import { getChildNodes } from './parseTreeWalker';
 import { assignTypeToPatternTargets, checkForUnusedPattern, narrowTypeBasedOnPattern } from './patternMatching';
 import { assignProperty } from './properties';
 import { assignClassToProtocol, assignModuleToProtocol } from './protocols';
@@ -655,6 +656,12 @@ interface TypeCacheEntry {
     flags: EvalFlags | undefined;
 }
 
+interface ContextualLambdaTypeCache {
+    lambdaNodes: LambdaNode[];
+    entries: Map<ParseNode, Map<number, TypeCacheEntry>>;
+    branchIndex: number;
+}
+
 interface TypeFormTypeCacheEntry extends TypeCacheEntry, ContextualTypeCacheEntry {}
 
 interface CodeFlowAnalyzerCacheEntry {
@@ -696,6 +703,7 @@ export function createTypeEvaluator(
     let functionRecursionMap = new Map<number, FunctionRecursionInfo[]>();
     let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
     let typeCache = new Map<number, TypeCacheEntry>();
+    let contextualLambdaTypeCache: ContextualLambdaTypeCache | undefined;
     let typeFormTypeCache = new Map<number, TypeFormTypeCacheEntry[]>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     let expectedTypeCache = new Map<number, ExpectedTypeCacheEntry>();
@@ -944,6 +952,69 @@ export function createTypeEvaluator(
 
     function setTypeResultForNode(node: ParseNode, typeResult: TypeResult, flags = EvalFlags.None) {
         writeTypeCache(node, typeResult, flags);
+    }
+
+    function captureContextualLambdaTypes(node: LambdaNode, typeResult?: TypeResult) {
+        const cache = contextualLambdaTypeCache;
+        if (!cache || !cache.lambdaNodes.some((root) => ParseTreeUtils.isNodeContainedWithin(node, root))) {
+            return;
+        }
+
+        captureLambdaTypeCacheEntries(node, cache, typeResult);
+    }
+
+    function captureLambdaTypeCacheEntries(node: ParseNode, cache: ContextualLambdaTypeCache, typeResult?: TypeResult) {
+        checkForCancellation();
+        const entry = typeResult ? { typeResult, flags: EvalFlags.None, incompleteGenCount } : readTypeCacheEntry(node);
+        if (entry && !entry.typeResult.isIncomplete) {
+            captureLambdaTypeCacheEntry(node, cache, entry);
+        }
+
+        if (typeResult) {
+            return;
+        }
+
+        for (const child of getChildNodes(node)) {
+            // Nested lambdas capture their own contextual types before any
+            // non-contextual fallback can replace them.
+            if (child && child.nodeType !== ParseNodeType.Lambda) {
+                captureLambdaTypeCacheEntries(child, cache);
+            }
+        }
+    }
+
+    function captureLambdaTypeCacheEntry(node: ParseNode, cache: ContextualLambdaTypeCache, entry: TypeCacheEntry) {
+        const nodeEntries = cache.entries.get(node) ?? new Map<number, TypeCacheEntry>();
+        // Generic inference can revisit a lambda within the same callable branch.
+        nodeEntries.set(cache.branchIndex, entry);
+        cache.entries.set(node, nodeEntries);
+    }
+
+    function combineContextualLambdaTypes(cache: ContextualLambdaTypeCache) {
+        for (const [node, branchEntries] of cache.entries) {
+            checkForCancellation();
+            const nodeEntries = Array.from(branchEntries.values());
+            const lastEntry = nodeEntries[nodeEntries.length - 1];
+            writeTypeCache(
+                node,
+                {
+                    ...lastEntry.typeResult,
+                    type: combineTypes(nodeEntries.map((entry) => entry.typeResult.type)),
+                    typeErrors: nodeEntries.some((entry) => entry.typeResult.typeErrors),
+                },
+                readTypeCacheEntry(node)?.flags ?? lastEntry.flags
+            );
+
+            const parentCache = contextualLambdaTypeCache;
+            const combinedEntry = readTypeCacheEntry(node);
+            if (
+                parentCache &&
+                combinedEntry &&
+                parentCache.lambdaNodes.some((root) => ParseTreeUtils.isNodeContainedWithin(node, root))
+            ) {
+                captureLambdaTypeCacheEntry(node, parentCache, combinedEntry);
+            }
+        }
     }
 
     function getMaxCodeComplexity(): number {
@@ -11090,47 +11161,75 @@ export function createTypeEvaluator(
             return { returnType: UnknownType.create(), argumentErrors: true, overloadsUsedForCall };
         }
 
-        let returnType = mapSubtypesExpandTypeVars(
-            callTypeResult.type,
-            { sortSubtypes: true },
-            (expandedSubtype, unexpandedSubtype, isLastIteration) => {
-                return useSpeculativeMode(
-                    isLastIteration ? undefined : getSpeculativeNodeForCall(errorNode),
-                    () => {
-                        const callResult = validateCallArgsForSubtype(
-                            errorNode,
-                            argList,
-                            expandedSubtype,
-                            unexpandedSubtype,
-                            !!callTypeResult.isIncomplete,
-                            constraints,
-                            skipUnknownArgCheck,
-                            inferenceContext,
-                            recursionCount
-                        );
+        const concreteCallType = makeTopLevelTypeVarsConcrete(callTypeResult.type);
+        const lambdaNodes = isUnion(concreteCallType)
+            ? argList
+                  .map((arg) => arg.valueExpression)
+                  .filter((node): node is LambdaNode => node?.nodeType === ParseNodeType.Lambda)
+            : undefined;
+        const lambdaTypeCache: ContextualLambdaTypeCache | undefined = lambdaNodes?.length
+            ? { lambdaNodes, entries: new Map(), branchIndex: 0 }
+            : undefined;
 
-                        if (callResult.argumentErrors) {
-                            argumentErrors = true;
-                        }
-
-                        if (callResult.isTypeIncomplete) {
-                            isTypeIncomplete = true;
-                        }
-
-                        if (callResult.overloadsUsedForCall) {
-                            appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
-                        }
-
-                        specializedInitSelfType = callResult.specializedInitSelfType;
-
-                        return callResult.returnType;
-                    },
-                    {
-                        allowDiagnostics: true,
-                    }
-                );
+        const previousCache = contextualLambdaTypeCache;
+        let returnType: Type;
+        try {
+            if (lambdaTypeCache) {
+                contextualLambdaTypeCache = lambdaTypeCache;
             }
-        );
+            returnType = mapSubtypesExpandTypeVars(
+                callTypeResult.type,
+                { sortSubtypes: true },
+                (expandedSubtype, unexpandedSubtype, isLastIteration) => {
+                    if (lambdaTypeCache) {
+                        lambdaTypeCache.branchIndex++;
+                    }
+                    return useSpeculativeMode(
+                        isLastIteration ? undefined : getSpeculativeNodeForCall(errorNode),
+                        () => {
+                            const callResult = validateCallArgsForSubtype(
+                                errorNode,
+                                argList,
+                                expandedSubtype,
+                                unexpandedSubtype,
+                                !!callTypeResult.isIncomplete,
+                                constraints,
+                                skipUnknownArgCheck,
+                                inferenceContext,
+                                recursionCount
+                            );
+
+                            if (callResult.argumentErrors) {
+                                argumentErrors = true;
+                            }
+
+                            if (callResult.isTypeIncomplete) {
+                                isTypeIncomplete = true;
+                            }
+
+                            if (callResult.overloadsUsedForCall) {
+                                appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
+                            }
+
+                            specializedInitSelfType = callResult.specializedInitSelfType;
+
+                            return callResult.returnType;
+                        },
+                        {
+                            allowDiagnostics: true,
+                        }
+                    );
+                }
+            );
+        } finally {
+            contextualLambdaTypeCache = previousCache;
+        }
+
+        // Keep branch-specific checking and return inference separate from the
+        // combined contextual types retained for subsequent queries.
+        if (!isTypeIncomplete && lambdaTypeCache && lambdaTypeCache.branchIndex > 1) {
+            invalidateTypeCacheIfCanceled(() => combineContextualLambdaTypes(lambdaTypeCache));
+        }
 
         // If we ended up with a "Never" type because all code paths returned
         // undefined due to argument errors, transform the result into an Unknown
@@ -16374,6 +16473,10 @@ export function createTypeEvaluator(
                             }
                         }
                     }
+
+                    if (expectedType && !forceSpeculative && !isIncomplete) {
+                        captureContextualLambdaTypes(node);
+                    }
                 },
                 {
                     dependentType: inferenceContext?.expectedType,
@@ -16390,7 +16493,11 @@ export function createTypeEvaluator(
                 typeErrors = true;
             }
 
-            return { type: functionType, isIncomplete, typeErrors };
+            const typeResult = { type: functionType, isIncomplete, typeErrors };
+            if (expectedType && !forceSpeculative && !isIncomplete) {
+                captureContextualLambdaTypes(node, typeResult);
+            }
+            return typeResult;
         });
     }
 
