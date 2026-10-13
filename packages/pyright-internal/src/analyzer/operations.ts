@@ -1265,8 +1265,13 @@ function canOrderTupleElements(
             return false;
         }
 
-        return !someSubtypes(left, (leftSubtype) =>
-            someSubtypes(right, (rightSubtype) => {
+        // Expand bounds and constraints before choosing dispatch priority, just as
+        // magic-method lookup does. Check each concrete pair, including metaclasses.
+        const concreteLeft = evaluator.makeTopLevelTypeVarsConcrete(left);
+        const concreteRight = evaluator.makeTopLevelTypeVarsConcrete(right);
+
+        return !someSubtypes(concreteLeft, (leftSubtype) =>
+            someSubtypes(concreteRight, (rightSubtype) => {
                 if (--remainingChecks < 0) {
                     return true;
                 }

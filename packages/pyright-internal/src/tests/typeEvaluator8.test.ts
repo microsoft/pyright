@@ -1526,3 +1526,17 @@ test('Tuple29', () => {
 
     TestUtils.validateResults(analysisResults, 8);
 });
+
+test('Tuple30', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple30.py']);
+
+    TestUtils.validateResults(analysisResults, 88);
+    assert.ok(analysisResults[0].errors.every((error) => error.getRule() === 'reportOperatorIssue'));
+    const expectedLines = TestUtils.readSampleFile('tuple30.py')
+        .split(/\r?\n/)
+        .flatMap((line, index) => (line.includes('# This should generate an error.') ? [index] : []));
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((error) => error.range.start.line).sort((a, b) => a - b),
+        expectedLines
+    );
+});
