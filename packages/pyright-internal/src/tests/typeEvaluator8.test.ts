@@ -582,7 +582,10 @@ test('Tuple12', () => {
 test('Tuple13', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple13.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 9);
+    analysisResults[0].errors.forEach((diagnostic) =>
+        assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportArgumentType)
+    );
 });
 
 test('Tuple15', () => {

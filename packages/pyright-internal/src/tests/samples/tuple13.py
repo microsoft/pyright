@@ -131,7 +131,71 @@ class CustomTuple(tuple[int, str]):
         return 42
 
 
-def func6(val1: CustomTuple):
+class InheritedCustomTuple(CustomTuple):
+    pass
+
+
+def func6(val1: CustomTuple, val2: InheritedCustomTuple):
     # A subclass that overrides __getitem__ should use the override.
     x1 = val1[2:1]
     reveal_type(x1, expected_text="tuple[int, str]")
+
+    x2 = val1[:1]
+    reveal_type(x2, expected_text="tuple[int, str]")
+
+    x3 = val2[:1]
+    reveal_type(x3, expected_text="tuple[int, str]")
+
+
+class IndexedTuple(tuple[int, str]):
+    def __setitem__(self, key: slice, value: int) -> None:
+        pass
+
+    def __delitem__(self, key: int) -> None:
+        pass
+
+
+def func7(val1: IndexedTuple):
+    # These should generate errors for the value and key, respectively.
+    val1[2:1] = "not an int"
+    del val1[2:1]
+
+    # These should generate errors for the value and key, respectively.
+    val1[True:False] = "not an int"
+    del val1[True:False]
+
+    # These should generate errors for the value and key, respectively.
+    val1[2:1:None] = "not an int"
+    del val1[2:1:None]
+
+    # These should generate errors for the value and key, respectively.
+    val1[:1] = "not an int"
+    del val1[:1]
+
+    # This should generate an error for the value passed to __setitem__.
+    val1[2:1] += ("x",)
+
+    val1[2:1] = 7
+    val1[True:False] = 7
+    val1[2:1:None] = 7
+    val1[:1] = 7
+    del val1[0]
+
+    x1 = val1[2:1]
+    reveal_type(x1, expected_text="tuple[()]")
+
+
+class InstanceShadowTuple(tuple[int, str]):
+    def __init__(self, items: tuple[int, str]) -> None:
+        self.__getitem__ = super().__getitem__
+
+
+def func8(val1: InstanceShadowTuple):
+    x1 = val1[:1]
+    reveal_type(x1, expected_text="tuple[int]")
+
+    x2 = val1[2:1]
+    reveal_type(x2, expected_text="tuple[()]")
+
+    first: tuple[int] = val1[:1]
+    reveal_type(first, expected_text="tuple[int]")
