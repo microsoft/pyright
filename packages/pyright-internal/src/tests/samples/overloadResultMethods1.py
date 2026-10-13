@@ -1,4 +1,4 @@
-from typing import Any, Generic, Never, TypeVar, overload, reveal_type
+from typing import Any, Generic, Never, TypeVar, assert_type, overload, reveal_type
 
 T = TypeVar("T")
 
@@ -13,6 +13,9 @@ class Container(Generic[T]):
 
     def item(self) -> T:
         raise NotImplementedError
+
+    def size(self) -> int:
+        return 0
 
     def accept(self, value: T) -> None:
         pass
@@ -50,6 +53,7 @@ def inline(value: Container[Any], concrete: Container[int]) -> None:
     reveal_type(value.copy())
     reveal_type(value.copy().item())
     reveal_type(concrete.copy())
+    assert_type(value.copy().size(), int)
     value.copy().accept(1)
     value.copy().accept("x")
     value.copy().item().bit_length()

@@ -44,7 +44,7 @@ import {
     TypeEvaluator,
     TypeResult,
 } from './typeEvaluatorTypes';
-import { isClassInstance, isOverloadResult, OverloadResultType, Type, TypeCategory } from './types';
+import { isClassInstance, isOverloadResult, isTypeSame, OverloadResultType, Type, TypeCategory } from './types';
 import { InferenceContext } from './typeUtils';
 
 export interface OverloadResultLimits {
@@ -971,6 +971,7 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
                 record.expression === inputs.alternative?.node &&
                 !baseline.failed;
             const successes: Outcome['successes'] = [];
+            let candidates: readonly Type[] = [];
             let cutoff = false;
             const nestedSeed = record.seed && record.expression !== record.seed.node;
             if (
@@ -981,7 +982,6 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
             ) {
                 const alternative = inputs.alternative?.value.type;
                 try {
-                    let candidates: readonly Type[] = [];
                     if (record.seed && (!baseline.failed || nestedSeed)) {
                         if (record.seed.automatic) {
                             // Discovery runs inside the same private ordinary cache
@@ -1057,15 +1057,26 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
                 const uncertainty =
                     record.seed?.uncertainty ??
                     (source && isOverloadResult(source) ? source.priv.uncertaintyKind : TypeCategory.Any);
+                const resultTypes = successes.map((s) => s.outcome.result.type);
+                // Only a directly seeded operation proves that every retained alternative was tried.
+                // Projected carriers can contain a successful subset, so equivalent results there
+                // must keep their uncertainty.
+                const equivalentCompleteResults =
+                    !!record.seed &&
+                    candidates.length > 1 &&
+                    successes.length === candidates.length &&
+                    resultTypes.every((type) => isTypeSame(type, resultTypes[0]));
                 // An inline operation can fail for the first receiver but succeed for another.
                 // Later uses must project that successful result, not the failed Unknown.
                 canonical = {
                     ...(baseline.failed ? successes[0].outcome.result : baseline.result),
-                    type: OverloadResultType.create(
-                        successes.map((s) => s.outcome.result.type),
-                        baseline.failed ? successes[0].outcome.result.type : baseline.result.type,
-                        uncertainty
-                    ),
+                    type: equivalentCompleteResults
+                        ? resultTypes[0]
+                        : OverloadResultType.create(
+                              resultTypes,
+                              baseline.failed ? successes[0].outcome.result.type : baseline.result.type,
+                              uncertainty
+                          ),
                 };
             }
             let value: TypeResult | undefined;
