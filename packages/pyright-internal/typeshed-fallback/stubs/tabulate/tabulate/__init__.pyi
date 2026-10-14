@@ -24,8 +24,8 @@ class DataRow(NamedTuple):
     sep: str
     end: str
 
-_TableFormatLine: TypeAlias = None | Line | Callable[[list[int], list[str]], str]
-_TableFormatRow: TypeAlias = None | DataRow | Callable[[list[Any], list[int], list[str]], str]
+_TableFormatLine: TypeAlias = Line | Callable[[list[int], list[str]], str] | None
+_TableFormatRow: TypeAlias = DataRow | Callable[[list[Any], list[int], list[str]], str] | None
 
 class TableFormat(NamedTuple):
     lineabove: _TableFormatLine

@@ -150,12 +150,12 @@ class Model(Layer[_InputT_contra, _OutputT_co]):
     def weights(self) -> list[Variable]: ...
     def summary(
         self,
-        line_length: None | int = None,
-        positions: None | list[float] = None,
-        print_fn: None | Callable[[str], None] = None,
+        line_length: int | None = None,
+        positions: list[float] | None = None,
+        print_fn: Callable[[str], None] | None = None,
         expand_nested: bool = False,
         show_trainable: bool = False,
-        layer_range: None | list[str] | tuple[str, str] = None,
+        layer_range: list[str] | tuple[str, str] | None = None,
     ) -> None: ...
     @property
     def layers(self) -> list[Layer[Incomplete, Incomplete]]: ...
