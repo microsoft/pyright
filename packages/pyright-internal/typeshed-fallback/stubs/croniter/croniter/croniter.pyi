@@ -352,7 +352,7 @@ class HashExpander:
         idx: int,
         expr: str,
         hash_id: bytes | None = None,
-        match: Match[str] | None | Literal[""] = "",
+        match: Match[str] | Literal[""] | None = "",
         **kw: object,
     ) -> str: ...
 

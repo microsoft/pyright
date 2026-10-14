@@ -1,4 +1,4 @@
-version = "26.1.*"
+version = "26.2.*"
 upstream-repository = "https://github.com/carltongibson/django-filter/"
 dependencies = ["django-stubs>=6.0.8"]
 
