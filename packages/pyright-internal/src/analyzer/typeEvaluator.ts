@@ -7424,7 +7424,25 @@ export function createTypeEvaluator(
 
         if (!callResult.argumentErrors) {
             let descriptorReturnType = callResult.returnType ?? UnknownType.create();
-            const wrappedCallableType = concreteMemberType.priv.decoratedCallableType;
+            // The stored wrapper needs the same specialization as its owning member
+            // so class type arguments apply to its attributes as well as its call.
+            const wrappedCallableType = concreteMemberType.priv.decoratedCallableType
+                ? (partiallySpecializeType(
+                      concreteMemberType.priv.decoratedCallableType,
+                      memberInfo && isClass(memberInfo.classType) ? memberInfo.classType : classType,
+                      getTypeClassType(),
+                      selfType ?? classType
+                  ) as ClassType)
+                : undefined;
+            if (
+                usage.method === 'get' &&
+                wrappedCallableType &&
+                ClassType.isBuiltIn(concreteMemberType, 'staticmethod')
+            ) {
+                // staticmethod returns the wrapped object without binding it. Keep
+                // its original call signatures, including all overloads.
+                descriptorReturnType = wrappedCallableType;
+            }
             if (usage.method === 'get' && wrappedCallableType && isFunction(descriptorReturnType)) {
                 // Preserve the wrapper's attributes with the bound call signature.
                 const boundCallType = descriptorReturnType;

@@ -1397,7 +1397,7 @@ test('Decorator7', () => {
 test('Decorator8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator8.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('DisjointBase1', () => {

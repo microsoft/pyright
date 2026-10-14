@@ -1,10 +1,11 @@
 # This sample tests classmethod and staticmethod applied to callable protocols
 # returned by another decorator, including protocols that are descriptors.
 
-from typing import Callable, ParamSpec, Protocol, TypeVar, overload
+from typing import Callable, Generic, ParamSpec, Protocol, TypeVar, overload
 
 P = ParamSpec("P")
 R = TypeVar("R")
+T = TypeVar("T")
 
 
 class Wrapper(Protocol[P, R]):
@@ -98,3 +99,65 @@ class OtherExample:
 
 reveal_type(OtherExample.method("value"), expected_text="str")
 reveal_type(OtherExample().method("value"), expected_text="str")
+
+
+class OverloadedWrapper(Protocol):
+    @overload
+    def __call__(self, value: int) -> int: ...
+
+    @overload
+    def __call__(self, value: str) -> str: ...
+
+
+def decorate_overloaded(func: Callable[..., object]) -> OverloadedWrapper: ...
+
+
+class OverloadedExample:
+    @staticmethod
+    @decorate_overloaded
+    def method(value: int | str) -> int | str:
+        return value
+
+
+reveal_type(OverloadedExample.method(1), expected_text="int")
+reveal_type(OverloadedExample.method("text"), expected_text="str")
+reveal_type(OverloadedExample().method(1), expected_text="int")
+reveal_type(OverloadedExample().method("text"), expected_text="str")
+
+# This should generate two errors because neither overload accepts a float.
+OverloadedExample.method(1.5)
+
+
+class GenericExample(Generic[T]):
+    @staticmethod
+    @decorate_callable
+    def method(value: T) -> T:
+        return value
+
+    @classmethod
+    @decorate_callable
+    def class_method(cls, value: T) -> T:
+        return value
+
+
+reveal_type(GenericExample[int].method(1), expected_text="int")
+reveal_type(GenericExample[str].method("text"), expected_text="str")
+reveal_type(GenericExample[int].method.value, expected_text="int")
+reveal_type(GenericExample[str].method.value, expected_text="str")
+reveal_type(GenericExample[int]().method.value, expected_text="int")
+reveal_type(GenericExample[str]().method.value, expected_text="str")
+reveal_type(GenericExample[int].class_method(1), expected_text="int")
+reveal_type(GenericExample[int].class_method.value, expected_text="int")
+reveal_type(GenericExample[int]().class_method.value, expected_text="int")
+
+# This should generate an error because the class specializes T to int.
+GenericExample[int].method("invalid")
+
+
+class InheritedExample(GenericExample[int]):
+    pass
+
+
+reveal_type(InheritedExample.method(1), expected_text="int")
+reveal_type(InheritedExample.method.value, expected_text="int")
+reveal_type(InheritedExample().class_method.value, expected_text="int")
