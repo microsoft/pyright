@@ -1099,6 +1099,10 @@ main().catch((error) => { console.error(error); process.exitCode = 1; });
             trigger_workflow,
         )
         self.assertIn(
+            "file.filename.startsWith('packages/pyright-internal/typeshed-fallback/')",
+            trigger_workflow,
+        )
+        self.assertIn(
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
             trigger_workflow,
         )
@@ -1227,13 +1231,26 @@ async function check(runChanges = {}, prChanges = {}, filenames = [], script, re
         ['packages/pyright-internal/src/analyzer/checker.ts', [7, 7]],
         ['packages/pyright-internal/src/tests/sample.py', [undefined, 7]],
         ['packages/pyright/index.js', [undefined, 7]],
-        ['packages/pyright-internal/typeshed-fallback/stdlib/os.pyi', [undefined, 7]],
+        ['packages/pyright-internal/typeshed-fallback/stdlib/os.pyi', [7, 7]],
+        ['packages/pyright-internal/typeshed-fallback/stubs/requests/requests/__init__.pyi', [7, 7]],
+        ['packages/pyright-internal/typeshed-fallback/commit.txt', [7, 7]],
+        ['packages/pyright-internal/typeshed-fallback-other/stdlib/os.pyi', [undefined, 7]],
         ['README.md', [undefined, 7]],
         ['.github/workflows/validation.yml', [undefined, 7]],
     ]) {
         for (let index = 0; index < scripts.length; index++) {
             assert.equal(await check({}, {}, [filename], scripts[index]), expected[index]);
         }
+    }
+    assert.equal(await check({}, {}, [], scripts[0]), undefined);
+    assert.equal(await check({}, {}, [
+        'README.md',
+        'packages/pyright-internal/typeshed-fallback/stdlib/os.pyi',
+    ], scripts[0]), 7);
+    for (const conclusion of ['failure', 'cancelled']) {
+        assert.equal(await check({ conclusion }, {}, [
+            'packages/pyright-internal/typeshed-fallback/stdlib/os.pyi',
+        ], scripts[0]), undefined);
     }
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 """
