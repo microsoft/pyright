@@ -1653,7 +1653,7 @@ export class AnalyzerService {
         }
 
         // Watch the library paths for package install/uninstall.
-        this._librarySearchUrisToWatch = findPythonSearchPaths(
+        const librarySearchPaths = findPythonSearchPaths(
             this.fs,
             this._backgroundAnalysisProgram.configOptions,
             this._backgroundAnalysisProgram.host,
@@ -1661,6 +1661,11 @@ export class AnalyzerService {
             /* includeWatchPathsOnly */ true,
             this._executionRootUri
         );
+
+        // Publish stub roots for both server and client watchers, even before the directory exists.
+        this._librarySearchUrisToWatch = this._configOptions.stubPath
+            ? [...librarySearchPaths, this._configOptions.stubPath]
+            : librarySearchPaths;
 
         // Make sure the watch list includes extra paths that are not part of user files.
         // Sometimes, nested folders of the workspace are added as extra paths to import modules as top-level modules.
