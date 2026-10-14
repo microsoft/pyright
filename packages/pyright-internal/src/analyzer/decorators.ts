@@ -247,6 +247,17 @@ export function applyFunctionDecorator(
             switch (decoratorType.shared.name) {
                 case 'classmethod':
                 case 'staticmethod': {
+                    // Callable objects returned by another decorator need the
+                    // descriptor produced by classmethod or staticmethod. Function
+                    // flags cannot represent their binding behavior.
+                    if (isClassInstance(inputFunctionType) && !isProperty(inputFunctionType)) {
+                        if (isClassInstance(returnType)) {
+                            returnType = TypeBase.cloneType(returnType);
+                            returnType.priv.decoratedCallableType = inputFunctionType;
+                        }
+                        return returnType;
+                    }
+
                     const requiredFlag =
                         decoratorType.shared.name === 'classmethod'
                             ? FunctionTypeFlags.ClassMethod

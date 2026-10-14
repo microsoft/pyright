@@ -1394,6 +1394,12 @@ test('Decorator7', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Decorator8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator8.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('DisjointBase1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['disjointBase1.py']);
     TestUtils.validateResults(analysisResults, 15);

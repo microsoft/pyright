@@ -7423,9 +7423,39 @@ export function createTypeEvaluator(
         }
 
         if (!callResult.argumentErrors) {
+            let descriptorReturnType = callResult.returnType ?? UnknownType.create();
+            const wrappedCallableType = concreteMemberType.priv.decoratedCallableType;
+            if (usage.method === 'get' && wrappedCallableType && isFunction(descriptorReturnType)) {
+                // Preserve the wrapper's attributes with the bound call signature.
+                const boundCallType = descriptorReturnType;
+                const callType = FunctionType.createSynthesizedInstance('__call__');
+                FunctionType.addParam(
+                    callType,
+                    FunctionParam.create(
+                        ParamCategory.Simple,
+                        wrappedCallableType,
+                        FunctionParamFlags.TypeDeclared,
+                        'self'
+                    )
+                );
+                boundCallType.shared.parameters.forEach((param, index) => {
+                    FunctionType.addParam(
+                        callType,
+                        FunctionParam.create(
+                            param.category,
+                            FunctionType.getParamType(boundCallType, index),
+                            param.flags,
+                            param.name,
+                            FunctionType.getParamDefaultType(boundCallType, index)
+                        )
+                    );
+                });
+                callType.shared.declaredReturnType = FunctionType.getEffectiveReturnType(boundCallType);
+                descriptorReturnType = ClassType.cloneForPartial(wrappedCallableType, callType);
+            }
             return {
                 // For set or delete, always return Any.
-                type: usage.method === 'get' ? callResult.returnType ?? UnknownType.create() : AnyType.create(),
+                type: usage.method === 'get' ? descriptorReturnType : AnyType.create(),
                 isDescriptorApplied: true,
                 isAsymmetricAccessor,
                 memberAccessDeprecationInfo: deprecationInfo,
