@@ -1890,10 +1890,12 @@ export class Parser {
             return undefined;
         }
 
-        if (target.nodeType === ParseNodeType.Unpack) {
-            this._addSyntaxError(LocMessage.unpackIllegalInComprehension(), target);
-        } else if (target.nodeType === ParseNodeType.DictionaryExpandEntry) {
-            this._addSyntaxError(LocMessage.dictExpandIllegalInComprehension(), target);
+        if (PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_15)) {
+            if (target.nodeType === ParseNodeType.Unpack) {
+                this._addSyntaxError(LocMessage.unpackIllegalInComprehension(), target);
+            } else if (target.nodeType === ParseNodeType.DictionaryExpandEntry) {
+                this._addSyntaxError(LocMessage.dictExpandIllegalInComprehension(), target);
+            }
         }
 
         const compNode = ComprehensionNode.create(this._getOwnerKey(), target, isGenerator);
