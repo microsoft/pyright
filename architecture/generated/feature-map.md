@@ -11,7 +11,7 @@ Whole-repo Pyright graph covering everything under the vendored packages/pyright
 - **Profile:** `pyright-whole-repo`
 - **Graph:** `../../.rpg/rpg_encoder.json`
 - **Hierarchy:** `semantic clustering`
-- **Coverage:** 237 files, 3731 symbols, 13 feature nodes
+- **Coverage:** 255 files, 3903 symbols, 13 feature nodes
 
 ## Find a starting point
 
