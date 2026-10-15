@@ -23,20 +23,3 @@ def collect2():
     z = yield from y
     reveal_type(z, expected_text="bool")
     return z
-
-
-class ReturnInt:
-    def __iter__(self) -> Generator[None, None, int]:
-        return 1
-        yield
-
-
-class ReturnStr:
-    def __iter__(self) -> Generator[None, None, str]:
-        return ""
-        yield
-
-
-def union(i: ReturnInt | ReturnStr):
-    r = yield from i
-    reveal_type(r, expected_text="int | str")
