@@ -556,6 +556,16 @@ test('TypeNarrowingIsinstance22', () => {
     );
 });
 
+test('TypeNarrowingIsinstance23', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance23.py']);
+
+    TestUtils.validateResults(analysisResults, 1, 0, 15);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [[122, DiagnosticRule.reportReturnType]]
+    );
+});
+
 test('TypeNarrowingTupleLength1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTupleLength1.py']);
 

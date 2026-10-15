@@ -1588,10 +1588,15 @@ export function narrowTypeForInstanceOrSubclass(
 ) {
     if (!isInstanceCheck && !isTypeIsCheck && !isPositiveTest) {
         // A custom subclass check can reject even the exact same final class.
-        filterTypes = filterTypes.filter(
-            (filterType) =>
-                !customMetaclassSupportsMethod(evaluator.makeTopLevelTypeVarsConcrete(filterType), '__subclasscheck__')
-        );
+        // Preserve the existing narrowing policy for non-final classes, including ABCs.
+        filterTypes = filterTypes.filter((filterType) => {
+            const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
+            return (
+                !isInstantiableClass(concreteFilterType) ||
+                !ClassType.isFinal(concreteFilterType) ||
+                !customMetaclassSupportsMethod(concreteFilterType, '__subclasscheck__')
+            );
+        });
     }
 
     if (!isPositiveTest && filterTypes.length === 0) {

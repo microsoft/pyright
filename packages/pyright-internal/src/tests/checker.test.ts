@@ -319,6 +319,30 @@ test('UnnecessaryIsInstance3', () => {
     ]);
 });
 
+test('UnnecessaryIsInstance4', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance4.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1, 0, 1);
+    expect(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+    ).toEqual([[38, DiagnosticRule.reportReturnType]]);
+
+    configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance4.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 3, 0, 1);
+    expect(
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+    ).toEqual([
+        [25, DiagnosticRule.reportUnnecessaryIsInstance],
+        [30, DiagnosticRule.reportUnnecessaryIsInstance],
+        [38, DiagnosticRule.reportReturnType],
+    ]);
+});
+
 test('UnnecessaryIsSubclass1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
