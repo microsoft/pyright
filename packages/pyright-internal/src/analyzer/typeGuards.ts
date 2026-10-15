@@ -1586,6 +1586,14 @@ export function narrowTypeForInstanceOrSubclass(
     errorNode: ExpressionNode,
     nodeInfo: AnalyzerNodeInfoAccessor
 ) {
+    if (!isInstanceCheck && !isTypeIsCheck && !isPositiveTest) {
+        // A custom subclass check can reject even the exact same final class.
+        filterTypes = filterTypes.filter(
+            (filterType) =>
+                !customMetaclassSupportsMethod(evaluator.makeTopLevelTypeVarsConcrete(filterType), '__subclasscheck__')
+        );
+    }
+
     if (!isPositiveTest && filterTypes.length === 0) {
         return type;
     }

@@ -325,3 +325,95 @@ def test_runtime_union_none_alternative(
         reveal_type(x, expected_text="FinalClass | FinalClass2 | None")
     else:
         reveal_type(x, expected_text="FinalClass | FinalClass2 | B")
+
+
+class SubclassCheckMeta(type):
+    def __subclasscheck__(self, subclass: type) -> bool:
+        return False
+
+    def __instancecheck__(self, instance: object) -> bool:
+        return False
+
+
+class InheritedSubclassCheckMeta(SubclassCheckMeta):
+    pass
+
+
+class InstanceCheckMeta(type):
+    def __instancecheck__(self, instance: object) -> bool:
+        return False
+
+
+@final
+class CustomFinal(metaclass=SubclassCheckMeta):
+    pass
+
+
+@final
+class InheritedCustomFinal(metaclass=InheritedSubclassCheckMeta):
+    pass
+
+
+@final
+class InstanceCheckFinal(metaclass=InstanceCheckMeta):
+    pass
+
+
+def test_custom_subclasscheck_return(x: type[CustomFinal], cls: type[CustomFinal]) -> int:
+    if not issubclass(x, cls):
+        reveal_type(x, expected_text="type[CustomFinal]")
+        # This should generate an error because __subclasscheck__ can return False.
+        return x
+    reveal_type(x, expected_text="type[CustomFinal]")
+    return 0
+
+
+def test_custom_subclasscheck_direct(x: type[CustomFinal]):
+    if not issubclass(x, CustomFinal):
+        reveal_type(x, expected_text="type[CustomFinal]")
+
+
+def test_inherited_subclasscheck(
+    x: type[InheritedCustomFinal] | type[B], cls: type[InheritedCustomFinal]
+):
+    if issubclass(x, cls):
+        reveal_type(x, expected_text="type[InheritedCustomFinal]")
+    else:
+        reveal_type(x, expected_text="type[InheritedCustomFinal] | type[B]")
+
+
+def test_custom_subclasscheck_tuple(
+    x: type[CustomFinal] | type[B], classes: tuple[type[CustomFinal]]
+):
+    if not issubclass(x, classes):
+        reveal_type(x, expected_text="type[CustomFinal] | type[B]")
+
+
+def test_custom_subclasscheck_fixed_tuple(
+    x: type[int] | type[CustomFinal] | type[str], cls: type[CustomFinal]
+):
+    if not issubclass(x, (int, (cls,))):
+        reveal_type(x, expected_text="type[CustomFinal] | type[str]")
+
+
+def test_custom_subclasscheck_runtime_union(
+    x: type[int] | type[CustomFinal] | type[str], cls: type[CustomFinal]
+):
+    if not issubclass(x, cls | int):
+        reveal_type(x, expected_text="type[CustomFinal] | type[str]")
+
+
+def test_custom_metaclass_isinstance(x: CustomFinal | B, cls: type[CustomFinal]):
+    if isinstance(x, cls):
+        reveal_type(x, expected_text="CustomFinal")
+    else:
+        reveal_type(x, expected_text="B")
+
+
+def test_instancecheck_only_issubclass(
+    x: type[InstanceCheckFinal] | type[B], cls: type[InstanceCheckFinal]
+):
+    if issubclass(x, cls):
+        reveal_type(x, expected_text="type[InstanceCheckFinal]")
+    else:
+        reveal_type(x, expected_text="type[B]")

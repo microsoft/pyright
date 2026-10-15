@@ -284,7 +284,7 @@ test('UnnecessaryIsInstance3', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 4, 0, 2);
+    TestUtils.validateResults(analysisResults, 4, 0, 3);
     expect(
         analysisResults[0].errors
             .slice()
@@ -299,7 +299,7 @@ test('UnnecessaryIsInstance3', () => {
 
     configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 8, 0, 2);
+    TestUtils.validateResults(analysisResults, 10, 0, 3);
     expect(
         analysisResults[0].errors
             .slice()
@@ -314,6 +314,8 @@ test('UnnecessaryIsInstance3', () => {
         [52, DiagnosticRule.reportArgumentType],
         [54, DiagnosticRule.reportArgumentType],
         [54, DiagnosticRule.reportArgumentType],
+        [80, DiagnosticRule.reportUnnecessaryIsInstance],
+        [85, DiagnosticRule.reportUnnecessaryIsInstance],
     ]);
 });
 

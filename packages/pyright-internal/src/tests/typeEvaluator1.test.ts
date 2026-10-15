@@ -541,7 +541,7 @@ test('TypeNarrowingIsinstance21', () => {
 test('TypeNarrowingIsinstance22', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance22.py']);
 
-    TestUtils.validateResults(analysisResults, 3, 0, 68);
+    TestUtils.validateResults(analysisResults, 4, 0, 80);
     assert.deepStrictEqual(
         analysisResults[0].errors
             .slice()
@@ -551,6 +551,7 @@ test('TypeNarrowingIsinstance22', () => {
             [70, DiagnosticRule.reportReturnType],
             [107, DiagnosticRule.reportReturnType],
             [115, DiagnosticRule.reportArgumentType],
+            [366, DiagnosticRule.reportReturnType],
         ]
     );
 });
