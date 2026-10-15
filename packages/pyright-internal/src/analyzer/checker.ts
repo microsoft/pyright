@@ -4152,10 +4152,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const classTypeList = getIsInstanceClassTypes(this._evaluator, arg1Type);
-        if (!classTypeList) {
+        const classTypeInfo = getIsInstanceClassTypes(this._evaluator, arg1Type, node.d.args[1].d.valueExpr);
+        if (!classTypeInfo) {
             return;
         }
+
+        const classTypeList = classTypeInfo.classTypes;
 
         // Check for unsafe protocol overlaps.
         classTypeList.forEach((filterType) => {
@@ -4174,7 +4176,7 @@ export class Checker extends ParseTreeWalker {
             const narrowedTypeNegative = narrowTypeForInstanceOrSubclass(
                 this._evaluator,
                 arg0Type,
-                classTypeList,
+                classTypeInfo.negativeClassTypes,
                 isInstanceCheck,
                 /* isTypeIsCheck */ false,
                 /* isPositiveTest */ false,

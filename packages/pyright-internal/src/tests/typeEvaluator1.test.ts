@@ -541,7 +541,18 @@ test('TypeNarrowingIsinstance21', () => {
 test('TypeNarrowingIsinstance22', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance22.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 3, 0, 48);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [70, DiagnosticRule.reportReturnType],
+            [107, DiagnosticRule.reportReturnType],
+            [115, DiagnosticRule.reportArgumentType],
+        ]
+    );
 });
 
 test('TypeNarrowingTupleLength1', () => {

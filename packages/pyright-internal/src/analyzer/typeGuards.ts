@@ -113,6 +113,11 @@ export interface TypeNarrowingResult {
     isIncomplete: boolean;
 }
 
+export interface IsInstanceClassTypeInfo {
+    classTypes: (ClassType | TypeVarType | FunctionType)[];
+    negativeClassTypes: (ClassType | TypeVarType | FunctionType)[];
+}
+
 export type TypeNarrowingCallback = (type: Type) => TypeNarrowingResult | undefined;
 
 // Given a reference expression and a test expression, returns a callback that
@@ -672,16 +677,14 @@ export function getTypeNarrowingCallback(
                     const arg1TypeResult = evaluator.getTypeOfExpression(arg1Expr, EvalFlags.IsInstanceArgDefaults);
                     const arg1Type = arg1TypeResult.type;
 
-                    const classTypeInfo = { hasAmbiguousTypeFilter: false };
-                    const classTypeList = getIsInstanceClassTypes(evaluator, arg1Type, classTypeInfo);
+                    const classTypeInfo = getIsInstanceClassTypes(evaluator, arg1Type, arg1Expr);
                     const isIncomplete = !!callTypeResult.isIncomplete || !!arg1TypeResult.isIncomplete;
 
-                    if (classTypeList) {
+                    if (classTypeInfo) {
+                        const classTypeList = isPositiveTest
+                            ? classTypeInfo.classTypes
+                            : classTypeInfo.negativeClassTypes;
                         return (type: Type) => {
-                            if (!isPositiveTest && classTypeInfo.hasAmbiguousTypeFilter) {
-                                return { type, isIncomplete };
-                            }
-
                             return {
                                 type: narrowTypeForInstanceOrSubclass(
                                     evaluator,
@@ -1399,24 +1402,23 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, node: ExpressionNode,
     return result;
 }
 
-// The "isinstance" and "issubclass" calls support two forms - a simple form
-// that accepts a single class, and a more complex form that accepts a tuple
-// of classes (including arbitrarily-nested tuples). This method determines
-// which form and returns a list of classes or undefined.
+// The "isinstance" and "issubclass" calls accept classes, runtime unions,
+// and arbitrarily-nested tuples of these. This method extracts possible
+// classes and guaranteed negative filters,
+// or undefined if the filter contains a non-class type.
 export function getIsInstanceClassTypes(
     evaluator: TypeEvaluator,
     argType: Type,
-    info?: { hasAmbiguousTypeFilter: boolean }
-): (ClassType | TypeVarType | FunctionType)[] | undefined {
+    argExpr: ExpressionNode
+): IsInstanceClassTypeInfo | undefined {
     let foundNonClassType = false;
-    const classTypeList: (ClassType | TypeVarType | FunctionType)[] = [];
+    const classTypes: (ClassType | TypeVarType | FunctionType)[] = [];
+    const negativeClassTypes: (ClassType | TypeVarType | FunctionType)[] = [];
 
     // Create a helper function that returns a list of class types or
     // undefined if any of the types are not valid.
     const addClassTypesToList = (types: Type[], isAmbiguous: boolean, isUnboundedEntry: boolean) => {
         types.forEach((subtype) => {
-            let isTypeObjectFilter = false;
-
             if (isClass(subtype)) {
                 subtype = specializeWithUnknownTypeArgs(subtype, evaluator.getTupleClassType());
 
@@ -1429,16 +1431,16 @@ export function getIsInstanceClassTypes(
                             foundNonClassType = true;
                             return;
                         }
-                        isTypeObjectFilter = true;
                         if (isInstantiableClass(typeArg)) {
-                            subtype = typeArg;
-                        } else if (isClass(typeArg) && TypeBase.isInstance(typeArg)) {
-                            subtype = convertToInstantiable(typeArg);
+                            subtype = ClassType.cloneIncludeSubclasses(typeArg);
+                        } else if (isClassInstance(typeArg)) {
+                            subtype = ClassType.cloneAsInstantiable(typeArg);
                         }
                     }
                 }
             }
 
+            let classType: ClassType | TypeVarType | FunctionType;
             if (isInstantiableClass(subtype)) {
                 // If this is a reference to a class that has type promotions (e.g.
                 // float or complex), remove the promotions for purposes of the
@@ -1447,31 +1449,30 @@ export function getIsInstanceClassTypes(
                     subtype = ClassType.cloneRemoveTypePromotions(subtype);
                 }
 
-                // A type[X] filter drawn from a union or an unbounded tuple may
-                // not be the class that is checked at runtime, so it cannot be
-                // used for negative narrowing.
-                if (
-                    info &&
-                    subtype.priv.includeSubclasses &&
-                    (isUnboundedEntry || (isAmbiguous && isTypeObjectFilter))
-                ) {
-                    info.hasAmbiguousTypeFilter = true;
-                }
-                classTypeList.push(subtype);
+                classType = subtype;
             } else if (isTypeVar(subtype) && TypeBase.isInstantiable(subtype)) {
-                classTypeList.push(subtype);
+                classType = subtype;
             } else if (isNoneTypeClass(subtype)) {
                 assert(isInstantiableClass(subtype));
-                classTypeList.push(subtype);
+                classType = subtype;
             } else if (
                 isFunction(subtype) &&
                 subtype.shared.parameters.length === 2 &&
                 subtype.shared.parameters[0].category === ParamCategory.ArgsList &&
                 subtype.shared.parameters[1].category === ParamCategory.KwargsDict
             ) {
-                classTypeList.push(subtype);
+                classType = subtype;
             } else {
                 foundNonClassType = true;
+                return;
+            }
+
+            classTypes.push(classType);
+
+            // Unbounded entries may be absent, and alternative class objects
+            // are not all guaranteed to participate in the runtime check.
+            if (!isUnboundedEntry && !isAmbiguous) {
+                negativeClassTypes.push(classType);
             }
         });
     };
@@ -1480,35 +1481,86 @@ export function getIsInstanceClassTypes(
         type: Type,
         isAmbiguous: boolean,
         isUnboundedEntry: boolean,
-        recursionCount = 0
+        recursionCount: number,
+        expression?: ExpressionNode
     ) => {
         if (recursionCount > maxTypeRecursionCount) {
             return;
         }
 
-        if (isClass(type) && TypeBase.isInstance(type) && isTupleClass(type)) {
-            if (type.priv.tupleTypeArgs) {
-                type.priv.tupleTypeArgs.forEach((tupleEntry) => {
-                    addClassTypesRecursive(
-                        tupleEntry.type,
-                        isAmbiguous || isUnion(tupleEntry.type),
-                        isUnboundedEntry || tupleEntry.isUnbounded,
-                        recursionCount + 1
-                    );
-                });
+        // A runtime union checks both operands, but either operand can itself
+        // be an alternative class object. Keep their certainty separate.
+        if (
+            isUnion(type) &&
+            expression?.nodeType === ParseNodeType.BinaryOperation &&
+            expression.d.operator === OperatorType.BitwiseOr
+        ) {
+            const leftType = evaluator.getCachedType(expression.d.leftExpr);
+            const rightType = evaluator.getCachedType(expression.d.rightExpr);
+            if (
+                leftType &&
+                rightType &&
+                !customMetaclassSupportsMethod(leftType, '__or__') &&
+                !customMetaclassSupportsMethod(rightType, '__ror__')
+            ) {
+                addClassTypesRecursive(leftType, isAmbiguous, isUnboundedEntry, recursionCount, expression.d.leftExpr);
+                addClassTypesRecursive(
+                    rightType,
+                    isAmbiguous,
+                    isUnboundedEntry,
+                    recursionCount,
+                    expression.d.rightExpr
+                );
+                return;
             }
-        } else {
-            doForEachSubtype(type, (subtype) => {
-                addClassTypesToList([subtype], isAmbiguous, isUnboundedEntry);
-            });
         }
+
+        const isRuntimeUnion = type.props?.specialForm && ClassType.isBuiltIn(type.props.specialForm, 'UnionType');
+        const isAmbiguousType = isAmbiguous || (isUnion(type) && !isRuntimeUnion);
+
+        doForEachSubtype(type, (subtype) => {
+            if (isClassInstance(subtype) && isTupleClass(subtype)) {
+                if (subtype.priv.tupleTypeArgs) {
+                    let entryExpressions: (ExpressionNode | undefined)[] | undefined;
+                    if (expression?.nodeType === ParseNodeType.Tuple) {
+                        const expressions: (ExpressionNode | undefined)[] = [];
+                        expression.d.items.forEach((item) => {
+                            if (item.nodeType !== ParseNodeType.Unpack) {
+                                expressions.push(item);
+                                return;
+                            }
+                            const unpackedType = evaluator.getCachedType(item.d.expr);
+                            const entryCount =
+                                unpackedType && isClassInstance(unpackedType) && isTupleClass(unpackedType)
+                                    ? unpackedType.priv.tupleTypeArgs?.length ?? 1
+                                    : 1;
+                            for (let index = 0; index < entryCount; index++) {
+                                expressions.push(undefined);
+                            }
+                        });
+                        if (expressions.length === subtype.priv.tupleTypeArgs.length) {
+                            entryExpressions = expressions;
+                        }
+                    }
+                    subtype.priv.tupleTypeArgs.forEach((tupleEntry, index) => {
+                        addClassTypesRecursive(
+                            tupleEntry.type,
+                            isAmbiguousType,
+                            isUnboundedEntry || tupleEntry.isUnbounded,
+                            recursionCount + 1,
+                            entryExpressions?.[index]
+                        );
+                    });
+                }
+            } else {
+                addClassTypesToList([subtype], isAmbiguousType, isUnboundedEntry);
+            }
+        });
     };
 
-    doForEachSubtype(argType, (subtype) => {
-        addClassTypesRecursive(subtype, isUnion(argType), /* isUnboundedEntry */ false);
-    });
+    addClassTypesRecursive(argType, /* isAmbiguous */ false, /* isUnboundedEntry */ false, 0, argExpr);
 
-    return foundNonClassType ? undefined : classTypeList;
+    return foundNonClassType ? undefined : { classTypes, negativeClassTypes };
 }
 
 export function narrowTypeForInstanceOrSubclass(
@@ -1521,6 +1573,10 @@ export function narrowTypeForInstanceOrSubclass(
     errorNode: ExpressionNode,
     nodeInfo: AnalyzerNodeInfoAccessor
 ) {
+    if (!isPositiveTest && filterTypes.length === 0) {
+        return type;
+    }
+
     // First try with intersection types disallowed.
     const narrowedType = narrowTypeForInstanceOrSubclassInternal(
         evaluator,

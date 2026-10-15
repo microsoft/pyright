@@ -10,6 +10,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_10, pythonVersion3_8, pythonVersion3_9 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
@@ -277,6 +278,25 @@ test('UnnecessaryIsInstance2', () => {
     configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('UnnecessaryIsInstance3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 0, 2);
+
+    configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4, 0, 2);
+    expect(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+    ).toEqual([
+        [38, DiagnosticRule.reportUnnecessaryIsInstance],
+        [40, DiagnosticRule.reportUnnecessaryIsInstance],
+        [45, DiagnosticRule.reportUnnecessaryIsInstance],
+        [47, DiagnosticRule.reportUnnecessaryIsInstance],
+    ]);
 });
 
 test('UnnecessaryIsSubclass1', () => {
