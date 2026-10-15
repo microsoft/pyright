@@ -17,13 +17,18 @@ import {
     ConfigurationItem,
     DidChangeWorkspaceFoldersNotification,
     DidCloseTextDocumentNotification,
+    DidOpenTextDocumentNotification,
     DiagnosticSeverity,
     DocumentDiagnosticRequest,
     InitializedNotification,
     InitializeRequest,
     MarkupContent,
+    ReferencesRequest,
+    RenameRequest,
     SymbolKind,
+    TextDocumentEdit,
     UnregistrationRequest,
+    WorkspaceSymbolRequest,
 } from 'vscode-languageserver';
 
 import { convertOffsetToPosition } from '../common/positionUtils';
@@ -298,6 +303,83 @@ describe(`Basic language server tests`, () => {
             expect(outgoing[0].fromRanges).toEqual([range('leafCall', 'leafCallEnd')]);
         }
     });
+
+    test.each(['references', 'rename', 'incomingCalls', 'workspaceSymbol'])(
+        'Workspace-wide request sent right after initialization covers unopened files: %s',
+        async (request) => {
+            const code = `
+// @filename: lib.py
+//// def /*leaf*/leaf/*leafEnd*/():
+////     pass
+
+// @filename: user.py
+//// from lib import leaf
+////
+//// def caller():
+////     /*call*/leaf()
+        `;
+            const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code, /* callInitialize */ false);
+            const marker = info.testData.markerPositions.get('leaf')!;
+            const uri = marker.fileUri.toString();
+            const userUri = info.testData.markerPositions.get('call')!.fileUri.toString();
+            const text = info.testData.files.find((file) => file.fileName === marker.fileName)!.content;
+            const lines = getParseResults(text).tokenizerOutput.lines;
+            const position = (name: string) =>
+                convertOffsetToPosition(info.testData.markerPositions.get(name)!.position, lines);
+
+            await info.connection.sendRequest(
+                InitializeRequest.type,
+                info.getInitializeParams(),
+                CancellationToken.None
+            );
+            info.connection.sendNotification(InitializedNotification.type, {});
+            info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
+                textDocument: { uri, languageId: 'python', version: 1, text },
+            });
+
+            let uris: string[] = [];
+            if (request === 'references') {
+                const locations = await info.connection.sendRequest(
+                    ReferencesRequest.type,
+                    {
+                        textDocument: { uri },
+                        position: position('leaf'),
+                        context: { includeDeclaration: true },
+                        workDoneToken: 'references',
+                    },
+                    CancellationToken.None
+                );
+                uris = locations?.map((location) => location.uri) ?? [];
+            } else if (request === 'rename') {
+                const edit = await info.connection.sendRequest(
+                    RenameRequest.type,
+                    { textDocument: { uri }, position: position('leaf'), newName: 'renamed' },
+                    CancellationToken.None
+                );
+                uris = [
+                    ...Object.keys(edit?.changes ?? {}),
+                    ...(edit?.documentChanges ?? []).filter(TextDocumentEdit.is).map((e) => e.textDocument.uri),
+                ];
+            } else if (request === 'incomingCalls') {
+                const range = { start: position('leaf'), end: position('leafEnd') };
+                const calls = await info.connection.sendRequest(
+                    CallHierarchyIncomingCallsRequest.type,
+                    { item: { name: 'leaf', kind: SymbolKind.Function, uri, range, selectionRange: range } },
+                    CancellationToken.None
+                );
+                uris = calls?.map((call) => call.from.uri) ?? [];
+            } else {
+                const symbols = await info.connection.sendRequest(
+                    WorkspaceSymbolRequest.type,
+                    { query: 'caller' },
+                    CancellationToken.None
+                );
+                uris = symbols?.map((symbol) => symbol.location.uri) ?? [];
+            }
+
+            expect(uris).toContain(userUri);
+        }
+    );
 
     [false, true].forEach((supportsPullDiagnostics) => {
         describe(`Diagnostics ${supportsPullDiagnostics ? 'pull' : 'push'}`, () => {

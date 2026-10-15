@@ -830,6 +830,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 return;
             }
 
+            workspace.service.enumerateSourceFiles(0);
             return workspace.service.run((program) => {
                 return new ReferencesProvider(
                     program,
@@ -867,19 +868,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }, token);
     }
 
-    protected onWorkspaceSymbol(
+    protected async onWorkspaceSymbol(
         params: WorkspaceSymbolParams,
         token: CancellationToken,
         resultReporter: ResultProgressReporter<SymbolInformation[]> | undefined
     ): Promise<SymbolInformation[] | WorkspaceSymbol[] | null | undefined> {
-        const result = new WorkspaceSymbolProvider(
-            this.workspaceFactory.items(),
-            resultReporter,
-            params.query,
-            token
-        ).reportSymbols();
+        const workspaces = await this.getWorkspaces();
+        workspaces.forEach((workspace) => workspace.service.enumerateSourceFiles(0));
 
-        return Promise.resolve(result);
+        return new WorkspaceSymbolProvider(workspaces, resultReporter, params.query, token).reportSymbols();
     }
 
     protected async onHover(params: HoverParams, token: CancellationToken) {
@@ -1039,6 +1036,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             return;
         }
 
+        workspace.service.enumerateSourceFiles(0);
         return workspace.service.run((program) => {
             return new RenameProvider(program, uri, params.position, token).renameSymbol(
                 params.newName,
@@ -1072,6 +1070,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             return null;
         }
 
+        workspace.service.enumerateSourceFiles(0);
         return workspace.service.run((program) => {
             return new CallHierarchyProvider(program, uri, params.item.selectionRange.start, token).getIncomingCalls();
         }, token);
