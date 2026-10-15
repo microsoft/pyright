@@ -16460,9 +16460,13 @@ export function createTypeEvaluator(
                 return UnknownType.create();
             }
 
-            // Handle simple iterables.
+            // Handle iterables.
             const iterableType =
-                getTypeOfIterable(yieldFromTypeResult, /* isAsync */ false, node)?.type ?? UnknownType.create();
+                getTypeOfIterable(
+                    { type: yieldFromSubtype, isIncomplete: yieldFromTypeResult.isIncomplete },
+                    /* isAsync */ false,
+                    node
+                )?.type ?? UnknownType.create();
 
             // Does the iterable return a Generator?
             generatorTypeArgs = getGeneratorTypeArgs(iterableType);
