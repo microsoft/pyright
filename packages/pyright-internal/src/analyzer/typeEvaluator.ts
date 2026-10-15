@@ -398,6 +398,7 @@ import {
     AutomaticOverloadSelection,
     getFixedOverloadCoverage,
     hasNestedOverloadAny,
+    isAutomaticOverloadSeedSyntax,
     isFixedOverloadArgumentShape,
     isFixedOverloadReturnShape,
     OverloadCoverage,
@@ -10452,20 +10453,17 @@ export function createTypeEvaluator(
                     if (
                         evaluatorOptions.experimentalOverloadResult &&
                         !callResult.isTypeIncomplete &&
-                        !overload.priv.boundToType &&
-                        !overload.shared.methodClass &&
-                        !overload.shared.declaration?.isMethod &&
                         errorNode.nodeType === ParseNodeType.Call &&
-                        errorNode.d.leftExpr.nodeType === ParseNodeType.Name &&
-                        errorNode.parent?.nodeType === ParseNodeType.Assignment &&
-                        errorNode.parent.d.rightExpr === errorNode &&
+                        isAutomaticOverloadSeedSyntax(errorNode) &&
                         expandedArgTypes.length === 1 &&
-                        !hasArgTypeOverride &&
-                        callResult.argResults
+                        !hasArgTypeOverride
                     ) {
+                        const receiver = overload.priv.boundToType;
                         evaluatorOptions.experimentalOverloadResult.considerActivation(
                             errorNode,
-                            callResult.argResults
+                            receiver && isClassInstance(receiver)
+                                ? [{ argType: receiver }, ...(callResult.argResults ?? [])]
+                                : callResult.argResults ?? []
                         );
                     }
                     overloadsUsedForCall.push(overload);
@@ -10793,15 +10791,19 @@ export function createTypeEvaluator(
                 name: arg.d.name,
             }));
             const sources = node.d.args.map((arg) => getTypeOfExpression(arg.d.valueExpr));
+            const receiver =
+                node.d.leftExpr.nodeType === ParseNodeType.MemberAccess
+                    ? getTypeOfExpression(node.d.leftExpr.d.leftExpr)
+                    : undefined;
             if (
-                sources.some(
+                [...sources, ...(receiver ? [receiver] : [])].some(
                     (s) =>
                         s.isIncomplete || s.typeErrors || isAny(s.type) || !isFixedOverloadArgumentShape(s.type, budget)
                 )
             ) {
                 return decline('unsupported-argument-shape');
             }
-            if (!sources.some((s) => hasNestedOverloadAny(s.type))) {
+            if (![...sources, ...(receiver ? [receiver] : [])].some((s) => hasNestedOverloadAny(s.type))) {
                 return decline('no-invariant-any');
             }
             const returns: Type[] = [];
@@ -10811,11 +10813,26 @@ export function createTypeEvaluator(
                 const declaration = overload.shared.declaration;
                 const declaredReturnType = overload.shared.declaredReturnType;
                 const returnType = FunctionType.getEffectiveReturnType(overload);
+                const receiverParam = overload.priv.strippedFirstParamType;
+                const supportedBinding = receiver
+                    ? declaration?.isMethod &&
+                      FunctionType.isInstanceMethod(overload) &&
+                      overload.priv.boundToType &&
+                      isClassInstance(overload.priv.boundToType) &&
+                      receiverParam &&
+                      isClassInstance(receiverParam) &&
+                      isClassInstance(receiver.type) &&
+                      ClassType.isSameGenericClass(receiver.type, receiverParam) &&
+                      overload.shared.methodClass &&
+                      ClassType.isSameGenericClass(
+                          receiver.type,
+                          ClassType.cloneAsInstance(overload.shared.methodClass)
+                      ) &&
+                      isFixedOverloadArgumentShape(receiverParam, budget)
+                    : !declaration?.isMethod && !overload.shared.methodClass && !overload.priv.boundToType;
                 if (
                     !declaration ||
-                    declaration.isMethod ||
-                    overload.shared.methodClass ||
-                    overload.priv.boundToType ||
+                    !supportedBinding ||
                     overload.shared.typeParams.length ||
                     !declaredReturnType ||
                     !returnType ||
@@ -10872,6 +10889,9 @@ export function createTypeEvaluator(
                 const proof = mapping.argParams.map((p, i) =>
                     getFixedOverloadCoverage(sources[i].type, p.paramType, budget)
                 );
+                if (receiver && receiverParam) {
+                    proof.unshift(getFixedOverloadCoverage(receiver.type, receiverParam, budget));
+                }
                 const covered = proof.includes('unsupported')
                     ? 'unsupported'
                     : proof.includes('not-covered')
