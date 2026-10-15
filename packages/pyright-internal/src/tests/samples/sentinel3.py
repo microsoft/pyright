@@ -78,3 +78,10 @@ def func5(value: int | Empty | MISSING) -> None:
         reveal_type(value, expected_text="Empty")
     else:
         reveal_type(value, expected_text="int | MISSING")
+
+
+def func6(a: ClassA) -> None:
+    # Container inference must not widen the sentinel to a type that is
+    # no longer assignable to the member's declared type.
+    reveal_type([a.missing], expected_text="list[missing]")
+    a.missing = [a.missing][0]
