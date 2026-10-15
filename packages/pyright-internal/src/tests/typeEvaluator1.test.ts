@@ -541,7 +541,7 @@ test('TypeNarrowingIsinstance21', () => {
 test('TypeNarrowingIsinstance22', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance22.py']);
 
-    TestUtils.validateResults(analysisResults, 3, 0, 48);
+    TestUtils.validateResults(analysisResults, 3, 0, 68);
     assert.deepStrictEqual(
         analysisResults[0].errors
             .slice()

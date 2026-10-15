@@ -250,3 +250,78 @@ def test_tuple_alternatives(x: FinalClass | FinalClass2 | B, types: tuple[type[F
         reveal_type(x, expected_text="FinalClass | FinalClass2")
     else:
         reveal_type(x, expected_text="FinalClass | FinalClass2 | B")
+
+
+def test_runtime_union_none(x: int | str | None) -> int | None:
+    if isinstance(x, int | None):
+        reveal_type(x, expected_text="int | None")
+        return x
+    reveal_type(x, expected_text="str")
+    return None
+
+
+def test_runtime_union_none_type(x: int | str | None) -> int | None:
+    if isinstance(x, int | type(None)):
+        reveal_type(x, expected_text="int | None")
+        return x
+    reveal_type(x, expected_text="str")
+    return None
+
+
+def test_runtime_union_none_reversed(x: int | str | None):
+    if isinstance(x, None | int):
+        reveal_type(x, expected_text="int | None")
+    else:
+        reveal_type(x, expected_text="str")
+
+
+def test_nested_runtime_union_none(x: int | str | None):
+    if isinstance(x, ((int | None,),)):
+        reveal_type(x, expected_text="int | None")
+    else:
+        reveal_type(x, expected_text="str")
+
+
+def test_runtime_union_none_optional_tuple(x: int | str | None, extra: tuple[type[A], ...]):
+    if isinstance(x, (int | None, *extra)):
+        reveal_type(x, expected_text="int | None")
+    else:
+        reveal_type(x, expected_text="str")
+
+
+def test_runtime_union_none_issubclass(x: type[int] | type[str] | type[None]):
+    if issubclass(x, int | None):
+        reveal_type(x, expected_text="type[int] | type[None]")
+    else:
+        reveal_type(x, expected_text="type[str]")
+
+
+def test_runtime_union_none_reversed_issubclass(x: type[int] | type[str] | type[None]):
+    if issubclass(x, None | int):
+        reveal_type(x, expected_text="type[int] | type[None]")
+    else:
+        reveal_type(x, expected_text="type[str]")
+
+
+def test_runtime_union_none_type_issubclass(x: type[int] | type[str] | type[None]):
+    if issubclass(x, int | type(None)):
+        reveal_type(x, expected_text="type[int] | type[None]")
+    else:
+        reveal_type(x, expected_text="type[str]")
+
+
+def test_runtime_union_none_class_object(x: int | type[FinalClass] | None) -> int | None:
+    if isinstance(x, int | None):
+        reveal_type(x, expected_text="int | None")
+        return x
+    reveal_type(x, expected_text="type[FinalClass]")
+    return None
+
+
+def test_runtime_union_none_alternative(
+    x: FinalClass | FinalClass2 | B | None, cls: type[FinalClass] | type[FinalClass2]
+):
+    if isinstance(x, cls | None):
+        reveal_type(x, expected_text="FinalClass | FinalClass2 | None")
+    else:
+        reveal_type(x, expected_text="FinalClass | FinalClass2 | B")

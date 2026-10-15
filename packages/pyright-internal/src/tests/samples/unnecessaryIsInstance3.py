@@ -45,3 +45,10 @@ def test_disjoint_optional_tuple(x: B, cls: type[B], classes: tuple[type[A], ...
     isinstance(x, classes)
     # This should generate an error if reportUnnecessaryIsInstance is true.
     issubclass(cls, classes)
+
+
+def test_invalid_none(x: A, cls: type[A]):
+    # This should generate an error because None alone is not a class filter.
+    isinstance(x, None)
+    # This should generate an error because None alone is not a class filter.
+    issubclass(cls, None)

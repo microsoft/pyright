@@ -1503,9 +1503,22 @@ export function getIsInstanceClassTypes(
                 !customMetaclassSupportsMethod(leftType, '__or__') &&
                 !customMetaclassSupportsMethod(rightType, '__ror__')
             ) {
-                addClassTypesRecursive(leftType, isAmbiguous, isUnboundedEntry, recursionCount, expression.d.leftExpr);
+                // Match the union evaluator's normalization of None operands to NoneType.
+                const adjustedLeftType = isNoneInstance(leftType)
+                    ? convertToInstantiable(evaluator.getNoneType())
+                    : leftType;
+                const adjustedRightType = isNoneInstance(rightType)
+                    ? convertToInstantiable(evaluator.getNoneType())
+                    : rightType;
                 addClassTypesRecursive(
-                    rightType,
+                    adjustedLeftType,
+                    isAmbiguous,
+                    isUnboundedEntry,
+                    recursionCount,
+                    expression.d.leftExpr
+                );
+                addClassTypesRecursive(
+                    adjustedRightType,
                     isAmbiguous,
                     isUnboundedEntry,
                     recursionCount,

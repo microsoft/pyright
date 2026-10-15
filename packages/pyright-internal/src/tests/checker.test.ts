@@ -284,18 +284,36 @@ test('UnnecessaryIsInstance3', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0, 0, 2);
+    TestUtils.validateResults(analysisResults, 4, 0, 2);
+    expect(
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+    ).toEqual([
+        [52, DiagnosticRule.reportArgumentType],
+        [52, DiagnosticRule.reportArgumentType],
+        [54, DiagnosticRule.reportArgumentType],
+        [54, DiagnosticRule.reportArgumentType],
+    ]);
 
     configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 4, 0, 2);
+    TestUtils.validateResults(analysisResults, 8, 0, 2);
     expect(
-        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
     ).toEqual([
         [38, DiagnosticRule.reportUnnecessaryIsInstance],
         [40, DiagnosticRule.reportUnnecessaryIsInstance],
         [45, DiagnosticRule.reportUnnecessaryIsInstance],
         [47, DiagnosticRule.reportUnnecessaryIsInstance],
+        [52, DiagnosticRule.reportArgumentType],
+        [52, DiagnosticRule.reportArgumentType],
+        [54, DiagnosticRule.reportArgumentType],
+        [54, DiagnosticRule.reportArgumentType],
     ]);
 });
 
