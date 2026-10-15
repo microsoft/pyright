@@ -5088,6 +5088,13 @@ class UnreachableNameBinder extends ParseTreeWalker {
         }
         return false;
     }
+
+    override visitPatternMappingExpandEntry(node: PatternMappingExpandEntryNode): boolean {
+        if (node.d.target.d.value !== '_') {
+            this._bindName(node.d.target);
+        }
+        return false;
+    }
 }
 
 // Creates dummy scopes for classes or functions within a parse tree.

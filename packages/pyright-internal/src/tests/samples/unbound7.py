@@ -128,6 +128,18 @@ def example_with_unreachable_wildcard_pattern():
             pass
 
 
+mapping_rest_var = "global"
+
+
+def example_with_unreachable_mapping_rest_capture():
+    # This should generate an error because the mapping rest capture makes
+    # mapping_rest_var a local.
+    return mapping_rest_var
+    match {}:
+        case {**mapping_rest_var}:
+            pass
+
+
 class ClassWithUnreachableAssignment:
     if False:
         dead_attr = 1
