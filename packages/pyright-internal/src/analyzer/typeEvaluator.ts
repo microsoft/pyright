@@ -7443,33 +7443,32 @@ export function createTypeEvaluator(
                 // its original call signatures, including all overloads.
                 descriptorReturnType = wrappedCallableType;
             }
-            if (usage.method === 'get' && wrappedCallableType && isFunction(descriptorReturnType)) {
-                // Preserve the wrapper's attributes with the bound call signature.
-                const boundCallType = descriptorReturnType;
-                const callType = FunctionType.createSynthesizedInstance('__call__');
-                FunctionType.addParam(
-                    callType,
-                    FunctionParam.create(
-                        ParamCategory.Simple,
-                        wrappedCallableType,
-                        FunctionParamFlags.TypeDeclared,
-                        'self'
-                    )
+            if (
+                usage.method === 'get' &&
+                wrappedCallableType &&
+                ClassType.isBuiltIn(concreteMemberType, 'classmethod')
+            ) {
+                const callMember = getTypeOfBoundMember(
+                    errorNode,
+                    wrappedCallableType,
+                    '__call__',
+                    /* usage */ undefined,
+                    /* diag */ undefined,
+                    MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
                 );
-                boundCallType.shared.parameters.forEach((param, index) => {
-                    FunctionType.addParam(
-                        callType,
-                        FunctionParam.create(
-                            param.category,
-                            FunctionType.getParamType(boundCallType, index),
-                            param.flags,
-                            param.name,
-                            FunctionType.getParamDefaultType(boundCallType, index)
-                        )
+                if (callMember && isFunctionOrOverloaded(callMember.type)) {
+                    // Bind the owner to every original signature, retaining overloads
+                    // and method-scoped type variables along with wrapper attributes.
+                    const ownerType = isInstantiableClass(classType)
+                        ? classType
+                        : ClassType.cloneAsInstantiable(classType);
+                    const callType = mapSignatures(callMember.type, (signature) =>
+                        partiallySpecializeBoundMethod(wrappedCallableType, signature, diag, 0, ownerType)
                     );
-                });
-                callType.shared.declaredReturnType = FunctionType.getEffectiveReturnType(boundCallType);
-                descriptorReturnType = ClassType.cloneForPartial(wrappedCallableType, callType);
+                    if (callType) {
+                        descriptorReturnType = ClassType.cloneForPartial(wrappedCallableType, callType);
+                    }
+                }
             }
             return {
                 // For set or delete, always return Any.

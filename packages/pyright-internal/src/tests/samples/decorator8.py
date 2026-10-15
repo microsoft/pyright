@@ -161,3 +161,80 @@ class InheritedExample(GenericExample[int]):
 reveal_type(InheritedExample.method(1), expected_text="int")
 reveal_type(InheritedExample.method.value, expected_text="int")
 reveal_type(InheritedExample().class_method.value, expected_text="int")
+
+
+class BoundOverloadedWrapper(Protocol):
+    @overload
+    def __call__(self, value: int) -> int: ...
+
+    @overload
+    def __call__(self, value: str) -> str: ...
+
+
+class DescriptorOverloadedWrapper(Protocol):
+    value: str
+
+    @overload
+    def __call__(self, owner: type[object], value: int) -> int: ...
+
+    @overload
+    def __call__(self, owner: type[object], value: str) -> str: ...
+
+    def __get__(self, instance: object, owner: type[object] | None = None) -> BoundOverloadedWrapper: ...
+
+
+def decorate_descriptor_overloaded(func: Callable[..., object]) -> DescriptorOverloadedWrapper: ...
+
+
+class DescriptorOverloadedExample:
+    @classmethod
+    @decorate_descriptor_overloaded
+    def method(cls, value: int | str) -> int | str:
+        return value
+
+
+reveal_type(DescriptorOverloadedExample.method(1), expected_text="int")
+reveal_type(DescriptorOverloadedExample.method("text"), expected_text="str")
+reveal_type(DescriptorOverloadedExample().method(1), expected_text="int")
+reveal_type(DescriptorOverloadedExample().method("text"), expected_text="str")
+reveal_type(DescriptorOverloadedExample.method.value, expected_text="str")
+
+# This should generate two errors because neither overload accepts a float.
+DescriptorOverloadedExample.method(1.5)
+
+
+class BoundGenericWrapper(Protocol):
+    def __call__(self, func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R: ...
+
+
+class DescriptorGenericWrapper(Protocol):
+    def __call__(self, owner: type[object], func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R: ...
+
+    def __get__(self, instance: object, owner: type[object] | None = None) -> BoundGenericWrapper: ...
+
+
+def decorate_descriptor_generic(func: Callable[..., object]) -> DescriptorGenericWrapper: ...
+
+
+class DescriptorGenericExample:
+    @classmethod
+    @decorate_descriptor_generic
+    def method(cls, func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+        return func(*args, **kwargs)
+
+
+def format_value(value: int, *, label: str) -> str:
+    return label + str(value)
+
+
+reveal_type(DescriptorGenericExample.method(format_value, 1, label="n="), expected_text="str")
+reveal_type(DescriptorGenericExample().method(format_value, 1, label="n="), expected_text="str")
+
+# This should generate an error because label is required.
+DescriptorGenericExample.method(format_value, 1)
+
+# This should generate an error because value must be an int.
+DescriptorGenericExample.method(format_value, "invalid", label="n=")
+
+# This should generate an error because label must be a str.
+DescriptorGenericExample.method(format_value, 1, label=1)
