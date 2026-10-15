@@ -56,12 +56,11 @@ New assertion failures must not be blamed on stubs without inspecting the releva
 declarations. The agent cannot execute reproductions and must label static reasoning
 and proposed follow-up checks accordingly.
 
-When the only changed project is the canonical `sympy` project, the comment is a
-short notice that treats these differences as non-blocking primer noise. It keeps
-the recorded counts and full-report link instead of presenting a regression table.
-This is a reporting policy, not proof that the checker change is harmless. The
-complete validated analysis remains in the artifact, and mixed-project runs retain
-their normal per-project analysis, including SymPy.
+SymPy differences receive the same investigation and reporting as other projects,
+including when SymPy is the only changed project. Potential regressions, warning
+signals, and unresolved investigations remain visible in the PR comment rather
+than being replaced with a noise notice. Attribution still requires evidence;
+appearing in a primer diff alone does not establish that the PR caused a change.
 
 ## Manual previews
 

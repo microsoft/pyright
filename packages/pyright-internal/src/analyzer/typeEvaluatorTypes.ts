@@ -681,6 +681,11 @@ export const enum AssignTypeFlags {
     // When assigning callables, should a kwargs with an unpacked TypedDict
     // disallow additional named arguments if it does not have extraItems?
     DisallowExtraKwargsForTd = 1 << 17,
+
+    // Reject a cyclic TypeVar lower bound even when no constraint tracker
+    // records it. Overload consistency validation uses this when comparing
+    // return types.
+    RejectCyclicLowerBound = 1 << 18,
 }
 
 export interface TypeEvaluator {
