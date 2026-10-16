@@ -25,7 +25,6 @@ import {
     CompletionItem,
     CompletionList,
     CompletionParams,
-    CompletionTriggerKind,
     ConfigurationItem,
     Connection,
     Declaration,
@@ -174,8 +173,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     private _progressReporter: ProgressReporter;
     private _progressReportCounter = 0;
-
-    private _lastTriggerKind: CompletionTriggerKind | undefined = CompletionTriggerKind.Invoked;
 
     private _initialized = false;
     private _workspaceFoldersChangedDisposable: Disposable | undefined;
@@ -932,26 +929,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }, token);
     }
 
-    protected setCompletionIncomplete(params: CompletionParams, completions: CompletionList | null) {
-        // We set completion incomplete for the first invocation and next consecutive call,
-        // but after that we mark it as completed so the client doesn't repeatedly call back.
-        // We mark the first one as incomplete because completion could be invoked without
-        // any meaningful character provided, such as an explicit completion invocation (ctrl+space)
-        // or a period. That might cause us to not include some items (e.g., auto-imports).
-        // The next consecutive call provides some characters to help us to pick
-        // better completion items. After that, we are not going to introduce new items,
-        // so we can let the client to do the filtering and caching.
-        const completionIncomplete =
-            this._lastTriggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions ||
-            params.context?.triggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions;
-
-        this._lastTriggerKind = params.context?.triggerKind;
-
-        if (completions) {
-            completions.isIncomplete = completionIncomplete;
-        }
-    }
-
     protected async onCompletion(params: CompletionParams, token: CancellationToken): Promise<CompletionList | null> {
         const uri = this.convertLspUriStringToUri(params.textDocument.uri);
         const workspace = await this.getWorkspaceForFile(uri);
@@ -974,7 +951,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 token
             ).getCompletions();
 
-            this.setCompletionIncomplete(params, completions);
             return completions;
         }, token);
     }
