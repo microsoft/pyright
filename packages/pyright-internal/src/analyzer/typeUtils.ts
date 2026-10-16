@@ -2874,6 +2874,29 @@ export function combineTupleTypeArgs(typeArgs: TupleTypeArg[]): Type {
     return combineTypes(typesToCombine);
 }
 
+// Replaces each unpacked TypeVar whose upper bound is a tuple with the
+// entries of that bound.
+export function expandUnpackedTypeVarsInTupleArgs(typeArgs: TupleTypeArg[]): TupleTypeArg[] {
+    const expandedTypeArgs: TupleTypeArg[] = [];
+
+    typeArgs.forEach((t) => {
+        if (
+            isUnpackedTypeVar(t.type) &&
+            t.type.shared.boundType &&
+            isClassInstance(t.type.shared.boundType) &&
+            isTupleClass(t.type.shared.boundType) &&
+            t.type.shared.boundType.priv.tupleTypeArgs
+        ) {
+            expandedTypeArgs.push(...t.type.shared.boundType.priv.tupleTypeArgs);
+            return;
+        }
+
+        expandedTypeArgs.push(t);
+    });
+
+    return expandedTypeArgs;
+}
+
 // Tuples require special handling for specialization. This method computes
 // the "effective" type argument, which is a union of the variadic type
 // arguments.
