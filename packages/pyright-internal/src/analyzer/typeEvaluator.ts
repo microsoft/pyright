@@ -10401,6 +10401,7 @@ export function createTypeEvaluator(
         const returnTypes: Type[] = [];
         const specializedInitSelfTypes: Type[] = [];
         let matchedOverloads: MatchedOverloadInfo[] = [];
+        let firstMatchForFinalValidation: MatchedOverloadInfo | undefined;
         let isTypeIncomplete = false;
         let overloadsUsedForCall: FunctionType[] = [];
         let isDefinitiveMatchFound = false;
@@ -10450,6 +10451,17 @@ export function createTypeEvaluator(
                 }
 
                 if (!callResult.argumentErrors && callResult.returnType) {
+                    // A context can introduce nested Unknowns while inferring a literal.
+                    // Keep that candidate provisional so a later overload can infer it
+                    // more precisely. Preserve the existing handling of expanded unions.
+                    const nestedUnknownArg =
+                        expandedArgTypes.length === 1
+                            ? callResult.argResults?.find((argResult) => isPartlyUnknown(argResult.argType))?.argType
+                            : undefined;
+                    const anyOrUnknownArg =
+                        callResult.anyOrUnknownArg ??
+                        (nestedUnknownArg ? containsAnyOrUnknown(nestedUnknownArg, /* recurse */ true) : undefined);
+
                     if (
                         evaluatorOptions.experimentalOverloadResult &&
                         !callResult.isTypeIncomplete &&
@@ -10478,11 +10490,11 @@ export function createTypeEvaluator(
                     };
                     matchedOverloads.push(matchedOverloadInfo);
 
-                    if (callResult.anyOrUnknownArg || matchResults.unpackedArgOfUnknownLength) {
+                    if (anyOrUnknownArg || matchResults.unpackedArgOfUnknownLength) {
                         possibleMatchResults.push(matchedOverloadInfo);
 
-                        if (callResult.anyOrUnknownArg) {
-                            if (isIncompleteUnknown(callResult.anyOrUnknownArg)) {
+                        if (anyOrUnknownArg) {
+                            if (isIncompleteUnknown(anyOrUnknownArg)) {
                                 possibleMatchInvolvesIncompleteUnknown = true;
                             }
                         }
@@ -10508,6 +10520,9 @@ export function createTypeEvaluator(
                             );
                         }
                         isDefinitiveMatchFound = true;
+                        if (expandedTypesIndex === 0) {
+                            firstMatchForFinalValidation = matchedOverloadInfo;
+                        }
                         break;
                     }
                 }
@@ -10613,13 +10628,15 @@ export function createTypeEvaluator(
 
         // And run through the first expanded argument list one more time to
         // populate the type cache, without applying a different branch's constraints.
+        // A possible match can precede a definitive match, so use the selected
+        // match for the first argument list rather than the first candidate seen.
+        const firstMatch =
+            expandedArgTypes.length === 1 ? firstMatchForFinalValidation ?? matchedOverloads[0] : matchedOverloads[0];
         const finalConstraints =
-            expandedArgTypes.length > 1
-                ? matchedOverloads[0].constraints
-                : constraints ?? matchedOverloads[0].constraints;
+            expandedArgTypes.length > 1 ? firstMatch.constraints : constraints ?? firstMatch.constraints;
         const finalCallResult = validateArgTypesWithContext(
             errorNode,
-            matchedOverloads[0].matchResults,
+            firstMatch.matchResults,
             finalConstraints,
             skipUnknownArgCheck,
             inferenceContext

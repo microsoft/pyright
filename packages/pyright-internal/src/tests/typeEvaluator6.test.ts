@@ -222,6 +222,19 @@ test('OverloadCall14', () => {
     );
 });
 
+test('OverloadCall15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall15.py']);
+    TestUtils.validateResults(analysisResults, 3);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [41, DiagnosticRule.reportArgumentType],
+            [41, DiagnosticRule.reportCallIssue],
+            [41, DiagnosticRule.reportArgumentType],
+        ]
+    );
+});
+
 test('OverloadOverride1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverride1.py']);
     TestUtils.validateResults(analysisResults, 1);
