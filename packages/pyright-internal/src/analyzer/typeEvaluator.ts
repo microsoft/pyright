@@ -11891,7 +11891,7 @@ export function createTypeEvaluator(
                 }
 
                 // Validate the constructor arguments.
-                validateConstructorArgs(
+                const constructorResult = validateConstructorArgs(
                     evaluatorInterface,
                     errorNode,
                     argList,
@@ -11938,7 +11938,11 @@ export function createTypeEvaluator(
                         ]);
                     });
 
-                    return { returnType, isTypeIncomplete: argTypeResult.isIncomplete };
+                    return {
+                        returnType,
+                        isTypeIncomplete: argTypeResult.isIncomplete,
+                        argumentErrors: constructorResult.argumentErrors,
+                    };
                 }
 
                 if (argList.length >= 2) {
@@ -11946,12 +11950,13 @@ export function createTypeEvaluator(
                     // built from the specified base types.
                     return {
                         returnType: createClassFromMetaclass(errorNode, argList, expandedCallType) || AnyType.create(),
+                        argumentErrors: constructorResult.argumentErrors,
                     };
                 }
 
                 // If the parameter to type() is not statically known,
                 // fall back to Any.
-                return { returnType: AnyType.create() };
+                return { returnType: AnyType.create(), argumentErrors: constructorResult.argumentErrors };
             }
 
             if (className === 'TypeVar') {
