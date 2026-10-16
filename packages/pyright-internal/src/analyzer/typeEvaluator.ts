@@ -16464,10 +16464,11 @@ export function createTypeEvaluator(
     function getTypeOfYieldFrom(node: YieldFromNode): TypeResult {
         const yieldFromTypeResult = getTypeOfExpression(node.d.expr);
         const yieldFromType = yieldFromTypeResult.type;
+        let isIterablesHandled = false;
 
         const returnedType = mapSubtypes(yieldFromType, (yieldFromSubtype) => {
             // Is the expression a Generator type?
-            let generatorTypeArgs = getGeneratorTypeArgs(yieldFromSubtype);
+            const generatorTypeArgs = getGeneratorTypeArgs(yieldFromSubtype);
             if (generatorTypeArgs) {
                 return generatorTypeArgs.length >= 2 ? generatorTypeArgs[2] : UnknownType.create();
             }
@@ -16480,13 +16481,23 @@ export function createTypeEvaluator(
                 return UnknownType.create();
             }
 
-            // Handle simple iterables.
-            const iterableType =
-                getTypeOfIterable(yieldFromTypeResult, /* isAsync */ false, node)?.type ?? UnknownType.create();
+            // Handle iterable(s) once.
+            if (!isIterablesHandled) {
+                isIterablesHandled = true;
+                const iterableType =
+                    getTypeOfIterable(yieldFromTypeResult, /* isAsync */ false, node)?.type ?? UnknownType.create();
 
-            // Does the iterable return a Generator?
-            generatorTypeArgs = getGeneratorTypeArgs(iterableType);
-            return generatorTypeArgs && generatorTypeArgs.length >= 2 ? generatorTypeArgs[2] : UnknownType.create();
+                // Does the iterable return Generator(s)?
+                return mapSubtypes(iterableType, (iterableSubType) => {
+                    const generatorTypeArgs = getGeneratorTypeArgs(iterableSubType);
+                    return generatorTypeArgs && generatorTypeArgs.length >= 2
+                        ? generatorTypeArgs[2]
+                        : UnknownType.create();
+                });
+            } else {
+                // will be eliminated by combine phase of mapSubtypes
+                return NeverType.createNever();
+            }
         });
 
         return { type: returnedType };
