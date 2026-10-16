@@ -1223,7 +1223,10 @@ export function assignTypedDictToTypedDict(
                 }
             }
         } else {
-            if (destEntry.isRequired !== srcEntry.isRequired && !destEntry.isReadOnly) {
+            if (
+                destEntry.isRequired !== srcEntry.isRequired &&
+                (!destEntry.isReadOnly || destEntry.isRequired)
+            ) {
                 const message = destEntry.isRequired
                     ? LocAddendum.typedDictFieldRequired()
                     : LocAddendum.typedDictFieldNotRequired();
