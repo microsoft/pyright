@@ -235,6 +235,11 @@ test('OverloadCall15', () => {
     );
 });
 
+test('OverloadCall16', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall16.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('OverloadOverride1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverride1.py']);
     TestUtils.validateResults(analysisResults, 1);

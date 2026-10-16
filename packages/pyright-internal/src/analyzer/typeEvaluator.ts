@@ -10453,10 +10453,23 @@ export function createTypeEvaluator(
                 if (!callResult.argumentErrors && callResult.returnType) {
                     // A context can introduce nested Unknowns while inferring a literal.
                     // Keep that candidate provisional so a later overload can infer it
-                    // more precisely. Preserve the existing handling of expanded unions.
+                    // more precisely. Do not treat Unknowns introduced while contextually
+                    // typing other expressions (such as an unannotated lambda parameter)
+                    // as evidence that the candidate is provisional. Preserve the existing
+                    // handling of expanded unions.
                     const nestedUnknownArg =
                         expandedArgTypes.length === 1
-                            ? callResult.argResults?.find((argResult) => isPartlyUnknown(argResult.argType))?.argType
+                            ? callResult.argResults?.find((argResult, argIndex) => {
+                                  const valueExpression = matchResults.argParams[argIndex]?.argument.valueExpression;
+                                  return (
+                                      valueExpression !== undefined &&
+                                      (valueExpression.nodeType === ParseNodeType.List ||
+                                          valueExpression.nodeType === ParseNodeType.Set ||
+                                          valueExpression.nodeType === ParseNodeType.Dictionary ||
+                                          valueExpression.nodeType === ParseNodeType.Tuple) &&
+                                      isPartlyUnknown(argResult.argType)
+                                  );
+                              })?.argType
                             : undefined;
                     const anyOrUnknownArg =
                         callResult.anyOrUnknownArg ??
