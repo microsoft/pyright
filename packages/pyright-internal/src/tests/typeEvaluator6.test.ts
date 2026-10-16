@@ -20,6 +20,7 @@ import {
     pythonVersion3_12,
     pythonVersion3_13,
     pythonVersion3_8,
+    pythonVersion3_9,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
@@ -1398,6 +1399,20 @@ test('Decorator8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator8.py']);
 
     TestUtils.validateResults(analysisResults, 12);
+});
+
+test.each([
+    ['3.8', pythonVersion3_8],
+    ['3.9', pythonVersion3_9],
+    ['3.11', pythonVersion3_11],
+    ['3.12', pythonVersion3_12],
+    ['3.13', pythonVersion3_13],
+])('Decorator9 (Python %s)', (_version, pythonVersion) => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator9.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('DisjointBase1', () => {

@@ -7196,7 +7196,8 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         memberName: string,
         usage: EvaluatorUsage,
-        diag: DiagnosticAddendum | undefined
+        diag: DiagnosticAddendum | undefined,
+        bindToClass = false
     ): MemberAccessTypeResult {
         const isAccessedThroughObject = TypeBase.isInstance(classType);
 
@@ -7369,6 +7370,11 @@ export function createTypeEvaluator(
                 classArgType = isAccessedThroughObject ? ClassType.cloneAsInstantiable(classType) : classType;
             }
 
+            if (bindToClass) {
+                // classmethod passes the owner as both "obj" and "owner".
+                argList[0].typeResult = { type: classArgType };
+            }
+
             // Provide "owner" argument.
             argList.push({
                 argCategory: ArgCategory.Simple,
@@ -7448,6 +7454,28 @@ export function createTypeEvaluator(
                 wrappedCallableType &&
                 ClassType.isBuiltIn(concreteMemberType, 'classmethod')
             ) {
+                const pythonVersion = nodeInfo.getFileInfo(errorNode).executionEnvironment.pythonVersion;
+                if (
+                    PythonVersion.isGreaterOrEqualTo(pythonVersion, pythonVersion3_9) &&
+                    PythonVersion.isLessThan(pythonVersion, pythonVersion3_13) &&
+                    lookUpClassMember(wrappedCallableType, '__get__')
+                ) {
+                    // Python 3.9-3.12 delegates to the wrapped descriptor with the
+                    // owner class as both arguments, even for instance access.
+                    return applyDescriptorAccessMethod(
+                        wrappedCallableType,
+                        wrappedCallableType,
+                        memberInfo,
+                        classType,
+                        selfType,
+                        flags,
+                        errorNode,
+                        memberName,
+                        usage,
+                        diag,
+                        /* bindToClass */ true
+                    );
+                }
                 const callMember = getTypeOfBoundMember(
                     errorNode,
                     wrappedCallableType,
