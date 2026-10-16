@@ -33,8 +33,9 @@ def func4(x: int | str):
         reveal_type(x, expected_text="int | str")
 
 def func5(x: int | str, cls: type[int]):
+    # A subclass supplied through cls can customize metaclass equality.
     if type(x) == cls:
-        reveal_type(x, expected_text="int")
+        reveal_type(x, expected_text="int | str")
     else:
         reveal_type(x, expected_text="int | str")
 
@@ -125,17 +126,17 @@ def func14(x: int | str, cls: type[int]):
         reveal_type(x, expected_text="int")
 
     if cls == type(x):
-        reveal_type(x, expected_text="int")
+        reveal_type(x, expected_text="int | str")
 
     if cls != type(x):
         reveal_type(x, expected_text="int | str")
     else:
-        reveal_type(x, expected_text="int")
+        reveal_type(x, expected_text="int | str")
 
     if type(x) != cls:
         reveal_type(x, expected_text="int | str")
     else:
-        reveal_type(x, expected_text="int")
+        reveal_type(x, expected_text="int | str")
 
 
 def func15(x: int | str):

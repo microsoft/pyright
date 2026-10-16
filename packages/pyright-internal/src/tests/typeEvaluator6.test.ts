@@ -322,6 +322,22 @@ test('TypeIs6', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeIs7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs7.py']);
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportReturnType);
+});
+
+test('TypeIs8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs8.py']);
+    TestUtils.validateResults(analysisResults, 3);
+    assert.ok(
+        analysisResults[0].errors.every(
+            (diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAttributeAccessIssue
+        )
+    );
+});
+
 test('Never1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['never1.py']);
 

@@ -1,5 +1,6 @@
 # This sample exercises the type analyzer's type narrowing
 # logic for tests of the form "type(X) == Y" or "type(X) != Y".
+# Open subclass hierarchies do not establish identity-based metaclass equality.
 
 from typing import Any, Generic, TypeVar, final
 
@@ -11,7 +12,7 @@ def func1(a: str | int) -> int:
         return a
 
     # This should generate an error because
-    # "a" is provably type str at this point.
+    # class equality does not eliminate either alternative.
     return a
 
 
@@ -20,7 +21,7 @@ def func2(a: str | None) -> str:
         return a
 
     # This should generate an error because
-    # "a" is provably type str at this point.
+    # "a" can still be None.
     return a
 
 
@@ -42,7 +43,7 @@ class B(A):
 
 def func4(a: str | A):
     if type(a) == B:
-        reveal_type(a, expected_text="B")
+        reveal_type(a, expected_text="str | A")
     else:
         reveal_type(a, expected_text="str | A")
 
@@ -64,7 +65,7 @@ E = C[T] | D
 
 def func5(x: E[T]) -> None:
     if type(x) == C:
-        reveal_type(x, expected_text="C[T@func5]")
+        reveal_type(x, expected_text="C[T@func5] | D")
 
 
 @final
@@ -86,11 +87,11 @@ def func6(val: AFinal | BFinal) -> None:
 
 def func7(val: Any):
     if type(val) == int:
-        reveal_type(val, expected_text="int")
+        reveal_type(val, expected_text="Any")
     else:
         reveal_type(val, expected_text="Any")
 
-    reveal_type(val, expected_text="int | Any")
+    reveal_type(val, expected_text="Any")
 
 
 class CParent: ...
@@ -104,7 +105,7 @@ _TC = TypeVar("_TC", bound=CParent)
 
 def func8(a: _TC, b: _TC) -> _TC:
     if type(a) == CChild:
-        reveal_type(a, expected_text="CChild*")
+        reveal_type(a, expected_text="_TC@func8")
         return a
-    reveal_type(a, expected_text="CParent*")
+    reveal_type(a, expected_text="_TC@func8")
     return a
