@@ -648,6 +648,10 @@ export class SourceFile {
         return this._writableData.isBindingNeeded;
     }
 
+    isBindingInProgress() {
+        return this._writableData.isBindingInProgress;
+    }
+
     isCheckingRequired() {
         return this._writableData.isCheckingNeeded;
     }
