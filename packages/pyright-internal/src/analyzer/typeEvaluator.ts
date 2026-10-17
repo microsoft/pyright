@@ -16160,7 +16160,7 @@ export function createTypeEvaluator(
         node.d.items.forEach((entry) => {
             let entryTypeResult: TypeResult;
 
-            if (entry.nodeType === ParseNodeType.Comprehension) {
+            if (entry.nodeType === ParseNodeType.Comprehension && !entry.d.isGenerator) {
                 entryTypeResult = getElementTypeFromComprehension(
                     entry,
                     flags | EvalFlags.StripTupleLiterals,
