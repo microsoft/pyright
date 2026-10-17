@@ -804,6 +804,14 @@ test('MatchClass13', () => {
     }
 });
 
+test('MatchClassSubclass', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClassSubclass.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MatchValue1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
