@@ -2243,7 +2243,9 @@ export function createTypeEvaluator(
 
         return mapSubtypes(type, (subtype) => {
             if (isClass(subtype)) {
-                if (subtype.priv.literalValue !== undefined) {
+                // A sentinel's class has exactly one instance, so the literal type
+                // of a sentinel object is never narrower than its stripped form.
+                if (subtype.priv.literalValue !== undefined && !isSentinelLiteral(subtype)) {
                     subtype = ClassType.cloneWithLiteral(subtype, /* value */ undefined);
                 }
 
@@ -11924,7 +11926,12 @@ export function createTypeEvaluator(
                                 }
                             }
 
-                            return convertToInstantiable(stripLiteralValue(subtype));
+                            // stripLiteralValue retains sentinel literals, but type() of a
+                            // sentinel evaluates to its class, not the sentinel object.
+                            const classSubtype = isSentinelLiteral(subtype)
+                                ? ClassType.cloneWithLiteral(subtype, /* value */ undefined)
+                                : stripLiteralValue(subtype);
+                            return convertToInstantiable(classSubtype);
                         }
 
                         if (TypeBase.isInstance(subtype)) {
