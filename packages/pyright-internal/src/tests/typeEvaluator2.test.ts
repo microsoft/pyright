@@ -258,6 +258,26 @@ test('Super13', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Super14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super14.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+    expect(analysisResults[0].errors.map((diagnostic) => diagnostic.getRule())).toEqual(
+        Array(8).fill('reportAttributeAccessIssue')
+    );
+    expect(analysisResults[0].errors.map((diagnostic) => diagnostic.range.start.line + 1)).toEqual([
+        36, 39, 42, 45, 48, 51, 54, 83,
+    ]);
+});
+
+test('Super14Disabled', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportAttributeAccessIssue = 'none';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super14.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MissingSuper1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
