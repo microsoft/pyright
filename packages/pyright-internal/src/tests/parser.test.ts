@@ -545,3 +545,42 @@ test('LazyImport - submoduleFallback AliasDeclaration carries isLazy', () => {
     assert.ok(eagerSubAliasDecl.submoduleFallback);
     assert.ok(!(eagerSubAliasDecl.submoduleFallback as AliasDeclaration).isLazy);
 });
+
+test('Unpack in comprehension is legal in Python 3.15', () => {
+    const snippets = [
+        '[*range(x) for x in range(5)]\n',
+        '{*xs for xs in items}\n',
+        '(*xs for xs in items)\n',
+        '[*xs async for xs in items]\n',
+    ];
+
+    for (const snippet of snippets) {
+        const diagSink = new DiagnosticSink();
+        const parseOptions = new ParseOptions();
+        parseOptions.pythonVersion = pythonVersion3_15;
+
+        const parserOutput = TestUtils.parseText(snippet, diagSink, parseOptions).parserOutput;
+        assert.strictEqual(diagSink.getErrors().length, 0, `Unexpected error for: ${snippet.trim()}`);
+
+        const stmt0 = parserOutput.parseTree.d.statements[0] as StatementListNode;
+        const expr = stmt0.d.statements[0];
+        const comp =
+            expr.nodeType === ParseNodeType.List || expr.nodeType === ParseNodeType.Set ? expr.d.items[0] : expr;
+        assert.strictEqual(comp.nodeType, ParseNodeType.Comprehension, snippet.trim());
+        if (comp.nodeType === ParseNodeType.Comprehension) {
+            assert.strictEqual(comp.d.expr.nodeType, ParseNodeType.Unpack, snippet.trim());
+        }
+    }
+});
+
+test('Unpack in comprehension is still rejected before Python 3.15', () => {
+    const diagSink = new DiagnosticSink();
+    const parseOptions = new ParseOptions();
+    parseOptions.pythonVersion = pythonVersion3_14;
+
+    TestUtils.parseText('[*range(x) for x in range(5)]\n', diagSink, parseOptions);
+
+    const errors = diagSink.getErrors();
+    assert.strictEqual(errors.length, 1);
+    assert.strictEqual(errors[0].message, LocMessage.unpackIllegalInComprehension());
+});

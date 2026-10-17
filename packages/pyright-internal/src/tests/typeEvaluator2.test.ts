@@ -1019,3 +1019,10 @@ test('Sentinel2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
 });
+
+test('ComprehensionUnpack1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_15;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['comprehensionUnpack1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
