@@ -1891,7 +1891,10 @@ export class Parser {
         }
 
         if (target.nodeType === ParseNodeType.Unpack) {
-            this._addSyntaxError(LocMessage.unpackIllegalInComprehension(), target);
+            // PEP 798 allows a starred comprehension element in Python 3.15.
+            if (PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_15)) {
+                this._addSyntaxError(LocMessage.unpackIllegalInComprehension(), target);
+            }
         } else if (target.nodeType === ParseNodeType.DictionaryExpandEntry) {
             this._addSyntaxError(LocMessage.dictExpandIllegalInComprehension(), target);
         }
