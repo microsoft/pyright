@@ -1042,6 +1042,7 @@ export interface AssignmentExpressionNode extends ParseNodeBase<ParseNodeType.As
         walrusToken: Token;
         rightExpr: ExpressionNode;
         hasParens: boolean;
+        isWalrusSyntaxError: boolean;
     };
 }
 
@@ -1059,6 +1060,7 @@ export namespace AssignmentExpressionNode {
                 walrusToken,
                 rightExpr,
                 hasParens: false,
+                isWalrusSyntaxError: false,
             },
         };
 
