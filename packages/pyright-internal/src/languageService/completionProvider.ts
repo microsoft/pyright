@@ -57,6 +57,7 @@ import {
     isFunctionOrOverloaded,
     isInstantiableClass,
     isModule,
+    isOverloadResult,
     isUnknown,
     Type,
     TypeBase,
@@ -906,7 +907,10 @@ export class CompletionProvider {
             leftType = this.evaluator.makeTopLevelTypeVarsConcrete(leftType.priv.possibleType);
         }
 
-        doForEachSubtype(leftType, (subtype) => {
+        // Member availability follows the retained witnesses; keep the
+        // canonical value intact for subsequent hover and evaluator queries.
+        const memberType = isOverloadResult(leftType) ? combineTypes([...leftType.priv.candidates]) : leftType;
+        doForEachSubtype(memberType, (subtype) => {
             subtype = this.evaluator.makeTopLevelTypeVarsConcrete(subtype);
             let resolvedClassSubtype: ClassType | undefined;
 

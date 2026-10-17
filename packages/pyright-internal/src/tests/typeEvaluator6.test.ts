@@ -10,9 +10,17 @@
 
 import * as assert from 'assert';
 
+import * as TypeGuards from '../analyzer/typeGuards';
+import { isInstantiableClass } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_12, pythonVersion3_8 } from '../common/pythonVersion';
+import {
+    pythonVersion3_10,
+    pythonVersion3_11,
+    pythonVersion3_12,
+    pythonVersion3_13,
+    pythonVersion3_8,
+} from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -97,33 +105,8 @@ test('OverloadCall10', () => {
 
 test('OverloadCall11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall11.py']);
-    TestUtils.validateResults(analysisResults, 2);
-    // These diagnostics record the restored conformance gap, not the required overload semantics.
-    assert.deepStrictEqual(
-        analysisResults[0].errors.map((diagnostic) => ({
-            rule: diagnostic.getRule(),
-            range: diagnostic.range,
-            message: diagnostic.message,
-        })),
-        [
-            {
-                rule: DiagnosticRule.reportAssignmentType,
-                range: { start: { line: 28, character: 28 }, end: { line: 28, character: 34 } },
-                message:
-                    'Type "list[int]" is not assignable to declared type "list[str]"\n' +
-                    '\u00a0\u00a0"list[int]" is not assignable to "list[str]"\n' +
-                    '\u00a0\u00a0\u00a0\u00a0Type parameter "_T@list" is invariant, but "int" is not the same as "str"\n' +
-                    '\u00a0\u00a0\u00a0\u00a0Consider switching from "list" to "Sequence" which is covariant',
-            },
-            {
-                rule: DiagnosticRule.reportArgumentType,
-                range: { start: { line: 31, character: 18 }, end: { line: 31, character: 25 } },
-                message:
-                    'Argument of type "Literal[\'value\']" cannot be assigned to parameter "object" of type "int" in function "append"\n' +
-                    '\u00a0\u00a0"Literal[\'value\']" is not assignable to "int"',
-            },
-        ]
-    );
+    // Both invariant assignments and both append operations are valid witnesses.
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('OverloadCall12', () => {
@@ -268,7 +251,7 @@ test('OverloadOverlap1', () => {
 
     configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverlap1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 18);
+    TestUtils.validateResults(analysisResults, 26);
 });
 
 test('TypeGuard1', () => {
@@ -285,6 +268,27 @@ test('TypeGuard2', () => {
 
 test('TypeGuard3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeGuard4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeGuard5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard5.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()),
+        [DiagnosticRule.reportAttributeAccessIssue, DiagnosticRule.reportAttributeAccessIssue]
+    );
+    assert.ok(analysisResults[0].errors[0].message.includes('type[FactoryClass]'));
+    assert.ok(analysisResults[0].errors[1].message.includes('type[FactoryChild]'));
+});
+
+test('TypeGuard6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard6.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
@@ -746,7 +750,65 @@ test('MatchClass9', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass9.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 0, undefined, undefined, 0);
+});
+
+test('MatchClass10', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass10.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 6);
+});
+
+test('MatchClass11', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass11.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4, 0, undefined, undefined, 0);
+    analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportArgumentType));
+});
+
+test('MatchClass12', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass12.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 7, 0, undefined, undefined, 0);
+    analysisResults[0].errors.forEach((diag) =>
+        assert.strictEqual(diag.getRule(), DiagnosticRule.reportGeneralTypeIssues)
+    );
+});
+
+test('MatchClass13', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+
+    const narrowSpy = jest.spyOn(TypeGuards, 'narrowTypeForInstanceOrSubclass');
+    try {
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass13.py'], configOptions);
+        TestUtils.validateResults(analysisResults, 1);
+        const protocolCalls = narrowSpy.mock.calls.filter(([, , filterTypes]) =>
+            filterTypes.some((type) => isInstantiableClass(type) && type.shared.name === 'RecursiveProtocol')
+        );
+        assert.strictEqual(protocolCalls.length, 0);
+    } finally {
+        narrowSpy.mockRestore();
+    }
+});
+
+test('MatchClassSubclass', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClassSubclass.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
 
@@ -764,6 +826,42 @@ test('MatchMapping1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchMapping1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('MatchMapping2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    // These typing checks need the typing_extensions stubs, not its runtime package.
+    configOptions.diagnosticRuleSet.reportMissingModuleSource = 'none';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchMapping2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 8);
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportReturnType).length,
+        7
+    );
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportTypedDictNotRequiredAccess)
+            .length,
+        1
+    );
+});
+
+test('MatchMapping3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchMapping3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 8);
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportReturnType).length,
+        7
+    );
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportTypedDictNotRequiredAccess)
+            .length,
+        1
+    );
 });
 
 test('MatchLiteral1', () => {
@@ -830,7 +928,12 @@ test('Comparison1', () => {
 
     configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['comparison1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 7);
+    TestUtils.validateResults(analysisResults2, 16);
+
+    // Bytes promotions make two of the identity comparisons assignable.
+    configOptions.diagnosticRuleSet.disableBytesTypePromotions = false;
+    const analysisResults3 = TestUtils.typeAnalyzeSampleFiles(['comparison1.py'], configOptions);
+    TestUtils.validateResults(analysisResults3, 14);
 });
 
 test('Comparison2', () => {
@@ -1126,6 +1229,20 @@ test('Constructor34', () => {
             ],
         ]
     );
+});
+
+test('Constructor35', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor35.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+    assert.deepStrictEqual(analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()).sort(), [
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportGeneralTypeIssues,
+    ]);
 });
 
 test('ConstructorCallable1', () => {

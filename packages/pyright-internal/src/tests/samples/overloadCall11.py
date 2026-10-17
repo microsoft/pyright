@@ -1,5 +1,5 @@
-# This sample records the known conformance limitation restored by rolling back
-# #11601/#11732, not the required semantics of an ambiguous invariant-container call.
+# Ambiguous invariant arguments retain both usable overload results without
+# erasing their containers or merging them into an invariant-incompatible union.
 
 from typing import Any, overload
 
@@ -20,13 +20,11 @@ def overloaded(value: Any) -> list[Any]:
 
 def check(value: list[Any]) -> None:
     result = overloaded(value)
-    reveal_type(result, expected_text="list[int]")
+    reveal_type(result, expected_text="OverloadResult[list[int], list[str]]")
 
     # Conformance requires assignability to BOTH retained return types and permits
-    # operations supported by either. First-match inference currently fails these checks.
+    # operations supported by either.
     int_result: list[int] = result
-    # This should generate an error: the known rollback limitation rejects list[str].
     str_result: list[str] = result
     result.append(1)
-    # This should generate an error: string append is valid for a retained materialization.
     result.append("value")

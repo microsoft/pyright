@@ -1,0 +1,58 @@
+name: Queue PR follow-up checks
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: [Validation]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+
+jobs:
+  report:
+    if: >-
+      ${{ github.repository == 'microsoft/pyright' &&
+      (github.event_name == 'pull_request_target' ||
+      (github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion != 'success')) }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        check: [mypy_primer, Type checker benchmark]
+    concurrency:
+      group: pr-follow-up-${{ matrix.check }}-${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          CHECK_NAME: ${{ matrix.check }}
+        with:
+          script: |
+            const report = require('./build/reportPullRequestCheck.js')
+            let headSha
+            const failedValidation = context.eventName === 'workflow_run'
+            if (failedValidation) {
+              const resolve = require('./build/resolveValidatedPullRequest.js')
+              const validated = await resolve({ github, context, core, requireSuccess: false })
+              if (!validated) return
+              headSha = validated.pullRequest.head.sha
+            } else {
+              headSha = context.payload.pull_request.head.sha
+            }
+            await report({
+              github, context, name: process.env.CHECK_NAME, headSha,
+              status: failedValidation ? 'completed' : 'queued',
+              conclusion: failedValidation ? 'skipped' : undefined,
+              summary: failedValidation
+                ? 'Not run because Validation did not pass.'
+                : 'Waiting for Validation to pass.',
+            })

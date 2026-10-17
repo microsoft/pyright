@@ -1,0 +1,56 @@
+name: NumPy complexity canary
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/pyright-internal/**'
+      - 'packages/pyright/**'
+      - 'build/benchmark/canaries/numpy/**'
+      - 'build/benchmark/numpyCanary.cjs'
+      - '.github/workflows/numpy_canary.yml'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  numpy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '24.15.0'
+          cache: pnpm
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12.3'
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          python -m venv .numpy-canary-venv
+          .numpy-canary-venv/bin/python -m pip install numpy==2.4.6
+      - name: Build current core and CLI
+        run: |
+          pnpm --dir packages/pyright-internal run build
+          pnpm run build:cli:dev
+      - name: Check work budget and semantic controls
+        run: pnpm --dir packages/pyright-internal exec jest --testPathPatterns=protocolRequirementComplexity.test --runInBand --forceExit
+      - name: Check NumPy canary
+        run: node build/benchmark/numpyCanary.cjs --python "$PWD/.numpy-canary-venv/bin/python"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: numpy-canary
+          path: build/benchmark/results/numpy-canary/
+          if-no-files-found: warn

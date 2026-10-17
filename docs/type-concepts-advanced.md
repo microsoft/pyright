@@ -65,6 +65,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `type(x) == T` and `type(x) != T`
 * `x is L` and `x is not L` (where L is an expression that evaluates to a literal type)
 * `x is C` and `x is not C` (where C is a class)
+* `x == C` and `x != C` (where C is a class and the compared class objects have statically known identity-based equality)
 * `x == L` and `x != L` (where L is an expression that evaluates to a literal type)
 * `x.y is None` and `x.y is not None` (where x is a type that is distinguished by a field with a None)
 * `x.y is E` and `x.y is not E` (where E is a literal enum or bool and x is a type that is distinguished by a field with a literal type)
@@ -83,6 +84,10 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `x` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 
 Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, subscripts that are integer literals (e.g. `a[2]` or `a[-1]`), and call expressions. Other operators (such as arithmetic operators or other subscripts) are not supported.
+
+For user-defined `TypeGuard` and `TypeIs` calls, Pyright narrows the argument corresponding to the first parameter after any method receiver (`self` or `cls`). This applies to bound and unbound methods, including method aliases, and arguments supplied by keyword. Guards with gradual (`...`), tuple-unpacked, or variadic positional parameter lists support narrowing of explicit positional arguments. If selected overloads identify different guarded arguments, or argument unpacking obscures the guarded expression, Pyright does not apply narrowing.
+
+Class equality guards can narrow exact or final, non-generic class objects whose metaclasses have known default equality semantics. Alternatives with open subclass hierarchies, generic aliases, custom equality methods, or uncertain metaclasses are retained. Callable metaclass factories and unknown metaclass ancestry do not establish identity-based equality. Constrained type variables that expand to unions are retained rather than narrowed by these equality guards. Identity guards (`is` and `is not`) do not have these equality-specific restrictions.
 
 Some type guards are able to narrow in both the positive and negative cases. Positive cases are used in `if` statements, and negative cases are used in `else` statements. (Positive and negative cases are flipped if the type guard expression is preceded by a `not` operator.) In some cases, the type can be narrowed only in the positive or negative case but not both. Consider the following examples:
 
@@ -104,6 +109,33 @@ def func2(val: float | None):
 ```
 
 In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `float` (specifically, a value of 0.0) or `None` in the negative case.
+
+### Class Pattern Matching
+
+Class patterns in `match` statements narrow the subject using the pattern class and its argument patterns. Positional captures use the pattern class's `__match_args__`, even if the subject's class defines a different tuple.
+
+When a non-final subject class has no ordinary match for a runtime-checkable protocol, Pyright can narrow it to a subclass that satisfies both types, retaining members from each. Pattern arguments must still be compatible. Unsafe protocol overlap is reported, just as it is for an explicit `isinstance` check.
+
+### TypedDict Key Presence
+
+When a key has a union of string literal types, a membership check can establish that an indexed read of that same key is safe:
+
+```python
+class Data(TypedDict, total=False):
+    a: int
+    b: str
+
+def read(data: Data):
+    for key in ("a", "b"):
+        if key in data:
+            value = data[key]  # int | str, without an optional-key access error
+```
+
+This proves presence only for the checked dictionary and key, not for every literal alternative. It does not correlate value types with assignment targets or make undeclared keys valid. In particular, a union of open TypedDicts may contain an undeclared key whose value type is unknown.
+
+The presence check must hold on every incoming control-flow path. Reassigning the dictionary or key, deleting an item, or crossing a call, loop boundary, or exception-handling gate can prevent this proof. A guard inside a loop applies to reads within that iteration; it does not associate values carried from earlier iterations with the current key. Existing single-literal TypedDict narrowing is unchanged.
+
+The guard must also apply when the read executes. A generator expression cannot use a guard outside its deferred body, although a guard within that body can establish presence. Its first iterable is evaluated immediately and can still use an enclosing guard, as can an eager list, set, or dictionary comprehension. Assignment expressions in the right operand of the membership test prevent this proof unless they simply assign a name to itself; they may change the key after the left operand has already been evaluated.
 
 ### Aliased Conditional Expression
 
@@ -326,9 +358,10 @@ Some functions or methods can return one of several different types. In cases wh
 
 3. If only one overload remains, it is the “winner”.
 
-4. If more than one overload remains, the “winner” is chosen based on the order in which the overloads are declared. In general, the first remaining overload is the “winner”. There are two exceptions to this rule.
+4. If more than one overload remains, the “winner” is chosen based on the order in which the overloads are declared. In general, the first remaining overload is the “winner”. The following exceptions apply.
     Exception 1: When an `*args` (unpacked) argument matches a `*args` parameter in one of the overload signatures, this overrides the normal order-based rule.
     Exception 2: When two or more overloads match because an argument evaluates to `Any` or `Unknown`, the matching overload is ambiguous. In this case, pyright examines the return types of the remaining overloads and eliminates types that are duplicates or are subsumed by (i.e. proper subtypes of) other types in the list. If only one type remains after this coalescing step, that type is used. If more than one type remains after this coalescing step, the type of the call expression evaluates to `Unknown`. For example, if two overloads are matched due to an argument that evaluates to `Any`, and those two overloads have return types of `str` and `LiteralString`, pyright will coalesce this to just `str` because `LiteralString` is a proper subtype of `str`. If the two overloads have return types of `str` and `bytes`, the call expression will evaluate to `Unknown` because `str` and `bytes` have no overlap.
+    Exception 3: For supported local assignments with nested invariant `Any` arguments, such as `list[Any]`, Pyright can retain multiple fully known return alternatives. For example, `list[int]` and `list[str]` are displayed as `OverloadResult[list[int], list[str]]`. Each supported operation must succeed for one complete alternative; this is not an ordinary union or `Any`. This behavior is enabled by default within a [bounded local-use and proof domain](overloadResultExperiment.md); unsupported cases retain ordinary behavior.
 
 5. If no overloads remain, Pyright considers whether any of the arguments are union types. If so, these union types are expanded into their constituent subtypes, and the entire process of overload matching is repeated with the expanded argument types. If two or more overloads match, the union of their respective return types form the final return type for the call expression. This "union expansion" can result in a combinatoric explosion if many arguments evaluate to union types. For example, if four arguments are present, and they all evaluate to unions that expand to ten subtypes, this could result in 10^4 combinations. Pyright expands unions for arguments left to right and halts expansion when the number of signatures exceeds 64.
 

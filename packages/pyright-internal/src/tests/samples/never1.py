@@ -1,7 +1,7 @@
 # This sample tests the handling of the "Never" type,
 # ensuring that it's treated as the same as NoReturn.
 
-from typing import NoReturn, TypeVar, Generic
+from typing import Any, NoReturn, TypeVar, Generic
 from typing_extensions import Never  # pyright: ignore[reportMissingModuleSource]
 
 T = TypeVar("T")
@@ -51,6 +51,23 @@ def func4():
     assert_never1()
 
 
+def func5(x: Any | Never, y: Never | Any, z: Any | NoReturn, w: NoReturn | Any):
+    reveal_type(x, expected_text="Any")
+    reveal_type(y, expected_text="Any")
+    reveal_type(z, expected_text="Any")
+    reveal_type(w, expected_text="Any")
+
+
+class AnySubclass(Any): ...
+
+
+def func6(x: AnySubclass | Never, y: Never | AnySubclass):
+    reveal_type(x, expected_text="AnySubclass")
+    reveal_type(y, expected_text="AnySubclass")
+
+
+reveal_type(func5, expected_text="(x: Any, y: Any, z: Any, w: Any) -> None")
+reveal_type(func6, expected_text="(x: AnySubclass, y: AnySubclass) -> None")
 reveal_type(assert_never1, expected_text="(val: Never) -> NoReturn")
 
 # This should generate an error.

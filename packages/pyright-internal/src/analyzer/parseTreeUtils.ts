@@ -589,6 +589,25 @@ export function printOperator(operator: OperatorType): string {
 
 // If the name node is the LHS of a call expression or is a member
 // name in the LHS of a call expression, returns the call node.
+export function isImplicitRevealTypeName(node: ExpressionNode): node is NameNode {
+    return node.nodeType === ParseNodeType.Name && node.d.value === 'reveal_type';
+}
+
+// The receiver's type must be checked by the caller; this classifies only the syntax.
+export function getTypedDictKeyDeletionCall(node: CallNode): MemberAccessNode | undefined {
+    const callee = node.d.leftExpr;
+    if (
+        callee.nodeType === ParseNodeType.MemberAccess &&
+        (callee.d.member.d.value === 'pop' ||
+            callee.d.member.d.value === 'popitem' ||
+            callee.d.member.d.value === 'clear' ||
+            callee.d.member.d.value === '__delitem__')
+    ) {
+        return callee;
+    }
+    return undefined;
+}
+
 export function getCallForName(node: NameNode): CallNode | undefined {
     if (node.parent?.nodeType === ParseNodeType.Call && node.parent.d.leftExpr === node) {
         return node.parent;

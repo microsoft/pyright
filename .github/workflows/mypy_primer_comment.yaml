@@ -21,6 +21,7 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Download diffs
+        id: download
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
@@ -32,6 +33,12 @@ jobs:
             });
             const matchedArtifacts = artifacts.data.artifacts.filter((artifact) =>
               artifact.name.startsWith("mypy_primer_diffs"));
+            if (!matchedArtifacts.length) {
+              core.notice('The primer workflow skipped this pull request')
+              fs.writeFileSync('primer-analysis-context.json', JSON.stringify({ skipped: true }))
+              return
+            }
+            core.setOutput('has-diffs', 'true')
 
             for (let i = 0; i < matchedArtifacts.length; i++) {
               const matchArtifact = matchedArtifacts[i];
@@ -44,11 +51,14 @@ jobs:
               fs.writeFileSync(`diff_${i}.zip`, Buffer.from(download.data));
             }
 
-      - run: unzip diff_\*.zip
-      - run: |
+      - if: ${{ steps.download.outputs.has-diffs == 'true' }}
+        run: unzip diff_\*.zip
+      - if: ${{ steps.download.outputs.has-diffs == 'true' }}
+        run: |
           cat diff_*.txt | tee fulldiff.txt
 
       - name: Post comment
+        if: ${{ steps.download.outputs.has-diffs == 'true' }}
         id: post-comment
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
@@ -100,6 +110,7 @@ jobs:
             return prNumber
 
       - name: Hide old comments
+        if: ${{ steps.download.outputs.has-diffs == 'true' }}
         # v0.4.0
         uses: kanga333/comment-hider@c12bb20b48aeb8fc098e35967de8d4f8018fffdf # v0.4.0
         with:

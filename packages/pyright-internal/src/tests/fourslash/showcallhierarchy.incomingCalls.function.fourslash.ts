@@ -8,25 +8,31 @@
 //// from declare import func
 //// from declare import /*marker2*/func as foobar
 ////
-//// def [|callByName|]():
-////    /*marker3*/func()
+//// [|def [|/*callByNameSelection*/callByName|]():
+////    /*marker3*/func()/*callByNameRange*/|]
 //// def callByAlias():
 ////    foobar()
 
 // @filename: consume2.py
 //// from declare import func
 ////
-//// def [|callByName2|]():
-////    func()
+//// [|/*callByName2Range*/def [|/*callByName2Selection*/callByName2|]():
+////    func()|]
 
 {
-    const ranges = helper.getRanges();
-    const references = ranges.map((range) => {
-        return { path: range.fileName, range: helper.convertPositionRange(range) };
-    });
     const itemList = [
-        { filePath: references[0].path, range: references[0].range, name: 'callByName' },
-        { filePath: references[1].path, range: references[1].range, name: 'callByName2' },
+        {
+            filePath: helper.getMappedFilePath('consume.py'),
+            range: helper.getPositionRange('callByNameRange'),
+            selectionRange: helper.getPositionRange('callByNameSelection'),
+            name: 'callByName',
+        },
+        {
+            filePath: helper.getMappedFilePath('consume2.py'),
+            range: helper.getPositionRange('callByName2Range'),
+            selectionRange: helper.getPositionRange('callByName2Selection'),
+            name: 'callByName2',
+        },
     ];
 
     helper.verifyShowCallHierarchyGetIncomingCalls({

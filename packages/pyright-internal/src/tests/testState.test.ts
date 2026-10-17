@@ -11,6 +11,7 @@ import assert from 'assert';
 import { combinePaths, getFileName, normalizeSlashes } from '../common/pathUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 import { Uri } from '../common/uri/uri';
+import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { runFourSlashTestContent } from './harness/fourslash/runner';
 import { parseAndGetTestState } from './harness/fourslash/testState';
@@ -510,6 +511,93 @@ helper.getMarkerByName("position");
     `;
 
     runFourSlashTestContent(normalizeSlashes('/'), 'unused.py', code);
+});
+
+describe('Incoming call hierarchy assertions', () => {
+    function createTestState() {
+        const code = `
+// @filename: declare.py
+//// def /*target*/target():
+////     pass
+
+// @filename: first.py
+//// from declare import target
+////
+//// [|/*firstRange*/def [|/*firstSelection*/first|]():
+////     target()|]
+
+// @filename: second.py
+//// from declare import target
+////
+////
+//// [|/*secondRange*/def [|/*secondSelection*/second|]():
+////     target()|]
+        `;
+        const { state } = parseAndGetTestState(code);
+        const items = ['first', 'second'].map((name) => ({
+            filePath: state.getMappedFilePath(`${name}.py`),
+            name,
+            range: state.getPositionRange(`${name}Range`),
+            selectionRange: state.getPositionRange(`${name}Selection`),
+        }));
+        return { state, items };
+    }
+
+    test.each([0, 1])('accepts an omitted selectionRange for caller %i', (index) => {
+        const { state, items } = createTestState();
+        const expectations = items.map((item, i) =>
+            i === index ? { filePath: item.filePath, name: item.name, range: item.range } : item
+        );
+
+        state.verifyShowCallHierarchyGetIncomingCalls({ target: { items: expectations } });
+    });
+
+    test.each(['filePath', 'name', 'range', 'selectionRange'] as const)(
+        'rejects %s swapped between callers',
+        (field) => {
+            const { state, items } = createTestState();
+            const expectations = [
+                { ...items[0], [field]: items[1][field] },
+                { ...items[1], [field]: items[0][field] },
+            ];
+
+            assert.throws(
+                () => state.verifyShowCallHierarchyGetIncomingCalls({ target: { items: expectations } }),
+                assert.AssertionError
+            );
+        }
+    );
+
+    test('matches each caller exactly once', () => {
+        const { state, items } = createTestState();
+
+        state.verifyShowCallHierarchyGetIncomingCalls({ target: { items: [...items].reverse() } });
+        assert.throws(
+            () => state.verifyShowCallHierarchyGetIncomingCalls({ target: { items: [items[0], items[0]] } }),
+            assert.AssertionError
+        );
+        assert.throws(
+            () => state.verifyShowCallHierarchyGetIncomingCalls({ target: { items: [items[0]] } }),
+            assert.AssertionError
+        );
+
+        const getIncomingCalls = CallHierarchyProvider.prototype.getIncomingCalls;
+        const spy = jest
+            .spyOn(CallHierarchyProvider.prototype, 'getIncomingCalls')
+            .mockImplementation(function (this: CallHierarchyProvider) {
+                const calls = getIncomingCalls.call(this);
+                assert(calls && calls.length === 2);
+                return [calls[0], calls[0]];
+            });
+        try {
+            assert.throws(
+                () => state.verifyShowCallHierarchyGetIncomingCalls({ target: { items } }),
+                assert.AssertionError
+            );
+        } finally {
+            spy.mockRestore();
+        }
+    });
 });
 
 test('VerifyDiagnosticsTest1', () => {

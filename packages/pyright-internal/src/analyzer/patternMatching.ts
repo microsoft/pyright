@@ -34,6 +34,7 @@ import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { isEnumClassWithMembers } from './enums';
 import { getTypeVarScopesForNode, isMatchingExpression } from './parseTreeUtils';
+import { validateProtocolUnsafeOverlap } from './protocols';
 import { getTypedDictMembersForClass } from './typedDicts';
 import { EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
@@ -41,6 +42,7 @@ import {
     narrowTypeForDiscriminatedDictEntryComparison,
     narrowTypeForDiscriminatedLiteralFieldComparison,
     narrowTypeForDiscriminatedTupleComparison,
+    narrowTypeForInstanceOrSubclass,
 } from './typeGuards';
 import {
     AnyType,
@@ -84,6 +86,7 @@ import {
     isUnboundedTupleClass,
     lookUpClassMember,
     mapSubtypes,
+    MemberAccessFlags,
     partiallySpecializeType,
     preserveUnknown,
     specializeTupleClass,
@@ -512,58 +515,105 @@ function narrowTypeBasedOnMappingPattern(
             return combineTypes(mappingInfo.filter((m) => !m.isDefinitelyMapping).map((m) => m.subtype));
         }
 
-        if (pattern.d.entries.length !== 1 || pattern.d.entries[0].nodeType !== ParseNodeType.PatternMappingKeyEntry) {
-            return type;
-        }
-
         // Handle the case where the type is a union that includes a TypedDict with
-        // a field discriminated by a literal.
-        const keyPattern = pattern.d.entries[0].d.keyPattern;
-        const valuePattern = pattern.d.entries[0].d.valuePattern;
-        if (
-            keyPattern.nodeType !== ParseNodeType.PatternLiteral ||
-            valuePattern.nodeType !== ParseNodeType.PatternAs ||
-            !valuePattern.d.orPatterns.every((orPattern) => orPattern.nodeType === ParseNodeType.PatternLiteral)
-        ) {
+        // fields discriminated by literals or match patterns.
+        const keyEntryInfos: { keyValue: string; valueTypes?: Type[] }[] = [];
+        let hasUnsupportedKeyPattern = false;
+
+        for (const entry of pattern.d.entries) {
+            if (entry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
+                continue;
+            }
+            if (entry.nodeType !== ParseNodeType.PatternMappingKeyEntry) {
+                hasUnsupportedKeyPattern = true;
+                break;
+            }
+
+            const keyPattern = entry.d.keyPattern;
+            if (keyPattern.nodeType !== ParseNodeType.PatternLiteral) {
+                hasUnsupportedKeyPattern = true;
+                break;
+            }
+
+            const keyType = evaluator.getTypeOfExpression(keyPattern.d.expr).type;
+            if (
+                !isClassInstance(keyType) ||
+                !ClassType.isBuiltIn(keyType, 'str') ||
+                keyType.priv.literalValue === undefined
+            ) {
+                hasUnsupportedKeyPattern = true;
+                break;
+            }
+            const keyValue = keyType.priv.literalValue as string;
+
+            const valuePattern = entry.d.valuePattern;
+            let valueTypes: Type[] | undefined;
+
+            if (
+                valuePattern.nodeType === ParseNodeType.PatternAs &&
+                valuePattern.d.orPatterns.every((orPattern) => orPattern.nodeType === ParseNodeType.PatternLiteral)
+            ) {
+                valueTypes = valuePattern.d.orPatterns.map(
+                    (orPattern) => evaluator.getTypeOfExpression((orPattern as PatternLiteralNode).d.expr).type
+                );
+            } else if (
+                valuePattern.nodeType === ParseNodeType.PatternAs &&
+                valuePattern.d.orPatterns.length === 1 &&
+                valuePattern.d.orPatterns[0].nodeType === ParseNodeType.PatternCapture
+            ) {
+                valueTypes = undefined;
+            } else {
+                hasUnsupportedKeyPattern = true;
+                break;
+            }
+
+            keyEntryInfos.push({ keyValue, valueTypes });
+        }
+
+        if (hasUnsupportedKeyPattern || keyEntryInfos.length === 0) {
             return type;
         }
 
-        const keyType = evaluator.getTypeOfExpression(keyPattern.d.expr).type;
-
-        // The key type must be a str literal.
-        if (
-            !isClassInstance(keyType) ||
-            !ClassType.isBuiltIn(keyType, 'str') ||
-            keyType.priv.literalValue === undefined
-        ) {
-            return type;
-        }
-        const keyValue = keyType.priv.literalValue as string;
-
-        const valueTypes = valuePattern.d.orPatterns.map(
-            (orPattern) => evaluator.getTypeOfExpression((orPattern as PatternLiteralNode).d.expr).type
-        );
-
+        const keyNames = keyEntryInfos.map((entry) => entry.keyValue);
         return mapSubtypes(type, (subtype) => {
             if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
-                const typedDictMembers = getTypedDictMembersForClass(evaluator, subtype, /* allowNarrowed */ true);
-                const member = typedDictMembers.knownItems.get(keyValue);
+                const typedDictMembers = getTypedDictMembersForClass(
+                    evaluator,
+                    subtype,
+                    /* allowNarrowed */ true,
+                    keyNames
+                );
 
-                if (member && (member.isRequired || member.isProvided) && isClassInstance(member.valueType)) {
-                    const memberValueType = member.valueType;
-
-                    // If there's at least one literal value pattern that matches
-                    // the literal type of the member, we can eliminate this type.
-                    if (
-                        valueTypes.some(
-                            (valueType) =>
-                                isClassInstance(valueType) &&
-                                ClassType.isSameGenericClass(valueType, memberValueType) &&
-                                valueType.priv.literalValue === memberValueType.priv.literalValue
-                        )
-                    ) {
-                        return undefined;
+                const matchesAllEntries = keyEntryInfos.every((entryInfo) => {
+                    const member = typedDictMembers.knownItems.get(entryInfo.keyValue);
+                    if (!member || (!member.isRequired && !member.isProvided)) {
+                        return false;
                     }
+
+                    // A capture pattern matches any value once the key is present.
+                    if (entryInfo.valueTypes === undefined) {
+                        return true;
+                    }
+
+                    const memberValueType = member.valueType;
+                    if (isNoneInstance(memberValueType)) {
+                        return entryInfo.valueTypes.some(isNoneInstance);
+                    }
+
+                    if (!isClassInstance(memberValueType) || memberValueType.priv.literalValue === undefined) {
+                        return false;
+                    }
+
+                    return entryInfo.valueTypes.some(
+                        (valueType) =>
+                            isClassInstance(valueType) &&
+                            ClassType.isSameGenericClass(valueType, memberValueType) &&
+                            valueType.priv.literalValue === memberValueType.priv.literalValue
+                    );
+                });
+
+                if (matchesAllEntries) {
+                    return undefined;
                 }
             }
 
@@ -867,7 +917,8 @@ function narrowTypeBasedOnClassPattern(
     type: Type,
     pattern: PatternClassNode,
     isPositiveTest: boolean,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    nodeInfo: AnalyzerNodeInfoAccessor,
+    allowIntersections = true
 ): Type {
     let exprType = evaluator.getTypeOfExpression(pattern.d.className, EvalFlags.CallBaseDefaults).type;
 
@@ -1035,9 +1086,24 @@ function narrowTypeBasedOnClassPattern(
 
             return isPositiveTest ? UnknownType.create() : type;
         }
+
+        if (allowIntersections && ClassType.isProtocolClass(exprType)) {
+            const expandedSubjectType = evaluator.mapSubtypesExpandTypeVars(
+                type,
+                /* options */ undefined,
+                (expandedSubtype) => expandedSubtype
+            );
+            validateProtocolUnsafeOverlap(
+                evaluator,
+                pattern.d.className,
+                ClassType.cloneAsInstance(exprType),
+                expandedSubjectType
+            );
+        }
     }
 
-    return evaluator.mapSubtypesExpandTypeVars(
+    let hasClassMatch = false;
+    const narrowedType = evaluator.mapSubtypesExpandTypeVars(
         exprType,
         /* options */ undefined,
         (expandedSubtype, unexpandedSubtype) => {
@@ -1160,6 +1226,8 @@ function narrowTypeBasedOnClassPattern(
                             return undefined;
                         }
 
+                        hasClassMatch = true;
+
                         // For a generic class pattern whose type parameters are bounded
                         // (e.g. `class Thing[T: bool]`), the subject may carry no type arguments,
                         // leaving the parameters unsolved. Fall back to each parameter's bound -
@@ -1221,6 +1289,41 @@ function narrowTypeBasedOnClassPattern(
             return undefined;
         }
     );
+
+    // Retry only failed class membership, not failed arguments. Otherwise nested
+    // impossible arguments can cause repeated descent through the same patterns.
+    if (
+        allowIntersections &&
+        !hasClassMatch &&
+        !isNever(type) &&
+        isNever(narrowedType) &&
+        isInstantiableClass(exprType) &&
+        ClassType.isProtocolClass(exprType)
+    ) {
+        const intersectionType = narrowTypeForInstanceOrSubclass(
+            evaluator,
+            type,
+            [exprType],
+            /* isInstanceCheck */ true,
+            /* isTypeIsCheck */ false,
+            /* isPositiveTest */ true,
+            pattern.d.className,
+            nodeInfo
+        );
+
+        if (!isNever(intersectionType)) {
+            return narrowTypeBasedOnClassPattern(
+                evaluator,
+                intersectionType,
+                pattern,
+                isPositiveTest,
+                nodeInfo,
+                /* allowIntersections */ false
+            );
+        }
+    }
+
+    return narrowedType;
 }
 
 // Some built-in classes are treated as special cases for the class pattern
@@ -1345,7 +1448,7 @@ function narrowTypeBasedOnValuePattern(
                 evaluator.mapSubtypesExpandTypeVars(
                     subjectType,
                     { conditionFilter: getTypeCondition(valueSubtypeExpanded) },
-                    (subjectSubtypeExpanded) => {
+                    (subjectSubtypeExpanded, subjectSubtypeUnexpanded) => {
                         // If this is a negative test, see if it's an enum value.
                         if (!isPositiveTest) {
                             if (
@@ -1415,7 +1518,38 @@ function narrowTypeBasedOnValuePattern(
                             )
                         );
 
-                        return returnType ? valueSubtypeUnexpanded : undefined;
+                        if (!returnType) {
+                            return undefined;
+                        }
+
+                        // A successful "==" comparison does not generally imply that the
+                        // subject has the pattern value's type because either operand may
+                        // override __eq__. If neither does, equality implies identity, so
+                        // narrow to the value type.
+                        if (!hasCustomEq(valueSubtypeExpanded) && !hasCustomEq(subjectSubtypeExpanded)) {
+                            return valueSubtypeUnexpanded;
+                        }
+
+                        // Literal (including enum) values are handled specially: narrow to
+                        // the literal if it is assignable to the subject, and eliminate the
+                        // subject if the literal is not comparable to it and the subject
+                        // cannot supply a reflected custom __eq__.
+                        if (isClassInstance(valueSubtypeExpanded) && isLiteralType(valueSubtypeExpanded)) {
+                            if (evaluator.assignType(subjectSubtypeExpanded, valueSubtypeExpanded)) {
+                                return valueSubtypeUnexpanded;
+                            }
+
+                            if (
+                                !evaluator.isTypeComparable(valueSubtypeExpanded, subjectSubtypeExpanded) &&
+                                isClassInstance(subjectSubtypeExpanded) &&
+                                (ClassType.isBuiltIn(subjectSubtypeExpanded) || !hasCustomEq(subjectSubtypeExpanded))
+                            ) {
+                                return undefined;
+                            }
+                        }
+
+                        // Otherwise retain the subject type.
+                        return subjectSubtypeUnexpanded;
                     }
                 )
             );
@@ -1425,6 +1559,26 @@ function narrowTypeBasedOnValuePattern(
     );
 
     return combineTypes(narrowedSubtypes);
+}
+
+// Determines whether implicit equality may use an implementation other than object.__eq__.
+function hasCustomEq(type: Type): boolean {
+    if (isInstantiableClass(type)) {
+        const metaclass = type.shared.effectiveMetaclass;
+        if (!metaclass || !isInstantiableClass(metaclass)) {
+            return true;
+        }
+        type = ClassType.cloneAsInstance(metaclass);
+    }
+
+    return (
+        !isClassInstance(type) ||
+        !!lookUpClassMember(
+            type,
+            '__eq__',
+            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
+        )
+    );
 }
 
 // Returns information about all subtypes that match the definition of a "mapping" as
@@ -2098,6 +2252,15 @@ export function assignTypeToPatternTargets(
 
         case ParseNodeType.PatternClass: {
             const argTypes: Type[][] = pattern.d.args.map((arg) => []);
+            const hasPositionalArgs = pattern.d.args.some((arg) => !arg.d.name);
+            let positionalArgNames: string[] | undefined;
+
+            if (hasPositionalArgs) {
+                const classType = evaluator.getTypeOfExpression(pattern.d.className, EvalFlags.CallBaseDefaults).type;
+                if (isInstantiableClass(classType)) {
+                    positionalArgNames = getPositionalMatchArgNames(evaluator, classType);
+                }
+            }
 
             evaluator.mapSubtypesExpandTypeVars(narrowedType, /* options */ undefined, (expandedSubtype) => {
                 if (isClassInstance(expandedSubtype)) {
@@ -2109,22 +2272,21 @@ export function assignTypeToPatternTargets(
                                 argTypes[index].push(concreteSubtype);
                             });
                         } else if (isClassInstance(concreteSubtype)) {
-                            // Are there any positional arguments? If so, try to get the mappings for
-                            // these arguments by fetching the __match_args__ symbol from the class.
-                            let positionalArgNames: string[] = [];
-                            if (pattern.d.args.some((arg) => !arg.d.name)) {
-                                positionalArgNames = getPositionalMatchArgNames(
-                                    evaluator,
-                                    ClassType.cloneAsInstantiable(expandedSubtype)
-                                );
-                            }
+                            const argNames =
+                                positionalArgNames ??
+                                (hasPositionalArgs
+                                    ? getPositionalMatchArgNames(
+                                          evaluator,
+                                          ClassType.cloneAsInstantiable(expandedSubtype)
+                                      )
+                                    : []);
 
                             pattern.d.args.forEach((arg, index) => {
                                 const narrowedArgType = narrowTypeOfClassPatternArg(
                                     evaluator,
                                     arg,
                                     index,
-                                    positionalArgNames,
+                                    argNames,
                                     ClassType.cloneAsInstantiable(expandedSubtype),
                                     /* isPositiveTest */ true,
                                     nodeInfo

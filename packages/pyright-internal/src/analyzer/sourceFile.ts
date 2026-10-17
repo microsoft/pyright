@@ -60,6 +60,13 @@ const _maxImportCyclesPerFile = 4;
 // https://github.com/microsoft/vscode/blob/1e750a7514f365585d8dab1a7a82e0938481ea2f/src/vs/editor/common/model/textModel.ts#L194
 export const maxSourceFileSize = 50 * 1024 * 1024;
 
+export type CheckOperationFactory = (
+    uri: Uri,
+    parserOutput: ParserOutput,
+    evaluator: TypeEvaluator,
+    nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+) => { walk: (node: ParseNode, callback: () => void) => void; dispose: () => void } | undefined;
+
 interface ResolveImportResult {
     imports: ImportResult[];
     builtinsImportResult?: ImportResult | undefined;
@@ -993,7 +1000,8 @@ export class SourceFile {
         importResolver: ImportResolver,
         evaluator: TypeEvaluator,
         dependentFiles: ParserOutput[] | undefined,
-        nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+        nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
+        checkOperation?: CheckOperationFactory
     ) {
         assert(!this.isParseRequired(), `Check called before parsing: state=${this._writableData.debugPrint()}`);
         assert(!this.isBindingRequired(), `Check called before binding: state=${this._writableData.debugPrint()}`);
@@ -1007,15 +1015,26 @@ export class SourceFile {
                 timingStats.typeCheckerTime.timeOperation(() => {
                     const checkDuration = new Duration();
                     const nodeInfo = AnalyzerNodeInfo.createAnalyzerNodeInfoAccessor(nodeInfoReader);
+                    const operationOwner = checkOperation?.(
+                        this._uri,
+                        this._writableData.parserOutput!,
+                        evaluator,
+                        nodeInfoReader
+                    );
                     const checker = new Checker(
                         importResolver,
                         evaluator,
                         this._writableData.parserOutput!,
                         dependentFiles,
-                        nodeInfo
+                        nodeInfo,
+                        operationOwner?.walk
                     );
                     this._writableData.isCheckingInProgress = true;
-                    checker.check();
+                    try {
+                        checker.check();
+                    } finally {
+                        operationOwner?.dispose();
+                    }
                     this._writableData.isCheckingNeeded = false;
 
                     const fileInfo = nodeInfo.getFileInfo(this._writableData.parserOutput!.parseTree)!;

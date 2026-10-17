@@ -51,6 +51,17 @@ class Meta(type):
         return self.__name__
 
 
+class CustomClass(metaclass=Meta):
+    pass
+
+
+reveal_type(CustomClass.__dict__, expected_text="MappingProxyType[str, Any]")
+
+
+def custom_func(a: CustomClass):
+    reveal_type(a.__dict__, expected_text="dict[str, Any]")
+
+
 class NonMeta:
     def method1(self) -> str:
         # This should generate an error.

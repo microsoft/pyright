@@ -1,95 +1,146 @@
-# This sample tests that a class pattern whose class may be a subclass of
-# the named class (such as a value of type type[X]) does not eliminate the
-# subject type when the match fails.
+# This sample tests intersection narrowing for runtime-checkable protocol patterns.
 
-# pyright: reportUnreachable=true
+from typing import Generic, Protocol, TypeVar, runtime_checkable
+from typing_extensions import assert_type  # pyright: ignore[reportMissingModuleSource]
 
 
-class Example:
+class Foo:
+    label: str
+
+
+@runtime_checkable
+class SupportsMethod(Protocol):
+    def method(self) -> int: ...
+
+
+def test_protocol(value: Foo) -> None:
+    match value:
+        case SupportsMethod() as captured:
+            reveal_type(value, expected_text="<subclass of Foo and SupportsMethod>")
+            reveal_type(captured, expected_text="<subclass of Foo and SupportsMethod>")
+            assert_type(value.label, str)
+            assert_type(value.method(), int)
+        case _:
+            assert_type(value, Foo)
+
+    if isinstance(value, SupportsMethod):
+        reveal_type(value, expected_text="<subclass of Foo and SupportsMethod>")
+    else:
+        assert_type(value, Foo)
+
+
+class ImplementsMethod(Foo):
+    def method(self) -> int:
+        return 1
+
+
+def test_known_implementation(value: Foo | ImplementsMethod) -> None:
+    match value:
+        case SupportsMethod():
+            assert_type(value, ImplementsMethod)
+        case _:
+            assert_type(value, Foo)
+
+
+@runtime_checkable
+class SupportsOtherMethod(Protocol):
+    def other_method(self) -> str: ...
+
+
+def test_nested_protocol(value: Foo) -> None:
+    match value:
+        case SupportsMethod():
+            match value:
+                case SupportsOtherMethod():
+                    reveal_type(
+                        value,
+                        expected_text="<subclass of <subclass of Foo and SupportsMethod> and SupportsOtherMethod>",
+                    )
+                    assert_type(value.label, str)
+                    assert_type(value.method(), int)
+                    assert_type(value.other_method(), str)
+                case _:
+                    reveal_type(value, expected_text="<subclass of Foo and SupportsMethod>")
+        case _:
+            assert_type(value, Foo)
+
+
+@runtime_checkable
+class HasValue(Protocol):
     __match_args__ = ("value",)
-
-    def __init__(self, value: str) -> None:
-        self.value = value
+    value: int
 
 
-def func1(subclass: type[Example]) -> None:
-    match Example("a"):
-        case subclass(value):
-            reveal_type(value, expected_text="str")
-        case anything:
-            reveal_type(anything, expected_text="Example")
-
-
-def func2(subclass: type[Example], subject: Example) -> None:
-    match subject:
-        case subclass():
-            reveal_type(subject, expected_text="Example")
-        case _:
-            reveal_type(subject, expected_text="Example")
-
-
-from typing import final
-
-
-@final
-class Leaf:
-    pass
-
-
-def final_pattern(value: Leaf | str, pattern: type[Leaf]) -> str:
+def test_keyword_pattern(value: Foo) -> None:
     match value:
-        case pattern():
-            return "leaf"
+        case HasValue(value=int() as item):
+            reveal_type(value, expected_text="<subclass of Foo and HasValue>")
+            assert_type(item, int)
+            assert_type(value.label, str)
         case _:
-            reveal_type(value, expected_text="str")
+            assert_type(value, Foo)
+
+
+def test_positional_pattern(value: Foo) -> None:
+    match value:
+        case HasValue(item):
+            reveal_type(value, expected_text="<subclass of Foo and HasValue>")
+            assert_type(item, int)
+        case _:
+            assert_type(value, Foo)
+
+
+def test_guard(value: Foo, condition: bool) -> None:
+    match value:
+        case SupportsMethod() if condition:
+            reveal_type(value, expected_text="<subclass of Foo and SupportsMethod>")
+        case _:
+            assert_type(value, Foo)
+
+
+T = TypeVar("T", bound=Foo)
+
+
+def test_type_var(value: T) -> T:
+    match value:
+        case SupportsMethod():
+            reveal_type(value, expected_text="<subclass of Foo* and SupportsMethod>*")
+            assert_type(value.method(), int)
+            return value
+        case _:
             return value
 
 
-def bool_pattern(value: bool | str, pattern: type[bool]) -> str:
+def test_type_var_isinstance(value: T) -> T:
+    if isinstance(value, SupportsMethod):
+        reveal_type(value, expected_text="<subclass of Foo* and SupportsMethod>*")
+        assert_type(value.method(), int)
+        return value
+    return value
+
+
+class GenericFoo(Generic[T]):
+    def get(self) -> T:
+        raise NotImplementedError
+
+
+def test_generic_subject(value: GenericFoo[Foo]) -> None:
     match value:
-        case pattern():
-            return "bool"
+        case SupportsMethod():
+            reveal_type(
+                value,
+                expected_text="<subclass of GenericFoo[Foo] and SupportsMethod>",
+            )
+            assert_type(value.get(), Foo)
+            assert_type(value.method(), int)
         case _:
-            reveal_type(value, expected_text="str")
-            return value
+            assert_type(value, GenericFoo[Foo])
 
 
-from enum import Enum, IntEnum
-
-
-class Color(Enum):
-    RED = 1
-
-
-class Number(IntEnum):
-    ONE = 1
-
-
-class EmptyEnum(Enum):
-    pass
-
-
-def enum_pattern(value: Color | str, pattern: type[Color]) -> str:
+def test_builtin_subject(value: int) -> None:
     match value:
-        case pattern():
-            return "color"
+        case SupportsMethod():
+            reveal_type(value, expected_text="<subclass of int and SupportsMethod>")
+            assert_type(value.method(), int)
         case _:
-            reveal_type(value, expected_text="str")
-            return value
-
-
-def int_enum_pattern(value: Number | str, pattern: type[Number]) -> str:
-    match value:
-        case pattern():
-            return "number"
-        case _:
-            reveal_type(value, expected_text="str")
-            return value
-
-
-def empty_enum_pattern(value: EmptyEnum | str, pattern: type[EmptyEnum]) -> None:
-    match value:
-        case pattern():
-            pass
-        case _:
-            reveal_type(value, expected_text="EmptyEnum | str")
+            assert_type(value, int)

@@ -44,6 +44,9 @@ export const enum TypeCategory {
 
     // Type variable
     TypeVar,
+
+    // Complete return-type witnesses for a materialization-ambiguous call.
+    OverloadResult,
 }
 
 export const enum TypeFlags {
@@ -72,7 +75,8 @@ export type UnionableType =
     | OverloadedType
     | ClassType
     | ModuleType
-    | TypeVarType;
+    | TypeVarType
+    | OverloadResultType;
 
 export type Type = UnionableType | NeverType | UnionType;
 
@@ -129,6 +133,8 @@ export interface TypeSameOptions {
     honorTypeForm?: boolean;
     honorIsTypeArgExplicit?: boolean;
     treatAnySameAsUnknown?: boolean;
+    honorCallBehavior?: boolean;
+    ignoreOverloadOwner?: boolean;
 }
 
 export interface TypeAliasSharedInfo {
@@ -475,6 +481,36 @@ export namespace UnknownType {
     }
 }
 
+export interface OverloadResultType extends TypeBase<TypeCategory.OverloadResult> {
+    priv: {
+        readonly candidates: readonly Type[];
+        readonly baselineType: Type;
+        readonly uncertaintyKind: TypeCategory.Any | TypeCategory.Unknown;
+    };
+}
+
+export namespace OverloadResultType {
+    export function create(
+        candidates: readonly Type[],
+        baselineType: Type,
+        uncertaintyKind: TypeCategory.Any | TypeCategory.Unknown
+    ): OverloadResultType {
+        assert(candidates.length > 0);
+        return {
+            category: TypeCategory.OverloadResult,
+            flags: candidates.reduce<TypeFlags>((flags, candidate) => flags | candidate.flags, candidates[0].flags),
+            props: undefined,
+            cached: undefined,
+            shared: undefined,
+            priv: {
+                candidates: Object.freeze([...candidates]),
+                baselineType,
+                uncertaintyKind,
+            },
+        };
+    }
+}
+
 export interface ModuleDetailsPriv {
     fields: SymbolTable;
     docString: string | undefined;
@@ -681,6 +717,9 @@ export const enum ClassTypeFlags {
     // The enum class body can modify its namespace in a way that the binder
     // cannot represent as statically-known member symbols.
     EnumMemberSetMayBeDynamicallyModified = 1 << 26,
+
+    // An explicit metaclass expression could not be resolved to a class type.
+    HasUnresolvedMetaclass = 1 << 27,
 }
 
 export interface DataClassBehaviors {
@@ -3348,6 +3387,10 @@ export function isOverloaded(type: Type): type is OverloadedType {
     return type.category === TypeCategory.Overloaded;
 }
 
+export function isOverloadResult(type: Type): type is OverloadResultType {
+    return type.category === TypeCategory.OverloadResult;
+}
+
 export function isFunctionOrOverloaded(type: Type): type is FunctionType | OverloadedType {
     return type.category === TypeCategory.Function || type.category === TypeCategory.Overloaded;
 }
@@ -3423,7 +3466,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
     }
 
     if (recursionCount > maxTypeRecursionCount) {
-        return true;
+        return !options.honorCallBehavior && !isOverloadResult(type1);
     }
     recursionCount++;
 
@@ -3549,6 +3592,55 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
+            if (options.honorCallBehavior) {
+                const optionalTypesMatch = (left: Type | undefined, right: Type | undefined) =>
+                    left && right ? isTypeSame(left, right, recursiveOptions, recursionCount) : left === right;
+                if (
+                    type1.shared.name !== functionType2.shared.name ||
+                    type1.shared.fullName !== functionType2.shared.fullName ||
+                    type1.shared.moduleName !== functionType2.shared.moduleName ||
+                    type1.shared.declaration !== functionType2.shared.declaration ||
+                    type1.shared.typeVarScopeId !== functionType2.shared.typeVarScopeId ||
+                    type1.priv.constructorTypeVarScopeId !== functionType2.priv.constructorTypeVarScopeId ||
+                    type1.shared.flags !== functionType2.shared.flags ||
+                    type1.priv.preBoundFlags !== functionType2.priv.preBoundFlags ||
+                    type1.priv.isCallableWithTypeArgs !== functionType2.priv.isCallableWithTypeArgs ||
+                    type1.shared.typeParams.length !== functionType2.shared.typeParams.length ||
+                    type1.shared.typeParams.some(
+                        (param, index) =>
+                            !isTypeSame(param, functionType2.shared.typeParams[index], recursiveOptions, recursionCount)
+                    ) ||
+                    !optionalTypesMatch(type1.priv.boundToType, functionType2.priv.boundToType) ||
+                    !optionalTypesMatch(type1.priv.strippedFirstParamType, functionType2.priv.strippedFirstParamType) ||
+                    params1.some(
+                        (param, index) =>
+                            param.flags !== params2[index].flags ||
+                            !optionalTypesMatch(
+                                FunctionType.getParamDefaultType(type1, index),
+                                FunctionType.getParamDefaultType(functionType2, index)
+                            )
+                    )
+                ) {
+                    return false;
+                }
+                if (!options.ignoreOverloadOwner) {
+                    const owner1 = type1.priv.overloaded;
+                    const owner2 = functionType2.priv.overloaded;
+                    if (
+                        owner1 && owner2
+                            ? !isTypeSame(
+                                  owner1,
+                                  owner2,
+                                  { ...recursiveOptions, ignoreOverloadOwner: true },
+                                  recursionCount
+                              )
+                            : owner1 !== owner2
+                    ) {
+                        return false;
+                    }
+                }
+            }
+
             const specializedTypes1 = type1.priv.specializedTypes;
             const specializedTypes2 = functionType2.priv.specializedTypes;
 
@@ -3630,6 +3722,18 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
         case TypeCategory.Overloaded: {
             // Make sure the overload counts match.
             const functionType2 = type2 as OverloadedType;
+
+            if (options.honorCallBehavior) {
+                const implementation1 = OverloadedType.getImplementation(type1);
+                const implementation2 = OverloadedType.getImplementation(functionType2);
+                if (
+                    implementation1 && implementation2
+                        ? !isTypeSame(implementation1, implementation2, recursiveOptions, recursionCount)
+                        : implementation1 !== implementation2
+                ) {
+                    return false;
+                }
+            }
             if (type1.priv._overloads === functionType2.priv._overloads) {
                 return true;
             }
@@ -3675,6 +3779,19 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
 
         case TypeCategory.TypeVar: {
             const type2TypeVar = type2 as TypeVarType;
+
+            if (
+                options.honorCallBehavior &&
+                (type1.shared.isDefaultExplicit !== type2TypeVar.shared.isDefaultExplicit ||
+                    !isTypeSame(
+                        type1.shared.defaultType,
+                        type2TypeVar.shared.defaultType,
+                        recursiveOptions,
+                        recursionCount
+                    ))
+            ) {
+                return false;
+            }
 
             if (type1.priv.scopeId !== type2TypeVar.priv.scopeId) {
                 return false;
@@ -3780,6 +3897,33 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             const type2Unknown = type2 as UnknownType;
 
             return type1.priv.isIncomplete === type2Unknown.priv.isIncomplete;
+        }
+
+        case TypeCategory.OverloadResult: {
+            const other = type2 as OverloadResultType;
+            const strictOptions: TypeSameOptions = {
+                ...recursiveOptions,
+                honorCallBehavior: true,
+                honorTypeForm: true,
+                honorIsTypeArgExplicit: true,
+                treatAnySameAsUnknown: false,
+            };
+            if (
+                type1.priv.uncertaintyKind !== other.priv.uncertaintyKind ||
+                type1.priv.candidates.length !== other.priv.candidates.length ||
+                !isTypeSame(type1.priv.baselineType, other.priv.baselineType, strictOptions, recursionCount)
+            ) {
+                return false;
+            }
+            const unmatched = [...other.priv.candidates];
+            return type1.priv.candidates.every((candidate) => {
+                const index = unmatched.findIndex((item) => isTypeSame(candidate, item, strictOptions, recursionCount));
+                if (index < 0) {
+                    return false;
+                }
+                unmatched.splice(index, 1);
+                return true;
+            });
         }
     }
 
@@ -4029,6 +4173,16 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
 
     for (let i = 0; i < unionType.priv.subtypes.length; i++) {
         const type = unionType.priv.subtypes[i];
+
+        // Distinct nominal classes cannot merge. Built-ins can match through aliases when combining bool literals.
+        if (
+            isClass(type) &&
+            isClass(typeToAdd) &&
+            type.shared.fullName !== typeToAdd.shared.fullName &&
+            (!ClassType.isBuiltIn(type) || !ClassType.isBuiltIn(typeToAdd))
+        ) {
+            continue;
+        }
 
         // Does this type already exist in the types array?
         if (isTypeSame(type, typeToAdd, { honorTypeForm: true })) {

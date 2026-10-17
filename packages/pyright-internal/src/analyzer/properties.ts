@@ -560,6 +560,7 @@ export function assignProperty(
     diag: DiagnosticAddendum | undefined,
     constraints?: ConstraintTracker,
     selfSolution?: ConstraintSolution,
+    flags = AssignTypeFlags.Default,
     recursionCount = 0
 ): boolean {
     const srcObjectToBind = isClass(srcClass) ? ClassType.cloneAsInstance(srcClass) : undefined;
@@ -640,7 +641,7 @@ export function assignProperty(
                     boundSrcAccessType,
                     diag,
                     constraints,
-                    AssignTypeFlags.Default,
+                    flags & AssignTypeFlags.RejectCyclicLowerBound,
                     recursionCount
                 )
             ) {

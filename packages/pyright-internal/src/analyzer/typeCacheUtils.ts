@@ -119,6 +119,34 @@ export function addContextualTypeCacheEntry<T extends ContextualTypeCacheEntry>(
     return newCacheEntries;
 }
 
+// Isolate exactly these node IDs for a synchronous operation. Restore entry presence
+// and values on exit unless successful results are retained; unrelated writes survive.
+export function useNodeCacheIsolation<T, V>(
+    cache: Map<number, V>,
+    nodeIds: ReadonlySet<number>,
+    callback: () => T,
+    retain = false
+): T {
+    const saved = new Map<number, V>();
+    nodeIds.forEach((id) => {
+        if (cache.has(id)) {
+            saved.set(id, cache.get(id)!);
+        }
+        cache.delete(id);
+    });
+    let completed = false;
+    try {
+        const result = callback();
+        completed = true;
+        return result;
+    } finally {
+        if (!retain || !completed) {
+            nodeIds.forEach((id) => cache.delete(id));
+            saved.forEach((value, id) => cache.set(id, value));
+        }
+    }
+}
+
 // This class maintains a stack of "speculative type contexts". When
 // a context is popped off the stack, all of the speculative type cache
 // entries that were created within that context are removed from the
@@ -134,6 +162,24 @@ export class SpeculativeTypeTracker {
     private _speculativeContextStack: SpeculativeContext[] = [];
     private _speculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
     private _activeDependentTypes: DependentType[] = [];
+
+    evictCacheEntries(nodeIds: ReadonlySet<number>) {
+        assert(this._speculativeContextStack.length === 0);
+        nodeIds.forEach((id) => this._speculativeTypeCache.delete(id));
+    }
+
+    canUseNodeCacheIsolation(root: ParseNode) {
+        return this._speculativeContextStack.every(
+            (context) =>
+                !ParseTreeUtils.isNodeContainedWithin(root, context.speculativeRootNode) &&
+                !ParseTreeUtils.isNodeContainedWithin(context.speculativeRootNode, root)
+        );
+    }
+
+    useNodeCacheIsolation<T>(nodeIds: ReadonlySet<number>, callback: () => T, root?: ParseNode): T {
+        assert(root ? this.canUseNodeCacheIsolation(root) : this._speculativeContextStack.length === 0);
+        return useNodeCacheIsolation(this._speculativeTypeCache, nodeIds, callback);
+    }
 
     enterSpeculativeContext(speculativeRootNode: ParseNode, options?: SpeculativeModeOptions) {
         this._speculativeContextStack.push({
