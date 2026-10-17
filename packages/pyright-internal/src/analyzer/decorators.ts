@@ -10,6 +10,7 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { PythonVersion, pythonVersion3_9, pythonVersion3_13 } from '../common/pythonVersion';
 import { LocMessage } from '../localization/localize';
 import { ArgCategory, CallNode, DecoratorNode, FunctionNode, ParamCategory, ParseNodeType } from '../parser/parseNodes';
 import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
@@ -202,6 +203,19 @@ export function applyFunctionDecorator(
                   inputFunctionType.shared.flags & ~FunctionTypeFlags.PartiallyEvaluated
               )
             : inputFunctionType;
+
+    if (
+        isInstantiableClass(decoratorType) &&
+        ClassType.isBuiltIn(decoratorType, 'classmethod') &&
+        isClassInstance(decoratorArg) &&
+        ClassType.isBuiltIn(decoratorArg, 'classmethod') &&
+        PythonVersion.isGreaterOrEqualTo(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_9) &&
+        PythonVersion.isLessThan(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_13)
+    ) {
+        // Delegating to an inner built-in classmethod binds the same owner.
+        // Preserve its descriptor rather than validating it as a callable.
+        return decoratorArg;
+    }
 
     let returnType = getTypeOfDecorator(evaluator, decoratorNode, decoratorArg, nodeInfo);
 

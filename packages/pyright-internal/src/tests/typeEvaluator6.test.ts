@@ -1415,6 +1415,20 @@ test.each([
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test.each([
+    ['3.8', pythonVersion3_8, 1],
+    ['3.9', pythonVersion3_9, 4],
+    ['3.11', pythonVersion3_11, 4],
+    ['3.12', pythonVersion3_12, 4],
+    ['3.13', pythonVersion3_13, 1],
+])('Decorator10 (Python %s)', (_version, pythonVersion, errorCount) => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator10.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, errorCount);
+});
+
 test('DisjointBase1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['disjointBase1.py']);
     TestUtils.validateResults(analysisResults, 15);
