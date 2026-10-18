@@ -24679,7 +24679,9 @@ export function createTypeEvaluator(
                     let symbolType: Type;
 
                     if (implicitImport.isUnresolved) {
-                        symbolType = UnknownType.create();
+                        symbolType = evaluatorOptions.evaluateUnknownImportsAsAny
+                            ? AnyType.create()
+                            : UnknownType.create();
                     } else {
                         let importedModuleType: ModuleType;
 
