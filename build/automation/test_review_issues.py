@@ -1,0 +1,1133 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
+import asyncio
+import json
+import os
+import tempfile
+import tomllib
+import unittest
+from argparse import Namespace
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
+from copilot import ToolInvocation
+from copilot.generated.rpc import PermissionDecisionApproveOnce, PermissionDecisionReject
+from copilot.generated.session_events import (
+    AssistantMessageData,
+    PermissionRequestRead,
+    PermissionRequestShell,
+    PermissionRequestWrite,
+    SessionIndexedSearchData,
+)
+from pydantic import JsonValue, ValidationError
+
+from issue_review_models import (
+    Adjudication,
+    Audit,
+    BlockedChallenge,
+    DraftCheck,
+    DuplicateCandidate,
+    DuplicateFindings,
+    DuplicateReport,
+    Entry,
+    HistoricalSearch,
+    Issue,
+    Label,
+    ReviewFindings,
+    ReproductionPlan,
+    RootCauseChallenge,
+    RootCauseFindings,
+    RootCauseGate,
+)
+from review_issues import (
+    AGENTS,
+    REPOSITORY,
+    ROOT,
+    SDK,
+    Agent,
+    AutomationError,
+    Console,
+    GitHub,
+    InvestigationTools,
+    atomic_write,
+    arguments,
+    main as review_main,
+    response_schema,
+    state_lock,
+)
+
+
+def issue() -> Issue:
+    return Issue(
+        number=123, title="A precise report", body="A small reproducer", comments=0,
+        state="open", updated_at="2026-01-01T00:00:00Z",
+        html_url=f"https://github.com/{REPOSITORY}/issues/123", labels=[Label(name="bug")],
+    )
+
+
+def audit() -> Audit:
+    return Audit.model_validate({
+        "schema_version": 1, "repository": REPOSITORY, "issue_number": 123,
+        "issue_url": issue().html_url, "issue_updated_at": issue().updated_at,
+        "reviewed_at": "2026-01-01T01:00:00Z", "checkout_revision": "a" * 40,
+        "summary": "The rejection follows the applicable static rule.",
+        "claims": [{
+            "id": "claim", "summary": "A rejected assignment",
+            "disposition": "specification_correct", "confidence": "high",
+            "confidence_reason": "The rule and counterexample agree",
+            "reproduction": [
+                {"target": "reported_release", "version": None, "status": "not_attempted", "check_ids": []},
+                {"target": "current_release", "version": None, "status": "not_attempted", "check_ids": []},
+                {"target": "checkout", "version": "1.1.414", "status": "reproduced", "check_ids": ["check"]},
+            ],
+            "basis": "An applicable rule explains this diagnostic", "source_ids": ["spec"],
+            "counterevidence": "Runtime acceptance does not prove a static assignment",
+            "falsification": "A different applicable assignment rule", "user_impact": "A clearer diagnostic could help",
+        }],
+        "checks": [{
+            "id": "check", "status": "executed", "command": "node pyright.js",
+            "cwd": "scratch", "exit_code": 1, "observations": "reportAssignmentType at line 1",
+        }],
+        "sources": [{
+            "id": "spec", "kind": "typing_spec", "location": "https://typing.python.org/en/latest/spec/",
+            "finding": "An assignment rule", "applicability": "Applies to this case",
+        }],
+        "historical_searches": [{"query": "assignment", "outcome": "Competing decisions inspected"}],
+        "uncertainties": ["Releases and mypy were not independently executed"],
+        "next_action": "Explain the rule",
+    })
+
+
+def no_duplicates() -> DuplicateReport:
+    return DuplicateReport(
+        repository=REPOSITORY, issue_number=123, summary="No shared cause found in bounded searches",
+        candidates=[], uncertainties=[], search_complete=True,
+        searches=[HistoricalSearch(query="assignment", outcome="Strongest candidates inspected; no duplicate found")],
+    )
+
+
+def search_record() -> dict[str, JsonValue]:
+    return {
+        "tool": "github_read", "request": {"operation": "search", "query": "assignment"},
+        "investigator": "duplicates",
+        "result": {"incomplete_results": False, "items": []},
+    }
+
+
+def product_record(report: Audit) -> dict[str, JsonValue]:
+    return {
+        "kind": "pyright", "command": report.checks[0].command, "cwd": report.checks[0].cwd,
+        "investigator": "review",
+        "exit_code": report.checks[0].exit_code, "stdout": '{"version":"1.1.414","generalDiagnostics":[]}',
+        "stderr": "", "inputs": [{"file": "sample.py", "content": "value: int = 'wrong'\n"}],
+    }
+
+
+def save_evidence(console: Console, entry: Entry, *, validity: str = "by design") -> None:
+    entry.review_markdown = "# Behavior findings\n\nAn applicable rule and observed product check.\n"
+    entry.duplicates_markdown = "# Duplicate findings\n\nNo shared cause found in a bounded search.\n"
+    entry.duplicates = entry.duplicates or no_duplicates()
+    directory = console.directory(entry.issue.number)
+    atomic_write(directory / "review.md", entry.review_markdown)
+    atomic_write(directory / "duplicates.md", entry.duplicates_markdown)
+    assert entry.review is not None
+    atomic_write(directory / "checks.jsonl", "\n".join(
+        json.dumps(record) for record in (product_record(entry.review), search_record())
+    ) + "\n")
+    entry.adjudication = Adjudication.model_validate({
+        "issue_number": entry.issue.number, "report_hash": console.report_hash(entry),
+        "validity": validity, "duplicate_status": "no dupe found", "duplicate_of": None,
+        "rationale": "The inspected reports and observed product evidence support these tags.",
+    })
+
+
+class FakeGitHub(GitHub):
+    def __init__(self):
+        super().__init__()
+        self.current = issue()
+        self.discussion: list[JsonValue] = []
+        self.mutations: list[str] = []
+        self.fail: str | None = None
+        self.ambiguous_comment = False
+        self.change_after_comment = False
+        self.canonical = issue().model_copy(update={
+            "number": 456, "html_url": f"https://github.com/{REPOSITORY}/issues/456",
+        })
+
+    async def issue(self, number: int) -> Issue:
+        return (self.current if number == 123 else self.canonical).model_copy(deep=True)
+
+    async def comments(self, number: int) -> list[JsonValue]:
+        return json.loads(json.dumps(self.discussion))
+
+    async def login(self) -> str:
+        return "reviewer"
+
+    def touch(self) -> None:
+        self.current.updated_at = f"2026-01-01T00:01:{len(self.mutations):02d}Z"
+
+    async def api(self, method: str, endpoint: str, payload: JsonValue = None, *, pages: bool = False) -> JsonValue:
+        operation = endpoint.rsplit("/", 1)[-1] if method == "POST" else "close"
+        self.mutations.append(operation)
+        if self.fail == operation:
+            raise AutomationError(f"Simulated {operation} failure")
+        if operation == "comments":
+            if not isinstance(payload, dict):
+                raise AssertionError("Missing comment body")
+            comment: JsonValue = {
+                "id": 7, "html_url": "https://github.com/microsoft/pyright/issues/123#issuecomment-7",
+                "body": payload["body"], "user": {"login": "reviewer"},
+            }
+            self.discussion.append(comment)
+            self.current.comments += 1
+            if self.change_after_comment:
+                self.current.body = "A material reporter correction"
+            self.touch()
+            if self.ambiguous_comment:
+                self.ambiguous_comment = False
+                raise AutomationError("Network response lost after successful comment publication")
+            return comment
+        if operation == "labels":
+            self.current.labels.append(Label(name="as designed"))
+        elif operation == "close":
+            self.current.state, self.current.state_reason = "closed", "not_planned"
+        else:
+            raise AssertionError(f"Unexpected mutation {operation}")
+        self.touch()
+        return {}
+
+
+class ModelTests(unittest.TestCase):
+    def test_adjudication_does_not_force_binary_answers(self):
+        review, duplicates = audit(), no_duplicates()
+        result = Adjudication(
+            issue_number=123, report_hash="hash", validity="needs investigation",
+            duplicate_status="needs investigation", duplicate_of=None,
+            rationale="The relevant product surface was unavailable.",
+        )
+        review.product_surface = "editor"
+        review.claims[0].reproduction[2].status = "blocked"
+        result.validate_reports(review, duplicates)
+        for validity in ("by design", "bug"):
+            forced = result.model_copy(update={"validity": validity})
+            with self.assertRaises(ValueError):
+                forced.validate_reports(review, duplicates)
+        self.assertEqual(result.tags(), "needs investigation | needs investigation")
+
+    def test_no_duplicate_requires_completed_search_and_resolved_candidates(self):
+        result = Adjudication(
+            issue_number=123, report_hash="hash", validity="by design",
+            duplicate_status="no dupe found", duplicate_of=None, rationale="Evidence agrees.",
+        )
+        duplicates = no_duplicates()
+        result.validate_reports(audit(), duplicates)
+        for field, value in (("search_complete", False), ("searches", [])):
+            changed = duplicates.model_copy(update={field: value})
+            with self.assertRaises(ValueError):
+                result.validate_reports(audit(), changed)
+
+    def test_conservative_closure_gate(self):
+        original = audit()
+        self.assertTrue(original.closure_candidate())
+        for disposition in ("bug", "stub_or_environment", "enhancement", "inconclusive"):
+            changed = original.model_copy(deep=True)
+            changed.claims[0].disposition = disposition
+            self.assertFalse(changed.closure_candidate())
+        for confidence in ("medium", "low"):
+            changed = original.model_copy(deep=True)
+            changed.claims[0].confidence = confidence
+            self.assertFalse(changed.closure_candidate())
+        changed = original.model_copy(deep=True)
+        changed.claims[0].reproduction[2].status = "blocked"
+        self.assertFalse(changed.closure_candidate())
+        changed = original.model_copy(deep=True)
+        changed.claims.append(original.claims[0].model_copy(update={"id": "other", "disposition": "bug"}))
+        self.assertFalse(changed.closure_candidate())
+
+    def test_rejects_unresolved_or_fabricated_evidence(self):
+        for mutate in (
+            lambda data: data["claims"][0].update(source_ids=["missing"]),
+            lambda data: data["checks"][0].update(status="blocked"),
+            lambda data: data["claims"][0]["reproduction"][2].update(check_ids=[]),
+            lambda data: data["claims"][0]["reproduction"][2].update(target="reported_release"),
+            lambda data: data.update(issue_number=124),
+            lambda data: data.update(checkout_revision="not-a-sha"),
+            lambda data: data.update(reviewed_at="2026-01-01"),
+        ):
+            data = json.loads(audit().model_dump_json())
+            mutate(data)
+            with self.assertRaises(ValidationError):
+                Audit.model_validate(data)
+
+    def test_duplicate_reports_and_fact_checks(self):
+        report = {
+            "repository": REPOSITORY, "issue_number": 123, "summary": "No established duplicate",
+            "candidates": [], "uncertainties": ["Root cause still unconfirmed"],
+        }
+        self.assertEqual(DuplicateReport.model_validate(report).candidates, [])
+        with self.assertRaises(ValidationError):
+            DraftCheck(approved=True, problems=["An unsupported claim"])
+
+    def test_state_lock_and_atomic_checkpoint(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            with state_lock(directory):
+                with self.assertRaises(AutomationError):
+                    with state_lock(directory):
+                        self.fail("Acquired an already-held lock")
+            atomic_write(directory / "report.json", "{}")
+            self.assertEqual((directory / "report.json").read_text(), "{}")
+            self.assertFalse((directory / "run.lock").exists())
+
+    def test_agent_loading(self):
+        profile = Agent.load(AGENTS / "pyright-issue-by-design-reviewer.md", "pyright-issue-by-design-reviewer")
+        self.assertEqual(profile.config([], skill=True).get("skills"), ["pyright-issue-analysis"])
+        with self.assertRaises(AutomationError):
+            Agent.load(profile.path, "rich-mirror")
+
+    def test_original_reviewer_remains_a_separate_nonexecuting_role(self):
+        original = Agent.load(AGENTS / "pyright-issue-reviewer.md", "pyright-issue-reviewer")
+        backlog = Agent.load(AGENTS / "pyright-issue-by-design-reviewer.md", "pyright-issue-by-design-reviewer")
+        self.assertIn("Do not edit files, execute commands", original.prompt)
+        self.assertIn("Maintainer response draft", original.prompt)
+        self.assertNotIn("ReviewFindings", original.prompt)
+        self.assertIn("ReviewFindings", backlog.prompt)
+        self.assertIn("running the actual Pyright executable", backlog.prompt)
+        self.assertNotEqual(original.path, backlog.path)
+
+    def test_script_metadata_matches_development_requirements(self):
+        directory = Path(__file__).parent
+        script = (directory / "review_issues.py").read_text(encoding="utf-8")
+        block = script.split("# /// script\n", 1)[1].split("# ///", 1)[0]
+        metadata = tomllib.loads("\n".join(line[2:] for line in block.splitlines()))
+        requirements = (directory / "requirements.txt").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(metadata["requires-python"], ">=3.11")
+        self.assertCountEqual(metadata["dependencies"], requirements)
+
+    def test_indexed_search_opt_out_diagnostic_is_supported_by_sdk(self):
+        diagnostic = SessionIndexedSearchData.from_dict({
+            "kind": "status", "disabledReason": "use_tgrep_false", "eligible": False,
+        })
+        assert diagnostic.disabled_reason is not None
+        self.assertEqual(diagnostic.disabled_reason.value, "use_tgrep_false")
+
+    def test_provider_schema_defers_unsupported_constraints_to_local_validation(self):
+        wire_schema = json.dumps(response_schema(Audit))
+        self.assertIn('"minItems": 1', wire_schema)
+        self.assertNotIn('"minItems": 3', wire_schema)
+        self.assertNotIn("exclusiveMinimum", wire_schema)
+        invalid = json.loads(audit().model_dump_json())
+        invalid["claims"][0]["reproduction"].pop()
+        with self.assertRaises(ValidationError):
+            Audit.model_validate(invalid)
+
+    def test_all_response_schemas_require_every_property_recursively(self):
+        def check(value: JsonValue):
+            if isinstance(value, dict):
+                properties = value.get("properties")
+                if isinstance(properties, dict):
+                    self.assertEqual(value.get("required"), list(properties))
+                    self.assertIs(value.get("additionalProperties"), False)
+                self.assertNotIn("default", value)
+                for item in value.values():
+                    check(item)
+            elif isinstance(value, list):
+                for item in value:
+                    check(item)
+
+        for model in (
+            Audit, ReviewFindings, DuplicateReport, DuplicateFindings, Adjudication, DraftCheck,
+            RootCauseFindings, RootCauseGate, RootCauseChallenge, ReproductionPlan, BlockedChallenge,
+        ):
+            with self.subTest(model=model.__name__):
+                check(response_schema(model))
+        for model, names in ((Audit, ["product_surface"]), (DuplicateReport, ["searches", "search_complete"])):
+            required = response_schema(model)["required"]
+            assert isinstance(required, list)
+            for name in names:
+                self.assertIn(name, required)
+
+    def test_strict_wire_schema_preserves_nullable_fields_and_local_defaults(self):
+        schema = json.dumps(response_schema(Adjudication))
+        self.assertIn('"type": "null"', schema)
+        data = json.loads(audit().model_dump_json())
+        data.pop("product_surface")
+        self.assertEqual(Audit.model_validate(data).product_surface, "cli")
+
+    def test_model_defaults_to_gpt_61_sol_and_can_be_overridden(self):
+        with patch("sys.argv", ["review_issues.py"]):
+            self.assertEqual(arguments().model, "gpt-6.1-sol")
+        with patch("sys.argv", ["review_issues.py", "--model", "other-model"]):
+            self.assertEqual(arguments().model, "other-model")
+
+
+class ConsoleTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.enterContext(patch("review_issues.show"))
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.github = FakeGitHub()
+        self.profile = Agent.load(AGENTS / "pyright-issue-by-design-reviewer.md", "pyright-issue-by-design-reviewer")
+        self.console = Console(
+            self.github, SDK(AsyncMock(), None, 30), Path(self.temporary.name),
+            self.profile, self.profile, None, "context", "a" * 40, {},
+        )
+        snapshot = issue()
+        self.entry = Entry(
+            input_hash=self.console.key(snapshot), context_hash="context", issue=snapshot, review=audit(),
+            comment="A supported conversational explanation.",
+            draft_check=DraftCheck(approved=True, problems=[]),
+        )
+        save_evidence(self.console, self.entry)
+
+    async def test_comment_precedes_label_and_close(self):
+        await self.console.close(self.entry)
+        self.assertEqual(self.github.mutations, ["comments", "labels", "close"])
+        self.assertEqual(self.entry.decision, "closed")
+        restored = self.console.load(123)
+        assert restored is not None
+        self.assertEqual(restored.decision, "closed")
+        comment = self.github.discussion[0]
+        assert isinstance(comment, dict)
+        self.assertIn("pyright-issue-review:", str(comment["body"]))
+        self.assertIn("bug", [label.name for label in self.github.current.labels])
+
+    async def test_comment_failure_never_closes(self):
+        self.github.fail = "comments"
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        self.assertEqual(self.github.mutations, ["comments"])
+        self.assertEqual(self.github.current.state, "open")
+
+    async def test_ambiguous_post_reconciles_without_duplicate(self):
+        self.github.ambiguous_comment = True
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        restored = self.console.load(123)
+        assert restored is not None
+        await self.console.close(restored)
+        self.assertEqual(self.github.mutations, ["comments", "labels", "close"])
+        self.assertEqual(len(self.github.discussion), 1)
+
+    async def test_label_failure_can_resume_without_duplicate(self):
+        self.github.fail = "labels"
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        self.github.fail = None
+        await self.console.close(self.entry)
+        self.assertEqual(self.github.mutations, ["comments", "labels", "labels", "close"])
+        self.assertEqual(len(self.github.discussion), 1)
+
+    async def test_close_failure_preserves_post_and_label(self):
+        self.github.fail = "close"
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        self.github.fail = None
+        await self.console.close(self.entry)
+        self.assertEqual(self.github.mutations, ["comments", "labels", "close", "close"])
+
+    async def test_stale_review_is_not_closed(self):
+        self.github.current.body = "A changed premise"
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_changed_local_inputs_never_publish(self):
+        self.console.current_context = lambda: "a different source or profile"
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_concurrent_reporter_change_stops_after_comment(self):
+        self.github.change_after_comment = True
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        self.assertEqual(self.github.mutations, ["comments"])
+        self.assertEqual(self.github.current.state, "open")
+
+    async def test_changed_discussion_prevents_resume(self):
+        self.github.fail = "labels"
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        self.github.discussion.append({"id": 8, "body": "A material correction", "user": {"login": "reporter"}})
+        self.github.current.comments += 1
+        self.github.fail = None
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        self.assertNotIn("close", self.github.mutations)
+
+    async def test_keep_quit_and_wrong_confirmation_do_not_mutate(self):
+        for answers in (["k"], ["q"], ["p", "close 124"]):
+            with self.subTest(answers=answers):
+                responses = iter(answers)
+                self.console.ask = lambda _question: next(responses)
+                self.entry.decision = "pending"
+                with patch.object(self.console, "prepare_comment", AsyncMock(return_value="An explanation")):
+                    await self.console.decide(self.entry)
+                self.assertEqual(self.github.mutations, [])
+
+    async def test_mixed_or_read_only_reports_never_prompt_for_closure(self):
+        self.console.ask = lambda _question: self.fail("Unexpected closure prompt")
+        assert self.entry.review is not None
+        self.entry.review.claims[0].disposition = "bug"
+        save_evidence(self.console, self.entry, validity="bug")
+        await self.console.decide(self.entry)
+        saved = self.console.load(123)
+        assert saved is not None
+        self.assertEqual(saved.decision, "reviewed")
+        self.entry.review = audit()
+        save_evidence(self.console, self.entry)
+        self.console.read_only = True
+        await self.console.decide(self.entry)
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_writer_is_required_and_audits_resume(self):
+        self.entry.comment, self.entry.draft_check = None, None
+        with self.assertRaises(AutomationError):
+            await self.console.prepare_comment(self.entry)
+        self.console.save(self.entry)
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=AssertionError("Unexpected repeat SDK run"))):
+            resumed = await self.console.review(issue(), retry_failed=False)
+        self.assertEqual(resumed.review, self.entry.review)
+
+    async def test_review_binds_reproduction_to_actual_checker_provenance(self):
+        for scenario in ("valid", "release", "runtime_only", "unlogged", "invalid_product_output", "wrong_surface"):
+            self.console.state = Path(self.temporary.name) / scenario
+            report = audit()
+            if scenario == "release":
+                report.claims[0].reproduction[0].status = "reproduced"
+                report.claims[0].reproduction[0].check_ids = ["check"]
+            if scenario == "wrong_surface":
+                report.product_surface = "editor"
+
+            async def execute(_agent, _prompt, _scratch, **options):
+                record = product_record(report)
+                if scenario == "runtime_only":
+                    record["kind"] = "python"
+                if scenario == "invalid_product_output":
+                    record["stdout"] = "An assertion rather than valid Pyright output"
+                ledger = [] if scenario == "unlogged" else [record]
+                atomic_write(
+                    options["evidence"] / "checks.jsonl",
+                    "".join(json.dumps(item) + "\n" for item in ledger),
+                )
+                raw = ReviewFindings(markdown="# Findings\n\nActual and expected behavior.", audit=report).model_dump_json()
+                options["validate"](raw)
+                return raw
+
+            with (
+                patch.object(self.console.sdk, "run", AsyncMock(side_effect=execute)),
+                patch.object(self.console, "investigate_duplicates", AsyncMock()),
+                patch.object(self.console, "adjudicate", AsyncMock()),
+            ):
+                if scenario == "valid":
+                    saved = await self.console.review(issue(), retry_failed=True)
+                    self.assertEqual(saved.review, report)
+                    self.assertIsNotNone(saved.scratch_directory)
+                    markdown = (self.console.directory(123) / "review.md").read_text(encoding="utf-8")
+                    self.assertIn("Controller-recorded product evidence", markdown)
+                    self.assertIn("node pyright.js", markdown)
+                    self.assertIn("generalDiagnostics", markdown)
+                    self.assertIn("value: int = 'wrong'", markdown)
+                else:
+                    with self.assertRaises(AutomationError):
+                        await self.console.review(issue(), retry_failed=True)
+            self.assertEqual(self.github.mutations, [])
+
+    async def test_pending_closure_survives_resume_but_not_changed_context(self):
+        self.github.fail = "labels"
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        self.assertEqual(
+            (await self.console.review(self.github.current, retry_failed=False)).closure,
+            self.entry.closure,
+        )
+        self.console.context_hash = "changed"
+        with self.assertRaises(AutomationError):
+            await self.console.review(self.github.current, retry_failed=False)
+
+    async def test_missing_runtime_tools_fail_before_inference(self):
+        session = AsyncMock()
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.profile.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+        client = AsyncMock()
+        client.create_session.return_value = session
+        scratch = Path(self.temporary.name)
+        tools = InvestigationTools(self.github, scratch, ROOT / "packages" / "pyright" / "index.js", {})
+        with self.assertRaisesRegex(AutomationError, "missing required tools"):
+            await SDK(client, None, 30).run(self.profile, "A test", scratch, tools=tools)
+        session.send_and_wait.assert_not_awaited()
+        session.disconnect.assert_awaited_once()
+        configuration = client.create_session.call_args.kwargs
+        self.assertEqual(configuration["agent"], "pyright-issue-by-design-reviewer")
+        self.assertEqual(configuration["custom_agents"][0]["skills"], ["pyright-issue-analysis"])
+
+    async def test_duplicate_agent_is_read_only_and_never_runs_checks(self):
+        self.console.duplicate = Agent.load(
+            AGENTS / "pyright-issue-dupe-investigator.md", "pyright-issue-dupe-investigator"
+        )
+        self.entry.duplicates, self.entry.adjudication = None, None
+        self.console.save(self.entry)
+        report = no_duplicates()
+        raw = DuplicateFindings(markdown="# Duplicate findings\n\nNo shared cause found.", report=report).model_dump_json()
+        with (
+            patch.object(self.console.sdk, "run", AsyncMock(return_value=raw)) as run,
+            patch.object(self.console, "adjudicate", AsyncMock()),
+        ):
+            entry = await self.console.review(issue(), retry_failed=False)
+        self.assertEqual(entry.duplicates, report)
+        self.assertEqual(run.await_count, 1)
+        self.assertEqual(run.call_args.args[0].name, "pyright-issue-dupe-investigator")
+        self.assertEqual((self.console.directory(123) / "duplicates.md").read_text(), "# Duplicate findings\n\nNo shared cause found.\n")
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_timeout_aborts_and_disconnects_sdk(self):
+        session = AsyncMock()
+        session.session_id = "test"
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.profile.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+        session.send_and_wait.side_effect = TimeoutError()
+        client = AsyncMock()
+        client.create_session.return_value = session
+        sdk = SDK(client, None, 1)
+        with self.assertRaisesRegex(AutomationError, "SDK turn timed out"):
+            await sdk.run(self.profile, "A bounded test", Path(self.temporary.name))
+        session.abort.assert_awaited_once()
+        session.disconnect.assert_awaited_once()
+        self.assertEqual(client.create_session.call_args.kwargs["agent"], self.profile.name)
+
+    async def test_runner_disables_indexing_only_in_copilot_child_environment(self):
+        writer = Path(self.temporary.name) / "rich-mirror.md"
+        atomic_write(writer, "---\nname: rich-mirror\n---\nA test-only writer.\n")
+        args = Namespace(
+            state_dir=Path(self.temporary.name) / "state", cli_path="copilot", writer_agent=writer,
+            read_only=True, model=None, issues=[], chunk_size=5, timeout=30, retry_failed=False,
+            duplicates=False,
+        )
+        github = AsyncMock()
+        github.api.return_value = {"tag_name": "test"}
+        with (
+            patch("review_issues.GitHub", return_value=github),
+            patch("review_issues.process", AsyncMock(return_value=(0, "test", ""))),
+            patch("review_issues.context_hash", return_value="test"),
+            patch("review_issues.git", return_value="a" * 40),
+            patch.dict(os.environ, {"USE_TGREP": "true", "ISSUE_REVIEW_ENV_TEST": "preserved"}),
+            patch("review_issues.CopilotClient") as constructor,
+        ):
+            await review_main(args)
+            self.assertEqual(constructor.call_count, 1)
+            child_env = constructor.call_args.kwargs["env"]
+            self.assertEqual(child_env["USE_TGREP"], "false")
+            self.assertEqual(child_env["ISSUE_REVIEW_ENV_TEST"], "preserved")
+            self.assertEqual(os.environ["USE_TGREP"], "true")
+
+    async def test_invalid_output_gets_only_one_same_session_correction(self):
+        valid = '{"approved":true,"problems":[]}'
+        invalid = '{"approved":true,"problems":["An unsupported claim"]}'
+        for second, succeeds in ((valid, True), (invalid, False)):
+            session = AsyncMock()
+            session.session_id = "test"
+            session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.profile.name))
+            session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+            session.send_and_wait.side_effect = [
+                SimpleNamespace(data=AssistantMessageData(content=content, message_id="message"))
+                for content in (invalid, second)
+            ]
+            client = AsyncMock()
+            client.create_session.return_value = session
+            sdk = SDK(client, None, 30)
+            if succeeds:
+                self.assertEqual(await sdk.run(self.profile, "A test", Path(self.temporary.name), schema=DraftCheck), valid)
+            else:
+                with self.assertRaises(ValidationError):
+                    await sdk.run(self.profile, "A test", Path(self.temporary.name), schema=DraftCheck)
+            self.assertEqual(session.send_and_wait.await_count, 2)
+            client.create_session.assert_awaited_once()
+            session.disconnect.assert_awaited_once()
+
+    async def test_duplicate_sdk_session_has_no_write_or_execution_tools(self):
+        profile = Agent.load(AGENTS / "pyright-issue-dupe-investigator.md", "pyright-issue-dupe-investigator")
+        names = ["view", "grep", "rg", "glob", "web_fetch", "github_read"]
+        session = AsyncMock()
+        session.session_id = "test"
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=profile.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(
+            tools=[SimpleNamespace(name=name) for name in names]
+        )
+        session.send_and_wait.return_value = SimpleNamespace(
+            data=AssistantMessageData(content="Markdown findings result", message_id="message")
+        )
+        client = AsyncMock()
+        client.create_session.return_value = session
+        scratch = Path(self.temporary.name)
+        tools = InvestigationTools(self.github, scratch, ROOT / "packages" / "pyright" / "index.js", {})
+        await SDK(client, None, 30).run(profile, "A test", scratch, tools=tools)
+        configuration = client.create_session.call_args.kwargs
+        self.assertEqual(configuration["available_tools"], names)
+        self.assertEqual([tool.name for tool in configuration["tools"]], ["github_read"])
+
+    async def test_sdk_accepts_model_specific_search_and_scratch_write_tools(self):
+        scratch = Path(self.temporary.name)
+        tools = InvestigationTools(self.github, scratch, ROOT / "packages" / "pyright" / "index.js", {})
+        for variants in (["rg", "apply_patch"], ["grep", "create", "edit"]):
+            with self.subTest(variants=variants):
+                session = AsyncMock()
+                session.session_id = "capability-test"
+                session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.profile.name))
+                active = ["view", "glob", "web_fetch", "github_read", "run_check", *variants]
+                session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(
+                    tools=[SimpleNamespace(name=name) for name in active],
+                )
+                session.send_and_wait.return_value = SimpleNamespace(
+                    data=AssistantMessageData(content="A capability-selection fixture.", message_id="message"),
+                )
+                client = AsyncMock()
+                client.create_session.return_value = session
+                await SDK(client, "gpt-6.1-sol", 30).run(self.profile, "A bounded test", scratch, tools=tools)
+                requested = client.create_session.call_args.kwargs["available_tools"]
+                self.assertTrue(set(active) <= set(requested))
+                self.assertNotIn("powershell", requested)
+                self.assertNotIn("task", requested)
+
+    async def test_sdk_rejects_missing_capabilities_and_unexpected_tools_before_inference(self):
+        scratch = Path(self.temporary.name)
+        tools = InvestigationTools(self.github, scratch, ROOT / "packages" / "pyright" / "index.js", {})
+        complete = {"view", "glob", "web_fetch", "github_read", "run_check", "rg", "apply_patch"}
+        for active in (
+            complete - {"rg"}, complete - {"apply_patch"}, complete - {"run_check"}, complete | {"powershell"},
+            complete - {"apply_patch"} | {"create"},
+        ):
+            with self.subTest(active=active):
+                session = AsyncMock()
+                session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.profile.name))
+                session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(
+                    tools=[SimpleNamespace(name=name) for name in active],
+                )
+                client = AsyncMock()
+                client.create_session.return_value = session
+                with self.assertRaises(AutomationError):
+                    await SDK(client, "gpt-6.1-sol", 30).run(self.profile, "A bounded test", scratch, tools=tools)
+                session.send_and_wait.assert_not_awaited()
+                session.disconnect.assert_awaited_once()
+
+    async def test_duplicate_gpt_tools_never_include_any_scratch_writer(self):
+        scratch = Path(self.temporary.name)
+        profile = Agent.load(AGENTS / "pyright-issue-dupe-investigator.md", "pyright-issue-dupe-investigator")
+        tools = InvestigationTools(self.github, scratch, ROOT / "packages" / "pyright" / "index.js", {})
+        session = AsyncMock()
+        session.session_id = "duplicate-capability-test"
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=profile.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(
+            tools=[SimpleNamespace(name=name) for name in ["view", "rg", "glob", "web_fetch", "github_read"]],
+        )
+        session.send_and_wait.return_value = SimpleNamespace(
+            data=AssistantMessageData(content="A read-only duplicate fixture.", message_id="message"),
+        )
+        client = AsyncMock()
+        client.create_session.return_value = session
+        await SDK(client, "gpt-6.1-sol", 30).run(profile, "A bounded test", scratch, tools=tools)
+        requested = client.create_session.call_args.kwargs["available_tools"]
+        self.assertFalse(set(requested) & {"apply_patch", "create", "edit", "run_check", "powershell"})
+
+    async def test_sdk_forwards_selected_model_to_each_analysis_role(self):
+        profiles = [
+            self.profile,
+            Agent.load(AGENTS / "pyright-issue-dupe-investigator.md", "pyright-issue-dupe-investigator"),
+            self.console.adjudicator, *self.console.rca_agents,
+            Agent(self.profile.path, "rich-mirror", "Writer", "Preserve verified facts."),
+        ]
+        for profile in profiles:
+            with self.subTest(agent=profile.name):
+                session = AsyncMock()
+                session.session_id = "model-test"
+                session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=profile.name))
+                session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+                session.send_and_wait.return_value = SimpleNamespace(
+                    data=AssistantMessageData(content="A model-selection fixture.", message_id="message"),
+                )
+                client = AsyncMock()
+                client.create_session.return_value = session
+                await SDK(client, "gpt-6.1-sol", 30).run(profile, "A bounded model-selection test", Path(self.temporary.name))
+                self.assertEqual(client.create_session.call_args.kwargs["model"], "gpt-6.1-sol")
+
+    async def test_sdk_timeout_aborts_and_preserves_actionable_failure_details(self):
+        session = AsyncMock()
+        session.session_id = "timed-out-session"
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.profile.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+        async def stall(*_args, **_options):
+            await asyncio.sleep(10)
+        session.send_and_wait.side_effect = stall
+        client = AsyncMock()
+        client.create_session.return_value = session
+        scratch = Path(self.temporary.name)
+        with self.assertRaisesRegex(AutomationError, "timed out.*0.01"):
+            await SDK(client, "gpt-6.1-sol", 0.01).run(self.profile, "A bounded test", scratch)
+        session.abort.assert_awaited_once()
+        session.disconnect.assert_awaited_once()
+        records = [json.loads(line) for line in (scratch / "sdk-events.jsonl").read_text().splitlines()]
+        failure = records[-1]
+        self.assertEqual(failure["type"], "controller.timeout")
+        self.assertEqual(failure["data"]["session_id"], session.session_id)
+        self.assertEqual(failure["data"]["exception"], "TimeoutError")
+
+    async def test_adjudicator_reads_both_markdown_reports_without_tools(self):
+        self.entry.adjudication = None
+
+        async def adjudicate(agent, prompt, scratch, **options):
+            self.assertEqual(agent.name, "pyright-issue-adjudicator")
+            self.assertIn(self.entry.review_markdown, prompt)
+            self.assertIn(self.entry.duplicates_markdown, prompt)
+            self.assertNotIn("tools", options)
+            result = Adjudication(
+                issue_number=123, report_hash=self.console.report_hash(self.entry), validity="by design",
+                duplicate_status="no dupe found", duplicate_of=None, rationale="Both investigations support these tags.",
+            )
+            options["validate"](result.model_dump_json())
+            return result.model_dump_json()
+
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=adjudicate)) as run:
+            await self.console.adjudicate(self.entry)
+            await self.console.adjudicate(self.entry)
+        self.assertEqual(run.await_count, 1)
+        assert self.entry.adjudication is not None
+        self.assertEqual(self.entry.adjudication.tags(), "by design | no dupe found")
+        self.assertTrue((self.console.directory(123) / "adjudication.json").exists())
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_adjudicator_sdk_denies_tools_and_skills(self):
+        profile = self.console.adjudicator
+        session = AsyncMock()
+        session.session_id = "adjudicator-test"
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=profile.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+        session.send_and_wait.return_value = SimpleNamespace(
+            data=AssistantMessageData(content='{"approved":true,"problems":[]}', message_id="message")
+        )
+        client = AsyncMock()
+        client.create_session.return_value = session
+        await SDK(client, None, 30).run(profile, "A bounded test", Path(self.temporary.name), schema=DraftCheck)
+        options = client.create_session.call_args.kwargs
+        self.assertEqual(options["available_tools"], [])
+        self.assertEqual(options["tools"], [])
+        self.assertFalse(options["enable_skills"])
+        request = PermissionRequestRead(intention="read", path=str(ROOT / "package.json"))
+        self.assertIsInstance(options["on_permission_request"](request, {"session_id": "test"}), PermissionDecisionReject)
+
+    async def test_console_displays_only_tags_not_report_prose(self):
+        self.console.read_only = True
+        with patch("review_issues.show") as show:
+            await self.console.decide(self.entry)
+        self.assertEqual([call.args[0] for call in show.call_args_list], ["\n#123: by design | no dupe found"])
+
+    async def test_modified_reports_or_execution_evidence_block_publication(self):
+        for name in ("review.md", "duplicates.md", "checks.jsonl"):
+            with self.subTest(name=name):
+                save_evidence(self.console, self.entry)
+                path = self.console.directory(123) / name
+                path.write_text("{}\n" if name.endswith("jsonl") else "Edited findings", encoding="utf-8")
+                with self.assertRaises(AutomationError):
+                    await self.console.close(self.entry)
+                self.assertEqual(self.github.mutations, [])
+
+    async def test_needs_investigation_on_either_axis_only_offers_optional_rca(self):
+        for axis in ("validity", "duplicate_status"):
+            with self.subTest(axis=axis):
+                save_evidence(self.console, self.entry)
+                assert self.entry.adjudication is not None
+                setattr(self.entry.adjudication, axis, "needs investigation")
+                self.entry.decision = "pending"
+                self.entry.rca_opt_in = "not_asked"
+                def decline_rca(question):
+                    self.assertIn("perform root cause analysis", question)
+                    self.assertNotIn("closing", question)
+                    return "n"
+                self.console.ask = decline_rca
+                await self.console.decide(self.entry)
+                with self.assertRaises(AutomationError):
+                    await self.console.close(self.entry)
+                self.assertEqual(self.github.mutations, [])
+
+    def duplicate_entry(self) -> None:
+        assert self.entry.review is not None and self.entry.duplicates is not None
+        self.entry.review.claims[0].disposition = "bug"
+        self.entry.duplicates.candidates = [DuplicateCandidate.model_validate(dict(
+            issue_number=456, relation="duplicate", confidence="high", shared_cause="Same proven cause",
+            differences="Only variable names differ", canonical_reason="The canonical tracks the fix",
+            evidence=[{"url": self.github.canonical.html_url, "finding": "Same reduced trigger"}],
+        ))]
+        save_evidence(self.console, self.entry, validity="bug")
+        assert self.entry.adjudication is not None
+        self.entry.adjudication.duplicate_status, self.entry.adjudication.duplicate_of = "dupe", 456
+        self.entry.canonical_issue = self.github.canonical.model_copy(deep=True)
+        self.entry.comment = f"Duplicate of [#456]({self.github.canonical.html_url}). The same correction addresses both."
+
+    async def test_duplicate_closure_posts_explanation_without_as_designed_label(self):
+        self.duplicate_entry()
+        await self.console.close(self.entry)
+        self.assertEqual(self.github.mutations, ["comments", "close"])
+        self.assertEqual(self.entry.decision, "closed")
+        self.assertNotIn("as designed", [label.name for label in self.github.current.labels])
+        assert self.entry.closure is not None
+        self.assertEqual((self.entry.closure.reason, self.entry.closure.duplicate_of), ("duplicate", 456))
+
+    async def test_duplicate_closure_requires_its_own_confirmation(self):
+        self.duplicate_entry()
+        self.console.writer = Agent(self.profile.path, "rich-mirror", "A test writer", "Preserve verified facts.")
+        for confirmation in ("", "close 456", "close all"):
+            self.entry.decision = "pending"
+            answers = iter(["p", confirmation])
+            self.console.ask = lambda _question: next(answers)
+            await self.console.decide(self.entry)
+            self.assertEqual(self.github.mutations, [])
+        answers = iter(["p", "close 123"])
+        self.console.ask = lambda _question: next(answers)
+        self.entry.decision = "pending"
+        await self.console.decide(self.entry)
+        self.assertEqual(self.github.mutations, ["comments", "close"])
+
+    async def test_duplicate_publication_resume_never_reposts(self):
+        self.duplicate_entry()
+        self.github.ambiguous_comment = True
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        await self.console.close(self.entry)
+        self.assertEqual(self.github.mutations, ["comments", "close"])
+        self.assertEqual(len(self.github.discussion), 1)
+
+    async def test_canonical_change_blocks_duplicate_closure(self):
+        self.duplicate_entry()
+        self.github.canonical.body = "This is actually a different trigger"
+        with self.assertRaisesRegex(AutomationError, "Canonical issue changed"):
+            await self.console.close(self.entry)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_unsupported_adjudication_gets_rejected_not_downgraded_silently(self):
+        self.entry.adjudication = None
+        for scenario in ("wrong_hash", "unproven_dupe", "failed_search"):
+            result = Adjudication(
+                issue_number=123, report_hash=self.console.report_hash(self.entry), validity="by design",
+                duplicate_status="no dupe found", duplicate_of=None, rationale="A proposed classification.",
+            )
+            if scenario == "wrong_hash":
+                result.report_hash = "another investigation"
+            elif scenario == "unproven_dupe":
+                result.duplicate_status, result.duplicate_of = "dupe", 456
+            else:
+                atomic_write(self.console.directory(123) / "checks.jsonl", json.dumps(product_record(audit())) + "\n")
+                result.report_hash = self.console.report_hash(self.entry)
+
+            async def execute(_agent, _prompt, _scratch, **options):
+                options["validate"](result.model_dump_json())
+                return result.model_dump_json()
+
+            with patch.object(self.console.sdk, "run", AsyncMock(side_effect=execute)):
+                with self.assertRaises((AutomationError, ValueError)):
+                    await self.console.adjudicate(self.entry)
+            self.assertIsNone(self.entry.adjudication)
+            self.assertEqual(self.github.mutations, [])
+
+    async def test_dry_run_alias_and_duplicate_compatibility_flag(self):
+        with patch("sys.argv", ["review_issues.py", "--dry-run", "--duplicates"]):
+            args = arguments()
+        self.assertTrue(args.read_only)
+
+    async def test_full_pipeline_saves_both_markdown_reports_and_adjudicates_design_issue(self):
+        self.console.duplicate = Agent.load(
+            AGENTS / "pyright-issue-dupe-investigator.md", "pyright-issue-dupe-investigator"
+        )
+        calls: list[str] = []
+
+        async def execute(agent, prompt, scratch, **options):
+            calls.append(agent.name)
+            if agent.name == "pyright-issue-by-design-reviewer":
+                tools = options["tools"]
+                tools.log(product_record(audit()))
+                result = ReviewFindings(
+                    markdown="# Product findings\n\nThe actual diagnostic follows the rule.", audit=audit(),
+                )
+            elif agent.name == "pyright-issue-dupe-investigator":
+                options["tools"].log(search_record())
+                result = DuplicateFindings(
+                    markdown="# Duplicate findings\n\nThe search found no shared cause.", report=no_duplicates(),
+                )
+            else:
+                self.assertNotIn("tools", options)
+                entry = self.console.load(123)
+                assert entry is not None
+                result = Adjudication(
+                    issue_number=123, report_hash=self.console.report_hash(entry), validity="by design",
+                    duplicate_status="no dupe found", duplicate_of=None, rationale="The evidence is consistent.",
+                )
+            raw = result.model_dump_json()
+            options.get("validate", lambda _raw: None)(raw)
+            return raw
+
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=execute)):
+            entry = await self.console.review(issue(), retry_failed=False)
+        self.assertEqual(calls, [
+            "pyright-issue-by-design-reviewer", "pyright-issue-dupe-investigator", "pyright-issue-adjudicator",
+        ])
+        self.assertIsNotNone(entry.adjudication)
+        self.assertIn("actual diagnostic", (self.console.directory(123) / "review.md").read_text())
+        self.assertIn("search found no shared cause", (self.console.directory(123) / "duplicates.md").read_text())
+        self.assertEqual(entry.closure_reason(), "by_design")
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_adjudicator_verifies_and_snapshots_a_supported_duplicate(self):
+        self.duplicate_entry()
+        self.entry.adjudication = None
+        records = self.console.records(123) + [
+            {
+                "investigator": "duplicates", "request": {"operation": "issue", "number": 456},
+                "result": self.github.canonical.model_dump(),
+            },
+            {"investigator": "duplicates", "request": {"operation": "comments", "number": 456}, "result": []},
+        ]
+        atomic_write(self.console.directory(123) / "checks.jsonl", "".join(json.dumps(item) + "\n" for item in records))
+        proposed = Adjudication(
+            issue_number=123, report_hash=self.console.report_hash(self.entry), validity="bug",
+            duplicate_status="dupe", duplicate_of=456, rationale="The same demonstrated cause affects both examples.",
+        )
+        self.entry.canonical_issue = None
+        with patch.object(self.console.sdk, "run", AsyncMock(return_value=proposed.model_dump_json())):
+            await self.console.adjudicate(self.entry)
+        self.assertEqual(self.entry.canonical_issue, self.github.canonical)
+        self.assertEqual(self.entry.closure_reason(), "duplicate")
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_reviewers_historical_search_does_not_prove_duplicate_search_completion(self):
+        self.entry.adjudication = None
+        record = search_record()
+        record["investigator"] = "review"
+        atomic_write(self.console.directory(123) / "checks.jsonl", json.dumps(record) + "\n")
+        proposed = Adjudication(
+            issue_number=123, report_hash=self.console.report_hash(self.entry), validity="by design",
+            duplicate_status="no dupe found", duplicate_of=None, rationale="The behavior reviewer searched history.",
+        )
+        with patch.object(self.console.sdk, "run", AsyncMock(return_value=proposed.model_dump_json())):
+            with self.assertRaisesRegex(AutomationError, "GitHub search record"):
+                await self.console.adjudicate(self.entry)
+        self.assertIsNone(self.entry.adjudication)
+
+    async def test_duplicate_draft_uses_writer_then_toolless_factual_check(self):
+        self.duplicate_entry()
+        self.entry.comment, self.entry.draft_check = None, None
+        self.console.writer = Agent(self.profile.path, "rich-mirror", "A test writer", "Preserve verified facts.")
+        comment = f"Duplicate of [#456]({self.github.canonical.html_url}). The same correction handles both triggers."
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=[
+            comment, DraftCheck(approved=True, problems=[]).model_dump_json(),
+        ])) as run:
+            self.assertEqual(await self.console.prepare_comment(self.entry), comment)
+        self.assertEqual(run.call_args_list[0].args[0].name, "rich-mirror")
+        for call in run.call_args_list:
+            self.assertNotIn("tools", call.kwargs)
+        self.assertIn("canonical", run.call_args_list[0].args[1])
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_main_decides_each_issue_before_investigating_the_next(self):
+        snapshots = {123: issue(), 456: self.github.canonical}
+        steps: list[tuple[str, int]] = []
+
+        async def review(snapshot, **_options):
+            steps.append(("review", snapshot.number))
+            return Entry(input_hash="input", context_hash="context", issue=snapshot)
+
+        async def decide(entry):
+            steps.append(("decide", entry.issue.number))
+            return True
+
+        args = Namespace(
+            state_dir=Path(self.temporary.name) / "ordered-state", cli_path="copilot", writer_agent=None,
+            read_only=True, model=None, issues=[123, 456], chunk_size=2, timeout=30, retry_failed=False,
+        )
+        github = AsyncMock()
+        github.issue.side_effect = lambda number: snapshots[number]
+        github.api.return_value = {"tag_name": "test"}
+        with (
+            patch("review_issues.GitHub", return_value=github),
+            patch("review_issues.process", AsyncMock(return_value=(0, "test", ""))),
+            patch("review_issues.context_hash", return_value="context"),
+            patch("review_issues.git", return_value="a" * 40),
+            patch("review_issues.CopilotClient"),
+            patch("review_issues.Console") as constructor,
+        ):
+            console = constructor.return_value
+            console.load.return_value = None
+            console.review = AsyncMock(side_effect=review)
+            console.decide = AsyncMock(side_effect=decide)
+            await review_main(args)
+        self.assertEqual(steps, [("review", 123), ("decide", 123), ("review", 456), ("decide", 456)])
+
+
+class ToolTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.scratch = Path(self.temporary.name).resolve()
+        self.tools = InvestigationTools(FakeGitHub(), self.scratch, ROOT / "packages" / "pyright" / "index.js", {})
+
+    async def test_permissions_restrict_reads_writes_and_shell(self):
+        for path, allowed in ((ROOT / "package.json", True), (self.scratch / "a.py", True), (ROOT.parent / "secret", False)):
+            request = PermissionRequestRead(intention="read", path=str(path))
+            verdict = self.tools.permission(request, {"session_id": "test"})
+            self.assertIsInstance(verdict, PermissionDecisionApproveOnce if allowed else PermissionDecisionReject)
+        for path, allowed in ((self.scratch / "a.py", True), (ROOT / "package.json", False), (self.scratch / ".." / "secret", False)):
+            request = PermissionRequestWrite(can_offer_session_approval=False, diff="", file_name=str(path), intention="write")
+            self.assertIsInstance(
+                self.tools.permission(request, {"session_id": "test"}),
+                PermissionDecisionApproveOnce if allowed else PermissionDecisionReject,
+            )
+        request = PermissionRequestShell(
+            intention="mutate GitHub", full_command_text="gh issue close 123",
+            can_offer_session_approval=False, commands=[], has_write_file_redirection=False,
+            possible_paths=[], possible_urls=[],
+        )
+        self.assertIsInstance(self.tools.permission(request, {"session_id": "test"}), PermissionDecisionReject)
+
+    async def test_runtime_requires_approval_and_does_not_run_on_decline(self):
+        atomic_write(self.scratch / "runtime.py", "raise RuntimeError('must not execute')\n")
+        self.tools.ask = lambda _question: ""
+        result = await self.tools.run_check(ToolInvocation(
+            session_id="test", tool_call_id="call", tool_name="run_check",
+            arguments={"kind": "python", "file": "runtime.py"},
+        ))
+        self.assertEqual(result.result_type, "failure")
+        self.assertIn("declined", result.text_result_for_llm)
+
+    async def test_configs_cannot_escape_scratch_or_load_external_plugins(self):
+        config = self.scratch / "pyrightconfig.json"
+        for value in ({"include": ["../private"]}, {"extends": "../pyrightconfig.json"}, {"venvPath": "../private"}):
+            atomic_write(config, json.dumps(value))
+            with self.assertRaises(AutomationError):
+                self.tools.validate_config(config)
+        atomic_write(config, '{"include":["sample.py"],"typeCheckingMode":"strict"}')
+        self.tools.validate_config(config)
+
+    async def test_explicit_issue_selection_rejects_pull_requests(self):
+        github = GitHub()
+        with patch.object(github, "api", AsyncMock(return_value={"pull_request": {}})):
+            with self.assertRaisesRegex(AutomationError, "pull request"):
+                await github.issue(123)
+
+    async def test_controller_ledger_is_outside_agent_write_scope(self):
+        evidence = self.scratch / "controller"
+        scratch = self.scratch / "scratch"
+        scratch.mkdir()
+        tools = InvestigationTools(
+            FakeGitHub(), scratch, ROOT / "packages" / "pyright" / "index.js", {}, evidence=evidence
+        )
+        tools.log({"command": "an observed execution"})
+        request = PermissionRequestWrite(
+            can_offer_session_approval=False, diff="", file_name=str(evidence / "checks.jsonl"), intention="write",
+        )
+        self.assertIsInstance(tools.permission(request, {"session_id": "test"}), PermissionDecisionReject)
+        self.assertTrue((evidence / "checks.jsonl").exists())
+
+
+if __name__ == "__main__":
+    unittest.main()
