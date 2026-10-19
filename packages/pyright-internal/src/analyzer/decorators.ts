@@ -438,7 +438,8 @@ export function applyClassDecorator(
             // that this decorator actually receives rather than the original
             // (undecorated) class. If a lower decorator produced something other
             // than a known class (e.g. Any, a union or type[object]), we can't
-            // tell what runtime_checkable receives, so don't report an error.
+            // tell what runtime_checkable receives, so don't report an error and
+            // assume it receives the class being declared.
             if (isInstantiableClass(inputClassType) && !ClassType.isBuiltIn(inputClassType, 'object')) {
                 if (!ClassType.isProtocolClass(inputClassType)) {
                     evaluator.addDiagnostic(
@@ -451,6 +452,8 @@ export function applyClassDecorator(
                     // protocol class that a lower decorator returned.
                     originalClassType.shared.flags |= ClassTypeFlags.RuntimeCheckable;
                 }
+            } else {
+                originalClassType.shared.flags |= ClassTypeFlags.RuntimeCheckable;
             }
 
             // Don't call getTypeOfDecorator for runtime_checkable. It appears

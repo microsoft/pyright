@@ -96,3 +96,20 @@ class C5:
 def func1(val: object):
     # This should generate an error because P6 is not runtime-checkable.
     isinstance(val, P6)
+
+
+def identity_or_p1[T](cls: T) -> T | type[P1]: ...
+
+
+# When the decorator below runtime_checkable produces a union that
+# includes the declared protocol, that protocol is still marked
+# runtime-checkable.
+@runtime_checkable
+@identity_or_p1
+class P7(Protocol):
+    def qux(self) -> int: ...
+
+
+def func2(val: object, cls: type):
+    isinstance(val, P7)
+    issubclass(cls, P7)
