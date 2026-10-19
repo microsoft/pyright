@@ -702,6 +702,13 @@ test('NamedTupleReplace1', () => {
     TestUtils.validateResults(analysisResults2, 8);
 });
 
+test('NamedTupleReplace2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('NamedTuple12', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = pythonVersion3_12;
