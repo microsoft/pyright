@@ -230,18 +230,19 @@ export function getTypeNarrowingCallback(
             let typeCallNode: CallNode | undefined;
             let otherExpr: ExpressionNode | undefined;
 
-            // Either operand may be the call; pick the one whose argument matches the reference.
-            const isTypeCallOfReference = (expr: ExpressionNode): expr is CallNode =>
+            const isTypeCall = (expr: ExpressionNode, referenceExpr?: ExpressionNode): expr is CallNode =>
                 expr.nodeType === ParseNodeType.Call &&
                 expr.d.args.length === 1 &&
                 expr.d.args[0].d.argCategory === ArgCategory.Simple &&
-                isMatchingExpressionOrWalrusRhs(evaluator, reference, expr.d.args[0].d.valueExpr) &&
+                (!referenceExpr ||
+                    isMatchingExpressionOrWalrusRhs(evaluator, referenceExpr, expr.d.args[0].d.valueExpr)) &&
                 isTypeCallBase(evaluator.getTypeOfExpression(expr.d.leftExpr, EvalFlags.CallBaseDefaults).type);
 
-            if (isTypeCallOfReference(testExpression.d.leftExpr)) {
+            // Either operand may be the call; pick the one whose argument matches the reference.
+            if (isTypeCall(testExpression.d.leftExpr, reference)) {
                 typeCallNode = testExpression.d.leftExpr;
                 otherExpr = testExpression.d.rightExpr;
-            } else if (isTypeCallOfReference(testExpression.d.rightExpr)) {
+            } else if (isTypeCall(testExpression.d.rightExpr, reference)) {
                 typeCallNode = testExpression.d.rightExpr;
                 otherExpr = testExpression.d.leftExpr;
             }
@@ -295,10 +296,12 @@ export function getTypeNarrowingCallback(
 
                 if (isClassType && classTypes.length > 0) {
                     const allowLegacyEquality =
+                        !isOrIsNotOperator &&
                         typeCallNode === testExpression.d.leftExpr &&
-                        isInstantiableClass(otherResult.type) &&
-                        !otherResult.type.priv.includeSubclasses &&
-                        !otherResult.type.priv.isTypeArgExplicit;
+                        ((isInstantiableClass(otherResult.type) &&
+                            !otherResult.type.priv.includeSubclasses &&
+                            !otherResult.type.priv.isTypeArgExplicit) ||
+                            isTypeCall(otherExpr));
 
                     return (type: Type) => {
                         return {

@@ -350,6 +350,16 @@ test('TypeIs10', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeIs11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs11.py']);
+    TestUtils.validateResults(analysisResults, 4);
+    assert.ok(
+        analysisResults[0].errors.every(
+            (diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAttributeAccessIssue
+        )
+    );
+});
+
 test('Never1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['never1.py']);
 
