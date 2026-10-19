@@ -2501,7 +2501,8 @@ function narrowTypeForContainerType(
     // tests because a subclass SubA(A) reaches the negative branch at runtime
     // (since SubA != A). Generic classes are also excluded because a
     // specialized class object like Box[int] is not the same runtime object
-    // as Box.
+    // as Box. Classes with a custom __class_getitem__ are excluded for the
+    // same reason.
     const typesToEliminate: Type[] = [];
     containerType.priv.tupleTypeArgs.forEach((tupleEntry) => {
         if (!tupleEntry.isUnbounded) {
@@ -2512,7 +2513,8 @@ function narrowTypeForContainerType(
             } else if (
                 isInstantiableClass(tupleEntry.type) &&
                 ClassType.isFinal(tupleEntry.type) &&
-                tupleEntry.type.shared.typeParams.length === 0
+                tupleEntry.type.shared.typeParams.length === 0 &&
+                !ClassType.hasCustomClassGetItem(tupleEntry.type)
             ) {
                 typesToEliminate.push(tupleEntry.type);
             }

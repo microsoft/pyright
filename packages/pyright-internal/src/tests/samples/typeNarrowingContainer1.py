@@ -1,6 +1,7 @@
 # This sample tests negative type narrowing for tuple membership checks (in / not in)
 # containing instantiable class objects (type[T]).
 
+from types import GenericAlias
 from typing import Generic, TypeVar, final
 from typing_extensions import assert_type
 
@@ -59,3 +60,16 @@ def test_not_in_constrained_typevar(x: type[TConstrained]) -> type[TConstrained]
     assert x not in (FinalClassA,)
     assert_type(x, type[TConstrained])
     return x
+
+
+@final
+class FinalClassGetItem:
+    def __class_getitem__(cls, item: object) -> GenericAlias:
+        return GenericAlias(cls, item)
+
+
+def test_not_in_custom_class_getitem(x: type[FinalClassGetItem] | type[ClassC]):
+    if x not in (FinalClassGetItem[int],):
+        # FinalClassGetItem[int] is a GenericAlias rather than the class
+        # object, so type[FinalClassGetItem] must not be eliminated.
+        assert_type(x, type[FinalClassGetItem] | type[ClassC])
