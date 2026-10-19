@@ -454,6 +454,8 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 const keyStr = printExpression(node.d.expr.d.keyExpr, flags);
                 const valueStr = printExpression(node.d.expr.d.valueExpr, flags);
                 listStr = `${keyStr}: ${valueStr}`;
+            } else if (node.d.expr.nodeType === ParseNodeType.DictionaryExpandEntry) {
+                listStr = `**${printExpression(node.d.expr.d.expr, flags)}`;
             }
 
             listStr =
