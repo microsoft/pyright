@@ -1058,3 +1058,8 @@ test('Sentinel3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel3.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('Sentinel4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
