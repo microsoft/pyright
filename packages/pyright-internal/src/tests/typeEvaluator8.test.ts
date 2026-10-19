@@ -25,6 +25,12 @@ test('Import1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Property24', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property24.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Import2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import2.py']);
     TestUtils.validateResults(analysisResults, 2);
