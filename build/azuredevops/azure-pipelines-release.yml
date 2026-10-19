@@ -539,7 +539,7 @@ extends:
                 pool:
                   name: VSEng-MicroBuildVSStable # This pool is required to have the certs needed to publish using ESRP.
                   os: windows
-                  image: server2022-microbuildVS2022-1es
+                  image: server2025-microbuildVSStable
 
                 templateContext:
                   type: releaseJob
