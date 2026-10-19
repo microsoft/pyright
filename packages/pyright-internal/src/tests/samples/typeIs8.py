@@ -69,8 +69,9 @@ def dynamic_reference(value: int | str):
     if int == type(value):
         assert_type(value, int | str)
 
+    # Forward bare-class comparisons retain legacy narrowing behavior.
     if type(value) == int:
-        assert_type(value, int | str)
+        assert_type(value, int)
 
 
 def gradual_reference(value: Any):

@@ -338,6 +338,18 @@ test('TypeIs8', () => {
     );
 });
 
+test('TypeIs9', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs9.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs10.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Never1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['never1.py']);
 
