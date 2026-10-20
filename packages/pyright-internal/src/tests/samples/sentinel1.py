@@ -1,25 +1,44 @@
-# This sample tests the handling of Sentinel as described in PEP 661.
+# This sample tests the handling of sentinel as described in PEP 661.
 
 from dataclasses import dataclass
 from typing import Literal, TypeAlias, assert_type
-from typing_extensions import Sentinel, TypeForm  # pyright: ignore[reportMissingModuleSource]
+from typing_extensions import TypeForm, sentinel  # pyright: ignore[reportMissingModuleSource]
 
 # This should generate an error because the names don't match.
-BAD_NAME1 = Sentinel("OTHER")
+BAD_NAME1 = sentinel("OTHER")
 
 # This should generate an error because the arg count is wrong.
-BAD_CALL1 = Sentinel()
+BAD_CALL1 = sentinel()
 
 # This should generate an error because the arg count is wrong.
-BAD_CALL2 = Sentinel("BAD_CALL2", 1)
+BAD_CALL2 = sentinel("BAD_CALL2", 1)
 
 # This should generate an error because the arg type is wrong.
-BAD_CALL3 = Sentinel(1)
+BAD_CALL3 = sentinel(1)
 
-MISSING = Sentinel("MISSING")
+# This should generate an error because the arg type is wrong.
+BAD_CALL4 = sentinel("BAD_CALL4", repr=1)
+
+# This should generate an error because the arg count is wrong.
+BAD_CALL5 = sentinel("BAD_CALL5", foo="")
+
+# This should generate an error because the arg count is wrong.
+BAD_CALL6 = sentinel("BAD_CALL6", repr="<BAD_CALL6>", foo="")
+
+MISSING = sentinel("MISSING")
+
+REPR1 = sentinel("REPR1", repr="<REPR1>")
+reveal_type(REPR1, expected_text="REPR1")
 
 
-def accept_sentinel(value: Sentinel) -> None:
+def func5(value: int | REPR1) -> None:
+    if value is REPR1:
+        reveal_type(value, expected_text="REPR1")
+    else:
+        reveal_type(value, expected_text="int")
+
+
+def accept_sentinel(value: sentinel) -> None:
     pass
 
 

@@ -12019,8 +12019,7 @@ export function createTypeEvaluator(
             // Handle sentinel calls specially.
             if (
                 expandedCallType.shared.fullName === 'builtins.sentinel' ||
-                expandedCallType.shared.fullName === 'typing_extensions.sentinel' ||
-                expandedCallType.shared.fullName === 'typing_extensions.Sentinel'
+                expandedCallType.shared.fullName === 'typing_extensions.sentinel'
             ) {
                 return {
                     returnType: createSentinelType(evaluatorInterface, errorNode, argList, expandedCallType, nodeInfo),
