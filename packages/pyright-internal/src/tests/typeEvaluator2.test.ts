@@ -1045,14 +1045,7 @@ test('SolverUnknown1', () => {
 
 test('Sentinel1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel1.py']);
-    TestUtils.validateResults(analysisResults, 5);
-});
-
-test('Sentinel2', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.defaultPythonVersion = pythonVersion3_15;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Sentinel3', () => {
