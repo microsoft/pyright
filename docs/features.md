@@ -40,6 +40,7 @@ Pyright supports [configuration files](configuration.md) that provide granular c
 * [PEP 746](https://www.python.org/dev/peps/pep-0746/) (experimental) type checking annotated metadata
 * [PEP 747](https://www.python.org/dev/peps/pep-0747/) annotating type forms
 * [PEP 764](https://www.python.org/dev/peps/pep-0764/) (experimental) inline typed dictionaries
+* [PEP 798](https://www.python.org/dev/peps/pep-0798/) unpacking in comprehensions
 * Type inference for function return values, instance variables, class variables, and globals
 * Type guards that understand conditional code flow constructs like if/else statements
 
