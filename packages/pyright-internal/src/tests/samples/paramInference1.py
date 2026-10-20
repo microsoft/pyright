@@ -1,6 +1,9 @@
 # This sample tests the logic that infers parameter types based on
 # default argument values or annotated base class methods.
 
+from abc import ABC, abstractmethod
+from typing import Protocol
+
 
 class Parent:
     def __init__(self, a: int, b: str): ...
@@ -44,3 +47,21 @@ def func4(a=1, b=None, c=Undefined, d=lambda x: x):
     reveal_type(b, expected_text="Unknown | None")
     reveal_type(c, expected_text="_Undefined | Unknown")
     reveal_type(d, expected_text="Unknown")
+
+
+class Proto1(Protocol):
+    def method1(self) -> None: ...
+
+
+class Abstract1(ABC):
+    @classmethod
+    @abstractmethod
+    def method1(cls) -> None: ...
+
+
+def func5(a=Proto1, b=Abstract1):
+    # This should generate an error.
+    a()
+
+    # This should generate an error.
+    b.method1()
