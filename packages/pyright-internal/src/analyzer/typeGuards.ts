@@ -2501,8 +2501,8 @@ function narrowTypeForContainerType(
     // tests because a subclass SubA(A) reaches the negative branch at runtime
     // (since SubA != A). Generic classes are also excluded because a
     // specialized class object like Box[int] is not the same runtime object
-    // as Box. Classes with a custom __class_getitem__ are excluded for the
-    // same reason.
+    // as Box. Classes that define or inherit __class_getitem__ are excluded
+    // for the same reason.
     const typesToEliminate: Type[] = [];
     containerType.priv.tupleTypeArgs.forEach((tupleEntry) => {
         if (!tupleEntry.isUnbounded) {
@@ -2514,7 +2514,7 @@ function narrowTypeForContainerType(
                 isInstantiableClass(tupleEntry.type) &&
                 ClassType.isFinal(tupleEntry.type) &&
                 tupleEntry.type.shared.typeParams.length === 0 &&
-                !ClassType.hasCustomClassGetItem(tupleEntry.type)
+                !lookUpClassMember(tupleEntry.type, '__class_getitem__')
             ) {
                 typesToEliminate.push(tupleEntry.type);
             }
@@ -2525,9 +2525,15 @@ function narrowTypeForContainerType(
         return referenceType;
     }
 
+    const canNarrowLiterals = typesToEliminate.some(isClassInstance);
+
     return mapSubtypes(referenceType, (unexpandedSubtype) => {
         const referenceSubtype = evaluator.makeTopLevelTypeVarsConcrete(unexpandedSubtype);
-        if (isClassInstance(referenceSubtype) && referenceSubtype.priv.literalValue === undefined) {
+        if (
+            canNarrowLiterals &&
+            isClassInstance(referenceSubtype) &&
+            referenceSubtype.priv.literalValue === undefined
+        ) {
             // If we're able to enumerate all possible literal values
             // (for bool or enum), we can eliminate all others in a negative test.
             const allLiteralTypes = enumerateLiteralsForType(evaluator, referenceSubtype);

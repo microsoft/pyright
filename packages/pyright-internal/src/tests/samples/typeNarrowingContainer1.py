@@ -1,8 +1,9 @@
 # This sample tests negative type narrowing for tuple membership checks (in / not in)
 # containing instantiable class objects (type[T]).
 
+from enum import Enum
 from types import GenericAlias
-from typing import Generic, TypeVar, final
+from typing import Generic, Literal, TypeVar, final
 from typing_extensions import assert_type
 
 @final
@@ -73,3 +74,63 @@ def test_not_in_custom_class_getitem(x: type[FinalClassGetItem] | type[ClassC]):
         # FinalClassGetItem[int] is a GenericAlias rather than the class
         # object, so type[FinalClassGetItem] must not be eliminated.
         assert_type(x, type[FinalClassGetItem] | type[ClassC])
+
+
+@final
+class FinalIntList(list[int]): pass
+
+
+def test_not_in_inherited_class_getitem(x: type[FinalIntList] | type[ClassC]):
+    if x not in (FinalIntList[()],):
+        assert_type(x, type[FinalIntList] | type[ClassC])
+
+
+def test_in_inherited_class_getitem(x: type[FinalIntList] | type[ClassC]):
+    if x in (FinalIntList[()],):
+        pass
+    else:
+        assert_type(x, type[FinalIntList] | type[ClassC])
+
+
+def test_not_in_unsubscripted_class_getitem(x: type[FinalIntList] | type[ClassC]):
+    if x not in (FinalIntList,):
+        # Subscription-capable classes are conservatively excluded even when bare.
+        assert_type(x, type[FinalIntList] | type[ClassC])
+
+
+class IntListBase(list[int]): pass
+
+
+@final
+class FinalIndirectIntList(IntListBase): pass
+
+
+def test_not_in_indirect_class_getitem(x: type[FinalIndirectIntList] | type[ClassC]):
+    if x not in (FinalIndirectIntList[()],):
+        assert_type(x, type[FinalIndirectIntList] | type[ClassC])
+
+
+class ContainerEnum(Enum):
+    A = 1
+    B = 2
+    C = 3
+
+
+def test_not_in_class_tuple_with_enum(x: type[FinalClassA] | ContainerEnum):
+    if x not in (FinalClassA,):
+        reveal_type(x, expected_text="ContainerEnum")
+
+
+def test_not_in_class_tuple_with_bool(x: type[FinalClassA] | bool):
+    if x not in (FinalClassA,):
+        assert_type(x, bool)
+
+
+def test_not_in_mixed_class_enum_tuple(x: type[FinalClassA] | ContainerEnum | None):
+    if x not in (FinalClassA, ContainerEnum.A, None):
+        assert_type(x, Literal[ContainerEnum.B, ContainerEnum.C])
+
+
+def test_not_in_mixed_class_bool_tuple(x: type[FinalClassA] | bool | None):
+    if x not in (FinalClassA, True, None):
+        assert_type(x, Literal[False])
