@@ -1423,8 +1423,13 @@ function narrowTypeBasedOnValuePattern(
     pattern: PatternValueNode,
     isPositiveTest: boolean
 ): Type {
-    const valueType = evaluator.getTypeOfExpression(pattern.d.expr).type;
+    let valueType = evaluator.getTypeOfExpression(pattern.d.expr).type;
     const narrowedSubtypes: Type[] = [];
+
+    // A Never or NoReturn value pattern compares against its special form at runtime.
+    if (isNever(valueType) && valueType.props?.specialForm) {
+        valueType = valueType.props.specialForm;
+    }
 
     evaluator.mapSubtypesExpandTypeVars(
         valueType,
