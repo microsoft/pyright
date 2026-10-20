@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from copilot import ToolInvocation
 from copilot.generated.rpc import PermissionDecisionApproveOnce, PermissionDecisionReject
 from copilot.generated.session_events import PermissionRequestCustomTool, PermissionRequestUrl
+from copilot.session_events import AssistantMessageData
 from pydantic import JsonValue
 
 from issue_review_classifier import (
@@ -37,10 +38,12 @@ from issue_review_safety import (
     MAX_EVIDENCE_BYTES,
     MAX_INPUT_BYTES,
     MAX_SCREENING_PARTS,
+    MAX_STATE_BYTES,
     PART_CONTEXT,
     PART_OVERLAP,
     REQUEST_TIMEOUT,
     SCREENING_TIMEOUT,
+    SCREENING_SCOPE,
     InjectionScreening,
     ScreeningBlocked,
     _screening_parts,
@@ -223,6 +226,189 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all("cancelled input" not in str(call) for call in self.classifier.classify.await_args_list))
         self.assertEqual([record["status"] for record in self.ledger()], ["cancelled", "allowed", "allowed"])
 
+    async def test_overlapping_searches_reuse_complete_documents_and_raw_issue_reads(self):
+        first: JsonValue = {"number": 1, "body": "first complete report", "score": 1.0}
+        second: JsonValue = {"number": 2, "body": "second complete report", "score": 1.0}
+        third: JsonValue = {"number": 3, "body": "new complete report", "score": 1.0}
+        with patch("builtins.print"):
+            await self.scorer.check(
+                {"total_count": 2, "incomplete_results": False, "items": [first, second]},
+                self.directory, "github_read:search",
+            )
+            await self.scorer.check(
+                {"number": 1, "body": "first complete report", "closed_by": None},
+                self.directory, "github_read:issue:1",
+            )
+            await self.scorer.check(
+                {"total_count": 20, "incomplete_results": False, "items": [second, third]},
+                self.directory, "github_read:search",
+            )
+        self.assertEqual(self.classifier.classify.await_count, 2)
+        fresh = json.loads(self.classifier.classify.call_args.args[0]["content"])
+        self.assertEqual(fresh["documents"], [{"kind": "github_issue", "content": {
+            "number": 3, "body": "new complete report",
+        }}])
+        records = self.ledger()
+        self.assertTrue(records[1]["cached"])
+        self.assertEqual(records[1]["reused_units"], 1)
+        self.assertEqual(records[2]["reused_units"], 1)
+        self.assertEqual(records[2]["screened_units"], 1)
+        self.assertEqual(records[2]["bytes"], len(json.dumps({
+            "total_count": 20, "incomplete_results": False, "items": [second, third],
+        }, ensure_ascii=True, sort_keys=True).encode()))
+
+    async def test_changed_document_and_unrecognized_metadata_are_not_hidden_by_reuse(self):
+        item: JsonValue = {"number": 1, "body": "ordinary report", "score": 1.0}
+        with patch("builtins.print"):
+            await self.scorer.check({"total_count": 1, "items": [item]}, self.directory, "github_read:search")
+            for payload in (
+                {"total_count": 1, "items": [{"number": 1, "body": "changed-body-marker", "score": 1.0}]},
+                {"total_count": "metadata-marker", "items": [item]},
+                {"unknown-key-marker": 1, "items": [item]},
+                {"total_count": 1, "items": [{"number": 1, "body": "ordinary report", "score": "score-marker"}]},
+                {"number": 1, "body": "ordinary report", "closed_by": {"login": "actor-marker"}},
+            ):
+                await self.scorer.check(payload, self.directory, "github_read:issue:1" if "closed_by" in payload else "github_read:search")
+        self.assertEqual(self.classifier.classify.await_count, 6)
+        for marker, call in zip(
+            ("changed-body-marker", "metadata-marker", "unknown-key-marker", "score-marker", "actor-marker"),
+            self.classifier.classify.call_args_list[1:],
+        ):
+            self.assertIn(marker, call.args[0]["content"])
+
+    async def test_reused_and_new_document_results_keep_the_maximum_observed_risk(self):
+        self.classifier.classify.side_effect = [classification(0.09), classification(0.01)]
+        a: JsonValue = {"number": 1, "body": "first"}
+        b: JsonValue = {"number": 2, "body": "second"}
+        with patch("builtins.print"):
+            await self.scorer.check({"items": [a]}, self.directory, "github_read:search")
+            await self.scorer.check({"items": [a, b]}, self.directory, "github_read:search")
+            await self.scorer.check({"items": [b, a]}, self.directory, "github_read:search")
+        self.assertEqual(self.classifier.classify.await_count, 2)
+        self.assertEqual(self.ledger()[1]["risk"], 0.09)
+        self.assertEqual(self.ledger()[2]["risk"], 0.09)
+        self.assertTrue(self.ledger()[2]["cached"])
+        self.assertEqual(self.ledger()[2]["classified_bytes"], 0)
+
+    async def test_later_fragment_failure_does_not_cache_any_new_documents(self):
+        self.classifier.classify.side_effect = [classification(0), classification(0.95)]
+        with patch("builtins.print"), self.assertRaisesRegex(ScreeningBlocked, "flagged"):
+            await self.scorer.check(
+                {"items": [{"number": 1, "body": "x" * (MAX_INPUT_BYTES * 2)}]},
+                self.directory, "github_read:search",
+            )
+        self.assertEqual(self.scorer._allowed, {})
+        self.assertEqual(self.scorer._units_allowed, {})
+
+    async def test_discussion_reuse_is_bound_to_its_parent_resource(self):
+        comments: JsonValue = [{"body": "an ordinary comment"}]
+        with patch("builtins.print"):
+            await self.scorer.check(comments, self.directory, "github_read:comments:123")
+            await self.scorer.check(comments, self.directory, "github_read:comments:456")
+            await self.scorer.check(comments, self.directory, "github_read:comments:123")
+        self.assertEqual(self.classifier.classify.await_count, 2)
+        self.assertEqual(self.ledger()[1]["reused_units"], 0)
+        self.assertTrue(self.ledger()[2]["cached"])
+
+    async def test_concurrent_overlapping_searches_recheck_document_cache_at_queue_front(self):
+        a: JsonValue = {"number": 1, "body": "first"}
+        b: JsonValue = {"number": 2, "body": "second"}
+        c: JsonValue = {"number": 3, "body": "third"}
+        with patch("builtins.print"):
+            await asyncio.gather(
+                self.scorer.check({"items": [a, b]}, self.directory, "github_read:search"),
+                self.scorer.check({"items": [b, c]}, self.directory, "github_read:search"),
+                self.scorer.check({"items": [a, c]}, self.directory, "github_read:search"),
+            )
+        self.assertEqual(self.classifier.classify.await_count, 2)
+        second = json.loads(self.classifier.classify.call_args.args[0]["content"])
+        self.assertEqual(second["documents"], [{"kind": "github_issue", "content": c}])
+
+    async def test_cancelling_a_later_document_fragment_keeps_both_caches_empty(self):
+        started = asyncio.Event()
+
+        async def classify(*_args, **_kwargs):
+            if self.classifier.classify.await_count == 1:
+                return classification(0)
+            started.set()
+            await asyncio.Future()
+
+        self.classifier.classify.side_effect = classify
+        with patch("builtins.print"):
+            task = asyncio.create_task(self.scorer.check(
+                {"items": [{"number": 1, "body": "x" * (MAX_INPUT_BYTES * 2)}]},
+                self.directory, "github_read:search",
+            ))
+            await asyncio.wait_for(started.wait(), 2)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+        self.assertEqual(self.scorer._allowed, {})
+        self.assertEqual(self.scorer._units_allowed, {})
+        self.assertEqual(self.ledger()[-1]["status"], "cancelled")
+
+    async def test_block_message_identifies_source_choice_score_and_threshold(self):
+        self.classifier.classify.return_value = classification(0.731)
+        with self.assertRaisesRegex(
+            ScreeningBlocked, r"github_read:comments:7555.*choice=injection, injection=0.731, allow <= 0.100",
+        ):
+            await self.scorer.check([{"body": "private fixture"}], self.directory, "github_read:comments:7555")
+        self.assertEqual(self.ledger()[-1]["attempts"], 1)
+        self.assertEqual(self.scorer._units_allowed, {})
+
+    async def test_research_reads_preserve_full_response_without_screening(self):
+        github = GitHub(scorer=self.scorer)
+        response: JsonValue = {
+            "total_count": 12, "incomplete_results": False,
+            "items": [{"number": 1, "body": "complete report", "score": 1.234}],
+        }
+        github.api = AsyncMock(return_value=response)
+        tools = InvestigationTools(github, self.directory, ROOT / "packages" / "pyright" / "index.js", {})
+        with patch("builtins.print"):
+            result = await tools.github_read(ToolInvocation(
+                arguments={"operation": "search", "query": "ordinary"}, session_id="test",
+                tool_name="github_read", tool_call_id="search",
+            ))
+        self.assertEqual(result.result_type, "success")
+        self.assertEqual(json.loads(result.text_result_for_llm or ""), response)
+        self.classifier.classify.side_effect = AssertionError("Research must not invoke the classifier")
+        github.comments = AsyncMock(return_value=[{"body": "research-comment-marker"}])
+        comments = await tools.github_read(ToolInvocation(
+            arguments={"operation": "comments", "number": 7555}, session_id="test",
+            tool_name="github_read", tool_call_id="comments",
+        ))
+        self.assertEqual(comments.result_type, "success")
+        self.assertEqual(json.loads(comments.text_result_for_llm or ""), [{"body": "research-comment-marker"}])
+        checks = (self.directory / "checks.jsonl").read_text()
+        row = json.loads(checks.splitlines()[-1])
+        self.assertEqual(row["request"]["number"], 7555)
+        self.assertEqual(row["request"]["operation"], "comments")
+        self.assertEqual(row["screening"], "not_screened_research")
+        self.classifier.classify.assert_not_awaited()
+        self.assertFalse((self.directory / "screening.jsonl").exists())
+
+    async def test_all_research_operations_skip_classifier_and_its_size_limits(self):
+        value: JsonValue = {"body": "x" * (MAX_EVIDENCE_BYTES + 1)}
+        github = GitHub(scorer=self.scorer)
+        github.api = AsyncMock(return_value=value)
+        github.comments = AsyncMock(return_value=[value])
+        github.collection = AsyncMock(return_value=[value])
+        self.classifier.classify.side_effect = AssertionError("Research must not invoke the classifier")
+        tools = InvestigationTools(github, self.directory, ROOT / "packages" / "pyright" / "index.js", value)
+        for operation in ("issue", "comments", "search", "pull_request", "pull_files", "latest_release"):
+            with self.subTest(operation=operation):
+                result = await tools.github_read(ToolInvocation(
+                    arguments={"operation": operation, "number": 123, "query": "ordinary"},
+                    session_id="test", tool_name="github_read", tool_call_id=operation,
+                ))
+                self.assertEqual(result.result_type, "success")
+                self.assertEqual(
+                    json.loads(result.text_result_for_llm or ""),
+                    [value] if operation in ("comments", "pull_files") else value,
+                )
+        self.classifier.classify.assert_not_awaited()
+        self.assertFalse((self.directory / "screening.jsonl").exists())
+
     async def test_error_categories_block_without_leaking_details(self):
         for error in (
             ClassificationAuthenticationError(), ClassificationHTTPError(429),
@@ -367,12 +553,38 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.scorer._allowed, {})
 
     async def test_single_part_allows_the_exact_byte_boundary_without_changing_its_input(self):
-        await self.scorer.check("x" * (MAX_INPUT_BYTES - 2), self.directory, "issue:1")
-        self.assertEqual(self.ledger()[-1]["bytes"], MAX_INPUT_BYTES)
+        overhead = len(json.dumps({"content": json.dumps("")}).encode("utf-8"))
+        value = "x" * (MAX_STATE_BYTES - overhead)
+        await self.scorer.check(value, self.directory, "issue:1")
+        self.assertEqual(self.ledger()[-1]["bytes"], len(json.dumps(value).encode("utf-8")))
         self.assertEqual(self.ledger()[-1]["part_count"], 1)
         self.classifier.classify.assert_awaited_once()
-        self.assertEqual(self.classifier.classify.call_args.args[0]["content"], json.dumps("x" * (MAX_INPUT_BYTES - 2)))
+        self.assertEqual(self.classifier.classify.call_args.args[0]["content"], json.dumps(value))
+        self.assertEqual(self.ledger()[-1]["state_bytes"], MAX_STATE_BYTES)
         self.assertEqual(self.ledger()[-1]["status"], "allowed")
+
+    async def test_one_byte_over_serialized_state_budget_requires_fragmentation(self):
+        overhead = len(json.dumps({"content": json.dumps("")}).encode("utf-8"))
+        value = "x" * (MAX_STATE_BYTES - overhead + 1)
+        self.assertEqual(len(json.dumps({"content": json.dumps(value)}).encode()), MAX_STATE_BYTES + 1)
+        with patch("builtins.print"):
+            await self.scorer.check(value, self.directory, "fixture:state-boundary")
+        self.assertGreater(self.classifier.classify.await_count, 1)
+        for call in self.classifier.classify.await_args_list:
+            self.assertLessEqual(len(json.dumps(call.args[0], ensure_ascii=True).encode()), MAX_STATE_BYTES)
+        self.assertEqual(self.ledger()[-1]["status"], "allowed")
+
+    async def test_wire_budget_accounts_for_escaping_and_blocks_unsplit_oversized_state(self):
+        value = '"\\\n' * 5000
+        text = json.dumps(value, ensure_ascii=True)
+        self.assertLessEqual(len(text.encode()), MAX_INPUT_BYTES)
+        parts = _screening_parts(text, hashlib.sha256(text.encode()).hexdigest())
+        self.assertGreater(len(parts), 1)
+        for part in parts:
+            self.assertLessEqual(len(json.dumps({"content": part}, ensure_ascii=True).encode()), MAX_STATE_BYTES)
+        with self.assertRaisesRegex(ScreeningBlocked, "safe context budget"):
+            await self.scorer.evaluate(text)
+        self.classifier.classify.assert_not_awaited()
 
     async def test_oversized_json_is_losslessly_covered_by_bounded_overlapping_fragments(self):
         values: list[JsonValue] = [
@@ -385,13 +597,14 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
                 self.classifier.classify.reset_mock()
                 text = json.dumps(value, ensure_ascii=True, sort_keys=True, allow_nan=False)
                 content_hash = hashlib.sha256(text.encode()).hexdigest()
-                await self.scorer.check(value, self.directory, "github_read:search")
+                await self.scorer.check(value, self.directory, "fixture:serialization")
                 calls = self.classifier.classify.await_args_list
                 self.assertGreater(len(calls), 1)
                 reconstructed, position = "", 0
                 for index, call in enumerate(calls, 1):
                     wire_text = call.args[0]["content"]
                     self.assertLessEqual(len(wire_text.encode("utf-8")), MAX_INPUT_BYTES)
+                    self.assertLessEqual(len(json.dumps(call.args[0], ensure_ascii=True).encode()), MAX_STATE_BYTES)
                     part = json.loads(wire_text)
                     self.assertEqual(part["part"], index)
                     self.assertEqual(part["parts"], len(calls))
@@ -571,27 +784,21 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
         await self.scorer.check("small evidence", self.directory, "issue:2")
         self.assertEqual(self.ledger()[-1]["status"], "allowed")
 
-    async def test_github_tool_never_releases_partially_screened_evidence(self):
+    async def test_target_issue_never_passes_after_a_blocked_later_fragment(self):
         marker = "private tail instruction"
-        value: JsonValue = {"body": "x" * (MAX_INPUT_BYTES * 2) + marker}
+        snapshot = issue().model_copy(update={"body": "x" * (MAX_INPUT_BYTES * 2) + marker})
         github = GitHub(scorer=self.scorer)
-        github.api = AsyncMock(return_value=value)
-        tools = InvestigationTools(github, self.directory, ROOT / "packages" / "pyright" / "index.js", {})
+        github.comments = AsyncMock(return_value=[])
 
         async def classify(state, **_options):
             return classification(1 if marker in json.loads(state["content"])["excerpt"] else 0)
 
         self.classifier.classify.side_effect = classify
-        with patch("builtins.print"):
-            result = await tools.github_read(ToolInvocation(
-                arguments={"operation": "issue", "number": 11689}, session_id="test",
-                tool_name="github_read", tool_call_id="multipart",
-            ))
-        self.assertEqual(result.result_type, "failure")
-        self.assertNotIn(marker, result.text_result_for_llm or "")
-        self.assertNotIn(marker, (self.directory / "checks.jsonl").read_text())
-        self.assertIsNotNone(tools.screening_error)
+        with patch("builtins.print"), self.assertRaises(ScreeningBlocked):
+            await github.screen_issue(snapshot, self.directory)
+        self.assertNotIn(marker, (self.directory / "screening.jsonl").read_text())
         self.assertEqual(self.scorer._allowed, {})
+        self.assertEqual(self.scorer._units_allowed, {})
 
     async def test_invalid_input_unexpected_labels_and_unwritable_audit_block_analysis(self):
         with self.assertRaisesRegex(ScreeningBlocked, "blocked without override"):
@@ -640,6 +847,12 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.scorer.policy_hash, InjectionScreening(self.classifier).policy_hash)
         self.classifier.configuration_hash = "changed-backend"
         self.assertNotEqual(self.scorer.policy_hash, InjectionScreening(self.classifier).policy_hash)
+
+    async def test_policy_identity_and_audit_identify_the_narrowed_console_scope(self):
+        with patch("issue_review_safety.SCREENING_SCOPE", "all_github_evidence"):
+            self.assertNotEqual(self.scorer.policy_hash, InjectionScreening(self.classifier).policy_hash)
+        await self.scorer.check("fixture", self.directory, "issue:1")
+        self.assertEqual(self.ledger()[-1]["console_scope"], SCREENING_SCOPE)
 
     async def test_checker_children_do_not_inherit_classifier_or_entra_secrets(self):
         with patch.dict(os.environ, {
@@ -691,7 +904,7 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(first["issue"]["title"], issue().title)
         self.assertEqual(second["comments"][-1]["body"], "edited hostile comment")
 
-    async def test_new_github_evidence_aborts_active_role_and_is_not_returned_or_logged(self):
+    async def test_unscreened_research_does_not_abort_active_role(self):
         github = FakeGitHub()
         github.api = AsyncMock(return_value={"body": "hostile-evidence-marker"})
         github.screen = AsyncMock(side_effect=ScreeningBlocked("flagged fixture"))
@@ -704,10 +917,9 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
             result = await tools.github_read(ToolInvocation(
                 arguments={"operation": "issue", "number": 123}, session_id="screen-test", tool_call_id="call", tool_name="github_read",
             ))
-            self.assertEqual(result.result_type, "failure")
-            self.assertNotIn("hostile-evidence-marker", result.text_result_for_llm or "")
-            await asyncio.sleep(5)
-            self.fail("Blocked role should have been aborted immediately")
+            self.assertEqual(result.result_type, "success")
+            self.assertIn("hostile-evidence-marker", result.text_result_for_llm or "")
+            return SimpleNamespace(data=AssistantMessageData(content="Research completed.", message_id="message"))
 
         session.send_and_wait.side_effect = turn
         client = AsyncMock()
@@ -717,14 +929,14 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
         names = ["view", "grep", "glob", "web_fetch", "create", "edit", *[tool.name for tool in tools.tools]]
         session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[SimpleNamespace(name=name) for name in names])
         sdk = SDK(client, None, 10)
-        with self.assertRaisesRegex(ScreeningBlocked, "flagged fixture"):
-            await sdk.run(profile, "test", self.directory, tools=tools)
-        session.abort.assert_awaited()
+        self.assertEqual(await sdk.run(profile, "test", self.directory, tools=tools), "Research completed.")
+        github.screen.assert_not_awaited()
+        session.abort.assert_not_awaited()
         session.disconnect.assert_awaited()
         self.assertTrue(tools.screening_stopped)
         self.assertEqual(tools._screening_tasks, set())
-        self.assertFalse((self.directory / f"{profile.name}-last-response.txt").exists())
-        self.assertNotIn("hostile-evidence-marker", (tools.evidence / "checks.jsonl").read_text())
+        self.assertTrue((self.directory / f"{profile.name}-last-response.txt").exists())
+        self.assertIsNone(tools.screening_error)
 
     async def test_sdk_timeout_cancels_active_and_queued_screenings_and_rejects_late_results(self):
         started = asyncio.Event()
@@ -827,7 +1039,7 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
         await tools.stop_screening()
         self.assertIsInstance(tools.permission(request, {"session_id": "test"}), PermissionDecisionReject)
 
-    async def test_native_github_fetch_cannot_bypass_screened_tool(self):
+    async def test_native_github_fetch_still_requires_the_audited_tool(self):
         tools = InvestigationTools(FakeGitHub(), self.directory / "scratch", ROOT / "packages" / "pyright" / "index.js", {})
         for host in ("github.com", "api.github.com", "raw.githubusercontent.com", "typing.python.org"):
             result = tools.permission(PermissionRequestUrl(intention="read", url=f"https://{host}/"), {"session_id": "test"})
@@ -835,7 +1047,7 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
                 result, PermissionDecisionApproveOnce if host == "typing.python.org" else PermissionDecisionReject,
             )
 
-    async def test_rca_github_source_reader_also_latches_a_screening_block(self):
+    async def test_rca_github_source_reader_does_not_screen_research(self):
         github = FakeGitHub()
         github.screen = AsyncMock(side_effect=ScreeningBlocked("flagged fixture"))
         runtime = AsyncMock(spec=RootCauseRuntime)
@@ -848,9 +1060,12 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
                 arguments={"url": "https://github.com/microsoft/pyright/issues/123"},
                 session_id="test", tool_name="rca_read_source", tool_call_id="call",
             ))
-        self.assertEqual(result.result_type, "failure")
-        self.assertIsNotNone(tools.screening_error)
-        self.assertNotIn("hostile-evidence-marker", (self.directory / "checks.jsonl").read_text())
+        self.assertEqual(result.result_type, "success")
+        self.assertIsNone(tools.screening_error)
+        github.screen.assert_not_awaited()
+        self.assertIn("hostile-evidence-marker", result.text_result_for_llm or "")
+        row = json.loads((self.directory / "checks.jsonl").read_text().splitlines()[-1])
+        self.assertEqual(row["screening"], "not_screened_research")
 
     async def test_batch_continues_after_initial_or_later_screening_skip(self):
         for stage in ("review", "decide"):
@@ -885,6 +1100,9 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
                 console.load.return_value = None
                 console.review, console.decide = AsyncMock(side_effect=review), AsyncMock(side_effect=decide)
                 await main(args)
+                github.screen.assert_not_awaited()
+                metadata = json.loads((args.state_dir / "run.json").read_text())
+                self.assertEqual(metadata["screening_scope"], SCREENING_SCOPE)
                 self.assertEqual(console.review.await_count, 2)
                 self.assertEqual(console.decide.call_args.args[0].issue.number, 456)
                 self.assertTrue(any("#123: SKIPPED" in call.args[0] for call in show.call_args_list))

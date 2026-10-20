@@ -31,8 +31,12 @@ or fix. If a GitHub draft is requested, apply the user's required writing pass s
 
 ### Console-owned injection screening
 
-The SDK console requires Microsoft-Decision-1 screening before exposing an issue and its discussion to any analysis role,
-including resumed work. Related GitHub tool evidence is screened at ingress; a blocking result aborts the role.
+The SDK console requires Microsoft-Decision-1 screening of the target issue and its discussion before any analysis role,
+including resumed work. Controller entry points for drafting, RCA, adjudication and publication retain that check.
+Research tool reads, related issues, searches, PRs, release metadata and RCA source reads are not separately
+classified, regardless of age or issue status. Research logs explicitly mark `not_screened_research`, never
+claiming a passing classifier decision. Run metadata and classifier policy hashes identify the
+`target_issue_and_comments` scope.
 Flagged, uncertain, failed and over-budget checks skip the issue without override. This classifier is separate from
 the behavior/duplicate investigators and adjudicator: it does not decide whether a report is a bug or by design,
 authorize execution/publication, or certify that a passing report is safe.
@@ -44,6 +48,16 @@ Evidence above the single-request limit is split into bounded, overlapping fragm
 context; every fragment must pass before the complete evidence is released or cached. Aggregate risk is the
 maximum fragment risk, never an average. Fragmentation does not truncate the evidence, but it can lose
 relationships between distant passages and is not a guarantee against distributed prompt injection.
+The fragment planner also bounds the fully serialized classifier state to 24 KiB after JSON escaping, leaving
+conservative headroom for the rubric within the provider's context limit rather than treating text bytes as tokens.
+Unchanged target records and complete discussions can be reused between controller checks; changed content is
+screened, and all newly screened parts must pass before a group is cached. Block diagnostics identify the
+resource, selected label and policy score; rejected target evidence is not written to classifier audits.
+Older research can still contain attacks or be edited. This narrower classification policy relies on the agents'
+untrusted-evidence rules and existing tool/approval boundaries, not on historical material being proven safe.
+The rubric treats ordinary troubleshooting and historical human issue-closing decisions as evidence, not AI
+instructions. The local labeled-evaluation command separates false positives, unsafe allows and service errors;
+its small development/validation corpus does not establish production detection accuracy.
 Its provisional thresholds need evaluation against labeled benign and adversarial examples on the actual
 deployment; mocked workflow tests do not establish detection accuracy. Existing permission limits and human
 approvals remain mandatory. Interactive agent invocations outside this console do not automatically receive

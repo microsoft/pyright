@@ -72,7 +72,7 @@ from issue_review_models import (
 from issue_review_editor import EditorRuntime, editor_failure, editor_signature, fingerprint as editor_fingerprint
 from issue_review_rca import RootCauseRun, RootCauseRuntime
 from issue_review_safety import ENVIRONMENT as SCORER_ENVIRONMENT
-from issue_review_safety import InjectionScreening, ScreeningBlocked, child_environment
+from issue_review_safety import SCREENING_SCOPE, InjectionScreening, ScreeningBlocked, child_environment
 
 ROOT = Path(__file__).resolve().parents[2]
 AGENTS = ROOT / ".github" / "agents"
@@ -447,11 +447,16 @@ class InvestigationTools:
                 else:
                     resource = "pulls" if request.operation == "pull_request" else "issues"
                     result = await self.github.api("GET", f"{base}/{resource}/{request.number}")
-            await self.screen_evidence(result, f"github_read:{request.operation}")
-            self.log({"tool": "github_read", "request": request.model_dump(), "result": result})
+            self.log({
+                "tool": "github_read", "request": request.model_dump(), "result": result,
+                "screening": "not_screened_research",
+            })
             return ToolResult(text_result_for_llm=json.dumps(result), result_type="success")
         except ScreeningBlocked as error:
-            self.log({"tool": "github_read", "error": str(error), "screening_blocked": True})
+            self.log({
+                "tool": "github_read", "request": request.model_dump(),
+                "error": str(error), "screening_blocked": True,
+            })
             return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
         except (AutomationError, OSError, ValueError) as error:
             self.log({"tool": "github_read", "error": str(error)})
@@ -697,8 +702,7 @@ class RootCauseTools(InvestigationTools):
                     connection.close()
 
             record = await asyncio.to_thread(fetch)
-            if hostname in {"github.com", "api.github.com", "raw.githubusercontent.com"}:
-                await self.screen_evidence(record, "rca_read_source")
+            record["screening"] = "not_screened_research"
             self.log(record)
             return ToolResult(text_result_for_llm=json.dumps(record), result_type="success")
         except (OSError, ValueError, AutomationError, http.client.HTTPException) as error:
@@ -2033,7 +2037,6 @@ async def main(args: argparse.Namespace) -> None:
             "id", "tag_name", "html_url", "target_commitish", "published_at", "updated_at"
         )
     }
-    await github.screen(release, args.state_dir, "latest_release")
     code, runtime, error = await process([args.cli_path, "--version"], ROOT)
     if code:
         raise AutomationError(f"Cannot identify Copilot runtime: {error}")
@@ -2048,6 +2051,7 @@ async def main(args: argparse.Namespace) -> None:
     issues = [issue for issue in issues if issue.state == "open"]
     show(f"{len(issues)} open issues in {REPOSITORY}; chunks of {args.chunk_size}. State: {args.state_dir}")
     show(f"Model for all SDK stages: {args.model}")
+    show("Injection screening: target issue and comments only; research reads are not classified.")
     show("Prepare the source CLI with 'pnpm run build:cli:dev' before this run. Do not change source or build outputs during review.")
     show("Copilot searches use ripgrep; optional indexed search is disabled for SDK compatibility.")
     with state_lock(args.state_dir):
@@ -2056,6 +2060,7 @@ async def main(args: argparse.Namespace) -> None:
             "context_hash": fingerprint, "runtime": runtime.strip(),
             "sdk": importlib.metadata.version("github-copilot-sdk"),
             "requested_model": args.model, "release": release,
+            "screening_scope": SCREENING_SCOPE,
             "started_at": datetime.now(timezone.utc).isoformat(),
         }, indent=2))
         connection = RuntimeConnection.for_stdio(path=args.cli_path)

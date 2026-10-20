@@ -87,11 +87,17 @@ into code, environment configuration for this client, reports or chat. The adapt
 does not log tokens, headers or response bodies, and disables Azure HTTP logging for its credential.
 The old `TYPESAFE_*` configuration is not used as a fallback. Both new configuration variables are required.
 
-Before any Copilot analysis, the controller screens the complete issue title/body/labels and discussion.
-Later `github_read` results, including related issues, searches, PRs and changed-file text, are screened before
-being exposed to an investigator. Native GitHub web fetches are denied; investigators must use `github_read`.
-RCA's controller-owned GitHub source reader also screens its responses. Resumed reviews, direct investigation
-and drafting stages, and publication paths cannot skip the initial check.
+Before any Copilot analysis, the controller screens the target issue's complete title/body/labels and discussion.
+Resumed reviews, direct investigation and drafting stages, and publication paths cannot skip that target-issue check.
+Research reads are not separately classified: this includes searches, historical and duplicate issues, PRs,
+changed-file text, release metadata, and RCA source reads. This policy applies regardless of the research item's
+age or open/closed status. Native GitHub web fetches remain denied so investigators use the scoped, audited
+`github_read` tool, not because research results must pass the classifier.
+
+Older issues can still contain hostile text or be edited; their age is not a safety guarantee. The narrower
+scope deliberately relies on the agents treating all research as untrusted evidence, plus existing tool
+restrictions and execution/publication approvals. It avoids classifying a large historical corpus for each
+compact target issue without representing that corpus as classifier-approved.
 
 Decision-1 is a general classifier, not a built-in guarantee of prompt-injection detection. This integration
 asks a fixed **Choice** question with `benign` and `injection` criteria, supplying issue text as structured
@@ -100,7 +106,7 @@ probability at or below `0.1`; values between `0.1`
 and `0.9` are uncertain, and values at or above `0.9` are flagged. Both uncertain and flagged results skip the
 issue, with **no override**. These are operating thresholds, not calibrated accuracy or confidence guarantees.
 Missing configuration, invalid responses, timeouts, authentication/service errors, and unavailable audit storage
-also block analysis. A tool-time block aborts the active role rather than letting it continue with partial evidence.
+also block analysis of the target issue.
 Unrelated issues in the batch can still proceed.
 
 Each classifier attempt has a 30-second bound. On HTTP 429 only, the controller makes at most one retry,
@@ -109,31 +115,40 @@ All checks in this console share one cancellable classifier queue: requests and 
 serialized, and queued checks recheck the allow-cache before making a request. Concurrent checks of identical
 passing evidence therefore share the first result instead of independently retrying and racing each other.
 Already-cached passing evidence does not wait for unrelated requests.
+The in-memory cache can reuse the unchanged target record or its complete discussion between controller
+checks. New or changed content must pass; a group is cached only after every fragment passes. Discussion
+identities include the parent issue. No individual phrase, partial body, or failed group is reusable.
+Reused scores retain the worst observed group risk, not a newly inferred per-document probability.
 
 Each active screening part, including both attempts and its retry wait, has a two-minute limit.
 A delay that exceeds that remaining budget blocks without retrying.
-Queue waits and HTTP retry waits print safe progress messages and count against the SDK role's existing
-`--timeout` budget; ending the role cancels its queued and active screenings. Other errors and a second
-HTTP 429 still block analysis; there is no safety override. The reusable REST client itself never retries.
+Queue waits and HTTP retry waits print safe progress messages. The SDK's `--timeout` bounds agent turns,
+not the controller's pre-analysis target-issue screening. Other errors and a second HTTP 429 still block
+analysis; there is no safety override. The reusable REST client itself never retries.
 Separate console processes do not share this queue, so avoid running them against the same low-quota deployment.
 Credential subprocesses can use the full attempt budget; authentication and HTTP together must still finish
 within that attempt's 30-second bound.
-Evidence up to 64 KiB in its canonical serialized JSON form is screened in one request. Larger issues, discussions,
-search results and other GitHub evidence are screened as bounded overlapping fragments, never truncated or
+Evidence that fits both the 64 KiB text ceiling and the 24 KiB serialized-state budget is screened in one request.
+Larger target issues and discussions are screened as bounded overlapping fragments, never truncated or
 summarized to obtain a passing result. Each fragment stays within 64 KiB including its envelope, carries the
 complete document's hash and its ordinal/offsets, repeats up to 1 KiB of untrusted prefix context, and overlaps
 its neighbor by 2 KiB of serialized evidence. The fragment planner accounts for JSON escaping, including Unicode.
-The total evidence budget is 1 MiB and at most 64 fragments; exceeding either budget still blocks explicitly.
+The planner also measures `{"content": ...}` after all JSON escaping and keeps it within 24 KiB. This leaves
+headroom for the rubric and request framing in Decision-1's 32K-token context: a 64 KiB text fragment alone does
+not bound token usage, especially for token-dense logs or multiply escaped JSON. The serialized-state bound is
+conservative, not a claim to measure the provider's tokenizer. The total evidence budget is 1 MiB and at most
+64 fragments; exceeding either budget still blocks explicitly.
 
 Every fragment must select `benign` with risk at or below `0.1` before any of the original evidence reaches the
 investigator. The recorded aggregate uses the highest observed fragment risk, not an average or a claim of a
 calibrated whole-document probability. A flagged, uncertain, malformed, failed or cancelled fragment prevents
 whole-input cache insertion and release of partial evidence. The queue slot is held for the complete set of
-fragments, while the SDK role's existing `--timeout` bounds the complete operation. Large inputs require more
-classifier requests and can be slow on low-quota deployments.
+fragments. Large target issues require more classifier requests and can be slow on low-quota deployments;
+large research responses do not create classifier requests or fragments.
 
 Only a complete passing result is reused in memory for identical content under the same scorer policy;
 edited comments or a changed tail invalidate the complete-input cache even if the issue timestamp did not change.
+Unchanged complete documents within the new response may still be reused; its new or edited documents must pass.
 There is no persisted "safe forever" cache or command-line switch to disable screening.
 
 Local `screening.jsonl` records store source identifiers, content/policy hashes, timestamps, outcome, returned model,
@@ -141,18 +156,51 @@ selected label, probabilities and numeric injection risk, not the input text, to
 Queue duration, total elapsed time and completion timestamps distinguish a queued check from an active request.
 Multipart records include fragment hashes, byte counts, individual outcomes, completion counts and the failing
 or interrupted ordinal, without storing the fragments or repeated context.
-Initial checks are saved in the issue directory; tool-time
-checks are next to that role's evidence, and shared release metadata is checked at the state root. Normal investigation
-reports remain separate. Changing the integration or configured endpoint/deployment invalidates review context;
-token refresh does not change the screening policy.
+They also distinguish the original response hash from the hash of the new documents actually classified, count
+reused/new documents, and record serialized-state sizes, HTTP attempts and retry-wait time. A blocking console message
+identifies its source and issue number, selected label, injection score and allow threshold.
+Target-issue checks are saved in the issue directory. Research tool records instead explicitly identify
+`not_screened_research`; they are not passing classifier decisions. `run.json` and screening audits record the
+`target_issue_and_comments` scope, which is also included in the policy hash. Normal investigation reports remain
+separate. Changing the integration or configured endpoint/deployment invalidates review context; token refresh
+does not change the screening policy.
 
-Configure only an approved service: screening transmits issue and GitHub evidence to that deployment.
+Configure only an approved service: screening transmits the target issue and its discussion to that deployment,
+not the agents' separate research reads.
 Transport-mocked regression tests verify the fail-closed workflow and wire contract, not detection quality.
 Before a backlog run, evaluate representative labeled benign reports, attack attempts and ambiguous examples
 against the actual configured deployment, including quoted attacks and legitimate repro commands. Existing
 tool restrictions, source inspection and execution/publication approvals still apply even after a passing score.
 Overlap preserves nearby boundary context, but chunking can lose relationships across distant fragments; passing
 all fragments is not proof that an attack distributed across the document will be detected.
+
+### Classifier evaluation and throughput
+
+The rubric distinguishes attempts to control the AI's workflow from human-to-human troubleshooting and
+historical maintainer actions. A person explaining why they closed an earlier issue is not, by itself, directing
+the AI to close its current issue. Claimed maintainer authority never permits an instruction to bypass the
+AI's rules or approvals. The numeric thresholds and no-override policy are unchanged.
+
+Run the small labeled evaluation without starting an issue agent or publishing anything:
+
+```powershell
+uv run --env-file .env build\automation\evaluate_issue_screening.py --output "$env:TEMP\pyright-screening-evaluation.json"
+```
+
+The synthetic corpus separates development cases used to refine the rubric from validation cases not used for
+that refinement. `--split validation` selects the latter. `--cases path.json` accepts additional labeled cases
+with `id`, `category` (`benign`, `attack`, `ambiguous`), `split`, and `evidence` fields. The command returns nonzero
+for benign cases blocked by the policy, unsafe cases allowed, or service failures. HTTP/authentication failures
+are reported separately, never counted as successful attack detection. Fresh policy state per example prevents
+cache hits from masquerading as repeated inference measurements. Output/audits contain decisions, probabilities,
+timings and hashes, not fixture text. These small regression sets are not a statistical accuracy calibration;
+evaluate representative real reports and adversarial examples before a backlog-wide run.
+
+Deployment request quota is independent of the console queue. For example, a deployment advertising one request
+per minute cannot finish dozens of distinct screenings quickly, even if individual inference takes seconds.
+Check the deployment's actual request rate and available Azure quota; increasing deployment capacity requires
+operator approval and can allow higher inference spend. The console never changes Azure resources or retrieves
+API keys. Raising `--timeout`, adding workers, or splitting evidence into more parts does not raise that quota.
 
 ### Reusable Choice client
 
@@ -196,8 +244,8 @@ raise `ClassificationHTTPError` with a `status` attribute. `ClassificationTimeou
 bodies and underlying credential exception text. Console screening errors include the HTTP status when available:
 for HTTP 404, check both the resource endpoint and the deployment name; for HTTP 401/403, check the selected
 identity and its inference permissions; for HTTP 429, check the deployment's request quota.
-Release metadata, issues and subsequent GitHub evidence require separate screening requests, so a very low
-request quota can slow or block even a single-issue run despite the controller's bounded retry.
+Only target issues and their discussions require screening requests. A very low request quota can still
+slow a batch or a fragmented target issue despite the controller's bounded retry.
 The reusable client does not retry requests or follow redirects.
 Synchronous identity/HTTP work runs off the event loop; cancellation or timeout prevents a pending credential
 acquisition from starting a late inference request. Already-running synchronous I/O finishes under its socket
