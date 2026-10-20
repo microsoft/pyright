@@ -5,6 +5,19 @@ differences** analyzes the complete eight-shard output and posts a separate,
 commit-specific explanation. It is advisory: it does not approve PRs, change
 labels, merge changes, or make mypy_primer diagnostic differences fail CI.
 
+Follow-up checks are queued from Validation's `workflow_run` events, not
+`pull_request_target`. They appear when Validation is requested or starts, rather
+than immediately when a PR opens or updates; unsuccessful Validation completes
+queued checks as skipped. Both the queue and raw-comment workflows check out the
+trusted workflow commit without persisting credentials.
+
+Before posting the raw diff, the commenter verifies the source primer run,
+successful Validation, and complete artifact inventory. The target PR is resolved
+from Validation's repository, branch, and exact head SHA, never from
+`pr_number.txt`. Only the eight expected, bounded diff files are read from the
+archives; archive paths are never extracted. Closed or superseded PRs are skipped,
+and the head is checked again immediately before posting.
+
 The PR comment leads with potential regressions and unresolved investigations,
 not a diagnostic-count table. Each project analysis states baseline evidence,
 changed behavior, downstream impact, a causal explanation, PR attribution, and
