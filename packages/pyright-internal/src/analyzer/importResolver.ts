@@ -1597,6 +1597,7 @@ export class ImportResolver {
 
         let bestResultSoFar: ImportResult | undefined;
         let localImport: ImportResult | undefined;
+        const namespacePortions: ImportResult[] = [];
 
         // Look for it in the root directory of the execution environment.
         if (execEnv.root) {
@@ -1616,6 +1617,7 @@ export class ImportResolver {
                 /* lookForPyTyped */ false
             );
             bestResultSoFar = localImport;
+            this._addNamespacePortion(namespacePortions, localImport);
         }
 
         for (const extraPath of execEnv.extraPaths) {
@@ -1634,6 +1636,7 @@ export class ImportResolver {
                 /* lookForPyTyped */ false
             );
             bestResultSoFar = this._pickBestImport(bestResultSoFar, localImport, moduleDescriptor);
+            this._addNamespacePortion(namespacePortions, localImport);
         }
 
         // Check for a stdlib typeshed file.
@@ -1685,11 +1688,14 @@ export class ImportResolver {
                     }
 
                     bestResultSoFar = this._pickBestImport(bestResultSoFar, thirdPartyImport, moduleDescriptor);
+                    this._addNamespacePortion(namespacePortions, thirdPartyImport);
                 }
             }
         } else {
             importLogger?.log('No python interpreter search path');
         }
+
+        bestResultSoFar = this._mergeNamespacePortions(bestResultSoFar, namespacePortions, importLogger);
 
         // If a library is fully py.typed, then we have found the best match,
         // unless the execution environment is typeshed itself, in which case
@@ -1752,6 +1758,60 @@ export class ImportResolver {
         // We weren't able to find an exact match, so return the best
         // partial match.
         return bestResultSoFar;
+    }
+
+    // Determines whether an import result is a namespace package whose final
+    // directory has no "__init__.py(i)" file, so its symbols come only from
+    // the submodules listed in its implicit imports.
+    private _isNamespacePortion(importResult: ImportResult) {
+        return (
+            importResult.isImportFound &&
+            importResult.isNamespacePackage &&
+            !importResult.isStubPackage &&
+            importResult.resolvedUris.length > 0 &&
+            importResult.resolvedUris[importResult.resolvedUris.length - 1].isEmpty()
+        );
+    }
+
+    private _addNamespacePortion(namespacePortions: ImportResult[], importResult: ImportResult | undefined) {
+        if (importResult && this._isNamespacePortion(importResult)) {
+            namespacePortions.push(importResult);
+        }
+    }
+
+    // A namespace package can be split across several search paths, and at
+    // runtime its submodules are the union of those found in each portion.
+    // Merge the implicit imports of all portions so that a "from X import A, B"
+    // statement resolves A and B even if they live in different portions. When
+    // several portions provide the same submodule, the earliest one wins, as it
+    // does at runtime.
+    private _mergeNamespacePortions(
+        bestImport: ImportResult | undefined,
+        namespacePortions: ImportResult[],
+        importLogger: ImportLogger | undefined
+    ): ImportResult | undefined {
+        if (!bestImport || namespacePortions.length < 2 || !this._isNamespacePortion(bestImport)) {
+            return bestImport;
+        }
+
+        const implicitImports = new Map<string, ImplicitImport>();
+        for (const portion of namespacePortions) {
+            portion.implicitImports?.forEach((implicitImport, name) => {
+                if (!implicitImports.has(name)) {
+                    implicitImports.set(name, implicitImport);
+                }
+            });
+        }
+
+        if (
+            implicitImports.size === (bestImport.implicitImports?.size ?? 0) &&
+            Array.from(implicitImports).every(([name, entry]) => bestImport.implicitImports?.get(name) === entry)
+        ) {
+            return bestImport;
+        }
+
+        importLogger?.log(`Merged implicit imports from ${namespacePortions.length} namespace package portions`);
+        return { ...bestImport, implicitImports, filteredImplicitImports: implicitImports };
     }
 
     private _shouldSkipThirdPartyTypeshedFallbackForLocalNamespace(
