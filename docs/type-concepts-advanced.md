@@ -61,8 +61,8 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `x is ...` and `x is not ...` (where `...` is an ellipsis token)
 * `x == ...` and `x != ...` (where `...` is an ellipsis token)
 * `x is S` and `x is not S` (where S is a Sentinel)
-* `type(x) is T` and `type(x) is not T`
-* `type(x) == T` and `type(x) != T`
+* `type(x) is T` and `type(x) is not T` (including reversed comparisons and operands annotated as `type[T]`)
+* `type(x) == T` and `type(x) != T` (including reversed comparisons, subject to the equality restrictions described below)
 * `x is L` and `x is not L` (where L is an expression that evaluates to a literal type)
 * `x is C` and `x is not C` (where C is a class)
 * `x == C` and `x != C` (where C is a class and the compared class objects have statically known identity-based equality)
@@ -88,6 +88,10 @@ Expressions supported for type guards include simple names, member access chains
 For user-defined `TypeGuard` and `TypeIs` calls, Pyright narrows the argument corresponding to the first parameter after any method receiver (`self` or `cls`). This applies to bound and unbound methods, including method aliases, and arguments supplied by keyword. Guards with gradual (`...`), tuple-unpacked, or variadic positional parameter lists support narrowing of explicit positional arguments. If selected overloads identify different guarded arguments, or argument unpacking obscures the guarded expression, Pyright does not apply narrowing.
 
 Class equality guards can narrow exact or final, non-generic class objects whose metaclasses have known default equality semantics. Alternatives with open subclass hierarchies, generic aliases, custom equality methods, or uncertain metaclasses are retained. Callable metaclass factories and unknown metaclass ancestry do not establish identity-based equality. Constrained type variables that expand to unions are retained rather than narrowed by these equality guards. Identity guards (`is` and `is not`) do not have these equality-specific restrictions.
+
+For compatibility, forward `type(x) == T` and `type(x) != T` guards against bare classes or built-in `type(other)` calls retain legacy narrowing when the declared metaclasses do not override equality. This includes open subclass hierarchies and bare generic classes, but not explicitly specialized generic aliases. This legacy behavior does not rule out an unknown subclass with a custom metaclass, so equality does not always establish the runtime class. Reversed comparisons and comparisons against class-valued variables annotated as `type[T]` require statically known identity-based equality as described above. Use `is` or `is not` when testing exact class identity.
+
+An operand annotated as `type[T]` can refer to a subclass of `T`, unlike a direct reference to the class `T`; identity narrowing preserves this distinction and any known literal or generic instance information. Generic arguments inferred from the guarded value are retained, with information from the compared class filling gradual (`Any` or unknown) arguments.
 
 Some type guards are able to narrow in both the positive and negative cases. Positive cases are used in `if` statements, and negative cases are used in `else` statements. (Positive and negative cases are flipped if the type guard expression is preceded by a `not` operator.) In some cases, the type can be narrowed only in the positive or negative case but not both. Consider the following examples:
 

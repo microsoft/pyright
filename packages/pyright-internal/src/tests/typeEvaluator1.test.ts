@@ -330,7 +330,10 @@ test('TypeNarrowingAssert1', () => {
 test('TypeNarrowingTypeIs1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypeIs1.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
+    assert.ok(
+        analysisResults[0].errors.every((diagnostic) => diagnostic.getRule() === DiagnosticRule.reportReturnType)
+    );
 });
 
 test('TypeGuardMethod1', () => {
@@ -350,6 +353,9 @@ test('TypeNarrowingTypeEquals1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypeEquals1.py']);
 
     TestUtils.validateResults(analysisResults, 3);
+    assert.ok(
+        analysisResults[0].errors.every((diagnostic) => diagnostic.getRule() === DiagnosticRule.reportReturnType)
+    );
 });
 
 test('TypeNarrowingIsNone1', () => {

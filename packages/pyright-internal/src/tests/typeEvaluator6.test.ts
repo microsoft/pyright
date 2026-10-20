@@ -317,6 +317,49 @@ test('TypeIs5', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeIs6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs6.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs7.py']);
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportReturnType);
+});
+
+test('TypeIs8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs8.py']);
+    TestUtils.validateResults(analysisResults, 3);
+    assert.ok(
+        analysisResults[0].errors.every(
+            (diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAttributeAccessIssue
+        )
+    );
+});
+
+test('TypeIs9', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs9.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs10.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs11.py']);
+    TestUtils.validateResults(analysisResults, 4);
+    assert.ok(
+        analysisResults[0].errors.every(
+            (diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAttributeAccessIssue
+        )
+    );
+});
+
 test('Never1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['never1.py']);
 
