@@ -8,6 +8,7 @@
 #     "github-copilot-sdk==1.0.19",
 #     "pydantic>=2.11,<3",
 #     "PyYAML>=6.0,<7",
+#     "azure-identity>=1.25,<2",
 # ]
 # ///
 
@@ -70,6 +71,8 @@ from issue_review_models import (
 )
 from issue_review_editor import EditorRuntime, editor_failure, editor_signature, fingerprint as editor_fingerprint
 from issue_review_rca import RootCauseRun, RootCauseRuntime
+from issue_review_safety import ENVIRONMENT as SCORER_ENVIRONMENT
+from issue_review_safety import InjectionScreening, ScreeningBlocked, child_environment
 
 ROOT = Path(__file__).resolve().parents[2]
 AGENTS = ROOT / ".github" / "agents"
@@ -226,7 +229,7 @@ async def process(
     command: list[str], cwd: Path, *, stdin: str | None = None, timeout: float = 120
 ) -> tuple[int, str, str]:
     child = await asyncio.create_subprocess_exec(
-        *command, cwd=cwd, stdin=asyncio.subprocess.PIPE if stdin is not None else None,
+        *command, cwd=cwd, env=child_environment(), stdin=asyncio.subprocess.PIPE if stdin is not None else None,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
     )
     try:
@@ -246,9 +249,21 @@ async def process(
 
 
 class GitHub:
-    def __init__(self, checkout: Path = ROOT):
+    def __init__(self, checkout: Path = ROOT, scorer: InjectionScreening | None = None):
         self.checkout = checkout
         self.viewer: str | None = None
+        self.scorer = scorer
+
+    async def screen(self, value: JsonValue, directory: Path, source: str) -> None:
+        if self.scorer is None:
+            raise ScreeningBlocked("Injection screening is not configured; analysis is blocked without override")
+        await self.scorer.check(value, directory, source)
+
+    async def screen_issue(self, issue: Issue, directory: Path) -> None:
+        comments = await self.comments(issue.number)
+        await self.screen({
+            "issue": issue.model_dump(mode="json"), "comments": comments,
+        }, directory, f"issue:{issue.number}")
 
     async def api(self, method: str, endpoint: str, payload: JsonValue = None, *, pages: bool = False) -> JsonValue:
         command = ["gh", "api", "--hostname", "github.com", "--method", method, endpoint]
@@ -353,6 +368,9 @@ class InvestigationTools:
         self.evidence = evidence or self.scratch
         self.evidence.mkdir(parents=True, exist_ok=True)
         self.deadline: asyncio.Timeout | None = None
+        self.screening_error: ScreeningBlocked | None = None
+        self.screening_stopped = False
+        self._screening_tasks: set[asyncio.Task[None]] = set()
         self._approval_lock = asyncio.Lock()
         self.tools = [
             Tool("github_read", "Read Pyright issues, comments, PRs, or bounded search results; never mutates GitHub.",
@@ -362,6 +380,8 @@ class InvestigationTools:
         ]
 
     def permission(self, request: PermissionRequest, _invocation: PermissionInvocation) -> PermissionRequestResult:
+        if self.screening_error is not None or self.screening_stopped:
+            return PermissionDecisionReject(feedback="Investigation is inactive or evidence was blocked; no further tool access is allowed")
         if getattr(request, "managed_approval_required", False) or getattr(request, "request_sandbox_bypass", False):
             return PermissionDecisionReject(feedback="Managed approval cannot be bypassed by this console.")
         allowed = False
@@ -375,6 +395,7 @@ class InvestigationTools:
             parsed = urlparse(request.url)
             allowed = (
                 parsed.scheme == "https" and parsed.hostname in WEB_HOSTS
+                and parsed.hostname not in {"github.com", "api.github.com", "raw.githubusercontent.com"}
                 and not parsed.username and not parsed.password and not parsed.query
             )
         elif isinstance(request, PermissionRequestCustomTool):
@@ -406,6 +427,8 @@ class InvestigationTools:
     async def github_read(self, invocation: ToolInvocation) -> ToolResult:
         request = GitHubRead.model_validate(invocation.arguments)
         try:
+            if self.screening_error is not None:
+                raise self.screening_error
             if request.operation == "latest_release":
                 result = self.release
             elif request.operation == "search":
@@ -424,15 +447,45 @@ class InvestigationTools:
                 else:
                     resource = "pulls" if request.operation == "pull_request" else "issues"
                     result = await self.github.api("GET", f"{base}/{resource}/{request.number}")
+            await self.screen_evidence(result, f"github_read:{request.operation}")
             self.log({"tool": "github_read", "request": request.model_dump(), "result": result})
             return ToolResult(text_result_for_llm=json.dumps(result), result_type="success")
+        except ScreeningBlocked as error:
+            self.log({"tool": "github_read", "error": str(error), "screening_blocked": True})
+            return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
         except (AutomationError, OSError, ValueError) as error:
             self.log({"tool": "github_read", "error": str(error)})
             return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
 
+    async def screen_evidence(self, value: JsonValue, source: str) -> None:
+        if self.screening_stopped:
+            raise asyncio.CancelledError
+        task = asyncio.create_task(self.github.screen(value, self.evidence, source))
+        self._screening_tasks.add(task)
+        try:
+            await task
+            if self.screening_stopped:
+                raise asyncio.CancelledError
+        except ScreeningBlocked as error:
+            self.screening_error = error
+            if self.deadline is not None:
+                self.deadline.reschedule(asyncio.get_running_loop().time())
+            raise
+        finally:
+            self._screening_tasks.discard(task)
+
+    async def stop_screening(self) -> None:
+        self.screening_stopped = True
+        pending = tuple(self._screening_tasks)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
     async def run_check(self, invocation: ToolInvocation) -> ToolResult:
         request = RunCheck.model_validate(invocation.arguments)
         try:
+            if self.screening_error is not None:
+                raise self.screening_error
             if request.arguments and request.kind != "python":
                 raise AutomationError("Only runtime probes accept arguments; configure Pyright in pyrightconfig.json")
             if request.kind == "pyright":
@@ -539,6 +592,8 @@ class RootCauseTools(InvestigationTools):
         ]
 
     def permission(self, request: PermissionRequest, invocation: PermissionInvocation) -> PermissionRequestResult:
+        if self.screening_error is not None or self.screening_stopped:
+            return PermissionDecisionReject(feedback="Investigation is inactive or evidence was blocked by screening")
         if isinstance(request, PermissionRequestCustomTool):
             if getattr(request, "managed_approval_required", False) or getattr(request, "request_sandbox_bypass", False):
                 return PermissionDecisionReject(feedback="Managed approval cannot be bypassed.")
@@ -549,6 +604,8 @@ class RootCauseTools(InvestigationTools):
 
     async def rca_run(self, invocation: ToolInvocation) -> ToolResult:
         try:
+            if self.screening_error is not None:
+                raise self.screening_error
             request = RootCauseRun.model_validate(invocation.arguments)
             if self.plan is not None and self.plan.runner != "cli":
                 raise AutomationError("This reproduction plan does not permit a CLI proxy; use the planned surface")
@@ -572,6 +629,8 @@ class RootCauseTools(InvestigationTools):
     async def rca_editor_run(self, invocation: ToolInvocation) -> ToolResult:
         async with self._editor_lock:
             try:
+                if self.screening_error is not None:
+                    raise self.screening_error
                 request = RootCauseRun.model_validate(invocation.arguments)
                 if self.editor is None or self.plan is None or self.plan.runner != "editor_interpreter":
                     raise AutomationError("Editor execution requires an editor-interpreter reproduction plan")
@@ -611,6 +670,8 @@ class RootCauseTools(InvestigationTools):
 
     async def rca_read_source(self, invocation: ToolInvocation) -> ToolResult:
         try:
+            if self.screening_error is not None:
+                raise self.screening_error
             request = AuthorityRead.model_validate(invocation.arguments)
             parsed = urlparse(request.url)
             hostname = parsed.hostname
@@ -636,6 +697,8 @@ class RootCauseTools(InvestigationTools):
                     connection.close()
 
             record = await asyncio.to_thread(fetch)
+            if hostname in {"github.com", "api.github.com", "raw.githubusercontent.com"}:
+                await self.screen_evidence(record, "rca_read_source")
             self.log(record)
             return ToolResult(text_result_for_llm=json.dumps(record), result_type="success")
         except (OSError, ValueError, AutomationError, http.client.HTTPException) as error:
@@ -652,6 +715,8 @@ class SDK:
         tools: InvestigationTools | None = None, evidence: Path | None = None,
         validate: Callable[[str], None] | None = None,
     ) -> str:
+        if tools is not None and tools.screening_error is not None:
+            raise tools.screening_error
         custom_tools = [] if tools is None else tools.tools
         duplicate = agent.name == "pyright-issue-dupe-investigator"
         native_tools = READ_TOOLS + WRITE_TOOLS
@@ -687,6 +752,8 @@ class SDK:
             enable_host_git_operations=False, enable_file_hooks=False, enable_config_discovery=False,
             enable_session_store=False, manage_schedule_enabled=False, on_event=event,
         )
+        if tools is not None:
+            tools.screening_stopped = False
         try:
             selected = await session.rpc.agent.get_current()
             if selected.agent is None or selected.agent.name != agent.name:
@@ -724,6 +791,8 @@ class SDK:
                         response = await session.send_and_wait(
                             prompt, response_schema=None if schema is None else response_schema(schema), timeout=float("inf")
                         )
+                        if tools is not None and tools.screening_error is not None:
+                            raise tools.screening_error
                     finally:
                         if tools is not None:
                             tools.deadline = None
@@ -752,6 +821,9 @@ class SDK:
                     )
             raise AutomationError("No validated response")
         except TimeoutError as error:
+            if tools is not None and tools.screening_error is not None:
+                await session.abort()
+                raise tools.screening_error
             message = (
                 f"{agent.name} SDK turn timed out (active timeout {self.timeout:g}s; operator approval waits excluded). "
                 f"Details: {logs / 'sdk-events.jsonl'}"
@@ -784,10 +856,23 @@ class SDK:
             raise AutomationError(message) from error
         except AutomationError:
             raise
+        except ScreeningBlocked:
+            await session.abort()
+            raise
         except RuntimeError as error:
+            if tools is not None and tools.screening_error is not None:
+                await session.abort()
+                raise tools.screening_error
             raise AutomationError(f"{agent.name} SDK session failed: {error}") from error
+        except asyncio.CancelledError:
+            await session.abort()
+            raise
         finally:
-            await session.disconnect()
+            try:
+                if tools is not None:
+                    await tools.stop_screening()
+            finally:
+                await session.disconnect()
 
 
 class Console:
@@ -848,6 +933,7 @@ class Console:
         }, sort_keys=True))
 
     async def review(self, issue: Issue, *, retry_failed: bool) -> Entry:
+        await self.github.screen_issue(issue, self.directory(issue.number))
         cached = self.load(issue.number)
         if cached and cached.root_cause and cached.root_cause.publication and cached.root_cause.publication.status != "posted":
             if cached.context_hash != self.context_hash:
@@ -985,6 +1071,7 @@ class Console:
         return entry
 
     async def investigate_duplicates(self, entry: Entry) -> None:
+        await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         review, issue = entry.review, entry.issue
         if review is not None and entry.duplicates is None:
             directory = self.directory(issue.number)
@@ -1020,6 +1107,7 @@ class Console:
             self.save(entry)
 
     async def adjudicate(self, entry: Entry) -> None:
+        await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         if entry.review is None or entry.duplicates is None:
             raise AutomationError("Both investigation reports are required before adjudication")
         review, duplicates = entry.review, entry.duplicates
@@ -1282,6 +1370,7 @@ class Console:
         self.save(entry)
 
     async def investigate_root_cause(self, entry: Entry) -> None:
+        await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         self.require_report_evidence(entry)
         if self.current_context() != self.context_hash or self.key(await self.github.issue(entry.issue.number)) != entry.input_hash:
             raise AutomationError("Issue or local inputs changed before RCA")
@@ -1471,6 +1560,7 @@ class Console:
         return root_cause
 
     async def prepare_root_cause_comment(self, entry: Entry) -> str:
+        await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         root_cause = self.require_rca_evidence(entry)
         if root_cause.publication:
             return root_cause.publication.body
@@ -1508,6 +1598,7 @@ class Console:
         return comment
 
     async def post_root_cause(self, entry: Entry) -> None:
+        await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         if self.read_only:
             raise AutomationError("This run is read-only; no RCA comment may be posted")
         root_cause = self.require_rca_evidence(entry)
@@ -1618,6 +1709,7 @@ class Console:
             self.save(entry)
 
     async def prepare_comment(self, entry: Entry) -> str:
+        await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         reason = self.require_closure_evidence(entry)
         await self.canonical_unchanged(entry)
         if entry.closure:
@@ -1697,6 +1789,7 @@ class Console:
                 raise AutomationError("Canonical issue changed since investigation; no duplicate closure allowed")
 
     async def close(self, entry: Entry) -> None:
+        await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         if self.read_only:
             raise AutomationError("This run is read-only")
         if self.current_context() != self.context_hash:
@@ -1860,6 +1953,8 @@ def context_hash(
         Path(__file__).with_name("issue_review_rca.py"), Path(__file__).with_name("issue_review_debug.cjs"),
         Path(__file__).with_name("issue_review_editor.py"), Path(__file__).with_name("issue_review_editor_probe.cjs"),
         Path(__file__).with_name("issue_review_inspector.cjs"),
+        Path(__file__).with_name("issue_review_safety.py"), Path(__file__).with_name("requirements.txt"),
+        Path(__file__).with_name("issue_review_classifier.py"), Path(__file__).with_name("issue_review_decision.py"),
         ROOT / ".github" / "copilot-instructions.md", AGENTS / "pyright-test-policy.md",
         SKILLS / "pyright-issue-analysis" / "SKILL.md", ROOT / "docs" / "issue-review-agents.md",
         *sorted((ROOT / "packages" / "pyright" / "dist").glob("*.js")),
@@ -1875,6 +1970,7 @@ def context_hash(
         "files": {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in files},
         "model": model, "sdk": importlib.metadata.version("github-copilot-sdk"),
         "release": release, "runtime": runtime, "editor_options": editor_options,
+        "screening": {key: os.environ.get(key, "") for key in SCORER_ENVIRONMENT},
     }, sort_keys=True))
 
 
@@ -1904,6 +2000,7 @@ def arguments() -> argparse.Namespace:
 
 
 async def main(args: argparse.Namespace) -> None:
+    scorer = InjectionScreening.from_environment()
     args.state_dir = args.state_dir.expanduser().resolve()
     if not args.cli_path:
         raise AutomationError("Install/authenticate Copilot CLI or supply --cli-path")
@@ -1927,7 +2024,7 @@ async def main(args: argparse.Namespace) -> None:
         )
     ]
     profiles = [reviewer, duplicate, adjudicator, *rca_agents] + ([writer] if writer else [])
-    github = GitHub()
+    github = GitHub(scorer=scorer)
     release_result = await github.api("GET", f"repos/{REPOSITORY}/releases/latest")
     if not isinstance(release_result, dict):
         raise AutomationError("GitHub returned invalid latest-release metadata")
@@ -1936,6 +2033,7 @@ async def main(args: argparse.Namespace) -> None:
             "id", "tag_name", "html_url", "target_commitish", "published_at", "updated_at"
         )
     }
+    await github.screen(release, args.state_dir, "latest_release")
     code, runtime, error = await process([args.cli_path, "--version"], ROOT)
     if code:
         raise AutomationError(f"Cannot identify Copilot runtime: {error}")
@@ -1963,7 +2061,7 @@ async def main(args: argparse.Namespace) -> None:
         connection = RuntimeConnection.for_stdio(path=args.cli_path)
         async with CopilotClient(
             connection=connection, working_directory=str(ROOT),
-            env={**os.environ, "USE_TGREP": "false"},
+            env={**child_environment(), "USE_TGREP": "false"},
         ) as client:
             console = Console(
                 github, SDK(client, args.model, args.timeout), args.state_dir,
@@ -1988,7 +2086,7 @@ async def main(args: argparse.Namespace) -> None:
                         and entry.root_cause.post_decision == "pending")
                 )
             ]
-            failures = 0
+            failures = skipped = 0
             if len(pending) < len(issues):
                 show(f"{len(issues) - len(pending)} unchanged completed/kept/failed entries skipped; --retry-failed retries failures.")
             for offset in range(0, len(pending), args.chunk_size):
@@ -2006,6 +2104,10 @@ async def main(args: argparse.Namespace) -> None:
                         entry = await console.review(issue, retry_failed=args.retry_failed)
                         entry.elapsed_seconds = time.monotonic() - started
                         console.save(entry)
+                    except ScreeningBlocked as error:
+                        skipped += 1
+                        show(f"#{issue.number}: SKIPPED: {error}")
+                        continue
                     except (AutomationError, OSError, ValueError, TimeoutError) as error:
                         failures += 1
                         entry = console.load(issue.number)
@@ -2019,6 +2121,11 @@ async def main(args: argparse.Namespace) -> None:
                     try:
                         if not await console.decide(entry):
                             return
+                    except ScreeningBlocked as error:
+                        skipped += 1
+                        entry.error = str(error)
+                        console.save(entry)
+                        show(f"#{entry.issue.number}: SKIPPED: {error}")
                     except (AutomationError, OSError, ValueError, TimeoutError) as error:
                         failures += 1
                         entry.error = str(error)
@@ -2029,7 +2136,9 @@ async def main(args: argparse.Namespace) -> None:
                         return
             if failures:
                 raise AutomationError(f"{failures} investigation/publication steps failed; details and progress are saved")
-    show("Review session complete. All reports and decisions are saved locally.")
+            if skipped:
+                show(f"Screening skipped {skipped} issue(s); no override was offered.")
+    show("Review session complete. Reports, decisions and screening records are saved locally.")
 
 
 if __name__ == "__main__":

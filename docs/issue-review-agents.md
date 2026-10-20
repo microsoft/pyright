@@ -29,6 +29,27 @@ If a tool or source is unavailable, report the limitation rather than inventing 
 No response draft is needed for an audit. A request to investigate is not permission to post, relabel, close, commit,
 or fix. If a GitHub draft is requested, apply the user's required writing pass separately from the technical review.
 
+### Console-owned injection screening
+
+The SDK console requires Microsoft-Decision-1 screening before exposing an issue and its discussion to any analysis role,
+including resumed work. Related GitHub tool evidence is screened at ingress; a blocking result aborts the role.
+Flagged, uncertain, failed and over-budget checks skip the issue without override. This classifier is separate from
+the behavior/duplicate investigators and adjudicator: it does not decide whether a report is a bug or by design,
+authorize execution/publication, or certify that a passing report is safe.
+
+The classifier receives structured untrusted evidence and a fixed controller-authored Choice rubric with
+`benign` and `injection` labels. Its provider-independent interface returns the selected label and full probability
+distribution. The Decision-1 adapter uses Microsoft Entra ID through `DefaultAzureCredential`, never API keys.
+Evidence above the single-request limit is split into bounded, overlapping fragments with repeated untrusted
+context; every fragment must pass before the complete evidence is released or cached. Aggregate risk is the
+maximum fragment risk, never an average. Fragmentation does not truncate the evidence, but it can lose
+relationships between distant passages and is not a guarantee against distributed prompt injection.
+Its provisional thresholds need evaluation against labeled benign and adversarial examples on the actual
+deployment; mocked workflow tests do not establish detection accuracy. Existing permission limits and human
+approvals remain mandatory. Interactive agent invocations outside this console do not automatically receive
+this screening layer. See the [automation setup](../build/automation/README.md#required-prompt-injection-screening)
+for explicit deployment configuration, privacy boundaries, bounds and local audit records.
+
 ## Decision standard
 
 Reproduction and validity are separate questions. A reproduced diagnostic may be correct; a historical bug may no longer

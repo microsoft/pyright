@@ -27,6 +27,7 @@ from typing import AsyncIterator, Callable, Iterator
 from pydantic import JsonValue
 
 from issue_review_rca import JSON, RootCauseRun, Runner
+from issue_review_safety import child_environment
 
 
 def editor_signature(record: dict[str, JsonValue]) -> JsonValue:
@@ -231,7 +232,7 @@ async def editor_process(
     command: list[str], cwd: Path, env: dict[str, str], progress: Callable[[str, int], None] | None = None,
 ) -> tuple[int, str, str]:
     child = await asyncio.create_subprocess_exec(
-        *command, cwd=cwd, env=env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        *command, cwd=cwd, env=child_environment(env), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         start_new_session=os.name != "nt",
     )
     try:

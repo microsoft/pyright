@@ -156,6 +156,9 @@ class FakeGitHub(GitHub):
             "number": 456, "html_url": f"https://github.com/{REPOSITORY}/issues/456",
         })
 
+    async def screen(self, value: JsonValue, directory: Path, source: str) -> None:
+        """Existing workflow fixtures are trusted; safety tests exercise the real gate separately."""
+
     async def issue(self, number: int) -> Issue:
         return (self.current if number == 123 else self.canonical).model_copy(deep=True)
 
@@ -612,10 +615,15 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         github.api.return_value = {"tag_name": "test"}
         with (
             patch("review_issues.GitHub", return_value=github),
+            patch("review_issues.InjectionScreening.from_environment"),
             patch("review_issues.process", AsyncMock(return_value=(0, "test", ""))),
             patch("review_issues.context_hash", return_value="test"),
             patch("review_issues.git", return_value="a" * 40),
-            patch.dict(os.environ, {"USE_TGREP": "true", "ISSUE_REVIEW_ENV_TEST": "preserved"}),
+            patch.dict(os.environ, {
+                "USE_TGREP": "true", "ISSUE_REVIEW_ENV_TEST": "preserved",
+                "AZURE_CLIENT_SECRET": "test-only-secret", "AZURE_ENDPOINT": "https://scorer.example.invalid",
+                "DEPLOYMENT_NAME": "screen-test",
+            }),
             patch("review_issues.CopilotClient") as constructor,
         ):
             await review_main(args)
@@ -623,6 +631,8 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             child_env = constructor.call_args.kwargs["env"]
             self.assertEqual(child_env["USE_TGREP"], "false")
             self.assertEqual(child_env["ISSUE_REVIEW_ENV_TEST"], "preserved")
+            self.assertFalse({"AZURE_CLIENT_SECRET", "AZURE_ENDPOINT", "DEPLOYMENT_NAME"} & child_env.keys())
+            self.assertEqual(os.environ["AZURE_CLIENT_SECRET"], "test-only-secret")
             self.assertEqual(os.environ["USE_TGREP"], "true")
 
     async def test_invalid_output_gets_only_one_same_session_correction(self):
@@ -1050,6 +1060,7 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         github.api.return_value = {"tag_name": "test"}
         with (
             patch("review_issues.GitHub", return_value=github),
+            patch("review_issues.InjectionScreening.from_environment"),
             patch("review_issues.process", AsyncMock(return_value=(0, "test", ""))),
             patch("review_issues.context_hash", return_value="context"),
             patch("review_issues.git", return_value="a" * 40),

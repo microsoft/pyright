@@ -10,6 +10,7 @@ The original `pyright-issue-reviewer` remains a separate read-only, non-executin
 ## Setup
 
 Requires `uv`, authenticated `copilot` and `gh` executables, Node.js, and a prepared source CLI.
+Issue screening also requires an existing Microsoft-Decision-1 deployment and Microsoft Entra ID inference access.
 The script declares Python 3.11+ and its dependencies using PEP 723 metadata. `uv run` manages the Python
 environment automatically; no manual virtual environment or `pip install` is needed.
 Run these PowerShell commands from the repository root:
@@ -24,12 +25,183 @@ copilot --version
 
 The runner sets `USE_TGREP=false` only for its Copilot child process. This keeps normal ripgrep searches available
 without optional indexed search, whose diagnostic events can contain values the SDK cannot decode
-(`SessionIndexedSearchData` / `disabledReason` assertion failures). Other inherited environment settings are preserved;
-your shell environment and other Copilot processes are not changed.
+(`SessionIndexedSearchData` / `disabledReason` assertion failures). Classifier configuration, Entra credential
+secrets/token-file paths, and legacy scorer secrets are removed from Copilot and reproduction child environments;
+other inherited settings are preserved. Your shell environment and other Copilot processes are not changed.
 
 For closing or potential-root-cause comment drafts, install your `rich-mirror` profile in the normal personal agents directory, or supply
 `--writer-agent C:\path\to\rich-mirror.agent.md`. The runner reads that profile; it does not copy your personal writing
 instructions into this repository. Without the profile, investigations work but commenting/closure is blocked.
+
+### Required prompt-injection screening
+
+The classifier now uses **Microsoft-Decision-1**, replacing the Pi Scorer/TypeSafe SDK integration.
+Configure the existing Foundry **resource endpoint** and deployment name in the shell that runs the console:
+
+```powershell
+$env:AZURE_ENDPOINT = "<your existing Foundry resource endpoint>"
+$env:DEPLOYMENT_NAME = "<your existing deployment name>"
+```
+
+Use the resource endpoint, not a project URL or the complete provider route. No subscription, resource group,
+resource name or endpoint is hardcoded. The adapter posts to
+`{AZURE_ENDPOINT}/providers/microsoft/v1/systemone`; the request's `model` is `DEPLOYMENT_NAME`.
+Use the actual deployment name, which can differ from the catalog model name `Microsoft-Decision-1`.
+To find it without changing Azure resources:
+
+```powershell
+az cognitiveservices account deployment list --resource-group "<resource-group>" --name "<resource-name>" --output table
+```
+
+It uses `azure.identity.DefaultAzureCredential` with the scope
+`https://cognitiveservices.azure.com/.default`. For local development, sign in with `az login` before running;
+managed identity and the other noninteractive DefaultAzureCredential sources also work when configured.
+The selected identity needs inference access to the existing resource/deployment. Resource provisioning,
+RBAC changes and interactive sign-in are not performed by this application.
+If unavailable cloud credentials delay local authentication, you can optionally set
+`$env:AZURE_TOKEN_CREDENTIALS = "AzureCliCredential"` to select your existing CLI sign-in through
+DefaultAzureCredential. Omit that setting when using managed identity or another credential source.
+
+For local testing, these three settings can instead go in the repository-root `.env` file, which Git ignores:
+
+```dotenv
+AZURE_ENDPOINT=https://<your-resource>.services.ai.azure.com
+DEPLOYMENT_NAME=<your-existing-deployment-name>
+AZURE_TOKEN_CREDENTIALS=AzureCliCredential
+```
+
+`AZURE_TOKEN_CREDENTIALS` names a credential source; it is **not an access token**. Run `az login` to sign in,
+then select the intended subscription with `az account set --subscription <subscription-id>`.
+DefaultAzureCredential obtains and refreshes tokens through that CLI sign-in. Do not copy tokens into `.env`.
+The CLI identity still needs the **Cognitive Services User** role at the Foundry resource scope; sign-in alone
+does not grant inference access.
+
+Load the file explicitly through uv; the Python client does not load `.env` on its own:
+
+```powershell
+uv run --env-file .env build\automation\review_issues.py --issues 11689 --dry-run
+```
+
+**Local authentication can remain disabled. API keys are neither used nor retrieved.** Do not paste access tokens
+into code, environment configuration for this client, reports or chat. The adapter acquires tokens internally,
+does not log tokens, headers or response bodies, and disables Azure HTTP logging for its credential.
+The old `TYPESAFE_*` configuration is not used as a fallback. Both new configuration variables are required.
+
+Before any Copilot analysis, the controller screens the complete issue title/body/labels and discussion.
+Later `github_read` results, including related issues, searches, PRs and changed-file text, are screened before
+being exposed to an investigator. Native GitHub web fetches are denied; investigators must use `github_read`.
+RCA's controller-owned GitHub source reader also screens its responses. Resumed reviews, direct investigation
+and drafting stages, and publication paths cannot skip the initial check.
+
+Decision-1 is a general classifier, not a built-in guarantee of prompt-injection detection. This integration
+asks a fixed **Choice** question with `benign` and `injection` criteria, supplying issue text as structured
+**untrusted data**. Its current, provisional operating rule permits a selected `benign` label with an injection
+probability at or below `0.1`; values between `0.1`
+and `0.9` are uncertain, and values at or above `0.9` are flagged. Both uncertain and flagged results skip the
+issue, with **no override**. These are operating thresholds, not calibrated accuracy or confidence guarantees.
+Missing configuration, invalid responses, timeouts, authentication/service errors, and unavailable audit storage
+also block analysis. A tool-time block aborts the active role rather than letting it continue with partial evidence.
+Unrelated issues in the batch can still proceed.
+
+Each classifier attempt has a 30-second bound. On HTTP 429 only, the controller makes at most one retry,
+waiting for `Retry-After` (seconds or an HTTP date), or 60 seconds if no valid delay is returned.
+All checks in this console share one cancellable classifier queue: requests and their retry waits are
+serialized, and queued checks recheck the allow-cache before making a request. Concurrent checks of identical
+passing evidence therefore share the first result instead of independently retrying and racing each other.
+Already-cached passing evidence does not wait for unrelated requests.
+
+Each active screening part, including both attempts and its retry wait, has a two-minute limit.
+A delay that exceeds that remaining budget blocks without retrying.
+Queue waits and HTTP retry waits print safe progress messages and count against the SDK role's existing
+`--timeout` budget; ending the role cancels its queued and active screenings. Other errors and a second
+HTTP 429 still block analysis; there is no safety override. The reusable REST client itself never retries.
+Separate console processes do not share this queue, so avoid running them against the same low-quota deployment.
+Credential subprocesses can use the full attempt budget; authentication and HTTP together must still finish
+within that attempt's 30-second bound.
+Evidence up to 64 KiB in its canonical serialized JSON form is screened in one request. Larger issues, discussions,
+search results and other GitHub evidence are screened as bounded overlapping fragments, never truncated or
+summarized to obtain a passing result. Each fragment stays within 64 KiB including its envelope, carries the
+complete document's hash and its ordinal/offsets, repeats up to 1 KiB of untrusted prefix context, and overlaps
+its neighbor by 2 KiB of serialized evidence. The fragment planner accounts for JSON escaping, including Unicode.
+The total evidence budget is 1 MiB and at most 64 fragments; exceeding either budget still blocks explicitly.
+
+Every fragment must select `benign` with risk at or below `0.1` before any of the original evidence reaches the
+investigator. The recorded aggregate uses the highest observed fragment risk, not an average or a claim of a
+calibrated whole-document probability. A flagged, uncertain, malformed, failed or cancelled fragment prevents
+whole-input cache insertion and release of partial evidence. The queue slot is held for the complete set of
+fragments, while the SDK role's existing `--timeout` bounds the complete operation. Large inputs require more
+classifier requests and can be slow on low-quota deployments.
+
+Only a complete passing result is reused in memory for identical content under the same scorer policy;
+edited comments or a changed tail invalidate the complete-input cache even if the issue timestamp did not change.
+There is no persisted "safe forever" cache or command-line switch to disable screening.
+
+Local `screening.jsonl` records store source identifiers, content/policy hashes, timestamps, outcome, returned model,
+selected label, probabilities and numeric injection risk, not the input text, tokens or endpoint.
+Queue duration, total elapsed time and completion timestamps distinguish a queued check from an active request.
+Multipart records include fragment hashes, byte counts, individual outcomes, completion counts and the failing
+or interrupted ordinal, without storing the fragments or repeated context.
+Initial checks are saved in the issue directory; tool-time
+checks are next to that role's evidence, and shared release metadata is checked at the state root. Normal investigation
+reports remain separate. Changing the integration or configured endpoint/deployment invalidates review context;
+token refresh does not change the screening policy.
+
+Configure only an approved service: screening transmits issue and GitHub evidence to that deployment.
+Transport-mocked regression tests verify the fail-closed workflow and wire contract, not detection quality.
+Before a backlog run, evaluate representative labeled benign reports, attack attempts and ambiguous examples
+against the actual configured deployment, including quoted attacks and legitimate repro commands. Existing
+tool restrictions, source inspection and execution/publication approvals still apply even after a passing score.
+Overlap preserves nearby boundary context, but chunking can lose relationships across distant fragments; passing
+all fragments is not proof that an attack distributed across the document will be detected.
+
+### Reusable Choice client
+
+`issue_review_classifier.py` defines a provider-independent asynchronous `ChoiceClassifier` protocol,
+`ChoiceClassification` result (`choice`, `probabilities`, optional returned `model`) and typed failures.
+`issue_review_decision.py` implements that interface using the existing standard-library `http.client` convention.
+These two modules support **Python 3.10+** and depend on `azure-identity` and Pydantic, not the GitHub Copilot SDK.
+The full console still requires Python 3.11+ for its existing SDK/deadline workflow.
+
+For example, with `build\automation` on the Python import path:
+
+```python
+import asyncio
+
+from issue_review_decision import MicrosoftDecisionClassifier
+
+
+async def main():
+    classifier = MicrosoftDecisionClassifier.from_environment()
+    result = await classifier.classify(
+        {"message": "The integration crashes."},
+        name="team",
+        instructions="Which team should handle this request?",
+        criteria={
+            "billing": "Charges, invoices and refunds",
+            "engineering": "Software errors and outages",
+        },
+    )
+    print(result.choice, result.probabilities)
+
+
+asyncio.run(main())
+```
+
+Labels, descriptions, question names and text/JSON state are caller-supplied. Responses must include a valid
+Choice answer, exactly the requested labels, finite probabilities in `[0, 1]` summing to one, and a selected
+highest-probability label. Invalid or oversized responses raise `ClassificationResponseError`.
+`ClassificationAuthenticationError` covers credential failures and HTTP 401/403; other non-success statuses
+raise `ClassificationHTTPError` with a `status` attribute. `ClassificationTimeoutError` and
+`ClassificationConnectionError` distinguish timeouts from transport failures. Error messages exclude response
+bodies and underlying credential exception text. Console screening errors include the HTTP status when available:
+for HTTP 404, check both the resource endpoint and the deployment name; for HTTP 401/403, check the selected
+identity and its inference permissions; for HTTP 429, check the deployment's request quota.
+Release metadata, issues and subsequent GitHub evidence require separate screening requests, so a very low
+request quota can slow or block even a single-issue run despite the controller's bounded retry.
+The reusable client does not retry requests or follow redirects.
+Synchronous identity/HTTP work runs off the event loop; cancellation or timeout prevents a pending credential
+acquisition from starting a late inference request. Already-running synchronous I/O finishes under its socket
+timeout, without exposing its result to the cancelled caller.
 
 ## Run
 
@@ -45,9 +217,10 @@ Review the current open-issue snapshot in chunks of five:
 uv run build\automation\review_issues.py --chunk-size 5
 ```
 
-All stages default to **GPT-6.1 Sol** (`gpt-6.1-sol`), including both investigators, adjudication, RCA, comment writing
+Copilot stages default to **GPT-6.1 Sol** (`gpt-6.1-sol`), including both investigators, adjudication, RCA, comment writing
 and factual checks. Use `--model` to override it; the selected model is displayed at startup and saved in the run
-and session metadata. Native tools vary by model: the runner accepts `rg` or `grep` for search, and `apply_patch`
+and session metadata. Decision-1 uses `DEPLOYMENT_NAME`, not `--model`.
+Native tools vary by model: the runner accepts `rg` or `grep` for search, and `apply_patch`
 or the `create`/`edit` pair for scratch writing. It validates the active capabilities before inference and records
 the actual tool names per session. Duplicate investigations have no write tools; command execution remains
 controller-owned and scratch writes remain permission-scoped. Every investigation, writing pass,
