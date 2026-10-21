@@ -1,10 +1,20 @@
-# Interactive Pyright issue review
+# Parallel Pyright issue review
 
 `review_issues.py` uses the Python Copilot SDK to investigate open **microsoft/pyright** issues in bounded chunks.
 Each issue gets a behavior investigation from `pyright-issue-by-design-reviewer` (`review.md`), a separate duplicate
 investigation (`duplicates.md`), and a
-tool-less adjudication. The console displays only the resulting tags, then offers supported by-design or duplicate
-issues for individual closure approval. It does not fix bugs or publish anything automatically.
+tool-less adjudication. Issues in each chunk are evaluated concurrently, with automatic root-cause analysis for
+reports that do not qualify for closure. The console displays a table with **By Design**, **Dupe**, and
+**Root Cause Summary** columns before publication.
+**Non-dry runs automatically post evidence-backed explanations and close eligible by-design/duplicate issues,
+or post a qualified root-cause investigation while leaving other issues open.** There is no per-issue publication
+prompt. Use `--dry-run` to disable all comment drafting and GitHub mutations, and `--no-rca` to disable RCA.
+Dry runs save per-issue `proposal.json` files and a run-level `proposals.json`, including the proposed action
+(`close_by_design`, `close_duplicate`, `post_root_cause`, `leave_open`, or `blocked`), per-claim confidence,
+blocking reasons, and evidence paths. These are unreviewed action proposals, not closing-comment drafts or
+publication authorization. Writer/draft validation and publication freshness checks remain unperformed.
+Failed or screened-out issues remain explicit; run completion does not mean every investigation succeeded.
+The console does not implement fixes.
 The original `pyright-issue-reviewer` remains a separate read-only, non-executing reviewer and is not used by this console.
 
 ## Setup
@@ -31,7 +41,8 @@ other inherited settings are preserved. Your shell environment and other Copilot
 
 For closing or potential-root-cause comment drafts, install your `rich-mirror` profile in the normal personal agents directory, or supply
 `--writer-agent C:\path\to\rich-mirror.agent.md`. The runner reads that profile; it does not copy your personal writing
-instructions into this repository. Without the profile, investigations work but commenting/closure is blocked.
+instructions into this repository. Non-dry runs require this profile and fail before investigation if it is missing.
+Use `--dry-run` to investigate without a writer profile.
 
 ### Required prompt-injection screening
 
@@ -81,6 +92,17 @@ Load the file explicitly through uv; the Python client does not load `.env` on i
 ```powershell
 uv run --env-file .env build\automation\review_issues.py --issues 11689 --dry-run
 ```
+
+For a headless dry-run pilot, use a fresh state directory and an explicit bounded issue list:
+
+```powershell
+uv run --env-file .env build\automation\review_issues.py --issues 11899 11868 11858 --chunk-size 3 --dry-run --non-interactive --state-dir "$env:USERPROFILE\.copilot\issue-review\dry-run-pilot"
+```
+
+`--non-interactive` requires `--dry-run`. It explicitly blocks runtime/editor probes needing human approval;
+it never grants approval or silently executes them. It also stops before the next chunk's continuation prompt.
+Prepared Pyright checks, available mypy, scoped research, duplicate analysis, adjudication, and default RCA
+remain enabled. Missing runtime evidence must remain visible in the findings and can prevent a proposal.
 
 **Local authentication can remain disabled. API keys are neither used nor retrieved.** Do not paste access tokens
 into code, environment configuration for this client, reports or chat. The adapter acquires tokens internally,
@@ -272,14 +294,28 @@ Native tools vary by model: the runner accepts `rg` or `grep` for search, and `a
 or the `create`/`edit` pair for scratch writing. It validates the active capabilities before inference and records
 the actual tool names per session. Duplicate investigations have no write tools; command execution remains
 controller-owned and scratch writes remain permission-scoped. Every investigation, writing pass,
-and factual check consumes model usage. `--timeout` bounds each SDK turn's active time in seconds (default 900);
-waiting for operator approval does not consume that budget, and approval prompts do not block the SDK event loop.
+and factual check consumes model usage. `--timeout` bounds each ordinary SDK turn's active time in seconds (default 900);
+RCA investigation and independent-countercheck turns use a separate `--rca-timeout` budget (default 900).
+Output correction shares the original turn's budget rather than starting another full allowance.
+When evidence is missing, correction may use remaining authorized tools and allowance, or preserve an inconclusive
+finding; repeating an unsupported conclusion is not a repair. Waiting for operator approval does not consume that
+budget, and approval prompts do not block the SDK event loop.
 Product checks still count toward the turn budget and retain their own process timeouts. Timing out aborts
 the turn, records an explicit error and SDK/tool-event timing, and does not manufacture an inconclusive verdict.
 Both investigators run for every issue, including
 by-design findings; the old `--duplicates` flag is accepted for compatibility but no longer needed.
-The app investigates, adjudicates, and handles the decision for one issue before moving to the next, then asks before
-the next chunk. A chunk is a count bound, not a concurrency setting or credit ceiling.
+All issues in a chunk run concurrently in separate SDK sessions, scratch directories and RCA runtimes.
+Dependent stages within an issue stay ordered: behavior investigation, duplicate investigation, adjudication,
+then evidence-gated RCA when needed. Comment writing and factual checks also run as part of the parallel
+evaluation phase. After all evaluations settle, the console prints one table row per issue, including failures
+and skipped items, then publishes sequentially to preserve checkpoint ordering. One issue's expected failure
+does not cancel the other issues. Interrupting the chunk cancels outstanding issue tasks and their SDK sessions.
+If RCA fails after validated behavior and duplicate investigations, their judgments remain visible in the table
+and proposal fields; the action remains blocked. Saved summaries count behavior coverage and RCA failures separately.
+The console still asks before starting the next chunk. `--chunk-size` bounds concurrent issue pipelines, not
+the number of SDK turns or credits; a larger chunk can substantially increase CPU, memory and model usage.
+Execution approval prompts are serialized across roles/issues, and waiting for that shared prompt does not
+consume a role's SDK deadline.
 Malformed audit output gets at most one corrective turn in the same session; a second validation failure is saved
 as a failure, not silently accepted or converted into an issue disposition.
 Structured responses use strict provider-compatible schemas: every declared field is required on the wire, including
@@ -303,29 +339,44 @@ The runner executes only the prepared checkout CLI, not published Pyright releas
 release-target reproduction claims based on that checkout, even when version strings match. Language-server,
 editor-specific, packaging, and similar checks remain blocked rather than being inferred from a CLI result.
 Non-CLI surfaces or insufficient reproduction cannot receive a confident `by design`/`bug` tag or a closure offer.
+The required surface follows the material complaint, not the client name in environment metadata. Self-contained
+typing, abstractness, and diagnostic-correctness questions can use the CLI even when reported in Pylance/Neovim.
+The report records `surface_reason` and leaves historical/editor integration unverified. Actual diagnostic-delivery
+failures, editor/CLI discrepancies, completions, interpreter handoff, and configuration discovery still need their
+real surface; a component check cannot settle those claims.
 
 ## Reports and tags
 
 The two investigators return Markdown findings with machine-validation metadata in an internal SDK envelope.
 The controller saves the Markdown files and execution ledger; it does not dump the JSON records to the console.
-The independent `pyright-issue-adjudicator` reads both reports without tools and returns local classification tags:
+The independent `pyright-issue-adjudicator` reads both reports without tools and returns classification tags.
+The console presents those tags with a one-line RCA summary, for example:
 
 ```text
-#123: by design | no dupe found
-#456: bug | dupe of #321
-#789: needs investigation | no dupe found
+| Issue | By Design           | Dupe | Root Cause Summary                     |
+|-------|---------------------|------|----------------------------------------|
+| #123  | Yes                 | No   | Not needed                             |
+| #456  | No                  | #321 | Not needed                             |
+| #789  | Needs investigation | No   | found: observed producer and condition |
 ```
 
-Either axis can be `needs investigation`. That means no closure option, even if the other axis is conclusive.
+Either axis can be `needs investigation`. That blocks automatic closure, even if the other axis is conclusive.
 An incomplete search is not `no dupe found`, and related symptoms are not duplicates. `no dupe found` describes
 the completed bounded search, not a guarantee about the entire backlog. Stub/environment problems, enhancements,
 low-confidence claims, and conflicting evidence are not forced into binary bug/design classifications.
 These tags are local results, not automatic GitHub label changes.
 
-## Optional root-cause analysis
+## Automatic root-cause analysis
 
-If either tag is `needs investigation`, the console asks `Do you want to perform root cause analysis? [y/N]`.
-The default is no. Approval starts three bounded roles, inspired by Pyrx's investigator, evidence gate and adversary:
+RCA runs by default for reports that do not qualify for by-design or duplicate closure. This includes confirmed
+bugs with no supported duplicate, not just `needs investigation` tags. Pass `--no-rca` to disable both RCA
+and RCA comment publication; by-design/duplicate closure behavior is unchanged. For example:
+
+```powershell
+uv run build\automation\review_issues.py --issues 11881 11876 --dry-run --no-rca
+```
+
+There is no RCA opt-in prompt. Three bounded roles, inspired by Pyrx's investigator, evidence gate and adversary, run:
 an investigator gathers evidence, a tool-less gate checks the causal explanation, and an independent challenger
 tries a competing explanation. The gate/challenger run only when the investigator finds a potential cause.
 Missing specification or historical evidence goes to authoritative research rather than unnecessary debugging.
@@ -339,8 +390,19 @@ runtime. It uses Node's native inspector with source-mapped TypeScript breakpoin
 it does not attach to an existing process, open an inspector port, edit shared source, or install tools.
 The host requires actual breakpoint hits and observed state, matching clean/debug input and diagnostic results,
 and an independently executed countercheck. Proposed/unhit breakpoints and source inspection alone are insufficient.
+The adversary may also cite its own successfully retrieved authoritative sources; these supplement, but never
+replace, the executed countercheck required for an implementation/integration cause. Invalid citation feedback
+identifies unsupported IDs and missing qualifying checks.
 Stale build/source mappings fail explicitly; rebuild before retrying. Each executable role has at most eight product
-checks. Private-copy creation and instrumentation can be slow; these captures are not performance measurements.
+attempts, retained across checkpoint resumption. Optional boolean breakpoint conditions target the example rather
+than the first unrelated import/stub hit. Conditions are evaluated with the same side-effect rejection and timeout
+as state expressions, not passed to an unrestricted debugger condition. A bounded pause limit prevents runaway
+conditional captures. Private-copy creation and instrumentation can be slow; these captures are not performance measurements.
+Multiple conditions at one mapped location share a debugger breakpoint while retaining independent first-match
+captures. A failed condition does not discard another target at that location. Found implementation locations
+still require an error-free debug execution matching the clean baseline: a producer hit mixed with failed
+conditions must be recaptured, not relabeled as sufficient. Validation feedback identifies the selected captures,
+errors, and actual hit locations, and resumption preserves the previous failure to resolve.
 Before execution an explicit reproduction plan identifies the surface, target versions, prerequisites, setup,
 expected failure and controls. Editor/LSP issues cannot use a CLI proxy. CLI investigations reuse the earlier
 inspected scratch example/configuration when available. Debugging requires a relevant clean baseline first.
@@ -411,26 +473,38 @@ Current-host non-reproduction cannot settle the historical VSCodium/Python/Pyrig
 General LSP/focused-test adapters, arbitrary source patching and historical binary execution remain unavailable.
 The private copy is **not a security sandbox**; RCA approval does not approve executing reporter Python.
 
-Only a cause that passes the gate and survives challenge qualifies for a posting offer. In normal mode the runner
-prepares a `rich-mirror` comment, fact-checks it, displays the exact draft, and separately asks
-`Post this as a potential root cause to issue #123? [y/N]`. The default is no. Approval to investigate is **not**
-approval to publish. Posting is comment-only: it never labels or closes the issue, edits an old comment, or claims
-an accepted diagnosis. Read the report and draft carefully; evidence gates do not make model reasoning infallible.
+Only a cause that passes the gate and survives challenge qualifies for automatic posting. In normal mode the runner
+prepares a `rich-mirror` technical handoff and fact-checks it before publication. The comment preserves material
+reproduction/configuration, actual versus expected behavior, observed producer/state, clean/debug comparison,
+counterchecks, alternatives, supported links and limitations; it is not the abbreviated table summary.
+Posting is comment-only: it never labels or closes the issue, edits an old comment, or claims an accepted diagnosis.
+Blocked, inconclusive and failed RCA remains local rather than being posted as an established cause.
+Evidence gates do not make model reasoning infallible.
 
-`--dry-run` still offers opt-in local RCA and saves the report, but disables comment drafting and posting.
-Declined/completed choices are reused. `--retry-rca` reoffers declined or unsuccessful RCA with fresh consent and
-a new attempt, or reoffers posting an already-qualified unposted result without repeating its investigation:
+`--dry-run` still performs automatic local RCA and saves the report, but disables comment drafting and posting.
+Existing results are reused. `--retry-rca` resumes a failed/interrupted versioned RCA checkpoint when the review,
+issue, local inputs, report, ledger, and private runtime still match. It retains the plan, executed observations,
+scratch, completed gate, and per-role check allowance; a fresh SDK session retrieves prior observations by
+controller evidence ID. Changed evidence blocks resumption rather than being silently trusted. Completed
+blocked/inconclusive or legacy attempts use a new directory, preserving the previous artifacts. Qualified unposted
+results resume publication without repeating the investigation.
 
 ```powershell
 uv run build\automation\review_issues.py --issues 11876 --retry-rca --dry-run
 ```
 
+Use `--rca-timeout` to adjust RCA without extending every behavior/research turn or invalidating compatible evidence:
+
+```powershell
+uv run --env-file .env build\automation\review_issues.py --issues 11899 --retry-rca --dry-run --timeout 300 --rca-timeout 900
+```
+
 An interrupted or failed attempt remains explicit; use `--retry-rca` to investigate again.
-Ambiguous comment POST results retain the approved body/marker for reconciliation and another posting approval.
+Ambiguous comment POST results retain the fact-checked body/marker for automatic reconciliation on resume.
 After verifying that the only discussion change is its own approved comment, the runner updates its issue snapshot
 for cache reuse; any concurrent reporter/discussion change blocks completion instead.
 
-## Human-approved closing
+## Automatic publication and closing
 
 By-design closures require **every claim** to be high-confidence specification-correct or an intentional limitation,
 supported by historical searches and observed applicable checkout checks. Duplicate closures require a supported
@@ -438,14 +512,12 @@ validity result, high-confidence shared-cause evidence, inspected canonical issu
 snapshot. A closed canonical report may indicate a regression rather than a duplicate. Neither `needs investigation`
 tag qualifies. These are conservative eligibility gates, not proof that the model's reasoning is correct.
 
-For eligible reports:
-
-1. Inspect `review.md` and `duplicates.md` in the issue's state directory; `v` displays both reports in the console.
-2. Choose `p` to prepare a comment through `rich-mirror`; a separate tool-less pass checks factual consistency.
-3. Read the exact comment and type `close 123` to authorize that issue only. For by-design closure this posts the
-   explanation, adds `as designed`, and closes with reason `not_planned`. For a duplicate it posts the shared-cause
-   explanation and canonical-issue link, then closes with reason `not_planned`, without adding an `as designed` or
-   assumed duplicate label. Any other answer leaves the issue open. `k` keeps it open; `q` stops the run.
+For eligible reports, `rich-mirror` prepares the explanation and a separate tool-less pass checks factual
+consistency. For by-design closure the controller posts the explanation with verified specification/policy and
+supporting historical-issue links when available, adds `as designed`, and closes with reason `not_planned`.
+For a duplicate it posts the shared-cause explanation and canonical-issue link, then closes with reason
+`not_planned`, without adding an `as designed` or assumed duplicate label. A supported duplicate takes precedence
+when both classifications apply. Missing/failed factual checks or stale evidence prevent publication.
 
 The console posts the investigation comment **before** labeling and closing. Other labels are preserved.
 If posting fails, closure does not proceed. If a later step fails, the existing comment is not edited or deleted.
@@ -470,8 +542,8 @@ updated input fingerprint; new reviews explicitly request the selected model.
 
 Before publishing, the controller checks for stale issue and local inputs. It persists the approved body and a
 unique hidden marker before posting, then reconciles the authenticated user's matching comment when resuming.
-This prevents blindly reposting after an ambiguous network failure. A resumed partial closure requires another
-explicit per-issue confirmation. Changed reports, execution evidence, issue discussion/content, canonical issue,
+This prevents blindly reposting after an ambiguous network failure. A resumed partial closure continues
+automatically only if its saved evidence and checkpoints remain valid. Changed reports, execution evidence, issue discussion/content, canonical issue,
 or ambiguous state stops further mutation.
 GitHub does not make comment/label/close a single conditional transaction: a final read/write race remains possible,
 and a posted comment or label can remain on an open issue after failure.
@@ -482,6 +554,91 @@ If an unfinished publication's review inputs changed, inspect its checkpoint and
 discarding the marker or automatically accepting an outdated explanation. Existing JSON-only reviews are invalidated
 by the updated review-input fingerprint and reinvestigated; unfinished publications are never silently migrated.
 Do not commit generated evidence.
+
+## Blinded by-design evaluation
+
+`evaluate_issue_design.py` evaluates only the behavior reviewer: no duplicate investigator, RCA, writing pass,
+GitHub comments, labels, or closures. It first captures frozen issue reports and separately stores the hidden
+reference resolutions. Evaluation sees anonymous case IDs, body text, and explicitly selected pre-resolution
+clarifications, never titles, real issue numbers, labels, state, or resolution comments. External links and known
+cohort identities are removed. Body edits can contain answers: inspect each input and use `input_body` to supply
+a reviewed pre-resolution version when necessary. Original body history is not automatically reconstructed.
+
+For an inspected, self-contained Python example, set `repro_block` to its one-based fenced-code index and
+provide explicit `configuration` if needed (otherwise the benchmark assumes standard mode and Python 3.12).
+The controller freezes and runs that exact sample in a separate, non-editable original directory before the
+agent creates controls. Its actual output is supplied without a verdict, and the report must include its
+execution record. This prevents a reconstruction with added `reveal_type` calls or merged controls from silently
+replacing the original behavior. It does not execute Python or reporter projects.
+
+The small `design_benchmark_cases.json` contains four development candidates (two historical design decisions
+and two proposed bug controls) plus two unrun holdout candidates. **All references are provisional**, not
+human-approved ground truth. Open bug labels and old as-designed decisions need independent validation against
+the intended version. Do not promote automation-generated closures to trusted references without independent
+review. `family` prevents related cases from crossing development/holdout splits. Expand and review the cohort
+before making reliability claims; this pilot is not the planned 30-40-case evaluation.
+
+```powershell
+$data = "$env:USERPROFILE\.copilot\issue-review-benchmark\development"
+uv run --env-file .env build\automation\evaluate_issue_design.py capture --data $data
+uv run --env-file .env build\automation\evaluate_issue_design.py run --data $data --output "$data\baseline-1"
+```
+
+The second development iteration uses `design_benchmark_iteration2.json`: four fresh historical decisions
+(cross-call side effects, constrained TypeVar distribution, strict lambda inference, and private-name diagnostics),
+the underscore confidence anchor, and both existing bug controls. Its original examples are inspected before
+capture, with explicit checking modes and Python targets. This is still a provisional development cohort,
+not a holdout or human-approved accuracy measurement. Run all seven cases explicitly:
+
+```powershell
+$data = "$env:USERPROFILE\.copilot\issue-review-benchmark\iteration2"
+uv run --env-file .env build\automation\evaluate_issue_design.py capture --cases build\automation\design_benchmark_iteration2.json --data $data --limit 7
+uv run --env-file .env build\automation\evaluate_issue_design.py run --data $data --output "$data\baseline-1" --limit 7
+```
+
+Both operations require the same fail-closed Decision-1 configuration as the console. Capture screens the full
+original issue and discussion; each evaluation screens its frozen anonymous input again. There is no bypass.
+Prepare the source CLI before evaluation; do not change it during a run. Use a new capture directory for changed
+inputs, and a new `--output` directory for each agent revision. `--limit` defaults to four cases, `--timeout` to
+300 active seconds per SDK turn, and `--model` to `gpt-6.1-sol`. Runs are sequential, with a fresh SDK session
+per case. The existing SDK permits one corrective response if structured output/evidence validation fails.
+
+This first pilot deliberately uses **restricted research**, not unrestricted production retrieval. The runtime
+exposes only controlled scratch writing, up to six actual Pyright/mypy checks, and authoritative typing/Python/PEP
+HTTPS or checkout `docs/*.md` reads. It has no native filesystem, shell, web search, GitHub, or Python-execution
+tools. Redirects, arbitrary files, and references mentioning a cohort issue are refused. References, prior runs,
+and expected labels cannot be read through the tools. Public-issue memorization by the underlying model cannot
+be ruled out. Unrelated historical issue search is unavailable in this pilot, so results do not establish
+accuracy for the production agent's full research workflow.
+Documentation reads have bounded searchable pages so SDK output-size handling cannot replace evidence with a
+file that the blinded agent is forbidden to read. The original controller baseline is additional to the six
+agent-requested checks. Product content hashes are reused only while the file set, sizes, and timestamps remain
+unchanged; this is a normal-build change guard, not protection against adversarial timestamp-preserving edits.
+
+Outputs include per-case `review.md`, structured findings, actual product-check/source-read ledgers, SDK usage,
+and run fingerprints for the agent, workflow, SDK, source diff, and prepared CLI/stubs. `summary.json` separates
+reference agreement, false by-design decisions against the reference, abstentions, and operational failures.
+Executed claims must match controller records, and resolved verdicts require actual Pyright output and a retrieved
+source. Those checks do not prove that the cited rule applies or the reasoning is sound; inspect the report against
+the hidden reference after its conclusion is frozen. The summary deliberately does not call agreement "accuracy".
+
+Evaluation version 2 shares production's `ReviewEvidence`/`Claim` validation, actual execution-provenance checks,
+and by-design closure gates. Findings include a disposition, confidence/reason, sources, and three reproduction
+targets for each material claim. The overall verdict/confidence remain semantic summaries, not authorization.
+Summary rows expose each closure gate separately, including historical research; that gate is **blocked in this
+restricted benchmark**, and invented historical-search records are rejected. A supported semantic conclusion
+can therefore coexist with no closure candidate. Duplicate adjudication and publication checks are not simulated.
+
+Hidden references may specify `expected_design_closure`; omitted values remain unscored rather than being
+inferred from old labels. The two existing bug controls provisionally specify `false`. Closure metrics distinguish
+evaluated/scored coverage, candidate closures, reference agreement, and false closure proposals. A run with
+zero eligible closures or no reviewed closure references does not establish automatic-closure safety. Version 1
+artifacts lack these per-claim/gate results and are not silently rescored as if they supplied them. Run metadata
+records the findings-schema hash and evaluation version; use a fresh output directory for the new protocol.
+
+Capture holdout cases separately with `--split holdout`; use the same flag to run that capture. Do not inspect
+holdout answers or tune against its findings before freezing the agent changes. The initial holdout candidates
+still need independent input/reference review. Keep generated snapshots and investigations local and uncommitted.
 
 ## Offline checks
 

@@ -18,6 +18,9 @@ Do not delegate, install, run arbitrary projects, fix production code, publish, 
 
 For the planning-only turn return the supplied ReproductionPlan schema, without execution or findings. Identify
 the actual surface, current versus reported target versions, prerequisites, setup, observable failure and controls.
+Choose the surface for the unresolved claim, not the reporter's editor name. A self-contained semantic typing
+complaint can use the actual CLI while leaving historical/editor integration unverified; genuine diagnostic
+delivery, interpreter, configuration-discovery or editor/CLI discrepancies require their actual surface.
 Choose only a runner whose supported scenario matches the issue. Missing historical dependencies do not prohibit
 a separately labeled current-target experiment. Never use a CLI proxy for an editor/LSP issue.
 
@@ -32,7 +35,16 @@ error and partial findings, do not repeat the same editor check, and return `blo
 answers the question. Then request source-mapped breakpoints at the suspected producer and
 upstream inputs. Inspect actual values/branches and distinguish the producer from a downstream consumer.
 The tool uses bounded, read-only inspector evaluations and resumes automatically; a mapped breakpoint is not a hit.
+Use a read-only boolean breakpoint `condition` to target the actual example rather than the first unrelated
+import/stub hit. Conditions reject side effects just like state expressions. On continuation, retrieve saved
+observations with `rca_read_evidence` and preserve their IDs; do not rerun successful checks merely to rediscover
+them. The eight-product-attempt allowance persists across resumption. Stop once decisive producer/handoff evidence
+and a discriminating control distinguish the alternatives; return useful inconclusive findings rather than
+exhaustively debugging every suggested control.
 Code reading, an unchanged diagnostic count or a hypothetical breakpoint is not causal evidence.
+The reported implementation location must be observed in an error-free debug execution matching a clean baseline.
+A valid producer hit mixed with other failed conditions does not satisfy that requirement: repair the conditions
+or recapture the producer alone. Do not relocate the claim to a downstream consumer just to pass validation.
 Use a discriminating valid/invalid example or explain what would falsify the hypothesis.
 
 The runner privately copies the already-built CLI, maps and stubs. It does not edit shared code, install a debugger,

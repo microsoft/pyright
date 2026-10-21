@@ -29,5 +29,7 @@ For research claims, independently retrieve authoritative evidence with `rca_rea
 Missing capabilities or unresolved counterexamples require `uncertain`, not `survived`.
 
 Return RootCauseChallenge with readable Markdown, actual evidence IDs, strongest counterhypothesis and its result,
-and remaining limitations. A survived hypothesis is only a potential cause for maintainer review, not a fix or
+and remaining limitations. Cite only this role's actual successful controller records. Authoritative-source reads
+may supplement an implementation countercheck, but cannot substitute for an executed product check.
+A survived hypothesis is only a potential cause for maintainer review, not a fix or
 permission to dismiss or close the issue.

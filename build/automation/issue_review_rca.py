@@ -26,6 +26,10 @@ class Breakpoint(Record):
     file: Text = Field(description="Path relative to the runner's source root: pyright-internal/src for CLI, vscode-pyright/src for editor")
     line: int = Field(gt=0)
     expressions: list[str] = Field(default_factory=list, max_length=6)
+    condition: str | None = Field(
+        default=None, max_length=2000,
+        description="Optional boolean filter evaluated with throwOnSideEffect before capturing the first matching hit.",
+    )
 
 
 class RootCauseRun(Record):
@@ -53,6 +57,16 @@ class RootCauseRuntime:
                 raise ValueError(f"RCA needs a prepared source CLI with source maps: missing {source / required}")
         if any(not path.resolve().is_relative_to(source.resolve()) for path in source.rglob("*")):
             raise ValueError("RCA cannot copy a runtime containing links outside its build directory")
+        if self.snapshot.exists():
+            metadata = JSON.validate_json((self.directory / "runtime.json").read_text(encoding="utf-8"))
+            if (
+                not isinstance(metadata, dict) or metadata.get("source") != str(source)
+                or metadata.get("snapshot") != str(self.snapshot) or not isinstance(expected := metadata.get("sha256"), str)
+                or await asyncio.to_thread(self.fingerprint) != expected
+            ):
+                raise ValueError("Private RCA runtime checkpoint changed or has invalid provenance")
+            self.snapshot_hash = expected
+            return
         await asyncio.to_thread(shutil.copytree, source, self.snapshot)
         self.snapshot_hash = await asyncio.to_thread(self.fingerprint)
         (self.directory / "runtime.json").write_text(json.dumps({

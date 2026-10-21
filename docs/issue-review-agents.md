@@ -122,6 +122,32 @@ Correct workflow failures and rerun only the affected cases. Human disagreement,
 semantic question remain explicit; do not force a verdict to complete the batch. The highest-risk error is dismissing a
 real bug as intentional behavior without adequate support.
 
+### Blinded historical benchmark
+
+The automation directory also has `evaluate_issue_design.py`, separate from the publishing console. It captures
+anonymous reports and hidden reference resolutions, then runs only the behavior agent with custom-only tools.
+Resolution comments, labels, state, titles and identifying links are not supplied; explicitly selected
+clarifications must precede the reference resolution. Reviewed body overrides handle answers added by edits.
+An explicitly inspected code block can be frozen and executed unchanged by the controller before analysis.
+That baseline is outside the agent's editable scratch; its execution must be included in the findings.
+Added type reveals and other controls must remain separate, because they can change the observed diagnostics.
+The first pilot permits normative documentation and checkout docs, not unrestricted historical searches or
+native filesystem/web tools that could recover an answer. It is a restricted-research evaluation, not a claim
+of perfect blinding or production accuracy. Underlying model memorization remains possible.
+
+Historical decisions and proposed bug controls remain provisional until independently reviewed for current
+applicability. In particular, the tool's own closures are not independent ground truth. Measure false by-design
+findings, abstentions and operational failures separately; inspect the reproduction, rule applicability and
+counterevidence rather than rewarding a matching tag alone. Split related issue families together and keep the
+holdout untouched during prompt iteration. See the [benchmark commands and limitations](../build/automation/README.md#blinded-by-design-evaluation).
+
+The closure-aware benchmark shares production's per-claim validation and closure predicates, rather than
+interpreting one overall confidence as permission to close. It records actual gate outcomes and separately
+scores explicitly supplied closure references. Restricted historical access remains a blocking gate, not a
+fabricated successful search; zero closure candidates is not evidence of a low false-closure rate. Full-pipeline
+dry runs on open issues separately save unreviewed action proposals and evidence links, including failed and
+blocked outcomes. They do not generate comment drafts, perform final publication checks, or mutate GitHub.
+
 ## Markdown findings and adjudication
 
 The SDK console runs two investigators for **every issue**. `pyright-issue-by-design-reviewer` produces `review.md`;
@@ -139,6 +165,10 @@ The initial behavior-review runner supports checkout CLI execution only. Publish
 surfaces remain blocked at this stage, not inferred from a CLI proxy; optional RCA has the separate editor adapter
 described below. An appropriate unsupported surface or insufficient reproduction requires `needs investigation`,
 never a closure offer. Optional runtime probes remain separately approval-gated.
+Surface selection follows the material claim rather than editor environment metadata: a self-contained typing or
+abstractness question can use actual CLI evidence while leaving editor integration unverified. The report explains
+`surface_reason`. Genuine delivery/settings/interpreter failures, editor/CLI discrepancies, completions, and mixed
+unresolved integration claims still require the actual integration surface; semantic evidence must not erase them.
 
 Investigators use internal structured transport envelopes so the controller can validate evidence without parsing
 prose: `ReviewFindings` contains `markdown` and `audit`; `DuplicateFindings` contains `markdown` and `report`.
@@ -159,9 +189,10 @@ candidate, backed by successful, non-incomplete GitHub search results. Neither m
 Validity and duplication are independent: a duplicate is not automatically by design.
 Either `needs investigation` tag prevents closure. Tags are local results, not automatic GitHub labels.
 
-### Optional root-cause escalation
+### Automatic root-cause escalation
 
-For either unresolved tag, the console offers opt-in investigation with default-no consent. It saves
+The console runs RCA by default when neither by-design nor duplicate closure is supported, including confirmed
+bugs without duplicates. `--no-rca` disables both RCA and RCA comment publication. It saves
 `root-cause.md` and preserves per-attempt artifacts, including explicit blockers, uncertainty and failures.
 The `pyright-issue-root-cause` investigator gathers missing authoritative or executable evidence;
 `pyright-issue-root-cause-gate` checks the causal packet without tools, then
@@ -175,6 +206,13 @@ evaluations. It does not modify shared source, install tooling, attach to anothe
 This is not the evaluation-trace adapter, a performance measurement, or a security sandbox. Unsupported surfaces,
 arbitrary source patching and published-release execution remain unavailable; source reading alone is not proof.
 Missing normative/history evidence should be researched rather than automatically routed to debugging.
+RCA investigation/countercheck turns have an independent `--rca-timeout` active budget; validation correction
+shares that allowance. Side-effect-checked boolean breakpoint conditions can skip unrelated first hits.
+Failed RCA preserves validated behavior/duplicate results, but remains an explicit operational failure and cannot
+produce a publication proposal. Versioned checkpoints record the next stage; `--retry-rca` verifies the unchanged
+review, evidence and private runtime before reusing observations, completed gates and scratch. Per-role product
+attempt limits do not reset, and editor approvals are not carried into a fresh role session. Legacy/completed
+blocked or inconclusive attempts retain their artifacts but start a new attempt. Changed evidence blocks resumption.
 
 A tool-less reproduction-planning turn selects the actual surface before execution, with explicit prerequisites,
 target versions, setup, expected failure and controls. Existing verified CLI repro inputs are reused where applicable.
@@ -198,12 +236,14 @@ At most one materially different alternative is allowed, within the original per
 Operator denial and genuine missing prerequisites cannot be waived. Both attempts' plans/findings remain in the
 report. This is not a loop that keeps trying unrelated CLI examples until a conclusion appears.
 
-Only a found cause that passes both gate and challenge can be offered for a separately approved potential-cause
-comment. `rich-mirror` writes it, a tool-less pass checks factual consistency, and the controller displays the exact
-draft before default-no issue-specific posting consent. Posting never labels/closes the issue or changes the
+Only a found cause that passes both gate and challenge can be published as a qualified potential-cause comment.
+`rich-mirror` writes the full technical handoff, preserving reproduction/configuration, actual versus expected
+behavior, observed producer/state, counterchecks, supported source links and limitations rather than the one-line
+console summary. A tool-less pass checks factual consistency before automatic non-dry-run publication.
+Posting never labels/closes the issue or changes the
 original adjudication. Observed implementation behavior is not by-design intent or a confirmed fix.
 Stale evidence/local inputs/discussion block posting. Saved markers reconcile ambiguous POSTs without duplicate
-comments. `--dry-run` permits approved local investigation but disables drafting/publication.
+comments. `--dry-run` still runs automatic local RCA but disables drafting/publication.
 See the console README for `--retry-rca`, private-runtime requirements, limitations and recovery.
 
 ## Supporting audit record
@@ -285,17 +325,19 @@ issue's semantic analysis in a fresh context. Record usage and elapsed time so a
 Use narrow permission handling and read-only GitHub access rather than blanket tool approval. Agent instructions alone
 are not a security boundary for shell tools; enforce host permissions and isolation separately.
 Group duplicate claims and reuse applicable evidence, but account for every issue individually.
-Default output is a local audit report for human adjudication, never automatic comments, labels, or closures.
-
-The console handles investigation, adjudication, and any closure decision **one issue at a time** within bounded
-chunks. It can separately prepare a `rich-mirror` closing comment and check factual consistency.
-Only an explicit typed confirmation for that issue authorizes publication and closure.
+Standalone investigators never publish. The console's non-dry mode automatically publishes eligible results.
+All issues in a bounded chunk are evaluated concurrently with separate sessions/scratch/runtime directories;
+dependent report, adjudication and RCA stages stay ordered within each issue. Execution prompts share a lock,
+and waiting for another role's approval does not consume SDK deadlines. Once evaluation and fact-checked
+drafting finish, a table shows one row per issue with By Design, Dupe and Root Cause Summary columns. Publication
+then proceeds sequentially, without per-issue confirmation; expected failures do not discard other results.
 For by-design closure, every claim must pass the high-confidence design gate with observed applicable product
 evidence. The controller posts the explanation, adds `as designed`, and closes as `not_planned`.
 For duplicate closure, the adjudicator must identify a supported duplicate with a current verified canonical
 snapshot; the controller posts the shared-cause explanation and canonical link, then closes as `not_planned`
 without inventing a duplicate label or adding `as designed`. The canonical issue is not modified.
-Either `needs investigation` tag blocks both closure paths. Eligibility never replaces maintainer judgment.
+Either `needs investigation` tag blocks both closure paths; qualified RCA may instead be posted without closure.
+Blocked/inconclusive RCA stays local. Evidence gates are not a guarantee of model correctness.
 
 Comment publication precedes closure. Checkpoints retain partial failures and reconcile existing comments rather
 than blindly posting twice. Changed reports, execution evidence, issue discussion/content, canonical snapshots, or

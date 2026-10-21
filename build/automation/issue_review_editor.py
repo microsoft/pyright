@@ -452,6 +452,16 @@ class EditorRuntime:
         capability = await self.preflight()
         if not capability["available"]:
             raise ValueError(f"Editor prerequisites missing: {capability['missing']}")
+        if self.snapshot.exists():
+            metadata = json.loads((self.directory / "editor-runtime.json").read_text(encoding="utf-8"))
+            if (
+                not isinstance(metadata, dict) or metadata.get("capabilities") != capability
+                or metadata.get("snapshot") != str(self.snapshot) or not isinstance(expected := metadata.get("sha256"), str)
+            ):
+                raise ValueError("Private editor runtime checkpoint has different assets or capabilities")
+            await self.hash_assets("verify resumed assets", expected)
+            self.snapshot_hash = expected
+            return
         self.snapshot.mkdir()
         package = self.root / "packages" / "vscode-pyright"
         pyright = self.snapshot / "pyright"

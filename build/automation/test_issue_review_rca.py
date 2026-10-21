@@ -13,7 +13,7 @@ from pydantic import JsonValue
 
 from issue_review_models import BlockedChallenge, DraftCheck, Entry, ReproductionPlan, RootCause, RootCauseChallenge, RootCauseFindings, RootCauseGate
 from issue_review_rca import Breakpoint, RootCauseRun, RootCauseRuntime
-from review_issues import AGENTS, SDK, Agent, AutomationError, Console, RootCauseTools, atomic_write, arguments
+from review_issues import AGENTS, SDK, Agent, AutomationError, ChunkResult, Console, RootCauseTools, atomic_write, arguments, chunk_table, dry_run_proposal
 from test_review_issues import FakeGitHub, audit, issue, save_evidence
 from test_issue_review_editor import editor_record
 
@@ -91,39 +91,103 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
     def persist_records(self):
         atomic_write(Path(self.root.directory) / "checks.jsonl", "".join(json.dumps(r) + "\n" for r in self.records))
 
-    async def test_unresolved_default_no_never_runs_rca_or_closes(self):
+    async def test_unresolved_defaults_to_automatic_rca_even_in_dry_run(self):
         self.entry.root_cause, self.entry.rca_opt_in = None, "not_asked"
-        self.console.ask = lambda question: ""
+        self.console.read_only = True
+        self.console.ask = lambda question: self.fail("RCA starts without a consent prompt")
+        async def complete(entry):
+            entry.root_cause, entry.rca_opt_in = self.root, "accepted"
+        with patch.object(self.console, "investigate_root_cause", AsyncMock(side_effect=complete)) as investigate:
+            await self.console.evaluate(self.entry)
+            await self.console.decide(self.entry)
+        investigate.assert_awaited_once_with(self.entry)
+        self.assertEqual(self.entry.rca_opt_in, "accepted")
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_found_result_automatically_posts_the_full_evidence_comment(self):
+        self.console.ask = lambda question: self.fail("Publication is automatic")
+        self.console.writer = self.console.reviewer
+        self.root.comment = (
+            "A potential cause is the observed parser branch.\n\n"
+            "Reproduction: the minimal comprehension under the explicit Python configuration.\n\n"
+            "Observed state: the producer breakpoint was reached in the matching clean/debug runs.\n\n"
+            "Countercheck: the neighboring expression did not take that branch.\n\n"
+            "Limitation: this does not establish behavior in an unavailable historical release."
+        )
+        table = chunk_table([ChunkResult(self.entry.issue, self.entry)], rca_enabled=True)
+        self.assertIn("parser emits the rejection", table)
+        self.assertNotIn("Reproduction:", table)
+        await self.console.decide(self.entry)
+        self.assertEqual(self.root.post_decision, "posted")
+        self.assertEqual(self.github.mutations, ["comments"])
+        posted = self.github.discussion[0]
+        assert isinstance(posted, dict)
+        body = posted["body"]
+        assert isinstance(body, str)
+        self.assertIn(self.root.comment or "", body)
+
+    async def test_confirmed_bug_without_a_duplicate_also_gets_automatic_rca(self):
+        assert self.entry.review is not None
+        self.entry.review.claims[0].disposition = "bug"
+        save_evidence(self.console, self.entry, validity="bug")
+        self.entry.root_cause = None
+        self.console.read_only = True
+        self.assertTrue(self.entry.unresolved())
+        with patch.object(self.console, "ensure_root_cause", AsyncMock()) as investigate:
+            await self.console.evaluate(self.entry)
+        investigate.assert_awaited_once_with(self.entry)
+
+    async def test_inconclusive_rca_keeps_issue_open_and_does_not_publish(self):
+        self.root.status = "inconclusive"
+        self.console.ask = lambda question: self.fail("No consent prompt")
+        with patch.object(self.console, "prepare_root_cause_comment", AsyncMock()) as draft:
+            await self.console.decide(self.entry)
+        draft.assert_not_awaited()
+        self.assertEqual(self.github.mutations, [])
+        self.assertEqual(self.entry.decision, "reviewed")
+
+    async def test_dry_run_root_cause_proposal_requires_gates_and_never_reposts(self):
+        result = ChunkResult(self.entry.issue, self.entry)
+        proposal = dry_run_proposal(result, rca_enabled=True)
+        self.assertEqual(proposal["proposed_action"], "post_root_cause")
+        self.assertEqual(proposal["root_cause_directory"], self.root.directory)
+        self.assertFalse(proposal["publication_ready"])
+        self.root.post_decision = "posted"
+        proposal = dry_run_proposal(result, rca_enabled=True)
+        self.assertEqual(proposal["proposed_action"], "leave_open")
+        self.assertIn("already posted", str(proposal["blocking_reasons"]))
+        self.root.post_decision = "pending"
+        assert self.root.gate is not None
+        self.root.gate.accepted = False
+        proposal = dry_run_proposal(result, rca_enabled=True)
+        self.assertEqual(proposal["proposed_action"], "leave_open")
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_retry_rca_is_not_repeated_during_the_publication_phase(self):
+        self.root.status = "inconclusive"
+        self.console.retry_rca = True
+        self.console.read_only = True
         with patch.object(self.console, "investigate_root_cause", AsyncMock()) as investigate:
+            await self.console.evaluate(self.entry)
+            await self.console.decide(self.entry)
+        investigate.assert_awaited_once_with(self.entry)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_no_rca_disables_both_investigation_and_existing_result_publication(self):
+        self.console.rca_enabled = False
+        self.console.ask = lambda question: self.fail("RCA is disabled")
+        with patch.object(self.console, "investigate_root_cause", AsyncMock()) as investigate:
+            await self.console.evaluate(self.entry)
+            await self.console.decide(self.entry)
+            self.entry.root_cause = None
+            await self.console.evaluate(self.entry)
             await self.console.decide(self.entry)
         investigate.assert_not_awaited()
-        self.assertEqual(self.entry.rca_opt_in, "declined")
         self.assertEqual(self.github.mutations, [])
-
-    async def test_found_result_has_separate_default_no_posting_consent(self):
-        prompts = []
-        self.console.ask = lambda question: prompts.append(question) or ""
-        self.console.writer = self.console.reviewer
-        await self.console.decide(self.entry)
-        self.assertEqual(len(prompts), 1)
-        self.assertIn("potential root cause to issue #123", prompts[0])
-        self.assertEqual(self.root.post_decision, "declined")
-        self.assertEqual(self.github.mutations, [])
-
-    async def test_rca_opt_in_does_not_grant_posting_permission(self):
-        self.entry.root_cause, self.entry.rca_opt_in = None, "not_asked"
-        prompts = []
-        answers = iter(["y", "n"])
-        self.console.ask = lambda question: prompts.append(question) or next(answers)
-        self.console.writer = self.console.reviewer
-
-        async def investigate(entry):
-            entry.root_cause, entry.rca_opt_in = self.root, "accepted"
-
-        with patch.object(self.console, "investigate_root_cause", AsyncMock(side_effect=investigate)):
-            await self.console.decide(self.entry)
-        self.assertEqual(len(prompts), 2)
-        self.assertEqual(self.github.mutations, [])
+        with patch.object(sys, "argv", ["review_issues.py"]):
+            self.assertFalse(arguments().no_rca)
+        with patch.object(sys, "argv", ["review_issues.py", "--no-rca"]):
+            self.assertTrue(arguments().no_rca)
 
     async def test_dry_run_can_save_approved_rca_but_never_drafts_or_posts(self):
         self.console.read_only = True
@@ -166,7 +230,7 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
         self.root.post_decision = "declined"
         self.console.retry_rca = True
         self.console.ask = lambda question: "y"
-        await self.console.offer_root_cause(self.entry)
+        await self.console.decide(self.entry)
         self.assertEqual(self.root.publication.marker, marker)
         self.assertEqual(self.root.post_decision, "posted")
         self.assertEqual(self.github.mutations, ["comments"])
@@ -239,14 +303,58 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
                 self.console.validate_rca_challenge(self.root, self.root.challenge)
             self.records[2][field] = original
 
-    async def test_retry_reoffers_declined_rca_without_automatic_execution(self):
+    async def test_partial_producer_capture_requires_repair_not_rewording(self):
+        assert self.root.findings is not None
+        debug = self.records[1]["debug"]
+        assert isinstance(debug, dict)
+        debug["errors"] = ["Breakpoint condition failed at another location"]
+        self.persist_records()
+        with self.assertRaisesRegex(AutomationError, "capture the actual producer separately") as failure:
+            self.console.validate_rca_findings(self.entry, self.root, self.root.findings)
+        self.assertIn("parser/parser.ts:100", str(failure.exception))
+        self.assertIn('"id": "debug"', str(failure.exception))
+        self.assertIn("Breakpoint condition failed", str(failure.exception))
+
+    async def test_adversary_can_cite_supplementary_sources_but_not_replace_its_execution(self):
+        assert self.root.challenge is not None
+        self.records.append({
+            "id": "independent-authority", "kind": "authority", "status": 200,
+            "content": "An applicable rule.", "investigator": "root_cause_adversary",
+        })
+        self.persist_records()
+        self.root.challenge.evidence_ids = ["counter", "independent-authority"]
+        self.console.validate_rca_challenge(self.root, self.root.challenge)
+        self.root.challenge.evidence_ids = ["independent-authority"]
+        with self.assertRaisesRegex(AutomationError, "executed product countercheck"):
+            self.console.validate_rca_challenge(self.root, self.root.challenge)
+
+    async def test_supplementary_adversary_source_must_be_its_own_successful_read(self):
+        assert self.root.challenge is not None
+        source: dict[str, JsonValue] = {
+            "id": "authority", "kind": "authority", "status": 200,
+            "content": "An applicable rule.", "investigator": "root_cause_adversary",
+        }
+        self.records.append(source)
+        self.root.challenge.evidence_ids = ["counter", "authority"]
+        for field, value in (("investigator", "root_cause"), ("status", 404), ("content", "")):
+            with self.subTest(field=field):
+                original = source[field]
+                source[field] = value
+                self.persist_records()
+                with self.assertRaisesRegex(AutomationError, "unsupported citations=.*authority"):
+                    self.console.validate_rca_challenge(self.root, self.root.challenge)
+                source[field] = original
+
+    async def test_retry_runs_previously_declined_rca_without_a_new_opt_in_prompt(self):
         self.entry.root_cause, self.entry.rca_opt_in = None, "declined"
         self.console.retry_rca = True
-        self.console.ask = lambda question: "n"
-        with patch.object(self.console, "investigate_root_cause", AsyncMock()) as investigate:
-            await self.console.offer_root_cause(self.entry)
-        investigate.assert_not_awaited()
-        self.assertEqual(self.entry.rca_opt_in, "declined")
+        self.console.ask = lambda question: self.fail("RCA starts automatically")
+        async def complete(entry):
+            entry.root_cause, entry.rca_opt_in = self.root, "accepted"
+        with patch.object(self.console, "investigate_root_cause", AsyncMock(side_effect=complete)) as investigate:
+            await self.console.ensure_root_cause(self.entry)
+        investigate.assert_awaited_once_with(self.entry)
+        self.assertEqual(self.entry.rca_opt_in, "accepted")
         with patch.object(sys, "argv", ["review_issues.py", "--retry-rca"]):
             self.assertTrue(arguments().retry_rca)
 
@@ -258,6 +366,8 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
         ])) as run:
             await self.console.prepare_root_cause_comment(self.entry)
         self.assertEqual(run.call_args_list[0].args[0].name, "rich-mirror")
+        self.assertIn("not the one-line console summary", run.call_args_list[0].args[1])
+        self.assertIn("minimal reproduction and configuration", run.call_args_list[0].args[1])
         for call in run.call_args_list:
             self.assertNotIn("tools", call.kwargs)
         self.assertEqual(self.github.mutations, [])
@@ -302,6 +412,152 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.entry.adjudication, tags)
         self.assertEqual(self.github.mutations, [])
 
+    async def test_failed_investigation_resumes_the_verified_plan_and_observations(self):
+        async def fail_after_observation(_agent, _prompt, _scratch, **options):
+            if options["schema"] is ReproductionPlan:
+                return self.plan.model_dump_json()
+            atomic_write(options["tools"].evidence / "checks.jsonl", "".join(
+                json.dumps(record) + "\n" for record in self.records[:2]
+            ))
+            raise AutomationError("Investigator exhausted its active budget")
+
+        self.console.rca_timeout = 123
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=fail_after_observation)):
+            with self.assertRaisesRegex(AutomationError, "active budget"):
+                await self.console.investigate_root_cause(self.entry)
+        root = self.entry.root_cause
+        assert root is not None
+        directory = root.directory
+        self.assertEqual(root.stage, "investigation")
+        self.console.retry_rca = True
+        schemas = []
+
+        async def continue_saved(_agent, prompt, _scratch, **options):
+            schemas.append(options["schema"])
+            if options["schema"] is RootCauseFindings:
+                self.assertEqual(options["timeout"], 123)
+                self.assertIn('"id": "clean"', prompt)
+                self.assertIn("rca_read_evidence", prompt)
+                self.assertIn("Previous checkpoint failure to resolve", prompt)
+                self.assertIn("Investigator exhausted its active budget", prompt)
+                self.assertTrue(options["tools"].cli_baseline)
+                assert self.root.findings is not None
+                return self.root.findings.model_dump_json()
+            if options["schema"] is RootCauseGate:
+                assert self.root.gate is not None
+                return self.root.gate.model_dump_json()
+            with (Path(directory) / "checks.jsonl").open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(self.records[2]) + "\n")
+            assert self.root.challenge is not None
+            return self.root.challenge.model_dump_json()
+
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=continue_saved)):
+            await self.console.investigate_root_cause(self.entry)
+        self.assertEqual(schemas, [RootCauseFindings, RootCauseGate, RootCauseChallenge])
+        self.assertEqual(root.directory, directory)
+        self.assertEqual(root.stage, "complete")
+        self.assertTrue(root.publishable())
+        self.console.require_rca_evidence(self.entry)
+
+    async def test_failed_adversary_resumes_without_repeating_the_passed_gate(self):
+        assert self.root.findings is not None and self.root.gate is not None and self.root.challenge is not None
+        replies = [self.plan, self.root.findings, self.root.gate]
+
+        async def fail_adversary(_agent, _prompt, _scratch, **options):
+            if options["schema"] is RootCauseFindings:
+                atomic_write(options["tools"].evidence / "checks.jsonl", "".join(
+                    json.dumps(record) + "\n" for record in self.records[:2]
+                ))
+            if options["schema"] is RootCauseChallenge:
+                raise AutomationError("Adversary timed out")
+            return replies.pop(0).model_dump_json()
+
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=fail_adversary)):
+            with self.assertRaisesRegex(AutomationError, "Adversary"):
+                await self.console.investigate_root_cause(self.entry)
+        root = self.entry.root_cause
+        assert root is not None
+        self.assertEqual(root.stage, "challenge")
+        self.assertEqual(root.gate, self.root.gate)
+        self.console.retry_rca = True
+
+        async def finish_adversary(agent, _prompt, _scratch, **options):
+            self.assertEqual(agent.name, "pyright-issue-root-cause-adversary")
+            with (Path(root.directory) / "checks.jsonl").open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(self.records[2]) + "\n")
+            assert self.root.challenge is not None
+            return self.root.challenge.model_dump_json()
+
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=finish_adversary)) as run:
+            await self.console.investigate_root_cause(self.entry)
+        run.assert_awaited_once()
+        self.assertTrue(root.publishable())
+
+    async def test_changed_checkpoint_evidence_cannot_be_resealed_by_resumption(self):
+        self.root.checkpoint_version, self.root.stage, self.root.status = 1, "investigation", "failed"
+        self.root.plan = self.plan
+        self.console.save_rca_report(self.entry)
+        self.console.retry_rca = True
+        with (Path(self.root.directory) / "checks.jsonl").open("a", encoding="utf-8") as stream:
+            stream.write('{"error":"unreviewed change"}\n')
+        with patch.object(self.console.sdk, "run", AsyncMock()) as run:
+            with self.assertRaisesRegex(AutomationError, "checkpoint.*changed"):
+                await self.console.investigate_root_cause(self.entry)
+            self.root.status = "running"
+            with self.assertRaisesRegex(AutomationError, "changed since its checkpoint"):
+                await self.console.ensure_root_cause(self.entry)
+        run.assert_not_awaited()
+
+    async def test_resumed_role_cannot_reset_its_execution_allowance(self):
+        directory = Path(self.root.directory)
+        scratch = directory / "scratch"
+        scratch.mkdir()
+        attempts = [
+            {"kind": "execution_attempt", "tool": "rca_run", "attempt": index, "investigator": "root_cause"}
+            for index in range(1, 9)
+        ]
+        atomic_write(directory / "checks.jsonl", "".join(json.dumps(record) + "\n" for record in attempts))
+        runtime = RootCauseRuntime(self.state, directory, scratch, AsyncMock())
+        tools = RootCauseTools(self.github, scratch, {}, directory, runtime, plan=self.plan)
+        with patch.object(runtime, "run", AsyncMock()) as run:
+            result = await tools.rca_run(ToolInvocation(
+                session_id="test", tool_call_id="ninth", tool_name="rca_run", arguments={},
+            ))
+        self.assertEqual(result.result_type, "failure")
+        self.assertIn("eight product-check", result.text_result_for_llm)
+        run.assert_not_awaited()
+
+    async def test_saved_evidence_read_preserves_identity_and_rejects_unknown_ids(self):
+        directory = Path(self.root.directory)
+        runtime = RootCauseRuntime(self.state, directory, self.state, AsyncMock())
+        tools = RootCauseTools(self.github, self.state, {}, directory, runtime)
+        for identifier, expected in (("debug", "success"), ("not-observed", "failure")):
+            result = await tools.rca_read_evidence(ToolInvocation(
+                session_id="test", tool_call_id="read", tool_name="rca_read_evidence",
+                arguments={"evidence_id": identifier},
+            ))
+            self.assertEqual(result.result_type, expected)
+            if expected == "success":
+                self.assertEqual(json.loads(result.text_result_for_llm), self.records[1])
+
+    async def test_rca_failure_preserves_validated_behavior_and_duplicate_outcomes(self):
+        assert self.entry.review is not None
+        self.entry.review.claims[0].disposition = "bug"
+        save_evidence(self.console, self.entry, validity="bug")
+        self.root.status, self.root.error = "failed", "RCA active budget exhausted"
+        result = ChunkResult(self.entry.issue, self.entry, "failed", self.root.error, validated_reports=True)
+        table = chunk_table([result], rca_enabled=True)
+        self.assertIn("| No", table)
+        self.assertIn("RCA active budget exhausted", table)
+        proposal = dry_run_proposal(result, rca_enabled=True)
+        self.assertEqual(proposal["validity"], "bug")
+        self.assertEqual(proposal["duplicate_status"], "no dupe found")
+        self.assertEqual(proposal["proposed_action"], "blocked")
+        self.assertFalse(proposal["publication_ready"])
+        result.validated_reports = False
+        self.assertIsNone(dry_run_proposal(result, rca_enabled=True)["validity"])
+        self.assertIn("Failed", chunk_table([result], rca_enabled=True))
+
     async def test_failed_publication_retains_checkpoint_when_issue_changed(self):
         self.github.ambiguous_comment = True
         with self.assertRaises(AutomationError):
@@ -316,7 +572,8 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
     async def test_interrupted_attempt_cannot_appear_to_be_still_running(self):
         self.root.status = "running"
         self.console.ask = lambda question: self.fail("Retry requires --retry-rca")
-        await self.console.offer_root_cause(self.entry)
+        with self.assertRaisesRegex(AutomationError, "interrupted"):
+            await self.console.ensure_root_cause(self.entry)
         self.assertEqual(self.root.status, "failed")
         self.assertIn("interrupted", self.root.markdown or "")
 
@@ -465,6 +722,13 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
 
 
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_real_inspector_targeting_and_side_effect_guards(self):
+        from review_issues import ROOT, process
+        code, output, error = await process([
+            "node", "--test", str(ROOT / "build" / "automation" / "test_issue_review_inspector.cjs"),
+        ], ROOT)
+        self.assertEqual(code, 0, error + output)
+
     async def test_private_copy_and_actual_invocation_artifacts(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -484,9 +748,14 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             record = await runtime.run(RootCauseRun())
             self.assertEqual(record["kind"], "product_run")
             self.assertEqual((source / "pyright.js").read_text(), "prepared bundle")
+            resumed = RootCauseRuntime(root, directory, scratch, runner)
+            await resumed.prepare()
+            self.assertEqual(resumed.snapshot_hash, runtime.snapshot_hash)
             (runtime.snapshot / "pyright.js").write_text("tampered", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "changed"):
                 await runtime.run(RootCauseRun())
+            with self.assertRaisesRegex(ValueError, "checkpoint changed"):
+                await RootCauseRuntime(root, directory, scratch, runner).prepare()
 
     async def test_missing_maps_and_breakpoint_path_escape_are_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:

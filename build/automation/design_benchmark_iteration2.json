@@ -1,0 +1,130 @@
+[
+    {
+        "id": "case-c01",
+        "issue_number": 9442,
+        "repro_block": 1,
+        "configuration": {
+            "typeCheckingMode": "strict",
+            "pythonVersion": "3.13"
+        },
+        "family": "cross-call-side-effect-narrowing",
+        "split": "development",
+        "expected": "by design",
+        "rationale": "Independent maintainer decision describes deliberate local narrowing that does not invalidate inferred state for arbitrary calls. Check current behavior and applicable narrowing rules; do not turn the old anti-pattern advice or broad feasibility claim into a universal typing requirement.",
+        "reference_urls": ["https://github.com/microsoft/pyright/issues/9442#issuecomment-2468952824"],
+        "reference_status": "provisional",
+        "input_review_notes": "Original self-contained first Python block inspected. Strict mode and Python 3.13 are encoded in the reporter's playground URL and preserved explicitly in the benchmark configuration before the identifying URL is withheld. No resolution or maintainer workaround is supplied.",
+        "resolution_comment_id": 2468952824
+    },
+    {
+        "id": "case-a03",
+        "issue_number": 11859,
+        "repro_block": 1,
+        "configuration": {
+            "typeCheckingMode": "standard",
+            "pythonVersion": "3.12",
+            "pythonPlatform": "Darwin"
+        },
+        "family": "required-readonly-typeddict-assignability",
+        "split": "development",
+        "expected": "bug",
+        "expected_design_closure": false,
+        "rationale": "Retained negative control: the current TypedDict specification requires a required target item to be required in the source, including read-only targets. Earlier independent checkout baselines and normative checks support the reported violation; this remains a provisional, not human-approved, reference.",
+        "reference_urls": [
+            "https://typing.python.org/en/latest/spec/typeddict.html#subtyping-between-typeddict-types",
+            "https://github.com/microsoft/pyright/issues/11859"
+        ],
+        "reference_status": "provisional",
+        "input_review_notes": "Same original first Python block and explicit configuration as the initial development cohort. Keep reporter expectations untrusted and omit contributor-assignment comments."
+    },
+    {
+        "id": "case-c02",
+        "issue_number": 11203,
+        "repro_block": 1,
+        "configuration": {
+            "typeCheckingMode": "standard",
+            "pythonVersion": "3.12"
+        },
+        "family": "constrained-typevar-nested-union-distribution",
+        "split": "development",
+        "expected": "by design",
+        "rationale": "Independent maintainer decision identifies a deliberate value-constrained TypeVar limitation. Current project documentation explains conditional-type and language-server tradeoffs. Verify whether current mandatory typing rules supersede that policy rather than assuming the historical decision is correct.",
+        "reference_urls": [
+            "https://github.com/microsoft/pyright/issues/11203#issuecomment-3711123743",
+            "https://github.com/microsoft/pyright/blob/main/docs/mypy-comparison.md#value-constrained-type-variables"
+        ],
+        "reference_status": "provisional",
+        "input_review_notes": "Original self-contained first Python block inspected. The report does not specify configuration or target; standard mode and Python 3.12 are explicit benchmark assumptions matching its PEP 695 syntax. Do not supply the maintainer's suggested disposition or generalizations about other languages.",
+        "resolution_comment_id": 3711123743
+    },
+    {
+        "id": "case-a02",
+        "issue_number": 11248,
+        "repro_block": 1,
+        "family": "underscore-explicit-annotation",
+        "split": "development",
+        "expected": "by design",
+        "rationale": "Retained confidence anchor: an independent maintainer explains that explicit declarations and conflicting redeclarations are enforced even for underscore. Recheck the primary rejection separately from the exact diagnostic placement and historical-release limitations.",
+        "reference_urls": ["https://github.com/microsoft/pyright/issues/11248#issuecomment-3802742956"],
+        "reference_status": "provisional",
+        "input_review_notes": "Same unchanged original first block as the initial development cohort. Do not add type reveals to the frozen baseline. Omit the sole resolution; the original editor metadata does not establish language-server behavior.",
+        "resolution_comment_id": 3802742956
+    },
+    {
+        "id": "case-c03",
+        "issue_number": 11207,
+        "repro_block": 1,
+        "configuration": {
+            "typeCheckingMode": "strict",
+            "pythonVersion": "3.14"
+        },
+        "family": "strict-lambda-unknown-versus-any",
+        "split": "development",
+        "expected": "by design",
+        "rationale": "Independent maintainer decision distinguishes implicit Unknown from explicit Any and strict-mode checks at lambda definition. Verify current configuration documentation and callable semantics; mypy parity is not normative and the report's commented-out examples do not establish actual explicit-Any behavior.",
+        "reference_urls": [
+            "https://github.com/microsoft/pyright/issues/11207#issuecomment-3713119152",
+            "https://github.com/microsoft/pyright/blob/main/docs/mypy-comparison.md#unknown-type-and-strict-mode"
+        ],
+        "reference_status": "provisional",
+        "input_review_notes": "Original first Python block inspected, including its strict directive and unused Callable import. Preserve both rather than deleting collateral diagnostics. Python 3.14 and strict mode are explicitly reported. Other supplied examples remain untrusted body evidence, not merged into the baseline.",
+        "resolution_comment_id": 3713119152
+    },
+    {
+        "id": "case-a04",
+        "issue_number": 11836,
+        "repro_block": 1,
+        "family": "overloaded-method-override-coverage",
+        "split": "development",
+        "expected": "bug",
+        "expected_design_closure": false,
+        "rationale": "Retained negative control: adding a disjoint overload must not invalidate otherwise compatible inherited signatures. Independently checked original behavior and callable assignability support the false-positive bug, not every reported claim about reversed overload order or the proposed implementation change.",
+        "reference_urls": [
+            "https://typing.python.org/en/latest/spec/callables.html#assignability-rules-for-callables",
+            "https://github.com/microsoft/pyright/issues/11836"
+        ],
+        "reference_status": "provisional",
+        "input_review_notes": "Same unchanged original first block and standard/Python 3.12 benchmark settings as the earlier cohort. No discussion or previous agent findings are supplied."
+    },
+    {
+        "id": "case-c05",
+        "issue_number": 11194,
+        "repro_block": 1,
+        "configuration": {
+            "typeCheckingMode": "standard",
+            "pythonVersion": "3.14",
+            "pythonPlatform": "Windows"
+        },
+        "family": "private-name-diagnostic-configuration",
+        "split": "development",
+        "expected": "by design",
+        "rationale": "Independent maintainer decision identifies reportPrivateUsage as the opt-in diagnostic outside strict mode. Verify current diagnostic defaults, explicit enablement, and runtime name-mangling semantics separately; a runtime AttributeError alone does not establish which optional checks standard mode must enable.",
+        "reference_urls": [
+            "https://github.com/microsoft/pyright/issues/11194#issuecomment-3701648028",
+            "https://github.com/microsoft/pyright/blob/main/docs/configuration.md#reportPrivateUsage"
+        ],
+        "reference_status": "provisional",
+        "input_review_notes": "Original self-contained first block inspected. Python 3.14 and Windows are explicitly reported; standard mode represents the report's non-strict case. Strict mode and explicit diagnostic enablement are separate controls, not modifications to the frozen original.",
+        "resolution_comment_id": 3701648028
+    }
+]

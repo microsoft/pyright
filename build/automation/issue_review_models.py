@@ -80,35 +80,19 @@ class HistoricalSearch(Record):
     outcome: Text
 
 
-class Audit(Record):
-    schema_version: Literal[1]
-    repository: Literal["microsoft/pyright"]
-    issue_number: int = Field(gt=0)
-    issue_url: Text
-    issue_updated_at: str | None
-    reviewed_at: Text
-    checkout_revision: str | None
-    summary: Text
-    product_surface: Literal["cli", "language_server", "editor", "packaging", "other"] = "cli"
+class ReviewEvidence(Record):
+    product_surface: Literal["cli", "language_server", "editor", "packaging", "other"] = Field(
+        default="cli", description="Surface needed to distinguish the material claims, not merely the reported client.",
+    )
+    surface_reason: Text | None = Field(
+        default=None, description="Why this surface can test the complaint, and what reported integration remains unverified.",
+    )
     claims: list[Claim] = Field(min_length=1)
     checks: list[Check]
     sources: list[Source]
     historical_searches: list[HistoricalSearch]
-    uncertainties: list[str]
-    next_action: Text
-
     @model_validator(mode="after")
     def validate_evidence(self) -> Self:
-        if self.issue_url != f"https://github.com/{REPOSITORY}/issues/{self.issue_number}":
-            raise ValueError("Audit URL does not match the target repository and issue")
-        for timestamp in (self.reviewed_at, self.issue_updated_at):
-            if timestamp and datetime.fromisoformat(timestamp.replace("Z", "+00:00")).tzinfo is None:
-                raise ValueError("Audit timestamps must include a timezone")
-        if self.checkout_revision is not None:
-            if len(self.checkout_revision) != 40 or any(
-                character not in "0123456789abcdef" for character in self.checkout_revision
-            ):
-                raise ValueError("Invalid checkout SHA")
         checks = {check.id: check for check in self.checks}
         sources = {source.id: source for source in self.sources}
         if len(checks) != len(self.checks) or len(sources) != len(self.sources):
@@ -138,7 +122,10 @@ class Audit(Record):
         return self
 
     def closure_candidate(self) -> bool:
-        return bool(self.historical_searches) and all(
+        return bool(self.historical_searches) and self.design_claims_supported()
+
+    def design_claims_supported(self) -> bool:
+        return all(
             claim.disposition in DESIGN_DISPOSITIONS and claim.confidence == "high"
             and any(item.target == "checkout" and item.status in {"reproduced", "not_reproduced"}
                     for item in claim.reproduction)
@@ -151,6 +138,33 @@ class Audit(Record):
                 for item in claim.reproduction)
             for claim in self.claims
         )
+
+
+class Audit(ReviewEvidence):
+    schema_version: Literal[1]
+    repository: Literal["microsoft/pyright"]
+    issue_number: int = Field(gt=0)
+    issue_url: Text
+    issue_updated_at: str | None
+    reviewed_at: Text
+    checkout_revision: str | None
+    summary: Text
+    uncertainties: list[str]
+    next_action: Text
+
+    @model_validator(mode="after")
+    def validate_metadata(self) -> Self:
+        if self.issue_url != f"https://github.com/{REPOSITORY}/issues/{self.issue_number}":
+            raise ValueError("Audit URL does not match the target repository and issue")
+        for timestamp in (self.reviewed_at, self.issue_updated_at):
+            if timestamp and datetime.fromisoformat(timestamp.replace("Z", "+00:00")).tzinfo is None:
+                raise ValueError("Audit timestamps must include a timezone")
+        if self.checkout_revision is not None:
+            if len(self.checkout_revision) != 40 or any(
+                character not in "0123456789abcdef" for character in self.checkout_revision
+            ):
+                raise ValueError("Invalid checkout SHA")
+        return self
 
 
 class ReviewFindings(Record):
@@ -373,7 +387,11 @@ class RootCauseChallenge(Record):
     verdict: Literal["survived", "refuted", "uncertain"]
     markdown: Text
     explanation: Text
-    evidence_ids: list[str]
+    evidence_ids: list[str] = Field(
+        description="Controller IDs from this adversary's successful counterchecks and source reads. "
+        "A survived implementation/integration claim must cite an actual executed product countercheck; "
+        "an authoritative source alone is insufficient."
+    )
 
 
 class RootCausePublication(Record):
@@ -391,6 +409,8 @@ class RootCause(Record):
     input_hash: Text
     directory: Text
     status: Literal["running", "found", "inconclusive", "blocked", "failed"] = "running"
+    checkpoint_version: Literal[1] | None = None
+    stage: Literal["planning", "investigation", "blocked_challenge", "gate", "challenge", "complete"] = "planning"
     findings: RootCauseFindings | None = None
     plan: ReproductionPlan | None = None
     blocked_challenge: BlockedChallenge | None = None
@@ -436,9 +456,7 @@ class Entry(Record):
     root_cause: RootCause | None = None
 
     def unresolved(self) -> bool:
-        return self.adjudication is not None and "needs investigation" in {
-            self.adjudication.validity, self.adjudication.duplicate_status,
-        }
+        return self.adjudication is not None and self.closure_reason() is None
 
     def closure_reason(self) -> Literal["by_design", "duplicate"] | None:
         if self.review is None or self.duplicates is None or self.adjudication is None:

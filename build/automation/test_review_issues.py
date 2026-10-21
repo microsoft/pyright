@@ -5,6 +5,7 @@ import asyncio
 import json
 import os
 import tempfile
+import time
 import tomllib
 import unittest
 from argparse import Namespace
@@ -37,6 +38,7 @@ from issue_review_models import (
     Label,
     ReviewFindings,
     ReproductionPlan,
+    RootCause,
     RootCauseChallenge,
     RootCauseFindings,
     RootCauseGate,
@@ -49,12 +51,17 @@ from review_issues import (
     Agent,
     AutomationError,
     Console,
+    ChunkResult,
     GitHub,
     InvestigationTools,
     atomic_write,
     arguments,
+    chunk_table,
+    dry_run_proposal,
     main as review_main,
+    reject_operator_approval,
     response_schema,
+    save_dry_run_proposals,
     state_lock,
 )
 
@@ -461,18 +468,18 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             await self.console.close(self.entry)
         self.assertNotIn("close", self.github.mutations)
 
-    async def test_keep_quit_and_wrong_confirmation_do_not_mutate(self):
-        for answers in (["k"], ["q"], ["p", "close 124"]):
-            with self.subTest(answers=answers):
-                responses = iter(answers)
-                self.console.ask = lambda _question: next(responses)
-                self.entry.decision = "pending"
-                with patch.object(self.console, "prepare_comment", AsyncMock(return_value="An explanation")):
-                    await self.console.decide(self.entry)
-                self.assertEqual(self.github.mutations, [])
+    async def test_by_design_automatically_posts_explanation_and_closes_without_confirmation(self):
+        self.console.ask = lambda _question: self.fail("Publication is automatic")
+        self.console.writer = Agent(self.profile.path, "rich-mirror", "Writer", "Preserve facts.")
+        with patch.object(self.console, "investigate_root_cause", AsyncMock()) as investigate:
+            await self.console.decide(self.entry)
+        investigate.assert_not_awaited()
+        self.assertEqual(self.github.mutations, ["comments", "labels", "close"])
+        self.assertIn(self.entry.comment or "", str(self.github.discussion[0]))
 
     async def test_mixed_or_read_only_reports_never_prompt_for_closure(self):
         self.console.ask = lambda _question: self.fail("Unexpected closure prompt")
+        self.console.rca_enabled = False
         assert self.entry.review is not None
         self.entry.review.claims[0].disposition = "bug"
         save_evidence(self.console, self.entry, validity="bug")
@@ -487,6 +494,59 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(AutomationError):
             await self.console.close(self.entry)
         self.assertEqual(self.github.mutations, [])
+
+    async def test_dry_run_saves_action_and_claims_without_drafting_or_publication(self):
+        self.console.read_only = True
+        self.entry.comment, self.entry.draft_check = None, None
+        with patch.object(self.console.sdk, "run", AsyncMock()) as run:
+            await self.console.evaluate(self.entry)
+            await self.console.decide(self.entry)
+        result = ChunkResult(self.entry.issue, self.entry)
+        save_dry_run_proposals(self.console.state, "context", [result], 1, rca_enabled=True)
+        proposal = json.loads((self.console.state / "123" / "proposal.json").read_text(encoding="utf-8"))
+        summary = json.loads((self.console.state / "proposals.json").read_text(encoding="utf-8"))
+        self.assertEqual(proposal["proposed_action"], "close_by_design")
+        self.assertTrue(proposal["by_design_closure_candidate"])
+        self.assertFalse(proposal["publication_ready"])
+        self.assertTrue(proposal["publication_checks_pending"])
+        self.assertEqual(proposal["claims"][0]["confidence"], "high")
+        self.assertEqual(proposal["reference_status"], "unreviewed")
+        self.assertTrue(summary["complete"])
+        run.assert_not_awaited()
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_dry_run_proposal_respects_claim_confidence_and_duplicate_uncertainty(self):
+        assert self.entry.review is not None
+        self.entry.review.claims[0].confidence = "medium"
+        save_evidence(self.console, self.entry, validity="needs investigation")
+        proposal = dry_run_proposal(ChunkResult(self.entry.issue, self.entry), rca_enabled=False)
+        self.assertEqual(proposal["proposed_action"], "leave_open")
+        self.assertFalse(proposal["by_design_closure_candidate"])
+        self.assertTrue(proposal["blocking_reasons"])
+        self.entry.review = audit()
+        save_evidence(self.console, self.entry)
+        assert self.entry.adjudication is not None
+        self.entry.adjudication.duplicate_status = "needs investigation"
+        proposal = dry_run_proposal(ChunkResult(self.entry.issue, self.entry), rca_enabled=False)
+        self.assertEqual(proposal["proposed_action"], "leave_open")
+        self.assertIn("Duplicate investigation", str(proposal["blocking_reasons"]))
+
+    async def test_dry_run_proposes_duplicate_precedence_and_preserves_failures(self):
+        self.duplicate_entry()
+        proposal = dry_run_proposal(ChunkResult(self.entry.issue, self.entry), rca_enabled=True)
+        self.assertEqual(proposal["proposed_action"], "close_duplicate")
+        self.assertEqual(proposal["duplicate_of"], 456)
+        result = ChunkResult(self.entry.issue, self.entry, "failed", "Evidence validation failed")
+        save_dry_run_proposals(self.console.state, "context", [result], 2, rca_enabled=True)
+        summary = json.loads((self.console.state / "proposals.json").read_text(encoding="utf-8"))
+        self.assertFalse(summary["complete"])
+        self.assertEqual(summary["proposals"][0]["proposed_action"], "blocked")
+        self.assertFalse(summary["proposals"][0]["by_design_closure_candidate"])
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_non_interactive_mode_cannot_enable_publication(self):
+        with self.assertRaisesRegex(AutomationError, "requires --dry-run"):
+            await review_main(Namespace(non_interactive=True, read_only=False))
 
     async def test_writer_is_required_and_audits_resume(self):
         self.entry.comment, self.entry.draft_check = None, None
@@ -656,6 +716,10 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(ValidationError):
                     await sdk.run(self.profile, "A test", Path(self.temporary.name), schema=DraftCheck)
             self.assertEqual(session.send_and_wait.await_count, 2)
+            correction = session.send_and_wait.await_args_list[1].args[0]
+            self.assertIn("remaining authorized tools", correction)
+            self.assertIn("preserve an inconclusive result", correction)
+            self.assertIn("rca_run", correction)
             client.create_session.assert_awaited_once()
             session.disconnect.assert_awaited_once()
 
@@ -785,6 +849,51 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(failure["data"]["session_id"], session.session_id)
         self.assertEqual(failure["data"]["exception"], "TimeoutError")
 
+    async def test_independent_rca_budget_does_not_change_the_general_timeout(self):
+        session = AsyncMock()
+        session.session_id = "rca-budget"
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.profile.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+        async def complete(*_args, **_options):
+            await asyncio.sleep(0.02)
+            return SimpleNamespace(data=AssistantMessageData(
+                content='{"approved":true,"problems":[]}', message_id="result",
+            ))
+        session.send_and_wait.side_effect = complete
+        client = AsyncMock()
+        client.create_session.return_value = session
+        sdk = SDK(client, None, 0.001)
+        result = await sdk.run(
+            self.profile, "A separately budgeted RCA", Path(self.temporary.name), schema=DraftCheck, timeout=1,
+        )
+        self.assertTrue(DraftCheck.model_validate_json(result).approved)
+        self.assertEqual(sdk.timeout, 0.001)
+        session.abort.assert_not_awaited()
+
+    async def test_output_correction_shares_one_active_budget(self):
+        session = AsyncMock()
+        session.session_id = "shared-correction-budget"
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.profile.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+        calls = 0
+        async def invalid_then_slow(*_args, **_options):
+            nonlocal calls
+            calls += 1
+            await asyncio.sleep(0.05 if calls == 1 else 0.1)
+            return SimpleNamespace(data=AssistantMessageData(
+                content='{}' if calls == 1 else '{"approved":true,"problems":[]}', message_id="result",
+            ))
+        session.send_and_wait.side_effect = invalid_then_slow
+        client = AsyncMock()
+        client.create_session.return_value = session
+        with self.assertRaisesRegex(AutomationError, "active timeout 0.12s"):
+            await SDK(client, None, 1).run(
+                self.profile, "Correct once within the original budget", Path(self.temporary.name),
+                schema=DraftCheck, timeout=0.12,
+            )
+        self.assertEqual(calls, 2)
+        session.abort.assert_awaited_once()
+
     async def test_adjudicator_reads_both_markdown_reports_without_tools(self):
         self.entry.adjudication = None
 
@@ -828,11 +937,21 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         request = PermissionRequestRead(intention="read", path=str(ROOT / "package.json"))
         self.assertIsInstance(options["on_permission_request"](request, {"session_id": "test"}), PermissionDecisionReject)
 
-    async def test_console_displays_only_tags_not_report_prose(self):
-        self.console.read_only = True
-        with patch("review_issues.show") as show:
-            await self.console.decide(self.entry)
-        self.assertEqual([call.args[0] for call in show.call_args_list], ["\n#123: by design | no dupe found"])
+    def test_chunk_table_displays_one_row_per_issue_and_not_report_prose(self):
+        table = chunk_table([
+            ChunkResult(self.entry.issue, self.entry),
+            ChunkResult(self.github.canonical, status="failed", message="A failed\ncheck | details"),
+        ], rca_enabled=True)
+        self.assertIn("| Issue", table)
+        for header in ("By Design", "Dupe", "Root Cause Summary"):
+            self.assertIn(header, table)
+        self.assertIn("#123", table)
+        self.assertIn("#456", table)
+        self.assertIn("Yes", table)
+        self.assertIn("Not needed", table)
+        self.assertIn("A failed check / details", table)
+        self.assertNotIn("Behavior findings", table)
+        self.assertEqual(len(table.splitlines()), 4)
 
     async def test_modified_reports_or_execution_evidence_block_publication(self):
         for name in ("review.md", "duplicates.md", "checks.jsonl"):
@@ -844,7 +963,7 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
                     await self.console.close(self.entry)
                 self.assertEqual(self.github.mutations, [])
 
-    async def test_needs_investigation_on_either_axis_only_offers_optional_rca(self):
+    async def test_needs_investigation_on_either_axis_runs_rca_without_allowing_closure(self):
         for axis in ("validity", "duplicate_status"):
             with self.subTest(axis=axis):
                 save_evidence(self.console, self.entry)
@@ -852,12 +971,11 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
                 setattr(self.entry.adjudication, axis, "needs investigation")
                 self.entry.decision = "pending"
                 self.entry.rca_opt_in = "not_asked"
-                def decline_rca(question):
-                    self.assertIn("perform root cause analysis", question)
-                    self.assertNotIn("closing", question)
-                    return "n"
-                self.console.ask = decline_rca
-                await self.console.decide(self.entry)
+                self.console.ask = lambda _question: self.fail("No RCA opt-in prompt")
+                with patch.object(self.console, "ensure_root_cause", AsyncMock()) as investigate:
+                    await self.console.evaluate(self.entry)
+                    await self.console.decide(self.entry)
+                investigate.assert_awaited_once_with(self.entry)
                 with self.assertRaises(AutomationError):
                     await self.console.close(self.entry)
                 self.assertEqual(self.github.mutations, [])
@@ -885,20 +1003,13 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         assert self.entry.closure is not None
         self.assertEqual((self.entry.closure.reason, self.entry.closure.duplicate_of), ("duplicate", 456))
 
-    async def test_duplicate_closure_requires_its_own_confirmation(self):
+    async def test_duplicate_automatically_posts_canonical_link_and_closes(self):
         self.duplicate_entry()
         self.console.writer = Agent(self.profile.path, "rich-mirror", "A test writer", "Preserve verified facts.")
-        for confirmation in ("", "close 456", "close all"):
-            self.entry.decision = "pending"
-            answers = iter(["p", confirmation])
-            self.console.ask = lambda _question: next(answers)
-            await self.console.decide(self.entry)
-            self.assertEqual(self.github.mutations, [])
-        answers = iter(["p", "close 123"])
-        self.console.ask = lambda _question: next(answers)
-        self.entry.decision = "pending"
+        self.console.ask = lambda _question: self.fail("Publication is automatic")
         await self.console.decide(self.entry)
         self.assertEqual(self.github.mutations, ["comments", "close"])
+        self.assertIn(self.github.canonical.html_url, str(self.github.discussion[0]))
 
     async def test_duplicate_publication_resume_never_reposts(self):
         self.duplicate_entry()
@@ -1039,16 +1150,39 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("canonical", run.call_args_list[0].args[1])
         self.assertEqual(self.github.mutations, [])
 
-    async def test_main_decides_each_issue_before_investigating_the_next(self):
+    async def test_main_evaluates_chunk_concurrently_and_displays_table_before_publication(self):
         snapshots = {123: issue(), 456: self.github.canonical}
         steps: list[tuple[str, int]] = []
+        started: set[int] = set()
+        both_started = asyncio.Event()
+        evaluations_started: set[int] = set()
+        both_evaluating = asyncio.Event()
+        active_publications = peak_publications = 0
 
         async def review(snapshot, **_options):
             steps.append(("review", snapshot.number))
+            started.add(snapshot.number)
+            if len(started) == 2:
+                both_started.set()
+            await asyncio.wait_for(both_started.wait(), 2)
             return Entry(input_hash="input", context_hash="context", issue=snapshot)
 
+        async def evaluate(entry):
+            steps.append(("evaluate", entry.issue.number))
+            evaluations_started.add(entry.issue.number)
+            if len(evaluations_started) == 2:
+                both_evaluating.set()
+            await asyncio.wait_for(both_evaluating.wait(), 2)
+
         async def decide(entry):
+            nonlocal active_publications, peak_publications
+            self.assertEqual(sum(step == "evaluate" for step, _ in steps), 2)
+            self.assertTrue(any("Root Cause Summary" in call.args[0] for call in output.call_args_list))
+            active_publications += 1
+            peak_publications = max(peak_publications, active_publications)
+            await asyncio.sleep(0)
             steps.append(("decide", entry.issue.number))
+            active_publications -= 1
             return True
 
         args = Namespace(
@@ -1065,14 +1199,136 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             patch("review_issues.context_hash", return_value="context"),
             patch("review_issues.git", return_value="a" * 40),
             patch("review_issues.CopilotClient"),
+            patch("review_issues.show") as output,
             patch("review_issues.Console") as constructor,
         ):
             console = constructor.return_value
             console.load.return_value = None
             console.review = AsyncMock(side_effect=review)
+            console.evaluate = AsyncMock(side_effect=evaluate)
             console.decide = AsyncMock(side_effect=decide)
             await review_main(args)
-        self.assertEqual(steps, [("review", 123), ("decide", 123), ("review", 456), ("decide", 456)])
+        self.assertEqual(steps[:2], [("review", 123), ("review", 456)])
+        self.assertEqual(steps[-2:], [("decide", 123), ("decide", 456)])
+        self.assertEqual(peak_publications, 1)
+
+    async def test_unexpected_chunk_failure_cancels_other_issue_tasks(self):
+        snapshots = {123: issue(), 456: self.github.canonical}
+        args = Namespace(
+            state_dir=Path(self.temporary.name) / "cancelled-chunk", cli_path="copilot", writer_agent=None,
+            read_only=True, model=None, issues=[123, 456], chunk_size=2, timeout=30, retry_failed=False,
+        )
+        github = AsyncMock()
+        github.issue.side_effect = lambda number: snapshots[number]
+        github.api.return_value = {"tag_name": "test"}
+        started, cancelled = asyncio.Event(), asyncio.Event()
+
+        async def review(snapshot, **_options):
+            if snapshot.number == 123:
+                await started.wait()
+                raise RuntimeError("Unexpected controller failure")
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+
+        with (
+            patch("review_issues.GitHub", return_value=github),
+            patch("review_issues.InjectionScreening.from_environment"),
+            patch("review_issues.process", AsyncMock(return_value=(0, "test", ""))),
+            patch("review_issues.context_hash", return_value="context"),
+            patch("review_issues.git", return_value="a" * 40),
+            patch("review_issues.CopilotClient"),
+            patch("review_issues.Console") as constructor,
+        ):
+            console = constructor.return_value
+            console.load.return_value = None
+            console.review = AsyncMock(side_effect=review)
+            console.evaluate, console.decide = AsyncMock(), AsyncMock()
+            with self.assertRaisesRegex(RuntimeError, "Unexpected controller failure"):
+                await asyncio.wait_for(review_main(args), 2)
+            self.assertTrue(cancelled.is_set())
+            console.decide.assert_not_awaited()
+            self.assertFalse((args.state_dir / "run.lock").exists())
+
+    async def test_chunk_failure_preserves_other_results_and_still_prints_the_table(self):
+        snapshots = {123: issue(), 456: self.github.canonical}
+        args = Namespace(
+            state_dir=Path(self.temporary.name) / "failed-chunk", cli_path="copilot", writer_agent=None,
+            read_only=True, model=None, issues=[123, 456], chunk_size=2, timeout=30, retry_failed=False,
+        )
+        github = AsyncMock()
+        github.issue.side_effect = lambda number: snapshots[number]
+        github.api.return_value = {"tag_name": "test"}
+
+        async def review(snapshot, **_options):
+            if snapshot.number == 123:
+                raise AutomationError("One investigation failed")
+            return Entry(input_hash="input", context_hash="context", issue=snapshot)
+
+        with (
+            patch("review_issues.GitHub", return_value=github),
+            patch("review_issues.InjectionScreening.from_environment"),
+            patch("review_issues.process", AsyncMock(return_value=(0, "test", ""))),
+            patch("review_issues.context_hash", return_value="context"),
+            patch("review_issues.git", return_value="a" * 40),
+            patch("review_issues.CopilotClient"),
+            patch("review_issues.show") as output,
+            patch("review_issues.Console") as constructor,
+        ):
+            console = constructor.return_value
+            console.load.return_value = None
+            console.review = AsyncMock(side_effect=review)
+            console.evaluate = AsyncMock()
+            console.decide = AsyncMock(return_value=True)
+            with self.assertRaisesRegex(AutomationError, "1 investigation/publication steps failed"):
+                await review_main(args)
+            console.evaluate.assert_awaited_once()
+            self.assertEqual(console.decide.call_args.args[0].issue.number, 456)
+            table = next(call.args[0] for call in output.call_args_list if "Root Cause Summary" in call.args[0])
+            self.assertIn("#123", table)
+            self.assertIn("#456", table)
+            self.assertIn("One investigation failed", table)
+
+    async def test_main_keeps_validated_judgments_when_only_rca_fails(self):
+        assert self.entry.review is not None
+        self.entry.review.claims[0].disposition = "bug"
+        save_evidence(self.console, self.entry, validity="bug")
+        self.entry.root_cause = RootCause(
+            input_hash=self.console.report_hash(self.entry), directory=str(self.console.state / "rca"),
+            status="failed", error="RCA timed out",
+        )
+        args = Namespace(
+            state_dir=self.console.state, cli_path="copilot", writer_agent=None,
+            read_only=True, model=None, issues=[123], chunk_size=1, timeout=30, retry_failed=False,
+        )
+        github = AsyncMock()
+        github.issue.return_value = self.entry.issue
+        github.api.return_value = {"tag_name": "test"}
+        with (
+            patch("review_issues.GitHub", return_value=github),
+            patch("review_issues.InjectionScreening.from_environment"),
+            patch("review_issues.process", AsyncMock(return_value=(0, "test", ""))),
+            patch("review_issues.context_hash", return_value="context"),
+            patch("review_issues.git", return_value="a" * 40),
+            patch("review_issues.CopilotClient"),
+            patch("review_issues.Console", return_value=self.console),
+            patch.object(self.console, "review", AsyncMock(return_value=self.entry)),
+            patch.object(self.console, "evaluate", AsyncMock(side_effect=AutomationError("RCA timed out"))),
+            patch.object(self.console, "decide", AsyncMock()) as decide,
+            patch("review_issues.show"),
+        ):
+            with self.assertRaisesRegex(AutomationError, "1 investigation/publication steps failed"):
+                await review_main(args)
+        decide.assert_not_awaited()
+        summary = json.loads((args.state_dir / "proposals.json").read_text())
+        self.assertEqual(summary["behavior_evaluated_issues"], 1)
+        self.assertEqual(summary["rca_failed_issues"], 1)
+        self.assertEqual(summary["failed_issues"], 1)
+        self.assertEqual(summary["proposals"][0]["validity"], "bug")
+        self.assertEqual(summary["proposals"][0]["proposed_action"], "blocked")
+        self.assertIsNotNone(self.entry.elapsed_seconds)
 
 
 class ToolTests(unittest.IsolatedAsyncioTestCase):
@@ -1081,6 +1337,44 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self.temporary.cleanup)
         self.scratch = Path(self.temporary.name).resolve()
         self.tools = InvestigationTools(FakeGitHub(), self.scratch, ROOT / "packages" / "pyright" / "index.js", {})
+
+    async def test_parallel_roles_serialize_approval_prompts_and_pause_deadlines_while_queued(self):
+        approval_lock = asyncio.Lock()
+        active = peak = 0
+
+        def approve(_question):
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            time.sleep(0.05)
+            active -= 1
+            return "y"
+
+        tools = [
+            InvestigationTools(
+                FakeGitHub(), self.scratch / str(index), ROOT / "packages" / "pyright" / "index.js", {},
+                ask=approve, approval_lock=approval_lock,
+            )
+            for index in range(2)
+        ]
+
+        async def request(tool):
+            async with asyncio.timeout(0.2) as deadline:
+                tool.deadline = deadline
+                return await tool.request_approval("Approve? ", "Inspected probe")
+
+        await approval_lock.acquire()
+        tasks = [asyncio.create_task(request(tool)) for tool in tools]
+        try:
+            await asyncio.sleep(0.05)
+            for tool in tools:
+                assert tool.deadline is not None
+                self.assertIsNone(tool.deadline.when())
+            await asyncio.sleep(0.25)
+        finally:
+            approval_lock.release()
+        self.assertEqual(await asyncio.gather(*tasks), ["y", "y"])
+        self.assertEqual(peak, 1)
 
     async def test_permissions_restrict_reads_writes_and_shell(self):
         for path, allowed in ((ROOT / "package.json", True), (self.scratch / "a.py", True), (ROOT.parent / "secret", False)):
@@ -1109,6 +1403,18 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         ))
         self.assertEqual(result.result_type, "failure")
         self.assertIn("declined", result.text_result_for_llm)
+
+    async def test_non_interactive_probe_denial_is_explicit_and_never_executes(self):
+        atomic_write(self.scratch / "runtime.py", "raise RuntimeError('must not execute')\n")
+        self.tools.ask = reject_operator_approval
+        with patch("review_issues.process", AsyncMock()) as run:
+            result = await self.tools.run_check(ToolInvocation(
+                session_id="test", tool_call_id="call", tool_name="run_check",
+                arguments={"kind": "python", "file": "runtime.py"},
+            ))
+        self.assertEqual(result.result_type, "failure")
+        self.assertIn("Non-interactive dry run", result.text_result_for_llm)
+        run.assert_not_awaited()
 
     async def test_configs_cannot_escape_scratch_or_load_external_plugins(self):
         config = self.scratch / "pyrightconfig.json"

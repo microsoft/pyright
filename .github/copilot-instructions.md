@@ -14,8 +14,10 @@ scratch reproducers for supervised backlog investigations. Its evidence and outp
 `docs/issue-review-agents.md`; it does not change the original reviewer's read-only workflow.
 `build/automation/review_issues.py` uses that agent to save behavior Markdown and a separate duplicate investigation.
 The tool-less `pyright-issue-adjudicator` emits local validity/duplicate tags; inconclusive evidence stays
-`needs investigation`. The console requires explicit human approval for each supported by-design or duplicate
-closure. Investigators never publish, and a duplicate finding is not a by-design conclusion.
+`needs investigation`. The console evaluates issues concurrently within each chunk and runs RCA by default
+unless `--no-rca` is passed. Non-dry runs automatically publish fact-checked, evidence-gated by-design/duplicate
+closures or qualified RCA comments after showing the results table; `--dry-run` disables drafting and mutations.
+Execution approvals remain separate. Investigators never publish, and a duplicate finding is not a by-design conclusion.
 For example: "Use pyright-issue-reviewer to analyze <issue URL> and draft a response" or
 "Use pyright-issue-fixer to fix <issue URL>; prepare a patch and PR description, but do not publish."
 Posting comments, committing/pushing, or creating a PR requires explicit authorization; reviewer mode never publishes.

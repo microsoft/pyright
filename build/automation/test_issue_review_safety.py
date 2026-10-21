@@ -1099,6 +1099,7 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
                 console = constructor.return_value
                 console.load.return_value = None
                 console.review, console.decide = AsyncMock(side_effect=review), AsyncMock(side_effect=decide)
+                console.evaluate = AsyncMock()
                 await main(args)
                 github.screen.assert_not_awaited()
                 metadata = json.loads((args.state_dir / "run.json").read_text())

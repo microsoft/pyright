@@ -15,6 +15,8 @@ exports.capture = async function capture(manifest, report) {
     const consumer = await new SourceMapConsumer(JSON.parse(fs.readFileSync(manifest.bundle + '.map', 'utf8')));
     const session = new inspector.Session();
     const requested = new Map();
+    const locations = new Map();
+    let pauses = 0;
     const post = (method, params = {}) =>
         new Promise((resolve, reject) => {
             session.post(method, params, (error, result) => (error ? reject(error) : resolve(result)));
@@ -23,25 +25,47 @@ exports.capture = async function capture(manifest, report) {
     try {
         await post('Debugger.enable');
         session.on('Debugger.paused', ({ params }) => {
-            try {
-                for (const id of params.hitBreakpoints || []) {
-                    const breakpoint = requested.get(id);
-                    if (!breakpoint || report.hits.length >= 20) {
-                        continue;
+            const resume = () =>
+                session.post('Debugger.resume', {}, (error) => {
+                    if (error) {
+                        report.errors.push(String(error));
+                    }
+                });
+            const targets = (params.hitBreakpoints || []).flatMap((id) =>
+                (requested.get(id) || []).map((breakpoint) => ({ id, breakpoint }))
+            );
+            const next = () => {
+                try {
+                    const target = targets.shift();
+                    if (!target) {
+                        resume();
+                        return;
+                    }
+                    const { id, breakpoint } = target;
+                    if (report.hits.length >= 20) {
+                        next();
+                        return;
+                    }
+                    const remove = () => {
+                        const remaining = requested.get(id).filter((item) => item !== breakpoint);
+                        if (remaining.length) {
+                            requested.set(id, remaining);
+                        } else {
+                            requested.delete(id);
+                            session.post('Debugger.removeBreakpoint', { breakpointId: id });
+                        }
+                    };
+                    if (++pauses > 1000) {
+                        report.errors.push('Conditional breakpoint pause limit reached; narrow the target condition');
+                        for (const breakpointId of requested.keys()) {
+                            session.post('Debugger.removeBreakpoint', { breakpointId });
+                        }
+                        requested.clear();
+                        resume();
+                        return;
                     }
                     const frame = params.callFrames[0];
-                    const hit = {
-                        file: breakpoint.file,
-                        requested_line: breakpoint.line,
-                        actual_source: consumer.originalPositionFor({
-                            line: frame.location.lineNumber + 1,
-                            column: frame.location.columnNumber,
-                        }),
-                        function_name: frame.functionName,
-                        evaluations: [],
-                    };
-                    report.hits.push(hit);
-                    for (const expression of breakpoint.expressions) {
+                    const evaluate = (expression, callback) =>
                         session.post(
                             'Debugger.evaluateOnCallFrame',
                             {
@@ -51,22 +75,60 @@ exports.capture = async function capture(manifest, report) {
                                 throwOnSideEffect: true,
                                 timeout: 1000,
                             },
-                            (error, result) => {
-                                hit.evaluations.push({ expression, error: error ? String(error) : null, result });
-                            }
+                            callback
                         );
+                    const captureHit = () => {
+                        const hit = {
+                            file: breakpoint.file,
+                            requested_line: breakpoint.line,
+                            condition: breakpoint.condition || null,
+                            actual_source: consumer.originalPositionFor({
+                                line: frame.location.lineNumber + 1,
+                                column: frame.location.columnNumber,
+                            }),
+                            function_name: frame.functionName,
+                            evaluations: [],
+                        };
+                        report.hits.push(hit);
+                        const expressions = [...breakpoint.expressions];
+                        const read = () => {
+                            const expression = expressions.shift();
+                            if (expression === undefined) {
+                                remove();
+                                next();
+                                return;
+                            }
+                            evaluate(expression, (error, result) => {
+                                hit.evaluations.push({ expression, error: error ? String(error) : null, result });
+                                read();
+                            });
+                        };
+                        read();
+                    };
+                    if (!breakpoint.condition) {
+                        captureHit();
+                        return;
                     }
-                    session.post('Debugger.removeBreakpoint', { breakpointId: id });
+                    evaluate(breakpoint.condition, (error, result) => {
+                        if (error || result?.exceptionDetails || result?.result?.type !== 'boolean') {
+                            report.errors.push(
+                                `Breakpoint condition failed at ${breakpoint.file}:${breakpoint.line}: ` +
+                                    (error || result?.exceptionDetails?.text || 'expected a boolean')
+                            );
+                            remove();
+                            next();
+                        } else if (result.result.value) {
+                            captureHit();
+                        } else {
+                            next();
+                        }
+                    });
+                } catch (error) {
+                    report.errors.push(String(error));
+                    resume();
                 }
-            } catch (error) {
-                report.errors.push(String(error));
-            } finally {
-                session.post('Debugger.resume', {}, (error) => {
-                    if (error) {
-                        report.errors.push(String(error));
-                    }
-                });
-            }
+            };
+            next();
         });
         for (const breakpoint of manifest.breakpoints) {
             const suffix = '/src/' + breakpoint.file.replace(/\\/g, '/');
@@ -102,13 +164,20 @@ exports.capture = async function capture(manifest, report) {
                               '$',
                       }
                     : { url };
-            const result = await post('Debugger.setBreakpointByUrl', {
-                ...target,
-                lineNumber: position.line - 1,
-                columnNumber: position.column,
-            });
-            requested.set(result.breakpointId, breakpoint);
-            report.mapped_breakpoints.push({ ...breakpoint, generated: position, breakpoint_id: result.breakpointId });
+            const key = `${position.line}:${position.column}`;
+            let id = locations.get(key);
+            if (!id) {
+                const result = await post('Debugger.setBreakpointByUrl', {
+                    ...target,
+                    lineNumber: position.line - 1,
+                    columnNumber: position.column,
+                });
+                id = result.breakpointId;
+                locations.set(key, id);
+                requested.set(id, []);
+            }
+            requested.get(id).push(breakpoint);
+            report.mapped_breakpoints.push({ ...breakpoint, generated: position, breakpoint_id: id });
         }
         return () => session.disconnect();
     } catch (error) {

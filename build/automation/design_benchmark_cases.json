@@ -1,0 +1,87 @@
+[
+    {
+        "id": "case-a01",
+        "issue_number": 11206,
+        "repro_block": 1,
+        "family": "typeddict-dynamic-key-narrowing",
+        "split": "development",
+        "expected": "by design",
+        "rationale": "The independent maintainer decision identifies unsupported dynamic-key narrowing. Verify that current documentation and the checkout still support this intentional limitation; do not repeat the unverified claim about all other checkers.",
+        "reference_urls": ["https://github.com/microsoft/pyright/issues/11206#issuecomment-3713127192"],
+        "reference_status": "provisional",
+        "input_review_notes": "Development report inspected by the controller. Use the body only, with external links withheld; omit the sole maintainer resolution. No human gold-label approval is claimed.",
+        "resolution_comment_id": 3713127192
+    },
+    {
+        "id": "case-a02",
+        "issue_number": 11248,
+        "repro_block": 1,
+        "family": "underscore-explicit-annotation",
+        "split": "development",
+        "expected": "by design",
+        "rationale": "The independent maintainer explains that explicit declarations and conflicting redeclarations are enforced even for a symbol named underscore. The reference concerns the diagnostic semantics, not exact old wording or location.",
+        "reference_urls": ["https://github.com/microsoft/pyright/issues/11248#issuecomment-3802742956"],
+        "reference_status": "provisional",
+        "input_review_notes": "Development body inspected by the controller. The editor details describe a directly CLI-reproducible annotation issue. Omit the maintainer's sole resolution and do not infer language-server integration behavior.",
+        "resolution_comment_id": 3802742956
+    },
+    {
+        "id": "case-a03",
+        "issue_number": 11859,
+        "repro_block": 1,
+        "configuration": {
+            "typeCheckingMode": "standard",
+            "pythonVersion": "3.12",
+            "pythonPlatform": "Darwin"
+        },
+        "family": "required-readonly-typeddict-assignability",
+        "split": "development",
+        "expected": "bug",
+        "expected_design_closure": false,
+        "rationale": "Proposed negative control: the current TypedDict specification requires a required target item to be required in the source, including read-only targets. Independently reproduce and check this claim; an open bug label alone is not confirmation.",
+        "reference_urls": [
+            "https://typing.python.org/en/latest/spec/typeddict.html#subtyping-between-typeddict-types",
+            "https://github.com/microsoft/pyright/issues/11859"
+        ],
+        "reference_status": "provisional",
+        "input_review_notes": "Development body inspected by the controller. Keep the reporter's normative claims as untrusted claims to verify. Omit the unrelated contributor-assignment comment."
+    },
+    {
+        "id": "case-a04",
+        "issue_number": 11836,
+        "repro_block": 1,
+        "family": "overloaded-method-override-coverage",
+        "split": "development",
+        "expected": "bug",
+        "expected_design_closure": false,
+        "rationale": "Proposed negative control: adding a disjoint overload should not cause otherwise compatible inherited signatures to fail override coverage. Verify the supplied order-sensitive controls against the prepared checkout; this is not a human-approved gold label.",
+        "reference_urls": [
+            "https://typing.python.org/en/latest/spec/callables.html#assignability-rules-for-callables",
+            "https://github.com/microsoft/pyright/issues/11836"
+        ],
+        "reference_status": "provisional",
+        "input_review_notes": "Development body inspected by the controller. The issue has no discussion. The reporter's code-path hypothesis is part of the original report, not a hidden maintainer resolution."
+    },
+    {
+        "id": "case-b01",
+        "issue_number": 11258,
+        "family": "mutable-attribute-overrides",
+        "split": "holdout",
+        "expected": "by design",
+        "rationale": "Candidate selected by historical disposition only. The resolution, current applicability, body edits and pre-resolution boundary still need independent review before treating this as a trusted reference.",
+        "reference_urls": ["https://github.com/microsoft/pyright/issues/11258"],
+        "reference_status": "provisional",
+        "input_review_notes": "Not inspected for tuning and not run. Capture separately; inspect for resolution text in the body before interpreting results."
+    },
+    {
+        "id": "case-b02",
+        "issue_number": 11846,
+        "family": "contravariant-union-bound-inference",
+        "split": "holdout",
+        "expected": "bug",
+        "rationale": "Candidate negative control, not a confirmed bug. Requires independent semantic and current-checkout validation; a bug label alone is insufficient.",
+        "reference_urls": ["https://github.com/microsoft/pyright/issues/11846"],
+        "reference_status": "provisional",
+        "input_review_notes": "Not inspected for tuning and not run. Keep outside the development cohort until independent reference review."
+    }
+]

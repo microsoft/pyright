@@ -12,7 +12,7 @@
 # ]
 # ///
 
-"""Review Pyright issues in interactive chunks using the Copilot Python SDK."""
+"""Review Pyright issues in parallel chunks; non-dry runs automatically publish eligible results."""
 
 from __future__ import annotations
 
@@ -62,12 +62,14 @@ from issue_review_models import (
     Issue,
     Record,
     ReproductionPlan,
+    ReviewEvidence,
     ReviewFindings,
     RootCause,
     RootCauseChallenge,
     RootCauseFindings,
     RootCauseGate,
     RootCausePublication,
+    Text,
 )
 from issue_review_editor import EditorRuntime, editor_failure, editor_signature, fingerprint as editor_fingerprint
 from issue_review_rca import RootCauseRun, RootCauseRuntime
@@ -79,6 +81,17 @@ AGENTS = ROOT / ".github" / "agents"
 SKILLS = ROOT / ".github" / "skills"
 READ_TOOLS = ["view", "grep", "rg", "glob", "web_fetch"]
 WRITE_TOOLS = ["create", "edit", "apply_patch"]
+SURFACE_GUIDANCE = (
+    "Choose product_surface for the material complaint, not the client's name in environment metadata. "
+    "A semantic typing question (assignability, inferred types, abstractness or diagnostic correctness) can use "
+    "the actual CLI when the self-contained example and effective settings distinguish its alternatives, even "
+    "if reported in Pylance, VS Code or Neovim. Explain this in surface_reason and the report, and explicitly "
+    "leave historical/editor integration unverified. Mere mention of an editor is not an integration blocker. "
+    "Conversely, missing or stale diagnostic delivery, editor/CLI disagreement, completions, interpreter handoff, "
+    "workspace/configuration discovery and other integration-dependent claims require their actual surface; "
+    "a successful CLI component check does not settle them. Mixed unresolved integration claims must remain "
+    "blocked rather than being omitted to obtain closure. "
+)
 WEB_HOSTS = {
     "github.com", "api.github.com", "raw.githubusercontent.com",
     "typing.python.org", "typing.readthedocs.io", "docs.python.org", "peps.python.org",
@@ -205,6 +218,55 @@ def observed_pyright_result(record: JsonValue) -> bool:
         isinstance(record, dict) and record.get("kind") == "pyright" and record.get("exit_code") in (0, 1)
         and product_output(record) is not None
     )
+
+
+def validate_review_execution(report: ReviewEvidence, logged: list[JsonValue]) -> None:
+    for claim in report.claims:
+        for target in claim.reproduction:
+            if target.target != "checkout" and target.status in {"reproduced", "not_reproduced"}:
+                raise AutomationError(
+                    f"{claim.id}/{target.target}: this runner has no released-checker execution tool. "
+                    "Do not copy checkout results into release targets; mark them blocked/not_attempted "
+                    "and explain the missing independent execution."
+                )
+    if report.product_surface == "cli" and not any(
+        isinstance(item, dict) and item.get("kind") == "pyright" for item in logged
+    ):
+        raise AutomationError("CLI investigations must attempt run_check(kind='pyright') against the real product")
+    if report.product_surface != "cli" and any(
+        target.target == "checkout" and target.status in {"reproduced", "not_reproduced"}
+        for claim in report.claims for target in claim.reproduction
+    ):
+        raise AutomationError("This runner cannot claim observed reproduction of a non-CLI product surface")
+    for check in report.checks:
+        if check.status == "executed" and not any(
+            isinstance(item, dict) and item.get("command") == check.command
+            and item.get("cwd") == check.cwd and item.get("exit_code") == check.exit_code
+            for item in logged
+        ):
+            raise AutomationError(
+                f"Executed check {check.id} has no matching controller execution record. "
+                "Copy its exact command/cwd/exit_code from run_check output, not a prose description."
+            )
+    by_id = {check.id: check for check in report.checks}
+    for claim in report.claims:
+        for target in claim.reproduction:
+            if target.target == "checkout" and target.status in {"reproduced", "not_reproduced"}:
+                if not any(
+                    isinstance(item, dict) and observed_pyright_result(item)
+                    and any(
+                        by_id[check_id].status == "executed"
+                        and item.get("command") == by_id[check_id].command
+                        and item.get("cwd") == by_id[check_id].cwd
+                        and item.get("exit_code") == by_id[check_id].exit_code
+                        for check_id in target.check_ids
+                    )
+                    for item in logged
+                ):
+                    raise AutomationError(
+                        f"{claim.id}: observed checkout reproduction requires an actual source-CLI run; "
+                        "a Python runtime or mypy probe alone does not establish it."
+                    )
 
 
 @contextmanager
@@ -361,6 +423,7 @@ class InvestigationTools:
         self, github: GitHub, scratch: Path, source_cli: Path, release: JsonValue,
         ask: Callable[[str], str] = input, evidence: Path | None = None,
         investigator: Literal["review", "duplicates", "root_cause", "root_cause_adversary"] = "review",
+        approval_lock: asyncio.Lock | None = None,
     ):
         self.github, self.scratch, self.source_cli = github, scratch.resolve(), source_cli
         self.release, self.ask = release, ask
@@ -372,6 +435,7 @@ class InvestigationTools:
         self.screening_stopped = False
         self._screening_tasks: set[asyncio.Task[None]] = set()
         self._approval_lock = asyncio.Lock()
+        self._console_approval_lock = approval_lock or asyncio.Lock()
         self.tools = [
             Tool("github_read", "Read Pyright issues, comments, PRs, or bounded search results; never mutates GitHub.",
                  self.github_read, GitHubRead.model_json_schema()),
@@ -418,8 +482,9 @@ class InvestigationTools:
             if deadline is not None and remaining is not None:
                 deadline.reschedule(None)
             try:
-                show(preview)
-                return await asyncio.to_thread(self.ask, prompt)
+                async with self._console_approval_lock:
+                    show(f"\nInvestigation: {self.scratch}\n{preview}")
+                    return await asyncio.to_thread(self.ask, prompt)
             finally:
                 if deadline is not None and self.deadline is deadline and remaining is not None:
                     deadline.reschedule(asyncio.get_running_loop().time() + remaining)
@@ -567,22 +632,39 @@ class AuthorityRead(Record):
     url: str
 
 
+class EvidenceRead(Record):
+    evidence_id: Text
+
+
 class RootCauseTools(InvestigationTools):
     def __init__(
         self, github: GitHub, scratch: Path, release: JsonValue, evidence: Path,
         runtime: RootCauseRuntime, *, adversary: bool = False,
         editor: EditorRuntime | None = None, plan: ReproductionPlan | None = None,
         ask: Callable[[str], str] = input,
+        approval_lock: asyncio.Lock | None = None,
     ):
         super().__init__(
             github, scratch, runtime.snapshot / "pyright.js", release, evidence=evidence,
             investigator="root_cause_adversary" if adversary else "root_cause",
+            approval_lock=approval_lock,
         )
         self.runtime, self.check_count = runtime, 0
         self.editor, self.plan, self.ask, self.editor_approved = editor, plan, ask, False
         self.last_editor_error: str | None = None
         self._editor_lock = asyncio.Lock()
         self.cli_baseline, self.editor_baseline_failure = False, False
+        ledger = evidence / "checks.jsonl"
+        self.previous_records = [
+            JSON.validate_json(line) for line in ledger.read_text(encoding="utf-8").splitlines()
+        ] if ledger.exists() else []
+        own = [
+            record for record in self.previous_records
+            if isinstance(record, dict) and record.get("investigator") == self.investigator
+        ]
+        self.check_count = sum(record.get("kind") == "execution_attempt" for record in own)
+        self.cli_baseline = any(record.get("kind") == "product_run" and product_output(record) is not None for record in own)
+        self.editor_baseline_failure = any(editor_failure(record) for record in own)
         self.tools = [
             self.tools[0],
             Tool("rca_run", "Run the private actual Pyright CLI, optionally with source-mapped inspector breakpoints. "
@@ -590,6 +672,9 @@ class RootCauseTools(InvestigationTools):
                  self.rca_run, RootCauseRun.model_json_schema()),
             Tool("rca_read_source", "Retrieve one authoritative HTTPS source and return a controller evidence ID.",
                  self.rca_read_source, AuthorityRead.model_json_schema()),
+            Tool("rca_read_evidence", "Read a previous controller-recorded execution or source by its exact evidence ID. "
+                 "Use saved observations to continue without repeating successful checks.",
+                 self.rca_read_evidence, EvidenceRead.model_json_schema()),
             Tool("rca_editor_run", "Run the actual editor interpreter-handoff scenario in fresh isolated profiles, "
                  "with python_env, venv and python_envs/venv controls. No interpreter selection, reporter code, "
                  "downloads or installs. Optional breakpoints are relative to vscode-pyright/src. Requires approval.",
@@ -619,6 +704,7 @@ class RootCauseTools(InvestigationTools):
             self.check_count += 1
             if self.check_count > 8:
                 raise AutomationError("This RCA role has exhausted its eight product-check allowance; preserve remaining uncertainty")
+            self.log({"kind": "execution_attempt", "tool": "rca_run", "attempt": self.check_count})
             self.validate_config(self.scratch / "pyrightconfig.json")
             if self.runtime.snapshot_hash is None:
                 await self.runtime.prepare()
@@ -644,6 +730,7 @@ class RootCauseTools(InvestigationTools):
                 self.check_count += 1
                 if self.check_count > 8:
                     raise AutomationError("This RCA role has exhausted its eight product-check allowance")
+                self.log({"kind": "execution_attempt", "tool": "rca_editor_run", "attempt": self.check_count})
                 if not self.editor_approved:
                     capability = await self.editor.preflight()
                     if not capability["available"]:
@@ -672,6 +759,22 @@ class RootCauseTools(InvestigationTools):
                 })
                 show(f"  [editor RCA] FAILED: {error}")
                 return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
+
+    async def rca_read_evidence(self, invocation: ToolInvocation) -> ToolResult:
+        try:
+            if self.screening_error is not None:
+                raise self.screening_error
+            request = EvidenceRead.model_validate(invocation.arguments)
+            records = [
+                JSON.validate_json(line) for line in (self.evidence / "checks.jsonl").read_text(encoding="utf-8").splitlines()
+            ]
+            for record in records:
+                if isinstance(record, dict) and record.get("id") == request.evidence_id:
+                    return ToolResult(text_result_for_llm=json.dumps(record), result_type="success")
+            raise AutomationError("No controller record has that evidence ID")
+        except (OSError, ValueError, AutomationError) as error:
+            self.log({"tool": "rca_read_evidence", "error": str(error)})
+            return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
 
     async def rca_read_source(self, invocation: ToolInvocation) -> ToolResult:
         try:
@@ -718,15 +821,20 @@ class SDK:
         self, agent: Agent, prompt: str, scratch: Path, *, schema: type[T] | None = None,
         tools: InvestigationTools | None = None, evidence: Path | None = None,
         validate: Callable[[str], None] | None = None,
+        native_tools: list[str] | None = None,
+        timeout: float | None = None,
     ) -> str:
+        active_timeout = self.timeout if timeout is None else timeout
         if tools is not None and tools.screening_error is not None:
             raise tools.screening_error
         custom_tools = [] if tools is None else tools.tools
         duplicate = agent.name == "pyright-issue-dupe-investigator"
-        native_tools = READ_TOOLS + WRITE_TOOLS
+        standard_tools = native_tools is None
+        native_tools = READ_TOOLS + WRITE_TOOLS if native_tools is None else native_tools
         if duplicate:
             custom_tools = [tool for tool in custom_tools if tool.name == "github_read"]
-            native_tools = READ_TOOLS
+            if standard_tools:
+                native_tools = READ_TOOLS
         available = native_tools + [tool.name for tool in custom_tools] if tools else []
         logs = evidence or scratch
 
@@ -748,11 +856,13 @@ class SDK:
 
         session = await self.client.create_session(
             model=self.model, agent=agent.name,
-            custom_agents=[agent.config(available, skill=tools is not None and agent.name == "pyright-issue-by-design-reviewer")],
+            custom_agents=[agent.config(
+                available, skill=tools is not None and standard_tools and agent.name == "pyright-issue-by-design-reviewer",
+            )],
             available_tools=available, tools=custom_tools,
             on_permission_request=deny if tools is None else tools.permission,
             working_directory=str(ROOT), additional_directories=[str(scratch)],
-            enable_skills=tools is not None, skill_directories=[str(SKILLS)],
+            enable_skills=tools is not None and standard_tools, skill_directories=[str(SKILLS)],
             enable_host_git_operations=False, enable_file_hooks=False, enable_config_discovery=False,
             enable_session_store=False, manage_schedule_enabled=False, on_event=event,
         )
@@ -768,11 +878,13 @@ class SDK:
             unexpected = active - set(available)
             if unexpected:
                 raise AutomationError(f"Runtime exposed tools outside the allowlist: {', '.join(sorted(unexpected))}")
-            required = {"view", "glob", "web_fetch", *[tool.name for tool in custom_tools]} if tools else set()
+            required = {tool.name for tool in custom_tools}
+            if tools and standard_tools:
+                required |= {"view", "glob", "web_fetch"}
             missing = required - active
-            if tools and not active.intersection({"grep", "rg"}):
+            if tools and standard_tools and not active.intersection({"grep", "rg"}):
                 missing.add("search (grep or rg)")
-            if tools and not duplicate and not ("apply_patch" in active or {"create", "edit"} <= active):
+            if tools and standard_tools and not duplicate and not ("apply_patch" in active or {"create", "edit"} <= active):
                 missing.add("scratch writing (apply_patch or create + edit)")
             if missing:
                 raise AutomationError(
@@ -786,50 +898,54 @@ class SDK:
                     "profile_hash": digest(agent.path.read_text(encoding="utf-8")),
                     "started_at": datetime.now(timezone.utc).isoformat(),
                 }) + "\n")
-            for attempt in range(2):
-                async with asyncio.timeout(self.timeout) as deadline:
-                    if tools is not None:
-                        tools.deadline = deadline
-                    try:
+            async with asyncio.timeout(active_timeout) as deadline:
+                if tools is not None:
+                    tools.deadline = deadline
+                try:
+                    for attempt in range(2):
                         # Own the deadline so human approval can pause it without replacing SDK response correlation.
                         response = await session.send_and_wait(
                             prompt, response_schema=None if schema is None else response_schema(schema), timeout=float("inf")
                         )
                         if tools is not None and tools.screening_error is not None:
                             raise tools.screening_error
-                    finally:
-                        if tools is not None:
-                            tools.deadline = None
-                if response is None or not isinstance(response.data, AssistantMessageData) or not response.data.content.strip():
-                    raise AutomationError(f"{agent.name} returned no final assistant response")
-                content = response.data.content
-                atomic_write(logs / f"{agent.name}-response-{attempt + 1}.txt", content)
-                atomic_write(logs / f"{agent.name}-last-response.txt", content)
-                try:
-                    if schema is not None:
-                        schema.model_validate_json(content)
-                    if validate is not None:
-                        validate(content)
-                    return content
-                except (ValueError, AutomationError) as error:
-                    if attempt:
-                        raise
-                    show(f"  [{agent.name}] correcting an invalid report or adjudication...")
-                    prompt = (
-                        "Your final record failed host validation. Return a corrected COMPLETE record using the "
-                        "investigation and tool results already in this session. Preserve substantive findings and "
-                        "limitations; do not substitute empty/default data, invent evidence, or treat validation as "
-                        "a requested disposition. Copy executed commands/cwds/exit codes VERBATIM from run_check. "
-                        "If execution was unavailable, say so rather than claiming an observation. Validation errors:\n"
-                        + str(error)
-                    )
+                        if response is None or not isinstance(response.data, AssistantMessageData) or not response.data.content.strip():
+                            raise AutomationError(f"{agent.name} returned no final assistant response")
+                        content = response.data.content
+                        atomic_write(logs / f"{agent.name}-response-{attempt + 1}.txt", content)
+                        atomic_write(logs / f"{agent.name}-last-response.txt", content)
+                        try:
+                            if schema is not None:
+                                schema.model_validate_json(content)
+                            if validate is not None:
+                                validate(content)
+                            return content
+                        except (ValueError, AutomationError) as error:
+                            if attempt:
+                                raise
+                            show(f"  [{agent.name}] correcting an invalid report or adjudication...")
+                            prompt = (
+                                "Your final record failed host validation. Return a corrected COMPLETE record using the "
+                                "investigation and tool results already in this session. If required evidence is missing, "
+                                "use remaining authorized tools, time and check allowance to obtain it, or explicitly "
+                                "preserve an inconclusive result. Repeating the same unsupported claim cannot repair it. "
+                                "Preserve substantive findings and "
+                                "limitations; do not substitute empty/default data, invent evidence, or treat validation as "
+                                "a requested disposition. Copy executed commands/cwds/exit codes VERBATIM from actual "
+                                "controller execution results (run_check, rca_run or rca_editor_run as applicable). "
+                                "If execution was unavailable, say so rather than claiming an observation. Validation errors:\n"
+                                + str(error)
+                            )
+                finally:
+                    if tools is not None:
+                        tools.deadline = None
             raise AutomationError("No validated response")
         except TimeoutError as error:
             if tools is not None and tools.screening_error is not None:
                 await session.abort()
                 raise tools.screening_error
             message = (
-                f"{agent.name} SDK turn timed out (active timeout {self.timeout:g}s; operator approval waits excluded). "
+                f"{agent.name} SDK turn timed out (active timeout {active_timeout:g}s; operator approval waits excluded). "
                 f"Details: {logs / 'sdk-events.jsonl'}"
             )
             editor_context: dict[str, JsonValue] = {}
@@ -852,7 +968,7 @@ class SDK:
                 stream.write(json.dumps({
                     "at": datetime.now(timezone.utc).isoformat(), "type": "controller.timeout",
                     "data": {
-                        "session_id": session.session_id, "agent": agent.name, "active_timeout_seconds": self.timeout,
+                        "session_id": session.session_id, "agent": agent.name, "active_timeout_seconds": active_timeout,
                         "exception": type(error).__name__, "message": message, **editor_context,
                     },
                 }) + "\n")
@@ -888,6 +1004,8 @@ class Console:
         adjudicator: Agent | None = None,
         retry_rca: bool = False,
         editor_code: Path | None = None, python_extension: Path | None = None,
+        rca_enabled: bool = True,
+        rca_timeout: float = 900,
     ):
         self.github, self.sdk, self.state = github, sdk, state
         self.reviewer, self.duplicate, self.writer = reviewer, duplicate, writer
@@ -896,6 +1014,9 @@ class Console:
         self.ask, self.read_only = ask, read_only
         self.current_context = current_context or (lambda: self.context_hash)
         self.retry_rca = retry_rca
+        self.rca_enabled = rca_enabled
+        self.rca_timeout = rca_timeout
+        self._approval_lock = asyncio.Lock()
         self.editor_code, self.python_extension = editor_code, python_extension
         self.rca_agents = [
             Agent.load(AGENTS / f"{name}.md", name) for name in (
@@ -970,6 +1091,7 @@ class Console:
         tools = InvestigationTools(
             self.github, scratch, ROOT / "packages" / "pyright" / "index.js",
             self.release, self.ask, evidence=directory,
+            approval_lock=self._approval_lock,
         )
         atomic_write(directory / "checks.jsonl", "")
         prompt = (
@@ -998,6 +1120,7 @@ class Console:
             "versus expected diagnostics/types, and exact command in the Markdown. If the relevant surface is LSP, "
             "editor, packaging or otherwise unavailable, identify product_surface accurately, record a blocked "
             "checkout reproduction and the concrete missing check; do not substitute a CLI proxy. "
+            + SURFACE_GUIDANCE +
             "Blocked or inconclusive evidence must remain visible for needs-investigation adjudication. "
             "Stop when this issue's alternatives are distinguished or a concrete blocker is established. "
             "IMPORTANT: Each executed check's command/cwd/exit_code must be copied VERBATIM from run_check's "
@@ -1011,53 +1134,7 @@ class Console:
                 raise AutomationError("Reviewer returned the wrong issue or checkout")
             if report.issue_updated_at != issue.updated_at:
                 raise AutomationError(f"Use the input snapshot's observed issue_updated_at: {issue.updated_at}")
-            for claim in report.claims:
-                for target in claim.reproduction:
-                    if target.target != "checkout" and target.status in {"reproduced", "not_reproduced"}:
-                        raise AutomationError(
-                            f"{claim.id}/{target.target}: this runner has no released-checker execution tool. "
-                            "Do not copy checkout results into release targets; mark them blocked/not_attempted "
-                            "and explain the missing independent execution."
-                        )
-            logged = self.records(issue.number)
-            if report.product_surface == "cli" and not any(
-                isinstance(item, dict) and item.get("kind") == "pyright" for item in logged
-            ):
-                raise AutomationError("CLI investigations must attempt run_check(kind='pyright') against the real product")
-            if report.product_surface != "cli" and any(
-                target.target == "checkout" and target.status in {"reproduced", "not_reproduced"}
-                for claim in report.claims for target in claim.reproduction
-            ):
-                raise AutomationError("This runner cannot claim observed reproduction of a non-CLI product surface")
-            for check in report.checks:
-                if check.status == "executed" and not any(
-                    isinstance(item, dict) and item.get("command") == check.command
-                    and item.get("cwd") == check.cwd and item.get("exit_code") == check.exit_code
-                    for item in logged
-                ):
-                    raise AutomationError(
-                        f"Executed check {check.id} has no matching controller execution record. "
-                        "Copy its exact command/cwd/exit_code from run_check output, not a prose description."
-                    )
-            by_id = {check.id: check for check in report.checks}
-            for claim in report.claims:
-                for target in claim.reproduction:
-                    if target.target == "checkout" and target.status in {"reproduced", "not_reproduced"}:
-                        if not any(
-                            isinstance(item, dict) and observed_pyright_result(item)
-                            and any(
-                                by_id[check_id].status == "executed"
-                                and item.get("command") == by_id[check_id].command
-                                and item.get("cwd") == by_id[check_id].cwd
-                                and item.get("exit_code") == by_id[check_id].exit_code
-                                for check_id in target.check_ids
-                            )
-                            for item in logged
-                        ):
-                            raise AutomationError(
-                                f"{claim.id}: observed checkout reproduction requires an actual source-CLI run; "
-                                "a Python runtime or mypy probe alone does not establish it."
-                            )
+            validate_review_execution(report, self.records(issue.number))
 
         raw = await self.sdk.run(
             self.reviewer, prompt, scratch, schema=ReviewFindings, tools=tools, evidence=directory, validate=validate
@@ -1085,6 +1162,7 @@ class Console:
                 self.github, scratch, ROOT / "packages" / "pyright" / "index.js",
                 self.release, self.ask, evidence=directory,
                 investigator="duplicates",
+                approval_lock=self._approval_lock,
             )
             raw = await self.sdk.run(
                 self.duplicate,
@@ -1191,6 +1269,7 @@ class Console:
 
     def rca_hash(self, root_cause: RootCause) -> str:
         return digest(json.dumps({
+            "checkpoint_version": root_cause.checkpoint_version, "stage": root_cause.stage,
             "findings": None if root_cause.findings is None else root_cause.findings.model_dump(),
             "gate": None if root_cause.gate is None else root_cause.gate.model_dump(),
             "challenge": None if root_cause.challenge is None else root_cause.challenge.model_dump(),
@@ -1295,9 +1374,28 @@ class Console:
                             for baseline in selected
                         )
             if not supported:
+                captures: list[dict[str, JsonValue]] = []
+                for record in selected:
+                    debug = record.get("debug")
+                    if not isinstance(debug, dict):
+                        continue
+                    locations: list[JsonValue] = []
+                    hits = debug.get("hits")
+                    if isinstance(hits, list):
+                        for hit in hits:
+                            if isinstance(hit, dict) and isinstance(actual := hit.get("actual_source"), dict):
+                                locations.append(f"{hit.get('file')}:{actual.get('line')}")
+                    captures.append({
+                        "id": record.get("id"), "exit_code": record.get("exit_code"),
+                        "debug_errors": debug.get("errors"), "actual_locations": locations,
+                    })
                 raise AutomationError(
                     "An implementation cause needs matching clean/debug product results, actual hits at "
-                    "'relative/file.ts:actual_line', and successfully observed state; setup or code reading is insufficient"
+                    f"the reported location {location!r}, and successfully observed state. "
+                    "A successful hit in a run with other debugger errors is insufficient: repair the failing "
+                    "conditions or capture the actual producer separately in an error-free run. Do not merely "
+                    "relocate the claim to a downstream consumer. Use remaining authorized checks or return "
+                    "inconclusive. Selected captures: " + json.dumps(captures)
                 )
         elif not any(
             record.get("kind") == "authority" and record.get("status") == 200 and record.get("content")
@@ -1311,13 +1409,16 @@ class Console:
 
     def validate_rca_challenge(self, root_cause: RootCause, challenge: RootCauseChallenge) -> None:
         implementation = root_cause.findings is not None and root_cause.findings.kind == "implementation"
-        independent = set()
+        independent: set[str] = set()
+        authorities: set[str] = set()
         for record in self.rca_records(root_cause):
             if (
                 not isinstance(record, dict) or not isinstance(identifier := record.get("id"), str)
                 or record.get("investigator") != "root_cause_adversary" or "error" in record
             ):
                 continue
+            if record.get("kind") == "authority" and record.get("status") == 200 and record.get("content"):
+                authorities.add(identifier)
             if root_cause.plan is not None and root_cause.plan.runner == "editor_interpreter":
                 successful = editor_signature(record) is not None
             elif implementation:
@@ -1327,13 +1428,20 @@ class Console:
                     and product_output(record) is not None and isinstance(debug, dict) and not debug.get("errors")
                 )
             else:
-                successful = record.get("kind") == "authority" and record.get("status") == 200 and bool(record.get("content"))
+                successful = identifier in authorities
             if successful:
                 independent.add(identifier)
-        if not set(challenge.evidence_ids) <= independent or (
-            challenge.verdict == "survived" and not challenge.evidence_ids
+        cited = set(challenge.evidence_ids)
+        if not cited <= independent | authorities or (
+            challenge.verdict == "survived" and not cited & independent
         ):
-            raise AutomationError("Survived RCA requires the adversary's actual independent evidence")
+            raise AutomationError(
+                "Survived RCA requires the adversary's actual independent evidence: "
+                f"unsupported citations={sorted(cited - (independent | authorities))}; "
+                f"qualifying counterchecks={sorted(cited & independent)}. "
+                "An implementation/integration claim requires an executed product countercheck; "
+                "authoritative sources can supplement it but cannot replace it."
+            )
 
     def save_rca_report(self, entry: Entry) -> None:
         root_cause = entry.root_cause
@@ -1378,16 +1486,41 @@ class Console:
         self.require_report_evidence(entry)
         if self.current_context() != self.context_hash or self.key(await self.github.issue(entry.issue.number)) != entry.input_hash:
             raise AutomationError("Issue or local inputs changed before RCA")
-        directory = self.directory(entry.issue.number) / "rca" / uuid.uuid4().hex
+        previous = entry.root_cause
+        previous_error = previous.error if previous is not None else None
+        resuming = (
+            self.retry_rca and previous is not None and previous.checkpoint_version == 1
+            and previous.status in {"running", "failed"} and previous.stage != "complete"
+            and previous.publication is None
+        )
+        if resuming and previous is not None:
+            directory = Path(previous.directory)
+            if (
+                not directory.resolve().is_relative_to((self.directory(entry.issue.number) / "rca").resolve())
+                or previous.input_hash != self.report_hash(entry) or previous.markdown is None
+                or (directory / "root-cause.md").read_text(encoding="utf-8") != previous.markdown
+                or (self.directory(entry.issue.number) / "root-cause.md").read_text(encoding="utf-8") != previous.markdown
+                or previous.evidence_hash != self.rca_hash(previous)
+            ):
+                raise AutomationError("RCA checkpoint or its evidence changed; refusing to resume")
+            root_cause = previous
+            root_cause.status, root_cause.error = "running", None
+            show(f"#{entry.issue.number}: resuming verified RCA checkpoint at {root_cause.stage}.")
+        else:
+            directory = self.directory(entry.issue.number) / "rca" / uuid.uuid4().hex
+            directory.mkdir(parents=True)
+            atomic_write(directory / "checks.jsonl", "")
+            root_cause = RootCause(input_hash=self.report_hash(entry), directory=str(directory), checkpoint_version=1)
         scratch = directory / "scratch"
-        scratch.mkdir(parents=True)
-        atomic_write(directory / "checks.jsonl", "")
-        root_cause = RootCause(input_hash=self.report_hash(entry), directory=str(directory))
+        scratch.mkdir(exist_ok=True)
         entry.root_cause, entry.rca_opt_in = root_cause, "accepted"
         self.save_rca_report(entry)
         runtime = RootCauseRuntime(ROOT, directory, scratch, process)
         editor = EditorRuntime(ROOT, directory, process, self.editor_code, self.python_extension)
-        tools = RootCauseTools(self.github, scratch, self.release, directory, runtime, editor=editor, ask=self.ask)
+        tools = RootCauseTools(
+            self.github, scratch, self.release, directory, runtime, editor=editor, ask=self.ask,
+            approval_lock=self._approval_lock,
+        )
         context = (
             "Investigate only this unresolved issue using the supplied reproduction plan. Never start with an "
             "empty or wrong-surface CLI run. CLI plans use rca_run with an actual relevant example/config first. "
@@ -1407,9 +1540,21 @@ class Console:
             "not faithful integration reproduction. Current-target evidence cannot settle historical behavior. "
             "Keep partial findings in an inconclusive report rather than claiming the reported cause was found. Preserve semantic "
             "uncertainty: identifying a producer does not prove a bug or by-design intent. "
+            "Use a read-only boolean breakpoint condition to target the actual example's parameter/node rather "
+            "than consuming the first hit in unrelated imports or stubs. Conditions and expressions both reject "
+            "side effects. A broad first-hit capture is not evidence about the reported path. "
+            "Work within eight product attempts per role, including prior attempts on resumption. Read prior "
+            "observations with rca_read_evidence instead of repeating them. Once the decisive producer, handoff "
+            "and a discriminating control are observed, return the complete findings; do not exhaustively trace "
+            "every control. Return inconclusive with useful partial findings if the allowance is insufficient. "
+            "A found implementation location needs a matching clean/debug result at that actual producer in "
+            "a run with no debugger errors. Other failed conditions invalidate that run for this requirement; "
+            "recapture the producer separately instead of merely rewording the report. "
+            + SURFACE_GUIDANCE +
             f"Scratch: {scratch}\nIssue:\n{entry.issue.model_dump_json()}\n"
             + (entry.review_markdown or "") + "\n" + (entry.duplicates_markdown or "")
             + "\nUnresolved judgment:\n" + (entry.adjudication.model_dump_json() if entry.adjudication else "")
+            + ("\nPrevious checkpoint failure to resolve:\n" + previous_error if resuming and previous_error else "")
         )
         try:
             show(f"#{entry.issue.number}: investigating root cause...")
@@ -1424,20 +1569,23 @@ class Console:
                 if surface in {"editor", "language_server"} and plan.runner == "cli":
                     raise AutomationError("A reported editor/LSP issue cannot use a CLI proxy reproduction plan")
 
-            raw = await self.sdk.run(
-                self.rca_agents[0], "PLANNING ONLY: return ReproductionPlan, not findings. No tools or execution. "
-                "Identify the actual surface, exact target versions, missing prerequisites, setup, expected observable "
-                "failure and discriminating controls. Choose a supported runner only when its scenario fits. "
-                "Do not call a CLI/component proxy a reproduction. An unavailable surface needs runner='none' and "
-                "explicit prerequisites. Separate current installed target from the reporter's historical one. "
-                "Do not let missing historical binaries hide a useful explicitly current-target experiment. "
-                "Known capabilities:\n" + json.dumps(capabilities) + "\n" + context,
-                directory, schema=ReproductionPlan, validate=validate_plan,
-            )
-            validate_plan(raw)
-            root_cause.plan = ReproductionPlan.model_validate_json(raw)
+            if root_cause.plan is None:
+                raw = await self.sdk.run(
+                    self.rca_agents[0], "PLANNING ONLY: return ReproductionPlan, not findings. No tools or execution. "
+                    "Identify the actual surface, exact target versions, missing prerequisites, setup, expected observable "
+                    "failure and discriminating controls. Choose a supported runner only when its scenario fits. "
+                    "Do not call a CLI/component proxy a reproduction. An unavailable surface needs runner='none' and "
+                    "explicit prerequisites. Separate current installed target from the reporter's historical one. "
+                    "Do not let missing historical binaries hide a useful explicitly current-target experiment. "
+                    "Known capabilities:\n" + json.dumps(capabilities) + "\n" + context,
+                    directory, schema=ReproductionPlan, validate=validate_plan,
+                )
+                validate_plan(raw)
+                root_cause.plan = ReproductionPlan.model_validate_json(raw)
+                root_cause.stage = "investigation"
+            validate_plan(root_cause.plan.model_dump_json())
             tools.plan = root_cause.plan
-            if root_cause.plan.runner == "cli" and entry.scratch_directory:
+            if not resuming and root_cause.plan.runner == "cli" and entry.scratch_directory:
                 original = Path(entry.scratch_directory).resolve()
                 if not original.is_relative_to(self.directory(entry.issue.number).resolve()):
                     raise AutomationError("Previous reproduction scratch is outside this issue's evidence")
@@ -1451,20 +1599,33 @@ class Console:
                         target.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(source, target)
             self.save_rca_report(entry)
-            for attempt in range(2):
-                raw = await self.sdk.run(
-                    self.rca_agents[0], context + "\nPlan:\n" + root_cause.plan.model_dump_json()
-                    + "\nCapabilities:\n" + json.dumps(capabilities)
-                    + "\nPrior findings:\n" + json.dumps([item.model_dump() for item in root_cause.prior_findings]),
-                    scratch, tools=tools, evidence=directory, schema=RootCauseFindings,
-                    validate=lambda value: self.validate_rca_findings(entry, root_cause, RootCauseFindings.model_validate_json(value)),
-                )
-                root_cause.findings = RootCauseFindings.model_validate_json(raw)
-                self.validate_rca_findings(entry, root_cause, root_cause.findings)
-                root_cause.status = "running" if root_cause.findings.status == "found" else root_cause.findings.status
-                self.save_rca_report(entry)
-                if root_cause.findings.status != "blocked" or attempt:
+            while root_cause.stage in {"investigation", "blocked_challenge"}:
+                if root_cause.stage == "investigation":
+                    raw = await self.sdk.run(
+                        self.rca_agents[0], context + "\nPlan:\n" + root_cause.plan.model_dump_json()
+                        + "\nCapabilities:\n" + json.dumps(capabilities)
+                        + "\nPrior findings:\n" + json.dumps([item.model_dump() for item in root_cause.prior_findings])
+                        + "\nSaved controller evidence index (retrieve full observations with rca_read_evidence):\n"
+                        + json.dumps([
+                            {key: record.get(key) for key in ("id", "kind", "investigator", "tool", "error", "attempt")}
+                            for record in self.rca_records(root_cause) if isinstance(record, dict)
+                        ]),
+                        scratch, tools=tools, evidence=directory, schema=RootCauseFindings, timeout=self.rca_timeout,
+                        validate=lambda value: self.validate_rca_findings(entry, root_cause, RootCauseFindings.model_validate_json(value)),
+                    )
+                    root_cause.findings = RootCauseFindings.model_validate_json(raw)
+                    self.validate_rca_findings(entry, root_cause, root_cause.findings)
+                    root_cause.status = "running" if root_cause.findings.status == "found" else root_cause.findings.status
+                    root_cause.stage = (
+                        "gate" if root_cause.findings.status == "found" else
+                        "blocked_challenge" if root_cause.findings.status == "blocked" and not root_cause.prior_plans
+                        else "complete"
+                    )
+                    self.save_rca_report(entry)
+                if root_cause.stage != "blocked_challenge":
                     break
+                if root_cause.findings is None:
+                    raise AutomationError("Blocked RCA checkpoint is missing its findings")
                 raw = await self.sdk.run(
                     self.rca_agents[1], "BLOCKED-RESULT CHALLENGE: return BlockedChallenge. No new research or execution. "
                     "Check for an avoidable setup mistake, ignored existing evidence or unused supported capability. "
@@ -1480,6 +1641,7 @@ class Console:
                 root_cause.blocked_challenge = BlockedChallenge.model_validate_json(raw)
                 alternative = root_cause.blocked_challenge.alternative
                 if alternative is None:
+                    root_cause.stage = "complete"
                     self.save_rca_report(entry)
                     break
                 validate_plan(alternative.model_dump_json())
@@ -1497,41 +1659,57 @@ class Console:
                 root_cause.prior_plans.append(root_cause.plan)
                 root_cause.plan = tools.plan = alternative
                 root_cause.status = "running"
+                root_cause.stage = "investigation"
                 self.save_rca_report(entry)
             if root_cause.findings is None or root_cause.findings.status != "found":
                 return
             packet = root_cause.findings.model_dump_json() + "\nController evidence:\n" + json.dumps(self.rca_records(root_cause))
-            raw = await self.sdk.run(
-                self.rca_agents[1], "Judge this RCA packet; do not do new research.\n" + packet,
-                directory, schema=RootCauseGate,
-                validate=lambda value: self.validate_rca_gate(root_cause, RootCauseGate.model_validate_json(value)),
-            )
-            root_cause.gate = RootCauseGate.model_validate_json(raw)
+            if root_cause.stage == "gate":
+                raw = await self.sdk.run(
+                    self.rca_agents[1], "Judge this RCA packet; do not do new research.\n" + packet,
+                    directory, schema=RootCauseGate,
+                    validate=lambda value: self.validate_rca_gate(root_cause, RootCauseGate.model_validate_json(value)),
+                )
+                root_cause.gate = RootCauseGate.model_validate_json(raw)
+                root_cause.stage = "challenge" if root_cause.gate.accepted else "complete"
+                if not root_cause.gate.accepted:
+                    root_cause.status = "inconclusive"
+                self.save_rca_report(entry)
+            if root_cause.gate is None:
+                raise AutomationError("RCA checkpoint is missing its evidence gate")
             self.validate_rca_gate(root_cause, root_cause.gate)
             if not root_cause.gate.accepted:
                 root_cause.status = "inconclusive"
                 self.save_rca_report(entry)
                 return
             adversary_scratch = directory / "adversary"
-            adversary_scratch.mkdir()
+            adversary_scratch.mkdir(exist_ok=True)
             adversary_runtime = RootCauseRuntime(ROOT, directory, adversary_scratch, process)
             adversary_runtime.snapshot_hash = runtime.snapshot_hash
             adversary_tools = RootCauseTools(
                 self.github, adversary_scratch, self.release, directory, adversary_runtime, adversary=True,
                 editor=editor, plan=root_cause.plan, ask=self.ask,
+                approval_lock=self._approval_lock,
             )
             raw = await self.sdk.run(
                 self.rca_agents[2],
                 "Independently challenge this gated claim. Execute at least one discriminating countercheck; "
                 "do not count the investigator's checks as your own. Missing counterevidence means uncertain. "
                 + context.replace(str(scratch), str(adversary_scratch)) + "\nPlan:\n"
-                + root_cause.plan.model_dump_json() + "\nGated packet:\n" + packet,
-                adversary_scratch, tools=adversary_tools, evidence=directory, schema=RootCauseChallenge,
+                + root_cause.plan.model_dump_json() + "\nGated packet:\n" + packet
+                + "\nYour prior counterchecks (read by ID rather than claiming a fresh execution):\n"
+                + json.dumps([
+                    {key: record.get(key) for key in ("id", "kind", "tool", "error", "attempt")}
+                    for record in self.rca_records(root_cause) if isinstance(record, dict)
+                    and record.get("investigator") == "root_cause_adversary"
+                ]),
+                adversary_scratch, tools=adversary_tools, evidence=directory, schema=RootCauseChallenge, timeout=self.rca_timeout,
                 validate=lambda value: self.validate_rca_challenge(root_cause, RootCauseChallenge.model_validate_json(value)),
             )
             root_cause.challenge = RootCauseChallenge.model_validate_json(raw)
             self.validate_rca_challenge(root_cause, root_cause.challenge)
             root_cause.status = "found" if root_cause.challenge.verdict == "survived" else "inconclusive"
+            root_cause.stage = "complete"
             self.save_rca_report(entry)
         except (OSError, ValueError, AutomationError, TimeoutError) as error:
             root_cause.status, root_cause.error = "failed", str(error)
@@ -1578,6 +1756,11 @@ class Console:
             "Draft a conversational GitHub issue comment in Rich's voice proposing a POTENTIAL root cause for "
             "maintainer review. Explain the faithful repro, actual observed producer/state, independent countercheck "
             "and important uncertainty. Preserve the distinction between observed behavior and static correctness. "
+            "This is the technical handoff for fixing the issue, not the one-line console summary. Preserve all "
+            "material evidence needed to investigate a fix: minimal reproduction and configuration, expected versus "
+            "actual behavior, producer location and observed state, clean/debug comparison, alternatives ruled out, "
+            "independent countercheck and remaining limitations. Include supported source/issue links. Do not "
+            "compress the investigation into a terse diagnosis or omit evidence just to shorten the comment. "
             "Do not claim a confirmed diagnosis, accepted fix, project intent, closure, or resolution. Do not propose "
             "a permanent fix unless it is clearly an unverified hypothesis. Use precise supported source links; do "
             "not publish local paths, raw debugger dumps, private artifacts, or make up links to uncommitted code. "
@@ -1591,7 +1774,8 @@ class Console:
             "Factual-check this proposed GitHub comment against the supplied RCA only. Do not rewrite its voice "
             "or do new research. Require a qualified potential-cause explanation with accurate actual observations, "
             "counterchecks, source links and limitations; no unsupported correctness, fix, intent, resolution or "
-            "closure claims, local paths or raw private artifacts. Return DraftCheck.\nRCA:\n"
+            "closure claims, local paths or raw private artifacts. Reject a one-line summary or missing material "
+            "reproduction, observed-state or countercheck evidence needed to investigate a fix. Return DraftCheck.\nRCA:\n"
             + (root_cause.markdown or "") + "\nComment:\n" + comment,
             directory, schema=DraftCheck,
         )
@@ -1674,42 +1858,28 @@ class Console:
         self.save(entry)
         show(f"Posted potential root cause for #{entry.issue.number}: {url}")
 
-    async def offer_root_cause(self, entry: Entry) -> None:
+    async def ensure_root_cause(self, entry: Entry) -> None:
+        if not self.rca_enabled:
+            return
         root_cause = entry.root_cause
         if root_cause is not None and root_cause.status == "running":
+            if root_cause.checkpoint_version == 1 and root_cause.evidence_hash != self.rca_hash(root_cause):
+                raise AutomationError("Interrupted RCA evidence changed since its checkpoint; inspect the saved attempt before retrying")
             root_cause.status, root_cause.error = "failed", "Previous RCA attempt was interrupted; use --retry-rca to retry."
             self.save_rca_report(entry)
-        if self.retry_rca:
-            if root_cause is None or (not root_cause.publishable() and root_cause.publication is None):
-                entry.rca_opt_in = "not_asked"
-            elif root_cause.publishable() and root_cause.post_decision == "declined":
-                root_cause.post_decision = "pending"
-        if entry.rca_opt_in == "not_asked":
-            show("RCA uses local product execution and a private build copy; it is not a sandbox. No fixes or automatic posting.")
-            answer = self.ask("Do you want to perform root cause analysis? [y/N] ").strip().lower()
-            if answer != "y":
-                entry.rca_opt_in = "declined"
-                self.save(entry)
-                return
+        if root_cause is None or (
+            self.retry_rca and not root_cause.publishable() and root_cause.publication is None
+        ):
+            show(f"#{entry.issue.number}: starting automatic RCA; local execution is not sandboxed.")
             await self.investigate_root_cause(entry)
             root_cause = entry.root_cause
         if root_cause is None:
-            return
+            raise AutomationError("RCA completed without a saved result")
         show(f"#{entry.issue.number}: RCA {root_cause.status}. Report: {self.directory(entry.issue.number) / 'root-cause.md'}")
-        if not root_cause.publishable() or root_cause.post_decision != "pending":
-            return
-        if self.read_only:
-            show("Dry run: potential root cause saved; comment drafting and posting are disabled.")
-            return
-        comment = await self.prepare_root_cause_comment(entry)
-        show(f"\nPotential-root-cause comment for #{entry.issue.number}:\n\n{comment}\n")
-        answer = self.ask(
-            f"Post this as a potential root cause to issue #{entry.issue.number}? [y/N] "
-        ).strip().lower()
-        if answer == "y":
-            await self.post_root_cause(entry)
-        else:
-            root_cause.post_decision = "declined"
+        if root_cause.status == "failed":
+            raise AutomationError(root_cause.error or "RCA failed; use --retry-rca to retry")
+        if root_cause.publishable() and root_cause.post_decision == "declined":
+            root_cause.post_decision = "pending"
             self.save(entry)
 
     async def prepare_comment(self, entry: Entry) -> str:
@@ -1735,6 +1905,8 @@ class Console:
             conclusion = (
                 "Explain why the observed behavior follows the typing rules or an established intentional limitation. "
                 "Say the issue is being closed as as-designed, but do not claim closure already happened. "
+                "Cite verified supporting historical issues and applicable specification/policy links when available; "
+                "do not invent precedent or links. "
             )
         comment = await self.sdk.run(
             self.writer,
@@ -1897,39 +2069,36 @@ class Console:
         self.save(entry)
         show(f"Closed #{entry.issue.number}: {closure.comment_url}")
 
-    async def decide(self, entry: Entry) -> bool:
+    async def evaluate(self, entry: Entry) -> None:
         if entry.review is None or entry.decision in {"keep", "closed", "failed"}:
-            return True
+            return
         if entry.adjudication is None:
             raise AutomationError("Both reports must be adjudicated before a decision")
         self.require_report_evidence(entry)
-        show(f"\n#{entry.issue.number}: {entry.adjudication.tags()}")
         reason = entry.closure_reason()
-        if entry.unresolved():
-            await self.offer_root_cause(entry)
-        if self.read_only or reason is None:
-            entry.decision = "reviewed"
-            self.save(entry)
+        if reason is None:
+            await self.ensure_root_cause(entry)
+        if not self.read_only:
+            if reason is not None:
+                await self.prepare_comment(entry)
+            elif self.rca_enabled and entry.root_cause is not None and entry.root_cause.publishable():
+                if entry.root_cause.post_decision != "posted":
+                    await self.prepare_root_cause_comment(entry)
+
+    async def decide(self, entry: Entry) -> bool:
+        if entry.review is None or entry.decision in {"keep", "closed", "failed"}:
             return True
-        action = self.ask("Prepare a closing comment, keep open, view reports, or quit? [p/k/v/q; default k] ").strip().lower()
-        while action == "v":
-            show((entry.review_markdown or "") + "\n\n" + (entry.duplicates_markdown or ""))
-            action = self.ask("Prepare comment, keep open, or quit? [p/k/q; default k] ").strip().lower()
-        if action == "q":
-            return False
-        if action != "p":
-            entry.decision = "keep"
-            self.save(entry)
-            return True
-        comment = await self.prepare_comment(entry)
-        show(f"\nComment to publish on #{entry.issue.number}:\n\n{comment}\n")
-        effect = "add 'as designed', and " if reason == "by_design" else ""
-        show(f"This will post the comment, {effect}close as not planned ({entry.adjudication.tags()}).")
-        confirmation = self.ask(f"Type 'close {entry.issue.number}' to approve this issue only, or press Enter to keep it open: ")
-        if confirmation.strip() == f"close {entry.issue.number}":
+        self.require_report_evidence(entry)
+        reason = entry.closure_reason()
+        if not self.read_only and reason is not None:
             await self.close(entry)
         else:
-            entry.decision = "keep"
+            if (
+                not self.read_only and self.rca_enabled and entry.root_cause is not None
+                and entry.root_cause.publishable() and entry.root_cause.post_decision != "posted"
+            ):
+                await self.post_root_cause(entry)
+            entry.decision = "reviewed"
             self.save(entry)
         return True
 
@@ -1985,6 +2154,158 @@ def positive(value: str) -> int:
     return number
 
 
+@dataclass
+class ChunkResult:
+    issue: Issue
+    entry: Entry | None = None
+    status: Literal["ready", "skipped", "failed"] = "ready"
+    message: str = ""
+    validated_reports: bool = False
+
+
+def dry_run_proposal(result: ChunkResult, *, rca_enabled: bool) -> dict[str, JsonValue]:
+    entry = result.entry
+    review = None if entry is None else entry.review
+    adjudication = None if entry is None else entry.adjudication
+    root_cause = None if entry is None else entry.root_cause
+    blockers: list[JsonValue] = []
+    action = "leave_open"
+    if result.status != "ready":
+        action = "blocked"
+        blockers.append(result.message or result.status)
+    elif entry is None or review is None or adjudication is None or entry.duplicates is None:
+        action = "blocked"
+        blockers.append("Both validated investigations and adjudication are required")
+    elif entry.decision in {"failed", "closed"}:
+        action = "blocked"
+        blockers.append(f"Entry is {entry.decision}; no new action is proposed")
+    elif entry.decision == "keep":
+        blockers.append("Previously kept by the operator")
+    else:
+        reason = entry.closure_reason()
+        if reason is not None:
+            action = "close_by_design" if reason == "by_design" else "close_duplicate"
+        elif rca_enabled and root_cause is not None and root_cause.post_decision == "posted":
+            blockers.append("RCA already posted; no new comment is proposed")
+        elif rca_enabled and root_cause is not None and root_cause.publishable():
+            action = "post_root_cause"
+        else:
+            if adjudication.validity == "needs investigation":
+                blockers.append("Behavior evidence does not meet the adjudication gate")
+            if adjudication.duplicate_status == "needs investigation":
+                blockers.append("Duplicate investigation is incomplete or inconclusive")
+            if not rca_enabled:
+                blockers.append("RCA disabled (--no-rca)")
+            elif root_cause is None or not root_cause.publishable():
+                blockers.append(
+                    "No publishable RCA" if root_cause is None else
+                    root_cause.error or f"RCA status: {root_cause.status}; publication gates not satisfied"
+                )
+    return {
+        "issue_number": result.issue.number, "issue_url": result.issue.html_url,
+        "issue_updated_at": result.issue.updated_at,
+        "investigation_status": result.status, "proposed_action": action,
+        "validated_reports": result.status == "ready" or result.validated_reports,
+        "validity": adjudication.validity if adjudication is not None and (
+            result.status == "ready" or result.validated_reports
+        ) else None,
+        "duplicate_status": adjudication.duplicate_status if adjudication is not None and (
+            result.status == "ready" or result.validated_reports
+        ) else None,
+        "rationale": None if adjudication is None else adjudication.rationale,
+        "blocking_reasons": blockers,
+        "by_design_closure_candidate": (
+            result.status == "ready" and review is not None
+            and review.closure_candidate() and review.observed_product()
+        ),
+        "claims": [] if review is None else [claim.model_dump(mode="json") for claim in review.claims],
+        "duplicate_of": None if adjudication is None else adjudication.duplicate_of,
+        "report_hash": None if adjudication is None else adjudication.report_hash,
+        "root_cause_status": None if root_cause is None else root_cause.status,
+        "root_cause_directory": None if root_cause is None else root_cause.directory,
+        "evidence": {
+            "review": f"{result.issue.number}\\review.md",
+            "duplicates": f"{result.issue.number}\\duplicates.md",
+            "entry": f"{result.issue.number}\\entry.json",
+        },
+        "publication_ready": False,
+        "publication_checks_pending": [
+            "Writer draft and factual validation",
+            "Issue/discussion and canonical-issue freshness checks",
+            "Final publication evidence checks",
+        ] if action in {"close_by_design", "close_duplicate", "post_root_cause"} else [],
+        "reference_status": "unreviewed",
+    }
+
+
+def save_dry_run_proposals(
+    state: Path, fingerprint: str, results: list[ChunkResult], planned: int, *, rca_enabled: bool,
+) -> None:
+    proposals: list[JsonValue] = []
+    for result in results:
+        proposal = dry_run_proposal(result, rca_enabled=rca_enabled)
+        atomic_write(state / str(result.issue.number) / "proposal.json", json.dumps(proposal, indent=2) + "\n")
+        proposals.append(proposal)
+    atomic_write(state / "proposals.json", json.dumps({
+        "schema_version": 1, "context_hash": fingerprint,
+        "planned_issues": planned, "completed_issues": len(results), "complete": len(results) == planned,
+        "failed_issues": sum(result.status == "failed" for result in results),
+        "behavior_evaluated_issues": sum(
+            result.entry is not None and result.entry.adjudication is not None
+            and (result.status == "ready" or result.validated_reports) for result in results
+        ),
+        "rca_failed_issues": sum(
+            result.entry is not None and result.entry.root_cause is not None
+            and result.entry.root_cause.status == "failed" for result in results
+        ),
+        "skipped_issues": sum(result.status == "skipped" for result in results),
+        "dry_run": True, "github_mutations_enabled": False,
+        "interpretation": "Unreviewed action proposals, not approved comments or publication authorization.",
+        "proposals": proposals,
+    }, indent=2) + "\n")
+
+
+def reject_operator_approval(_prompt: str) -> str:
+    raise AutomationError("Non-interactive dry run cannot grant human approval; record this probe as blocked")
+
+
+def chunk_table(results: list[ChunkResult], *, rca_enabled: bool) -> str:
+    def cell(value: str, limit: int = 110) -> str:
+        value = " ".join(value.split()).replace("|", "/")
+        return value if len(value) <= limit else value[:limit - 3] + "..."
+
+    rows = [("Issue", "By Design", "Dupe", "Root Cause Summary")]
+    for result in results:
+        entry = result.entry
+        verdict = None if entry is None else entry.adjudication
+        if result.status != "ready" and not (result.status == "failed" and result.validated_reports):
+            by_design = duplicate = result.status.capitalize()
+            summary = result.message
+        else:
+            by_design = "Not evaluated" if verdict is None else {
+                "by design": "Yes", "bug": "No", "needs investigation": "Needs investigation",
+            }[verdict.validity]
+            duplicate = "Not evaluated" if verdict is None else (
+                f"#{verdict.duplicate_of}" if verdict.duplicate_status == "dupe"
+                else "No" if verdict.duplicate_status == "no dupe found" else "Needs investigation"
+            )
+            root_cause = None if entry is None else entry.root_cause
+            if result.status == "failed":
+                summary = result.message
+            elif root_cause is not None:
+                detail = root_cause.findings.cause if root_cause.findings else root_cause.error or "No findings"
+                summary = f"{root_cause.status}: {detail}"
+            elif entry is not None and entry.closure_reason() is not None:
+                summary = "Not needed"
+            else:
+                summary = "Not run" if rca_enabled else "Disabled (--no-rca)"
+        rows.append((f"#{result.issue.number}", cell(by_design), cell(duplicate), cell(summary)))
+    widths = [max(len(row[index]) for row in rows) for index in range(4)]
+    rendered = ["| " + " | ".join(value.ljust(widths[index]) for index, value in enumerate(row)) + " |" for row in rows]
+    rendered.insert(1, "|" + "|".join("-" * (width + 2) for width in widths) + "|")
+    return "\n".join(rendered)
+
+
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--chunk-size", type=positive, default=5)
@@ -1992,10 +2313,19 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--state-dir", type=Path, default=Path.home() / ".copilot" / "issue-review" / "microsoft-pyright")
     parser.add_argument("--model", default="gpt-6.1-sol", help="Copilot model for all stages (default: gpt-6.1-sol)")
     parser.add_argument("--timeout", type=positive, default=900, help="Maximum active seconds per SDK turn, excluding operator approval waits")
+    parser.add_argument(
+        "--rca-timeout", type=positive, default=900,
+        help="Independent active budget for each RCA investigation/countercheck turn, including output correction (default: 900s)",
+    )
     parser.add_argument("--duplicates", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--retry-failed", action="store_true")
-    parser.add_argument("--retry-rca", action="store_true", help="Reoffer RCA or an unposted result for completed unresolved issues; still requires consent")
+    parser.add_argument("--retry-rca", action="store_true", help="Resume compatible failed RCA checkpoints; retry completed blocked/inconclusive attempts")
+    parser.add_argument("--no-rca", action="store_true", help="Disable root-cause analysis and RCA comment publication")
     parser.add_argument("--read-only", "--dry-run", action="store_true", help="Review only; disable comment drafting and GitHub mutations")
+    parser.add_argument(
+        "--non-interactive", action="store_true",
+        help="Requires --dry-run; block probes needing human approval and stop before prompting for another chunk",
+    )
     parser.add_argument("--writer-agent", type=Path, help="Path to the installed rich-mirror agent profile")
     parser.add_argument("--cli-path", default=shutil.which("copilot"), help="Existing authenticated Copilot CLI executable")
     parser.add_argument("--rca-code-path", type=Path, help="Existing VS Code executable for isolated editor RCA (never downloaded)")
@@ -2004,6 +2334,9 @@ def arguments() -> argparse.Namespace:
 
 
 async def main(args: argparse.Namespace) -> None:
+    non_interactive = getattr(args, "non_interactive", False)
+    if non_interactive and not args.read_only:
+        raise AutomationError("--non-interactive requires --dry-run")
     scorer = InjectionScreening.from_environment()
     args.state_dir = args.state_dir.expanduser().resolve()
     if not args.cli_path:
@@ -2021,7 +2354,7 @@ async def main(args: argparse.Namespace) -> None:
         ), None)
     writer = Agent.load(writer_path, "rich-mirror") if writer_path else None
     if writer is None and not args.read_only:
-        show("rich-mirror is unavailable: investigations can run, but comments are disabled. Use --writer-agent.")
+        raise AutomationError("Automatic publication requires rich-mirror. Supply --writer-agent or use --dry-run.")
     rca_agents = [
         Agent.load(AGENTS / f"{name}.md", name) for name in (
             "pyright-issue-root-cause", "pyright-issue-root-cause-gate", "pyright-issue-root-cause-adversary",
@@ -2051,6 +2384,15 @@ async def main(args: argparse.Namespace) -> None:
     issues = [issue for issue in issues if issue.state == "open"]
     show(f"{len(issues)} open issues in {REPOSITORY}; chunks of {args.chunk_size}. State: {args.state_dir}")
     show(f"Model for all SDK stages: {args.model}")
+    rca_enabled = not getattr(args, "no_rca", False)
+    show(f"RCA: {'enabled by default' if rca_enabled else 'disabled (--no-rca)'}.")
+    rca_timeout = getattr(args, "rca_timeout", 900)
+    if rca_enabled:
+        show(f"RCA investigation/countercheck active budget: {rca_timeout}s per turn (separate from --timeout).")
+    show(
+        "Dry run: no comments or closures." if args.read_only else
+        "Automatic publication: close eligible by-design/duplicate issues; post qualified RCA comments."
+    )
     show("Injection screening: target issue and comments only; research reads are not classified.")
     show("Prepare the source CLI with 'pnpm run build:cli:dev' before this run. Do not change source or build outputs during review.")
     show("Copilot searches use ripgrep; optional indexed search is disabled for SDK compatibility.")
@@ -2061,6 +2403,9 @@ async def main(args: argparse.Namespace) -> None:
             "sdk": importlib.metadata.version("github-copilot-sdk"),
             "requested_model": args.model, "release": release,
             "screening_scope": SCREENING_SCOPE,
+            "rca_enabled": rca_enabled, "automatic_publication": not args.read_only,
+            "timeout_seconds": args.timeout, "rca_timeout_seconds": rca_timeout,
+            "non_interactive": non_interactive,
             "started_at": datetime.now(timezone.utc).isoformat(),
         }, indent=2))
         connection = RuntimeConnection.for_stdio(path=args.cli_path)
@@ -2072,10 +2417,13 @@ async def main(args: argparse.Namespace) -> None:
                 github, SDK(client, args.model, args.timeout), args.state_dir,
                 reviewer, duplicate, writer, fingerprint, git("rev-parse", "HEAD"),
                 release, read_only=args.read_only,
+                ask=reject_operator_approval if non_interactive else input,
                 current_context=lambda: context_hash(profiles, args.model, release, runtime, editor_options),
                 adjudicator=adjudicator,
                 retry_rca=getattr(args, "retry_rca", False),
                 editor_code=getattr(args, "rca_code_path", None), python_extension=getattr(args, "rca_python_extension", None),
+                rca_enabled=rca_enabled,
+                rca_timeout=rca_timeout,
             )
             pending = [
                 issue for issue in issues if (
@@ -2084,59 +2432,97 @@ async def main(args: argparse.Namespace) -> None:
                     or entry.decision == "pending"
                     or (not args.read_only and entry.decision == "reviewed" and entry.closure_reason() is not None)
                     or (args.retry_failed and entry.decision == "failed")
-                    or (entry.unresolved() and entry.rca_opt_in == "not_asked")
-                    or (getattr(args, "retry_rca", False) and entry.unresolved()
+                    or (rca_enabled and entry.unresolved()
+                        and (entry.root_cause is None or entry.root_cause.status == "running"))
+                    or (rca_enabled and getattr(args, "retry_rca", False) and entry.unresolved()
                         and (entry.root_cause is None or entry.root_cause.post_decision != "posted"))
-                    or (not args.read_only and entry.root_cause is not None and entry.root_cause.publishable()
-                        and entry.root_cause.post_decision == "pending")
+                    or (rca_enabled and not args.read_only and entry.root_cause is not None
+                        and entry.root_cause.publishable() and entry.root_cause.post_decision != "posted")
                 )
             ]
             failures = skipped = 0
+            completed: list[ChunkResult] = []
+            if args.read_only:
+                save_dry_run_proposals(args.state_dir, fingerprint, completed, len(pending), rca_enabled=rca_enabled)
             if len(pending) < len(issues):
                 show(f"{len(issues) - len(pending)} unchanged completed/kept/failed entries skipped; --retry-failed retries failures.")
+
+            async def investigate_snapshot(snapshot: Issue) -> ChunkResult:
+                entry: Entry | None = None
+                reports_validated = False
+                started = time.monotonic()
+                try:
+                    issue = await github.issue(snapshot.number)
+                    if issue.state != "open":
+                        return ChunkResult(snapshot, status="skipped", message="Issue is no longer open")
+                    entry = await console.review(issue, retry_failed=args.retry_failed)
+                    if entry.decision == "failed":
+                        return ChunkResult(issue, entry, "failed", entry.error or "Previous investigation failed")
+                    if entry.review is not None and entry.duplicates is not None and entry.adjudication is not None:
+                        console.require_report_evidence(entry)
+                        reports_validated = True
+                    await console.evaluate(entry)
+                    entry.elapsed_seconds, entry.error = time.monotonic() - started, None
+                    console.save(entry)
+                    return ChunkResult(issue, entry)
+                except ScreeningBlocked as error:
+                    show(f"#{snapshot.number}: SKIPPED: {error}")
+                    return ChunkResult(snapshot, entry, "skipped", str(error))
+                except (AutomationError, OSError, ValueError, TimeoutError) as error:
+                    saved = entry or console.load(snapshot.number)
+                    if saved is not None:
+                        saved.error = str(error)
+                        saved.elapsed_seconds = time.monotonic() - started
+                        if entry is None:
+                            saved.decision = "failed"
+                        console.save(saved)
+                    show(f"#{snapshot.number}: FAILED: {error}. Progress is saved.")
+                    return ChunkResult(snapshot, saved, "failed", str(error), validated_reports=reports_validated)
+
             for offset in range(0, len(pending), args.chunk_size):
                 chunk = pending[offset:offset + args.chunk_size]
                 show(f"\nReviewing chunk {offset // args.chunk_size + 1}: " + ", ".join(f"#{issue.number}" for issue in chunk))
-                for snapshot in chunk:
-                    if context_hash(profiles, args.model, release, runtime, editor_options) != fingerprint:
-                        raise AutomationError("Local review inputs changed; restart before continuing")
-                    issue = await github.issue(snapshot.number)
-                    if issue.state != "open":
-                        show(f"#{issue.number} is no longer open; skipped")
+                if context_hash(profiles, args.model, release, runtime, editor_options) != fingerprint:
+                    raise AutomationError("Local review inputs changed; restart before continuing")
+                tasks = [asyncio.create_task(investigate_snapshot(snapshot)) for snapshot in chunk]
+                try:
+                    results = await asyncio.gather(*tasks)
+                finally:
+                    for task in tasks:
+                        if not task.done():
+                            task.cancel()
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                show("\n" + chunk_table(results, rca_enabled=rca_enabled))
+                failures += sum(result.status == "failed" for result in results)
+                skipped += sum(result.status == "skipped" for result in results)
+                if context_hash(profiles, args.model, release, runtime, editor_options) != fingerprint:
+                    raise AutomationError("Local review inputs changed; no publication allowed")
+                for result in results:
+                    entry = result.entry
+                    if result.status != "ready" or entry is None:
                         continue
-                    started = time.monotonic()
                     try:
-                        entry = await console.review(issue, retry_failed=args.retry_failed)
-                        entry.elapsed_seconds = time.monotonic() - started
-                        console.save(entry)
+                        await console.decide(entry)
                     except ScreeningBlocked as error:
                         skipped += 1
-                        show(f"#{issue.number}: SKIPPED: {error}")
-                        continue
-                    except (AutomationError, OSError, ValueError, TimeoutError) as error:
-                        failures += 1
-                        entry = console.load(issue.number)
-                        if entry is not None:
-                            entry.error, entry.decision = str(error), "failed"
-                            console.save(entry)
-                        show(f"#{issue.number}: FAILED: {error}")
-                        continue
-                    if context_hash(profiles, args.model, release, runtime, editor_options) != fingerprint:
-                        raise AutomationError("Local review inputs changed; no closure allowed")
-                    try:
-                        if not await console.decide(entry):
-                            return
-                    except ScreeningBlocked as error:
-                        skipped += 1
+                        result.status, result.message = "skipped", str(error)
                         entry.error = str(error)
                         console.save(entry)
                         show(f"#{entry.issue.number}: SKIPPED: {error}")
                     except (AutomationError, OSError, ValueError, TimeoutError) as error:
                         failures += 1
+                        result.status, result.message = "failed", str(error)
                         entry.error = str(error)
                         console.save(entry)
                         show(f"#{entry.issue.number}: STEP FAILED: {error}. Progress is saved.")
+                completed.extend(results)
+                if args.read_only:
+                    save_dry_run_proposals(args.state_dir, fingerprint, completed, len(pending), rca_enabled=rca_enabled)
+                    show(f"Dry-run action proposals saved to {args.state_dir / 'proposals.json'} (not approved for publication).")
                 if offset + args.chunk_size < len(pending):
+                    if non_interactive:
+                        show("Non-interactive dry run stopped before the next chunk; review the saved proposals.")
+                        return
                     if input("\nReview the next chunk? [y/N] ").strip().lower() != "y":
                         return
             if failures:

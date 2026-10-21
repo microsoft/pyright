@@ -252,6 +252,24 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported"):
             compatible_host("1.141.0", "unknown")
 
+    async def test_editor_assets_resume_only_when_capabilities_and_hash_match(self):
+        helpers = self.root / "build" / "automation"
+        helpers.mkdir(parents=True)
+        for name in ("issue_review_editor_probe.cjs", "issue_review_inspector.cjs"):
+            (helpers / name).write_text("// Fixture; not executed.\n", encoding="utf-8")
+        with patch("builtins.print"):
+            await self.runtime.prepare()
+            resumed = EditorRuntime(
+                self.root, self.runtime.directory, self.runner, self.code, self.runtime.python_extension,
+            )
+            await resumed.prepare()
+            self.assertEqual(resumed.snapshot_hash, self.runtime.snapshot_hash)
+            (resumed.snapshot / "pyright" / "package.json").write_text("{}", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "changed"):
+                await EditorRuntime(
+                    self.root, self.runtime.directory, self.runner, self.code, self.runtime.python_extension,
+                ).prepare()
+
     async def test_explicit_host_and_extension_paths_are_resolved_before_changing_process_cwd(self):
         python_extension = self.runtime.python_extension
         assert python_extension is not None
