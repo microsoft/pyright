@@ -153,6 +153,11 @@ Each PR benchmark shard retries pnpm setup once if the initial bootstrap fails, 
 from transient download failures. The setup action cleans its installation directory before each
 attempt. A second failure still fails the shard; missing package results remain an error.
 
+Shards must use matching benchmark settings and runner profiles. The descriptive `platform_details`
+field may differ when hosted runners use different kernel versions; merged results retain all distinct
+descriptions in sorted order. Platform, architecture, runner class and image, CPU count, and Python
+version must still match.
+
 The benchmark measures the exact first-parent and candidate commits on the same hosted runner. The
 trusted job appends both measurements to the checked-in Pyright release history and uploads an HTML
 report, execution-time and peak-memory SVG charts, and combined JSON as a 90-day artifact linked from
