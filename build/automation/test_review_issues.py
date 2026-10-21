@@ -57,6 +57,8 @@ from review_issues import (
     atomic_write,
     arguments,
     chunk_table,
+    claim_evidence_summary,
+    context_hash,
     dry_run_proposal,
     main as review_main,
     reject_operator_approval,
@@ -209,7 +211,36 @@ class FakeGitHub(GitHub):
         return {}
 
 
+class ContextTests(unittest.TestCase):
+    def test_evidence_delivery_code_is_part_of_the_resume_fingerprint(self):
+        module = ROOT / "build" / "automation" / "issue_review_evidence.py"
+        with patch("review_issues.git", return_value="fixed"), patch.object(Path, "read_bytes", return_value=b"unchanged"):
+            before = context_hash([], "test")
+            with patch.object(Path, "read_bytes", lambda path: b"changed" if path == module else b"unchanged"):
+                after = context_hash([], "test")
+        self.assertNotEqual(before, after)
+
+
 class ModelTests(unittest.TestCase):
+    def test_policy_disposition_and_target_reproduction_are_reported_independently(self):
+        report = audit()
+        report.claims[0].reproduction[2].status = "not_reproduced"
+        unresolved = report.claims[0].model_copy(deep=True)
+        unresolved.id = "historical-diagnostic"
+        unresolved.summary = "The historical diagnostic remains unresolved | not a policy verdict"
+        unresolved.disposition = "inconclusive"
+        unresolved.confidence = "medium"
+        report.claims.append(unresolved)
+        summary = claim_evidence_summary(report)
+        self.assertIn("specification correct", summary)
+        self.assertIn("inconclusive", summary)
+        self.assertIn("not reproduced", summary)
+        self.assertIn("Reported release", summary)
+        self.assertIn("Current release", summary)
+        self.assertIn("historical-diagnostic", summary)
+        self.assertIn(r"\| not a policy verdict", summary)
+        self.assertFalse(report.closure_candidate())
+
     def test_adjudication_does_not_force_binary_answers(self):
         review, duplicates = audit(), no_duplicates()
         result = Adjudication(
@@ -1095,6 +1126,7 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         ])
         self.assertIsNotNone(entry.adjudication)
         self.assertIn("actual diagnostic", (self.console.directory(123) / "review.md").read_text())
+        self.assertIn("Claim assessment and reproduction", (self.console.directory(123) / "review.md").read_text())
         self.assertIn("search found no shared cause", (self.console.directory(123) / "duplicates.md").read_text())
         self.assertEqual(entry.closure_reason(), "by_design")
         self.assertEqual(self.github.mutations, [])

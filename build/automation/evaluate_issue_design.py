@@ -37,7 +37,7 @@ from issue_review_models import Confidence, Record, ReviewEvidence, Text
 from issue_review_safety import InjectionScreening, ScreeningBlocked, child_environment
 from review_issues import (
     AGENTS, ROOT, SDK, SURFACE_GUIDANCE, Agent, AutomationError, GitHub, InvestigationTools, RunCheck,
-    atomic_write, digest, observed_pyright_result, process, show, state_lock, validate_review_execution,
+    atomic_write, claim_evidence_summary, digest, observed_pyright_result, process, show, state_lock, validate_review_execution,
 )
 
 Verdict = Literal["by design", "bug", "needs investigation"]
@@ -532,7 +532,7 @@ async def evaluate(
                 raise AutomationError("Prepared product changed during this case; result is not comparable")
             findings = DesignFindings.model_validate_json(raw)
             atomic_write(evidence / "findings.json", findings.model_dump_json(indent=2) + "\n")
-            atomic_write(evidence / "review.md", findings.markdown + "\n")
+            atomic_write(evidence / "review.md", findings.markdown.rstrip() + claim_evidence_summary(findings) + "\n")
             row: dict[str, JsonValue] = {
                 "id": case.id, "verdict": findings.verdict, "confidence": findings.confidence,
                 "claims": [claim.model_dump(mode="json") for claim in findings.claims],

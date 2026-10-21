@@ -66,6 +66,10 @@ Call out intentionally unspecified behavior and implementation discretion.
 When static rules are specified, use them to decide static correctness; use runtime semantics to ground the
 operation rather than overriding the specification. For unspecified behavior, explain Pyright's documented
 policy, soundness and precision tradeoffs, and compatibility implications.
+Apply each rule's premises to the exact scope and evaluation context. Runtime-equivalent forms receiving
+different diagnostics demonstrate a concern, but not automatically a mandatory typing-rule violation.
+Distinguish such requirements from established intended Pyright behavior and optional diagnostic/analysis
+coverage. Neither an omitted diagnostic alone nor the absence of a mandatory rule proves a by-design policy.
 
 ### C. Other type checkers
 
@@ -89,6 +93,9 @@ Classify as:
 -   **Inconclusive / needs information:** evidence does not distinguish the plausible explanations.
 
 State confidence and remaining uncertainty. For correct behavior, draft an explanation and workaround if available.
+Keep semantic disposition separate from reproduction on each target. A supported intentional policy can coexist
+with a historical diagnostic that no longer reproduces; state both, and preserve unresolved material claims
+rather than forcing a settled overall verdict or closure.
 Suggest a diagnostic/documentation improvement only when it addresses a demonstrated usability problem.
 Do not force a code change. For external stub problems, identify the responsible definitions and appropriate
 upstream follow-up instead of masking them in the evaluator.
@@ -111,6 +118,12 @@ State the violated assumption and show how it leads to the observed result.
 Consider Any/Unknown handling, conditional types, union expansion, overload ordering, constraints, and missing
 special cases only when supported by the trace. Validate the hypothesis against neighboring valid and invalid
 cases rather than listing speculative causes.
+Trace the upstream input through the first causally decisive decision, subsequent state and final symptom.
+A downstream cache read, missing callback or diagnostic producer may explain propagation without identifying
+the assumption that needs repair. Use a discriminating control for the strongest competing explanation; if both
+fit the observations, preserve the useful partial mechanism rather than claiming the cause is established.
+Keep controls separate from the unchanged original, and freeze the complete source/configuration tree before
+each matching clean/debug pair. A new or modified excluded control still requires a fresh clean baseline.
 
 ## 7. Implement a focused fix
 

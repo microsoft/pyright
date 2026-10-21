@@ -25,7 +25,12 @@ Runner = Callable[[list[str], Path], Awaitable[tuple[int, str, str]]]
 class Breakpoint(Record):
     file: Text = Field(description="Path relative to the runner's source root: pyright-internal/src for CLI, vscode-pyright/src for editor")
     line: int = Field(gt=0)
-    expressions: list[str] = Field(default_factory=list, max_length=6)
+    expressions: list[str] = Field(
+        default_factory=list, max_length=6,
+        description="Read existing scalar fields or small plain projections. Recursive type/AST graphs can "
+        "fail serialization; printer/helper calls can be rejected as side effects. Failed values remain "
+        "unobserved: use a smaller valid read rather than assuming or reformatting them as successful.",
+    )
     condition: str | None = Field(
         default=None, max_length=2000,
         description="Optional boolean filter evaluated with throwOnSideEffect before capturing the first matching hit.",
@@ -34,14 +39,39 @@ class Breakpoint(Record):
 
 class RootCauseRun(Record):
     breakpoints: list[Breakpoint] = Field(default_factory=list, max_length=4)
+    project: str = Field(
+        default="pyrightconfig.json", min_length=1, max_length=2048,
+        description="CLI only: scratch-relative JSON configuration, e.g. controls\\pyrightconfig.json. "
+        "Keep the original configuration unchanged and use separate projects for controls. "
+        "Freeze all source/configuration files before a clean run and its matching debug run.",
+    )
 
 
 class RootCauseRuntime:
     def __init__(self, root: Path, directory: Path, scratch: Path, runner: Runner):
-        self.root, self.directory, self.scratch, self.runner = root, directory, scratch, runner
+        self.root, self.directory, self.scratch, self.runner = root, directory, scratch.resolve(), runner
         self.snapshot = directory / "runtime"
         self.helper = root / "build" / "automation" / "issue_review_debug.cjs"
         self.snapshot_hash: str | None = None
+
+    def project_path(self, request: RootCauseRun) -> Path:
+        relative = Path(request.project)
+        path = (self.scratch / relative).resolve()
+        if (
+            relative.anchor or ".." in relative.parts or not path.is_relative_to(self.scratch)
+            or path.suffix.lower() != ".json" or not path.is_file()
+        ):
+            raise ValueError("CLI project must be an existing scratch-relative JSON configuration")
+        return path
+
+    def capture_inputs(self) -> list[JsonValue]:
+        inputs: list[JsonValue] = []
+        for path in sorted(self.scratch.rglob("*")):
+            if not path.resolve().is_relative_to(self.scratch):
+                raise ValueError("Scratch files cannot link outside their assigned directory")
+            if path.is_file() and path.suffix.lower() in {".py", ".pyi", ".json"}:
+                inputs.append({"file": str(path.relative_to(self.scratch)), "content": path.read_text(encoding="utf-8")})
+        return inputs
 
     def fingerprint(self) -> str:
         files = {
@@ -84,19 +114,17 @@ class RootCauseRuntime:
                 raise ValueError("Breakpoints must name an existing TypeScript file inside pyright-internal/src")
             if any(len(expression) > 2000 for expression in breakpoint.expressions):
                 raise ValueError("Debugger expressions are limited to 2000 characters")
+        config = self.project_path(request)
+        inputs = self.capture_inputs()
         identifier = uuid.uuid4().hex
         manifest = self.directory / f"{identifier}-request.json"
         artifact = self.directory / f"{identifier}-debug.json"
         manifest.write_text(json.dumps({
             "id": identifier, "runtime": str(self.snapshot), "source_root": str(source_root),
             "dependency_root": str(self.root / "packages" / "pyright-internal"),
-            "config": str(self.scratch / "pyrightconfig.json"), "artifact": str(artifact),
+            "config": str(config), "artifact": str(artifact),
             "breakpoints": [breakpoint.model_dump() for breakpoint in request.breakpoints],
         }), encoding="utf-8")
-        inputs: list[JsonValue] = [
-            {"file": str(path.relative_to(self.scratch)), "content": path.read_text(encoding="utf-8")}
-            for path in sorted([self.scratch / "pyrightconfig.json", *self.scratch.rglob("*.py"), *self.scratch.rglob("*.pyi")])
-        ]
         command = ["node", str(self.helper), str(manifest)]
         code, output, error = await self.runner(command, self.scratch)
         if not artifact.is_file():
@@ -104,6 +132,11 @@ class RootCauseRuntime:
         debug = JSON.validate_json(artifact.read_text(encoding="utf-8"))
         if not isinstance(debug, dict) or debug.get("id") != identifier:
             raise ValueError("Inspector artifact does not match its controller invocation")
+        if self.capture_inputs() != inputs:
+            raise ValueError(
+                "Scratch source/configuration changed during execution; freeze the complete input tree "
+                "and take a fresh clean/debug pair"
+            )
         if await asyncio.to_thread(self.fingerprint) != self.snapshot_hash:
             raise ValueError("Private RCA runtime changed during execution")
         return {
@@ -111,4 +144,5 @@ class RootCauseRuntime:
             "command": subprocess.list2cmdline(command), "cwd": str(self.scratch),
             "exit_code": code, "stdout": output, "stderr": error, "debug": debug,
             "inputs": inputs, "runtime_hash": self.snapshot_hash,
+            "project": str(config.relative_to(self.scratch)),
         }

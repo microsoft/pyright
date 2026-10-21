@@ -6,13 +6,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from copilot import ToolInvocation
 from pydantic import JsonValue
 
+from issue_review_evidence import MAX_RESPONSE_BYTES
 from issue_review_models import BlockedChallenge, DraftCheck, Entry, ReproductionPlan, RootCause, RootCauseChallenge, RootCauseFindings, RootCauseGate
-from issue_review_rca import Breakpoint, RootCauseRun, RootCauseRuntime
+from issue_review_rca import Breakpoint, RootCauseRun, RootCauseRuntime, Runner
 from review_issues import AGENTS, SDK, Agent, AutomationError, ChunkResult, Console, RootCauseTools, atomic_write, arguments, chunk_table, dry_run_proposal
 from test_review_issues import FakeGitHub, audit, issue, save_evidence
 from test_issue_review_editor import editor_record
@@ -395,7 +396,20 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
         async def response(agent, prompt, scratch, **kwargs):
             roles.append(agent.name)
             if "tools" in kwargs:
-                atomic_write(kwargs["tools"].evidence / "checks.jsonl", "".join(json.dumps(r) + "\n" for r in self.records))
+                evidence = kwargs["tools"].evidence / "checks.jsonl"
+                if agent.name == "pyright-issue-root-cause":
+                    atomic_write(evidence, "".join(json.dumps(r) + "\n" for r in self.records[:2]))
+                else:
+                    with evidence.open("a", encoding="utf-8") as stream:
+                        stream.write(json.dumps(self.records[2]) + "\n")
+            if kwargs["schema"] is RootCauseGate:
+                self.assertIn("PRE-ADVERSARY PRIMARY-EVIDENCE GATE", prompt)
+                self.assertIn("independent adversary has NOT run", prompt)
+                self.assertIn("Acceptance authorizes the independent challenge only", prompt)
+                self.assertNotIn('"investigator": "root_cause_adversary"', prompt)
+            if kwargs["schema"] is RootCauseChallenge:
+                assert self.entry.root_cause is not None
+                self.assertFalse(self.entry.root_cause.publishable())
             value = results.pop(0)
             kwargs["validate"](value)
             return value
@@ -411,6 +425,48 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
         self.console.require_rca_evidence(self.entry)
         self.assertEqual(self.entry.adjudication, tags)
         self.assertEqual(self.github.mutations, [])
+
+    async def test_gate_acceptance_without_a_surviving_challenge_never_qualifies(self):
+        assert self.root.findings is not None and self.root.gate is not None
+        uncertain = RootCauseChallenge(
+            verdict="uncertain", markdown="The competing explanation remains unresolved.",
+            explanation="A required independent countercheck is unavailable.", evidence_ids=[],
+        )
+        replies = [self.plan, self.root.findings, self.root.gate, uncertain]
+
+        async def response(agent, prompt, scratch, **options):
+            if options["schema"] is RootCauseFindings:
+                atomic_write(options["tools"].evidence / "checks.jsonl", "".join(
+                    json.dumps(record) + "\n" for record in self.records[:2]
+                ))
+            raw = replies.pop(0).model_dump_json()
+            options["validate"](raw)
+            return raw
+
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=response)):
+            await self.console.investigate_root_cause(self.entry)
+        root = self.entry.root_cause
+        assert root is not None and root.gate is not None
+        self.assertTrue(root.gate.accepted)
+        self.assertEqual(root.status, "inconclusive")
+        self.assertFalse(root.publishable())
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_matching_inputs_do_not_replace_matching_project_cwd_or_error_free_clean_run(self):
+        assert self.root.findings is not None
+        for field, value in (
+            ("project", r"controls\pyrightconfig.json"),
+            ("cwd", str(self.state / "other")),
+            ("debug", {"errors": ["Clean capture failed"], "hits": []}),
+        ):
+            original = dict(self.records[0])
+            self.records[0][field] = value
+            self.persist_records()
+            with self.assertRaisesRegex(AutomationError, "matching clean/debug"):
+                self.console.validate_rca_findings(self.entry, self.root, self.root.findings)
+            self.records[0] = original
+        self.persist_records()
+        self.console.validate_rca_findings(self.entry, self.root, self.root.findings)
 
     async def test_failed_investigation_resumes_the_verified_plan_and_observations(self):
         async def fail_after_observation(_agent, _prompt, _scratch, **options):
@@ -539,6 +595,115 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result.result_type, expected)
             if expected == "success":
                 self.assertEqual(json.loads(result.text_result_for_llm), self.records[1])
+
+    async def test_delivery_does_not_change_raw_receipts_qualification_or_attempt_counts(self):
+        assert self.root.findings is not None
+        findings = self.root.findings
+        for failed in (False, True):
+            with self.subTest(failed=failed):
+                self.records[1]["stderr"] = "retained output\n" * 3000
+                self.records[1]["debug"] = {
+                    "errors": ["Actual failed condition"] if failed else [],
+                    "hits": [{
+                        "file": "parser/parser.ts", "actual_source": {"line": 100},
+                        "evaluations": [{"error": None, "result": {"result": {"type": "number", "value": 1}}}],
+                    }],
+                }
+                self.persist_records()
+                directory = Path(self.root.directory)
+                ledger = directory / "checks.jsonl"
+                before = ledger.read_bytes()
+                runtime = RootCauseRuntime(self.state, directory, self.state, AsyncMock())
+                tools = RootCauseTools(self.github, self.state, {}, directory, runtime)
+
+                def validate():
+                    if failed:
+                        with self.assertRaises(AutomationError):
+                            self.console.validate_rca_findings(self.entry, self.root, findings)
+                    else:
+                        self.console.validate_rca_findings(self.entry, self.root, findings)
+
+                validate()
+                index = await tools.rca_read_evidence(ToolInvocation(
+                    session_id="test", tool_call_id="index", tool_name="rca_read_evidence",
+                    arguments={"evidence_id": "debug"},
+                ))
+                self.assertEqual(json.loads(index.text_result_for_llm)["view"], "evidence_index")
+                offset, parts = 0, []
+                while True:
+                    result = await tools.rca_read_evidence(ToolInvocation(
+                        session_id="test", tool_call_id="page", tool_name="rca_read_evidence",
+                        arguments={"evidence_id": "debug", "pointer": "", "offset": offset},
+                    ))
+                    self.assertEqual(result.result_type, "success", result.text_result_for_llm)
+                    self.assertLessEqual(len(result.text_result_for_llm.encode()), MAX_RESPONSE_BYTES)
+                    page = json.loads(result.text_result_for_llm)
+                    parts.append(page["content"])
+                    if page["next_offset"] is None:
+                        break
+                    self.assertGreater(page["next_offset"], offset)
+                    offset = page["next_offset"]
+                self.assertEqual(json.loads("".join(parts)), self.records[1])
+                self.assertEqual(ledger.read_bytes(), before)
+                self.assertEqual(tools.check_count, 0)
+                validate()
+
+    async def test_large_authority_response_preserves_the_original_capture_limit(self):
+        directory = Path(self.root.directory)
+        runtime = RootCauseRuntime(self.state, directory, self.state, AsyncMock())
+        tools = RootCauseTools(self.github, self.state, {}, directory, runtime)
+        connection = Mock()
+        response = connection.getresponse.return_value
+        response.status, response.read.return_value = 200, b"x" * 65537
+        with patch("review_issues.http.client.HTTPSConnection", return_value=connection):
+            result = await tools.rca_read_source(ToolInvocation(
+                session_id="test", tool_call_id="source", tool_name="rca_read_source",
+                arguments={"url": "https://typing.python.org/en/latest/spec/generics.html"},
+            ))
+        self.assertEqual(result.result_type, "success", result.text_result_for_llm)
+        index = json.loads(result.text_result_for_llm)
+        self.assertEqual(index["view"], "evidence_index")
+        self.assertTrue(index["overview"]["truncated"])
+        response.read.assert_called_once_with(65537)
+        connection.close.assert_called_once()
+        page = await tools.rca_read_evidence(ToolInvocation(
+            session_id="test", tool_call_id="read-source", tool_name="rca_read_evidence",
+            arguments={"evidence_id": index["id"], "pointer": "/content"},
+        ))
+        self.assertTrue(json.loads(page.text_result_for_llm)["capture_truncated"])
+        saved = next(record for record in self.console.rca_records(self.root) if isinstance(record, dict) and record.get("id") == index["id"])
+        self.assertIsInstance(saved, dict)
+        assert isinstance(saved, dict)
+        self.assertEqual(saved["content"], "x" * 65536)
+        self.assertEqual(tools.check_count, 0)
+
+    async def test_large_controller_error_stays_a_failure_with_bounded_delivery(self):
+        directory = Path(self.root.directory)
+        runtime = RootCauseRuntime(self.state, directory, self.state, AsyncMock())
+        tools = RootCauseTools(self.github, self.state, {}, directory, runtime)
+        message = "transport failed\n" * 10000
+        connection = Mock()
+        connection.request.side_effect = OSError(message)
+        with patch("review_issues.http.client.HTTPSConnection", return_value=connection):
+            result = await tools.rca_read_source(ToolInvocation(
+                session_id="test", tool_call_id="error", tool_name="rca_read_source",
+                arguments={"url": "https://typing.python.org/en/latest/spec/"},
+            ))
+        self.assertEqual(result.result_type, "failure")
+        self.assertIsNotNone(result.error)
+        self.assertLess(len(result.error or ""), 256)
+        self.assertLessEqual(len(result.text_result_for_llm.encode()), MAX_RESPONSE_BYTES)
+        index = json.loads(result.text_result_for_llm)
+        self.assertEqual(index["overview"]["kind_preview"], "tool_error")
+        saved = next(record for record in self.console.rca_records(self.root) if isinstance(record, dict) and record.get("id") == index["id"])
+        assert isinstance(saved, dict)
+        self.assertEqual(saved["error"], message)
+        page = await tools.rca_read_evidence(ToolInvocation(
+            session_id="test", tool_call_id="error-page", tool_name="rca_read_evidence",
+            arguments={"evidence_id": index["id"], "pointer": "/error"},
+        ))
+        self.assertEqual(json.loads(page.text_result_for_llm)["record_sha256"], index["record_sha256"])
+        self.assertEqual(tools.check_count, 0)
 
     async def test_rca_failure_preserves_validated_behavior_and_duplicate_outcomes(self):
         assert self.entry.review is not None
@@ -722,6 +887,226 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
 
 
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
+    def prepared_runtime(self, runner: Runner | None = None) -> tuple[RootCauseRuntime, RootCauseTools]:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        source = root / "packages" / "pyright" / "dist"
+        source.mkdir(parents=True)
+        for name in ("pyright.js", "pyright-internal.js", "pyright-internal.js.map", "vendor.js"):
+            atomic_write(source / name, "prepared test bundle")
+        atomic_write(root / "packages" / "pyright-internal" / "src" / "parser" / "parser.ts", "const value = 1;\n")
+        scratch = root / "scratch"
+        atomic_write(scratch / "pyrightconfig.json", '{"include":["original.py"]}')
+        atomic_write(scratch / "original.py", "value: int = 'wrong'\n")
+
+        async def capture(command: list[str], cwd: Path) -> tuple[int, str, str]:
+            manifest = json.loads(Path(command[-1]).read_text(encoding="utf-8"))
+            atomic_write(Path(manifest["artifact"]), json.dumps({"id": manifest["id"], "errors": [], "hits": []}))
+            return 0, '{"version":"1.1.414","generalDiagnostics":[]}', ""
+
+        runtime = RootCauseRuntime(root, root / "attempt", scratch, runner or capture)
+        tools = RootCauseTools(FakeGitHub(), scratch, {}, runtime.directory, runtime)
+        return runtime, tools
+
+    async def run_cli(self, tools: RootCauseTools, **arguments):
+        return await tools.rca_run(ToolInvocation(
+            session_id="test", tool_call_id="run", tool_name="rca_run", arguments=arguments,
+        ))
+
+    async def test_separate_control_project_runs_without_changing_original(self):
+        runtime, tools = self.prepared_runtime()
+        scratch = runtime.scratch
+        original = (scratch / "original.py").read_bytes()
+        configuration = (scratch / "pyrightconfig.json").read_bytes()
+        project = str(Path("controls") / "pyrightconfig.json")
+        atomic_write(scratch / project, '{"include":["control.py"]}')
+        atomic_write(scratch / "controls" / "control.py", "value: int = 1\n")
+        clean = await self.run_cli(tools, project=project)
+        debug = await self.run_cli(tools, project=project, breakpoints=[{"file": r"parser\parser.ts", "line": 1}])
+        self.assertEqual(clean.result_type, "success", clean.text_result_for_llm)
+        self.assertEqual(debug.result_type, "success", debug.text_result_for_llm)
+        record = json.loads(debug.text_result_for_llm)
+        manifest = json.loads((runtime.directory / f"{record['id']}-request.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["config"], str(scratch / project))
+        self.assertEqual(record["project"], project)
+        self.assertEqual(record["inputs"], json.loads(clean.text_result_for_llm)["inputs"])
+        self.assertEqual(len(record["inputs"]), 4)
+        self.assertEqual((scratch / "original.py").read_bytes(), original)
+        self.assertEqual((scratch / "pyrightconfig.json").read_bytes(), configuration)
+
+    async def test_project_paths_and_config_paths_respect_their_actual_base(self):
+        runtime, tools = self.prepared_runtime()
+        config = runtime.scratch / "controls" / "pyrightconfig.json"
+        atomic_write(config, json.dumps({"include": [str(Path("..") / "original.py")]}))
+        tools.validate_config(config)
+        atomic_write(config, json.dumps({"include": [str(Path("..") / ".." / "outside.py")]}))
+        with self.assertRaisesRegex(AutomationError, "scratch-only"):
+            tools.validate_config(config)
+        for project in (str(runtime.scratch / "pyrightconfig.json"), r"..\outside.json", "original.py", "missing.json"):
+            with self.subTest(project=project):
+                result = await self.run_cli(tools, project=project)
+                self.assertEqual(result.result_type, "failure")
+                self.assertIn("scratch-relative JSON", result.text_result_for_llm)
+        self.assertEqual(tools.check_count, 0)
+
+    async def test_stale_input_tree_requires_a_fresh_clean_pair_without_spending_an_attempt(self):
+        runtime, tools = self.prepared_runtime()
+        first = await self.run_cli(tools)
+        self.assertEqual(first.result_type, "success")
+        atomic_write(runtime.scratch / "excluded-control.py", "value: str = 'control'\n")
+        points = [{"file": r"parser\parser.ts", "line": 1}]
+        stale = await self.run_cli(tools, breakpoints=points)
+        self.assertEqual(stale.result_type, "failure")
+        self.assertIn("even excluded controls", stale.text_result_for_llm)
+        self.assertEqual(tools.check_count, 1)
+        fresh = await self.run_cli(tools)
+        debug = await self.run_cli(tools, breakpoints=points)
+        self.assertEqual(debug.result_type, "success", debug.text_result_for_llm)
+        self.assertEqual(json.loads(fresh.text_result_for_llm)["inputs"], json.loads(debug.text_result_for_llm)["inputs"])
+        self.assertNotEqual(json.loads(first.text_result_for_llm)["inputs"], json.loads(debug.text_result_for_llm)["inputs"])
+        self.assertEqual(tools.check_count, 3)
+
+    async def test_large_runtime_receipt_is_saved_whole_and_read_without_another_execution(self):
+        async def runner(command: list[str], cwd: Path) -> tuple[int, str, str]:
+            manifest = json.loads(Path(command[-1]).read_text(encoding="utf-8"))
+            capture = {"id": manifest["id"], "errors": [], "hits": []}
+            if manifest["breakpoints"]:
+                capture["hits"] = [{
+                    "file": r"parser\parser.ts", "actual_source": {"line": 1},
+                    "evaluations": [{"expression": "printer()", "error": None, "result": {
+                        "exceptionDetails": {"text": "Side effects rejected", "stackTrace": "frame\n" * 20000},
+                    }}],
+                }]
+            atomic_write(Path(manifest["artifact"]), json.dumps(capture))
+            return 0, '{"version":"1.1.414","generalDiagnostics":[]}', ""
+
+        runtime, tools = self.prepared_runtime(runner)
+        await self.run_cli(tools)
+        result = await self.run_cli(tools, breakpoints=[{"file": r"parser\parser.ts", "line": 1}])
+        self.assertEqual(result.result_type, "success", result.text_result_for_llm)
+        index = json.loads(result.text_result_for_llm)
+        self.assertEqual(index["view"], "evidence_index")
+        self.assertEqual(index["failed_evaluations"], 1)
+        self.assertEqual(index["observations"][0]["status"], "failed")
+        ledger = runtime.directory / "checks.jsonl"
+        before = ledger.read_bytes()
+        reread = await tools.rca_read_evidence(ToolInvocation(
+            session_id="test", tool_call_id="index", tool_name="rca_read_evidence",
+            arguments={"evidence_id": index["id"]},
+        ))
+        self.assertEqual(json.loads(reread.text_result_for_llm)["record_sha256"], index["record_sha256"])
+        page = await tools.rca_read_evidence(ToolInvocation(
+            session_id="test", tool_call_id="page", tool_name="rca_read_evidence",
+            arguments={"evidence_id": index["id"], "pointer": "/debug/hits/0/evaluations/0/result/exceptionDetails/text"},
+        ))
+        self.assertEqual(json.loads(json.loads(page.text_result_for_llm)["content"]), "Side effects rejected")
+        self.assertEqual(ledger.read_bytes(), before)
+        self.assertEqual(tools.check_count, 2)
+        saved = next(json.loads(line) for line in before.decode().splitlines() if json.loads(line).get("id") == index["id"])
+        artifact = json.loads((runtime.directory / f"{index['id']}-debug.json").read_text(encoding="utf-8"))
+        self.assertEqual(saved["debug"], artifact)
+        self.assertEqual(saved["debug"]["hits"][0]["evaluations"][0]["result"]["exceptionDetails"]["stackTrace"], "frame\n" * 20000)
+
+    async def test_baselines_are_project_and_role_specific_and_survive_resumption(self):
+        runtime, tools = self.prepared_runtime()
+        project = str(Path("controls") / "pyrightconfig.json")
+        atomic_write(runtime.scratch / project, '{"include":["control.py"]}')
+        atomic_write(runtime.scratch / "controls" / "control.py", "value = 1\n")
+        await self.run_cli(tools)
+        points = [{"file": r"parser\parser.ts", "line": 1}]
+        wrong_project = await self.run_cli(tools, project=project, breakpoints=points)
+        self.assertEqual(wrong_project.result_type, "failure")
+        resumed = RootCauseTools(FakeGitHub(), runtime.scratch, {}, runtime.directory, runtime)
+        valid = await self.run_cli(resumed, breakpoints=points)
+        self.assertEqual(valid.result_type, "success", valid.text_result_for_llm)
+        adversary = RootCauseTools(FakeGitHub(), runtime.scratch, {}, runtime.directory, runtime, adversary=True)
+        borrowed = await self.run_cli(adversary, breakpoints=points)
+        self.assertEqual(borrowed.result_type, "failure")
+        self.assertEqual(adversary.check_count, 0)
+        self.assertEqual(resumed.check_count, 2)
+
+    async def test_modifying_an_excluded_configuration_also_invalidates_the_baseline(self):
+        runtime, tools = self.prepared_runtime()
+        config = runtime.scratch / "controls.json"
+        atomic_write(config, "{}")
+        await self.run_cli(tools)
+        atomic_write(config, '{"pythonVersion":"3.13"}')
+        result = await self.run_cli(tools, breakpoints=[{"file": r"parser\parser.ts", "line": 1}])
+        self.assertEqual(result.result_type, "failure")
+        self.assertEqual(tools.check_count, 1)
+
+    async def test_resumption_cannot_borrow_a_clean_run_from_an_identical_tree_at_another_cwd(self):
+        runtime, tools = self.prepared_runtime()
+        await self.run_cli(tools)
+        moved = runtime.scratch.with_name("moved-scratch")
+        for path in runtime.scratch.iterdir():
+            atomic_write(moved / path.name, path.read_text(encoding="utf-8"))
+        resumed_runtime = RootCauseRuntime(runtime.root, runtime.directory, moved, runtime.runner)
+        resumed = RootCauseTools(FakeGitHub(), moved, {}, runtime.directory, resumed_runtime)
+        result = await self.run_cli(resumed, breakpoints=[{"file": r"parser\parser.ts", "line": 1}])
+        self.assertEqual(result.result_type, "failure")
+        self.assertIn("First run a clean relevant CLI baseline", result.text_result_for_llm)
+        self.assertEqual(resumed.check_count, 1)
+
+    async def test_source_changes_during_execution_are_preserved_as_failure(self):
+        async def mutate(command: list[str], cwd: Path) -> tuple[int, str, str]:
+            manifest = json.loads(Path(command[-1]).read_text(encoding="utf-8"))
+            atomic_write(Path(manifest["artifact"]), json.dumps({"id": manifest["id"], "errors": [], "hits": []}))
+            atomic_write(cwd / "late-control.py", "value = 1\n")
+            return 0, '{"version":"1.1.414","generalDiagnostics":[]}', ""
+
+        runtime, tools = self.prepared_runtime(mutate)
+        result = await self.run_cli(tools)
+        self.assertEqual(result.result_type, "failure")
+        self.assertIn("changed during execution", result.text_result_for_llm)
+        self.assertEqual(tools.check_count, 1)
+        self.assertFalse(tools.cli_baseline)
+        self.assertTrue(list(runtime.directory.glob("*-debug.json")))
+
+    async def test_editor_run_cannot_silently_ignore_a_cli_project_selector(self):
+        runtime, tools = self.prepared_runtime()
+        result = await tools.rca_editor_run(ToolInvocation(
+            session_id="test", tool_call_id="editor", tool_name="rca_editor_run",
+            arguments={"project": r"controls\pyrightconfig.json"},
+        ))
+        self.assertEqual(result.result_type, "failure")
+        self.assertIn("only for CLI", result.text_result_for_llm)
+        self.assertEqual(tools.check_count, 0)
+
+    async def test_overlapping_cli_calls_are_serialized_during_private_runtime_setup(self):
+        import asyncio
+        _, tools = self.prepared_runtime()
+        results = await asyncio.gather(self.run_cli(tools), self.run_cli(tools))
+        self.assertTrue(all(result.result_type == "success" for result in results))
+        self.assertEqual(tools.check_count, 2)
+
+    async def test_external_scratch_links_are_not_captured_or_selected(self):
+        runtime, _ = self.prepared_runtime()
+        outside = runtime.directory.parent / "outside.json"
+        atomic_write(outside, "{}")
+        link = runtime.scratch / "linked.json"
+        try:
+            link.symlink_to(outside)
+        except OSError as error:
+            self.skipTest(f"Symlinks unavailable on this host: {error}")
+        with self.assertRaisesRegex(ValueError, "scratch-relative JSON"):
+            runtime.project_path(RootCauseRun(project=link.name))
+        with self.assertRaisesRegex(ValueError, "cannot link outside"):
+            runtime.capture_inputs()
+
+    async def test_preflight_and_run_snapshots_cannot_disagree(self):
+        runtime, tools = self.prepared_runtime()
+        runtime.run = AsyncMock(return_value={
+            "inputs": [{"file": "original.py", "content": "modified after preflight"}],
+            "project": "pyrightconfig.json",
+        })
+        result = await self.run_cli(tools)
+        self.assertEqual(result.result_type, "failure")
+        self.assertIn("changed after preflight", result.text_result_for_llm)
+        self.assertEqual(tools.check_count, 1)
+        self.assertFalse(tools.cli_baseline)
+
     async def test_real_inspector_targeting_and_side_effect_guards(self):
         from review_issues import ROOT, process
         code, output, error = await process([

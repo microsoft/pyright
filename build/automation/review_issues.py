@@ -50,6 +50,7 @@ from copilot.session import CustomAgentConfig, PermissionInvocation, PermissionR
 from copilot.session_events import AssistantMessageData, SessionEvent
 from pydantic import BaseModel, Field, JsonValue, TypeAdapter
 
+from issue_review_evidence import PAGE_CHARS, evidence_page, evidence_response
 from issue_review_models import (
     REPOSITORY,
     Adjudication,
@@ -172,8 +173,34 @@ def code_block(text: str, language: str = "text") -> str:
     return f"{fence}{language}\n{text.rstrip()}\n{fence}\n"
 
 
+def claim_evidence_summary(review: ReviewEvidence) -> str:
+    def cell(value: str) -> str:
+        return " ".join(value.split()).replace("|", "\\|")
+
+    rows = [
+        "\n\n## Claim assessment and reproduction\n",
+        "Semantic disposition and reproduction are independent. A supported design policy does not "
+        "establish historical reproduction; non-reproduction does not invalidate a historical report. "
+        "Unresolved material claims still block by-design closure.\n\n",
+        "| Claim | Disposition | Confidence | Reported release | Current release | Checkout |\n",
+        "|---|---|---|---|---|---|\n",
+    ]
+    for claim in review.claims:
+        targets = {item.target: item for item in claim.reproduction}
+        statuses = [
+            targets[target].status.replace("_", " ")
+            + (f" ({targets[target].version})" if targets[target].version else "")
+            for target in ("reported_release", "current_release", "checkout")
+        ]
+        rows.append("| " + " | ".join(cell(value) for value in [
+            f"{claim.id}: {claim.summary}", claim.disposition.replace("_", " "), claim.confidence, *statuses,
+        ]) + " |\n")
+    return "".join(rows)
+
+
 def execution_appendix(review: Audit, records: list[JsonValue]) -> str:
     sections = [
+        claim_evidence_summary(review),
         "\n\n## Controller-recorded product evidence\n",
         f"Product surface: `{review.product_surface}`. Checkout: `{review.checkout_revision}`.\n",
         "This runner executes the actual checkout-built Pyright CLI, not a mock or CPython substitute. "
@@ -615,7 +642,7 @@ class InvestigationTools:
         for key, value in config.items():
             if key in {"include", "exclude", "strict"}:
                 if not isinstance(value, list) or any(
-                    not isinstance(item, str) or not inside(str(self.scratch / item), self.scratch)
+                    not isinstance(item, str) or not inside(str(path.parent / item), self.scratch)
                     for item in value
                 ):
                     raise AutomationError(f"Configuration '{key}' must contain scratch-only paths")
@@ -633,7 +660,14 @@ class AuthorityRead(Record):
 
 
 class EvidenceRead(Record):
-    evidence_id: Text
+    evidence_id: Text = Field(max_length=128)
+    pointer: str | None = Field(
+        default=None, max_length=2048,
+        description="Exact RFC 6901 JSON pointer into the saved receipt, e.g. /debug/hits/0/evaluations/0. "
+        "Use '' for the complete receipt. Omit for the normal record or a compact index.",
+    )
+    offset: int = Field(default=0, ge=0, description="Character offset in the selected value's canonical JSON.")
+    max_chars: int = Field(default=PAGE_CHARS, ge=1, le=PAGE_CHARS)
 
 
 class RootCauseTools(InvestigationTools):
@@ -652,6 +686,7 @@ class RootCauseTools(InvestigationTools):
         self.runtime, self.check_count = runtime, 0
         self.editor, self.plan, self.ask, self.editor_approved = editor, plan, ask, False
         self.last_editor_error: str | None = None
+        self._cli_lock = asyncio.Lock()
         self._editor_lock = asyncio.Lock()
         self.cli_baseline, self.editor_baseline_failure = False, False
         ledger = evidence / "checks.jsonl"
@@ -663,17 +698,26 @@ class RootCauseTools(InvestigationTools):
             if isinstance(record, dict) and record.get("investigator") == self.investigator
         ]
         self.check_count = sum(record.get("kind") == "execution_attempt" for record in own)
-        self.cli_baseline = any(record.get("kind") == "product_run" and product_output(record) is not None for record in own)
+        self.cli_baselines = [
+            record for record in own if record.get("kind") == "product_run"
+            and record.get("exit_code") in (0, 1) and product_output(record) is not None
+            and isinstance(debug := record.get("debug"), dict) and not debug.get("errors")
+        ]
+        self.cli_baseline = bool(self.cli_baselines)
         self.editor_baseline_failure = any(editor_failure(record) for record in own)
         self.tools = [
             self.tools[0],
             Tool("rca_run", "Run the private actual Pyright CLI, optionally with source-mapped inspector breakpoints. "
+                 "Select a scratch-relative JSON project for separate controls without changing the original. "
+                 "Debugging requires a clean run of the same project and complete current source/configuration tree. "
                  "Expressions are read-only; no Python execution, source patches, or arbitrary commands.",
                  self.rca_run, RootCauseRun.model_json_schema()),
             Tool("rca_read_source", "Retrieve one authoritative HTTPS source and return a controller evidence ID.",
                  self.rca_read_source, AuthorityRead.model_json_schema()),
             Tool("rca_read_evidence", "Read a previous controller-recorded execution or source by its exact evidence ID. "
-                 "Use saved observations to continue without repeating successful checks.",
+                 "Large receipts return an index with failure flags and exact JSON pointers. Select pointer='' "
+                 "or a nested pointer and follow next_offset to page canonical JSON without another product attempt. "
+                 "Raw receipts and failures remain unchanged; an index/page is not a qualification verdict.",
                  self.rca_read_evidence, EvidenceRead.model_json_schema()),
             Tool("rca_editor_run", "Run the actual editor interpreter-handoff scenario in fresh isolated profiles, "
                  "with python_env, venv and python_envs/venv controls. No interpreter selection, reporter code, "
@@ -692,30 +736,67 @@ class RootCauseTools(InvestigationTools):
             return PermissionDecisionReject(feedback="RCA exposes only scoped research and private product checks.")
         return super().permission(request, invocation)
 
+    def _record_result(self, record: dict[str, JsonValue], *, failed: bool = False) -> ToolResult:
+        receipt = {**record, "investigator": self.investigator}
+        self.log(receipt)
+        return ToolResult(
+            text_result_for_llm=evidence_response(receipt), result_type="failure" if failed else "success",
+            error=f"RCA tool failed; inspect error evidence {receipt.get('id')}" if failed else None,
+        )
+
+    def _failed_result(self, tool: str, error: Exception, **extra: JsonValue) -> ToolResult:
+        return self._record_result({
+            **extra, "id": uuid.uuid4().hex, "kind": "tool_error", "tool": tool, "error": str(error),
+        }, failed=True)
+
     async def rca_run(self, invocation: ToolInvocation) -> ToolResult:
+        async with self._cli_lock:
+            return await self._run_cli(invocation)
+
+    async def _run_cli(self, invocation: ToolInvocation) -> ToolResult:
         try:
             if self.screening_error is not None:
                 raise self.screening_error
             request = RootCauseRun.model_validate(invocation.arguments)
             if self.plan is not None and self.plan.runner != "cli":
                 raise AutomationError("This reproduction plan does not permit a CLI proxy; use the planned surface")
-            if request.breakpoints and not self.cli_baseline:
-                raise AutomationError("First run a clean relevant CLI baseline before requesting instrumentation")
-            self.check_count += 1
-            if self.check_count > 8:
+            if self.check_count >= 8:
                 raise AutomationError("This RCA role has exhausted its eight product-check allowance; preserve remaining uncertainty")
-            self.log({"kind": "execution_attempt", "tool": "rca_run", "attempt": self.check_count})
-            self.validate_config(self.scratch / "pyrightconfig.json")
+            config = self.runtime.project_path(request)
+            project = str(config.relative_to(self.scratch))
+            self.validate_config(config)
             if self.runtime.snapshot_hash is None:
                 await self.runtime.prepare()
+            inputs = self.runtime.capture_inputs()
+            if request.breakpoints and not any(
+                record.get("project", "pyrightconfig.json") == project
+                and record.get("cwd") == str(self.runtime.scratch)
+                and record.get("runtime_hash") == self.runtime.snapshot_hash
+                and record.get("inputs") == inputs
+                for record in self.cli_baselines
+            ):
+                raise AutomationError(
+                    f"First run a clean relevant CLI baseline for project {project!r} with the complete "
+                    "current source/configuration tree. Adding even excluded controls or changing another "
+                    "configuration invalidates the earlier pair. Freeze all files, run rca_run without "
+                    "breakpoints for this project, then repeat with breakpoints and no intervening edits."
+                )
+            self.check_count += 1
+            self.log({"kind": "execution_attempt", "tool": "rca_run", "attempt": self.check_count, "project": project})
             record = await self.runtime.run(request)
+            if record.get("inputs") != inputs or record.get("project") != project:
+                raise AutomationError("CLI inputs/project changed after preflight; freeze all files and take a fresh clean/debug pair")
             if not request.breakpoints:
-                self.cli_baseline = product_output(record) is not None
-            self.log(record)
-            return ToolResult(text_result_for_llm=json.dumps(record), result_type="success")
+                debug = record.get("debug")
+                self.cli_baseline = (
+                    record.get("exit_code") in (0, 1) and product_output(record) is not None
+                    and isinstance(debug, dict) and not debug.get("errors")
+                )
+                if self.cli_baseline:
+                    self.cli_baselines.append(record)
+            return self._record_result(record)
         except (OSError, ValueError, AutomationError, TimeoutError) as error:
-            self.log({"tool": "rca_run", "error": str(error)})
-            return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
+            return self._failed_result("rca_run", error)
 
     async def rca_editor_run(self, invocation: ToolInvocation) -> ToolResult:
         async with self._editor_lock:
@@ -723,6 +804,8 @@ class RootCauseTools(InvestigationTools):
                 if self.screening_error is not None:
                     raise self.screening_error
                 request = RootCauseRun.model_validate(invocation.arguments)
+                if request.project != "pyrightconfig.json":
+                    raise AutomationError("Project selection is available only for CLI runs, not editor scenarios")
                 if self.editor is None or self.plan is None or self.plan.runner != "editor_interpreter":
                     raise AutomationError("Editor execution requires an editor-interpreter reproduction plan")
                 if request.breakpoints and not self.editor_baseline_failure:
@@ -749,16 +832,15 @@ class RootCauseTools(InvestigationTools):
                 record = await self.editor.run(request)
                 if not request.breakpoints:
                     self.editor_baseline_failure = editor_failure(record)
-                self.log(record)
-                return ToolResult(text_result_for_llm=json.dumps(record), result_type="success")
+                return self._record_result(record)
             except (OSError, ValueError, AutomationError, TimeoutError) as error:
                 self.last_editor_error = str(error)
-                self.log({
-                    "tool": "rca_editor_run", "error": str(error),
-                    "editor_progress": self.editor.last_progress if self.editor else None,
-                })
+                result = self._failed_result(
+                    "rca_editor_run", error,
+                    editor_progress=self.editor.last_progress if self.editor else None,
+                )
                 show(f"  [editor RCA] FAILED: {error}")
-                return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
+                return result
 
     async def rca_read_evidence(self, invocation: ToolInvocation) -> ToolResult:
         try:
@@ -770,11 +852,16 @@ class RootCauseTools(InvestigationTools):
             ]
             for record in records:
                 if isinstance(record, dict) and record.get("id") == request.evidence_id:
-                    return ToolResult(text_result_for_llm=json.dumps(record), result_type="success")
+                    if request.pointer is None:
+                        if request.offset or request.max_chars != PAGE_CHARS:
+                            raise AutomationError("Paged reads require pointer='' or an exact nested JSON pointer")
+                        content = evidence_response(record)
+                    else:
+                        content = evidence_page(record, request.pointer, offset=request.offset, max_chars=request.max_chars)
+                    return ToolResult(text_result_for_llm=content, result_type="success")
             raise AutomationError("No controller record has that evidence ID")
         except (OSError, ValueError, AutomationError) as error:
-            self.log({"tool": "rca_read_evidence", "error": str(error)})
-            return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
+            return self._failed_result("rca_read_evidence", error)
 
     async def rca_read_source(self, invocation: ToolInvocation) -> ToolResult:
         try:
@@ -806,11 +893,9 @@ class RootCauseTools(InvestigationTools):
 
             record = await asyncio.to_thread(fetch)
             record["screening"] = "not_screened_research"
-            self.log(record)
-            return ToolResult(text_result_for_llm=json.dumps(record), result_type="success")
+            return self._record_result(record)
         except (OSError, ValueError, AutomationError, http.client.HTTPException) as error:
-            self.log({"tool": "rca_read_source", "error": str(error)})
-            return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
+            return self._failed_result("rca_read_source", error)
 
 
 class SDK:
@@ -1366,7 +1451,10 @@ class Console:
                         observed = product_output(record)
                         supported = supported or observed is not None and any(
                             baseline.get("kind") == "product_run" and baseline.get("exit_code") in (0, 1)
+                            and isinstance(clean_debug := baseline.get("debug"), dict) and not clean_debug.get("errors")
                             and baseline.get("inputs") == record.get("inputs")
+                            and baseline.get("project", "pyrightconfig.json") == record.get("project", "pyrightconfig.json")
+                            and baseline.get("cwd") == record.get("cwd")
                             and baseline.get("runtime_hash") == record.get("runtime_hash")
                             and (output := product_output(baseline)) is not None
                             and output.get("version") == observed.get("version")
@@ -1393,7 +1481,9 @@ class Console:
                     "An implementation cause needs matching clean/debug product results, actual hits at "
                     f"the reported location {location!r}, and successfully observed state. "
                     "A successful hit in a run with other debugger errors is insufficient: repair the failing "
-                    "conditions or capture the actual producer separately in an error-free run. Do not merely "
+                    "conditions or capture the actual producer separately in an error-free run. Freeze the "
+                    "complete input tree before a fresh clean/debug pair for the same project; even excluded "
+                    "control files invalidate an earlier baseline. Do not merely "
                     "relocate the claim to a downstream consumer. Use remaining authorized checks or return "
                     "inconclusive. Selected captures: " + json.dumps(captures)
                 )
@@ -1532,6 +1622,11 @@ class Console:
             "Then use source-mapped breakpoints/readonly expressions if the missing question concerns internals. "
             "The scratch config follows the ordinary review restrictions. No shell, installs, source patches, "
             "reporter Python execution, substitute surface, or publication. Missing specs/history go to rca_read_source. "
+            "Keep the original source/configuration unchanged. Create all separate control projects first; "
+            "rca_run(project='controls\\\\pyrightconfig.json') selects a scratch-relative JSON configuration. "
+            "Paths inside each config are relative to that config. Freeze the complete source/configuration "
+            "tree, then run a clean baseline and debug capture with the same project and no intervening edits. "
+            "Adding even an excluded control file requires a fresh clean baseline before instrumentation. "
             "Use actual returned IDs. Implementation location must be 'parser/parser.ts:1885' style, with the "
             "ACTUAL mapped hit line, not a proposed breakpoint line; prefix editor locations with "
             "'packages/vscode-pyright/src/'. A CLI cause needs identical clean/debug inputs and diagnostic results. "
@@ -1540,6 +1635,10 @@ class Console:
             "not faithful integration reproduction. Current-target evidence cannot settle historical behavior. "
             "Keep partial findings in an inconclusive report rather than claiming the reported cause was found. Preserve semantic "
             "uncertainty: identifying a producer does not prove a bug or by-design intent. "
+            "Explain the upstream input, first causally decisive decision, subsequent state changes and final "
+            "symptom, linking each observation to returned evidence IDs. A downstream cache read or diagnostic "
+            "producer is not automatically the root cause. Use a control that distinguishes the strongest "
+            "competing explanation; if both fit the observed state, preserve a partial/inconclusive finding. "
             "Use a read-only boolean breakpoint condition to target the actual example's parameter/node rather "
             "than consuming the first hit in unrelated imports or stubs. Conditions and expressions both reject "
             "side effects. A broad first-hit capture is not evidence about the reported path. "
@@ -1666,7 +1765,16 @@ class Console:
             packet = root_cause.findings.model_dump_json() + "\nController evidence:\n" + json.dumps(self.rca_records(root_cause))
             if root_cause.stage == "gate":
                 raw = await self.sdk.run(
-                    self.rca_agents[1], "Judge this RCA packet; do not do new research.\n" + packet,
+                    self.rca_agents[1],
+                    "PRE-ADVERSARY PRIMARY-EVIDENCE GATE. Judge only the investigator's packet; do not do new research. "
+                    "The independent adversary has NOT run: it is launched only if you accept this packet. "
+                    "Do not reject or list missing evidence solely because that future role's independent execution "
+                    "is absent. Assess the faithful scenario, matching clean/debug observations, actual producer "
+                    "and upstream state, causal chain, investigator controls and remaining alternatives. "
+                    "RootCauseFindings.status='found' is a primary candidate, not a completed or publishable RCA. "
+                    "Acceptance authorizes the independent challenge only; final qualification/publication still "
+                    "requires its successful independent executed countercheck. Reject genuine primary-evidence "
+                    "gaps without waiving them.\n" + packet,
                     directory, schema=RootCauseGate,
                     validate=lambda value: self.validate_rca_gate(root_cause, RootCauseGate.model_validate_json(value)),
                 )
@@ -2126,6 +2234,7 @@ def context_hash(
         Path(__file__).with_name("issue_review_rca.py"), Path(__file__).with_name("issue_review_debug.cjs"),
         Path(__file__).with_name("issue_review_editor.py"), Path(__file__).with_name("issue_review_editor_probe.cjs"),
         Path(__file__).with_name("issue_review_inspector.cjs"),
+        Path(__file__).with_name("issue_review_evidence.py"),
         Path(__file__).with_name("issue_review_safety.py"), Path(__file__).with_name("requirements.txt"),
         Path(__file__).with_name("issue_review_classifier.py"), Path(__file__).with_name("issue_review_decision.py"),
         ROOT / ".github" / "copilot-instructions.md", AGENTS / "pyright-test-policy.md",

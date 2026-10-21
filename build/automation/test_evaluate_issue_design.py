@@ -265,6 +265,11 @@ class BenchmarkToolTests(unittest.IsolatedAsyncioTestCase):
         ):
             summary = await evaluate([case], data, self.directory / "result", sdk, AsyncMock(), {123})
         self.assertEqual(summary["operational_errors"], 0)
+        saved = self.directory / "result" / case.id
+        self.assertIn("Claim assessment and reproduction", (saved / "review.md").read_text(encoding="utf-8"))
+        self.assertEqual(
+            json.loads((saved / "findings.json").read_text(encoding="utf-8")), findings.model_dump(mode="json"),
+        )
         prompt = run.call_args.args[1]
         self.assertNotIn("SECRET REFERENCE RATIONALE", prompt)
         self.assertNotIn("SECRET ANSWER", prompt)

@@ -68,6 +68,15 @@ test('an unconditional breakpoint still captures only its first hit', async () =
     assert.equal(report.hits[0].evaluations[0].result.result.value, 1);
 });
 
+test('small scalar projections are observed without a printer or recursive object serialization', async () => {
+    const report = await observe('value === 2', '({ value, next: value + 1, category: typeof value })');
+    assert.deepEqual(report.errors, []);
+    const evaluation = report.hits[0].evaluations[0];
+    assert.equal(evaluation.error, null);
+    assert.equal(evaluation.result.exceptionDetails, undefined);
+    assert.deepEqual(evaluation.result.result.value, { value: 2, next: 3, category: 'number' });
+});
+
 test('distinct conditions at the same location capture their own first matching calls', async () => {
     const report = await observe([{ condition: 'value === 1' }, { condition: 'value === 2' }]);
     assert.deepEqual(report.errors, []);

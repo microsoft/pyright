@@ -371,10 +371,16 @@ class RootCauseFindings(Record):
 
 
 class RootCauseGate(Record):
-    accepted: bool
+    accepted: bool = Field(
+        description="Whether PRIMARY investigator evidence warrants the next independent challenge. "
+        "This is a pre-adversary decision, not final RCA acceptance or publication approval.",
+    )
     reason: Text
     evidence_ids: list[str]
-    missing_evidence: list[str]
+    missing_evidence: list[str] = Field(
+        description="Missing PRIMARY-stage evidence only. The independent adversary has not run yet; "
+        "its future countercheck is not a prerequisite for accepting this primary packet.",
+    )
 
     @model_validator(mode="after")
     def validate_gate(self) -> Self:

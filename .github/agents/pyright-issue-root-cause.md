@@ -25,9 +25,15 @@ Choose only a runner whose supported scenario matches the issue. Missing histori
 a separately labeled current-target experiment. Never use a CLI proxy for an editor/LSP issue.
 
 For an implementation hypothesis, follow the plan and first observe the actual relevant failure. CLI plans reconstruct
-the example/configuration in scratch (reuse verified earlier inputs) and use `rca_run`. Editor interpreter-handoff
-plans use `rca_editor_run`: actual installed VS Code/Python extension and the prepared Pyright extension in fresh
-profiles, with activated `python_env`, `venv`, and `venv` under `python_envs`. It captures the real API, Pyright
+the example/configuration in scratch (reuse verified earlier inputs) and use `rca_run`.
+Keep the original source and configuration unchanged. Put controls in separate files/projects and select their
+scratch-relative JSON config with `rca_run(project="controls\\pyrightconfig.json")`; config paths are relative to
+that config's directory. Create all intended source/config files before a clean run. Debug the same project
+without intervening edits: adding even an excluded control file invalidates the earlier clean/debug pairing.
+If inputs change, take a fresh clean baseline before requesting breakpoints; do not weaken snapshot matching.
+Editor interpreter-handoff plans use `rca_editor_run`: actual installed VS Code/Python extension and the prepared
+Pyright extension in fresh profiles, with activated `python_env`, `venv`, and `venv` under `python_envs`.
+It captures the real API, Pyright
 handoff/output, versions, environment, feature flags and controls. It never selects an interpreter or injects API
 values. This is a focused scenario, not a general editor runner. Operator denial is a blocker, not an invitation
 to request another tool. A host update or other explicit unavailable prerequisite is also a blocker: preserve its
@@ -38,10 +44,23 @@ The tool uses bounded, read-only inspector evaluations and resumes automatically
 Use a read-only boolean breakpoint `condition` to target the actual example rather than the first unrelated
 import/stub hit. Conditions reject side effects just like state expressions. On continuation, retrieve saved
 observations with `rca_read_evidence` and preserve their IDs; do not rerun successful checks merely to rediscover
-them. The eight-product-attempt allowance persists across resumption. Stop once decisive producer/handoff evidence
+them. Large receipts return a delivery index, not truncated evidence or a qualification verdict. Inspect its
+failure counts and observation pointers. Read an exact saved value with
+`rca_read_evidence(evidence_id="...", pointer="/debug/hits/0/evaluations/0")`, or use `pointer=""` for the
+whole receipt, and follow `next_offset` with `offset`/`max_chars`. Pages contain canonical JSON fragments;
+combine consecutive pages before interpreting a split value. Paging spends no product attempts.
+Prefer existing scalar fields and small plain projections to recursive objects or printer/helper calls.
+An exception or rejected serialization is still a failed observation; a saved index cannot recover a value
+that was never captured. Preserve the failure and use a smaller valid read if another attempt is justified.
+The eight-product-attempt allowance persists across resumption. Stop once decisive producer/handoff evidence
 and a discriminating control distinguish the alternatives; return useful inconclusive findings rather than
 exhaustively debugging every suggested control.
 Code reading, an unchanged diagnostic count or a hypothetical breakpoint is not causal evidence.
+Explain the upstream input, first causally decisive decision, downstream state changes and final symptom,
+linking each observed step to evidence IDs. A downstream cache read, missing callback or diagnostic producer
+may explain propagation without identifying the assumption that needs repair. Use a control that distinguishes
+the strongest alternative, not merely another example with the same symptom. If both explanations fit the
+observations, preserve the partial mechanism and return `inconclusive`, not an overconfident `found`.
 The reported implementation location must be observed in an error-free debug execution matching a clean baseline.
 A valid producer hit mixed with other failed conditions does not satisfy that requirement: repair the conditions
 or recapture the producer alone. Do not relocate the claim to a downstream consumer just to pass validation.
@@ -59,7 +78,8 @@ Explain why a rule applies; observed implementation behavior does not establish 
 
 Return the supplied RootCauseFindings record with a complete readable Markdown report, scenario/configuration,
 specific producer location, hypothesis and alternatives, observed evidence IDs, causal link, confidence/limitations,
-and the smallest remaining question. Copy IDs from actual tool results. `found` requires concrete evidence;
-use `inconclusive` or `blocked` when it is insufficient. A successful component experiment or injected input is only
-a partial finding unless the actual integration failure is observed. Preserve useful partial findings in Markdown.
+and the smallest remaining question. Copy IDs from actual tool results. `found` requires concrete evidence and
+identifies a primary candidate for the evidence gate, not a completed independent challenge or publication.
+Use `inconclusive` or `blocked` when evidence is insufficient. A successful component experiment or injected input
+is only a partial finding unless the actual integration failure is observed. Preserve useful partial findings in Markdown.
 Current-version non-reproduction does not settle a historical bug. No GitHub comment draft.

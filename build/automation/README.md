@@ -380,6 +380,9 @@ There is no RCA opt-in prompt. Three bounded roles, inspired by Pyrx's investiga
 an investigator gathers evidence, a tool-less gate checks the causal explanation, and an independent challenger
 tries a competing explanation. The gate/challenger run only when the investigator finds a potential cause.
 Missing specification or historical evidence goes to authoritative research rather than unnecessary debugging.
+The gate evaluates the investigator's primary evidence **before** the adversary runs. It must not reject solely
+for absence of that future role's independent execution. Acceptance only starts the challenge; a publishable RCA
+still requires the independently executed countercheck and all existing publication checks.
 
 The result is saved as `<state-dir>\<issue>\root-cause.md`, including blocked, inconclusive and failed attempts.
 Each attempt also retains its own report, SDK records and evidence under `rca\<attempt>`. RCA does not change the
@@ -406,6 +409,36 @@ errors, and actual hit locations, and resumption preserves the previous failure 
 Before execution an explicit reproduction plan identifies the surface, target versions, prerequisites, setup,
 expected failure and controls. Editor/LSP issues cannot use a CLI proxy. CLI investigations reuse the earlier
 inspected scratch example/configuration when available. Debugging requires a relevant clean baseline first.
+Preserve that original source/configuration. For separate controls, `rca_run` accepts a scratch-relative JSON
+`project`, for example `controls\pyrightconfig.json`, with paths relative to the selected configuration's directory.
+All paths remain scratch-only. The default is still `pyrightconfig.json`; editor runs do not accept project selection.
+Create every intended source/configuration file before taking a clean baseline. A debug run must use the same
+project and complete input snapshot from this role: even adding an excluded control or editing another config
+requires a fresh clean run. Stale pairs are rejected before debugger execution without spending a product attempt.
+The runner also detects source/configuration changes during execution. Resumption restores project-specific
+baselines from the ledger; the adversary cannot borrow the investigator's executions.
+
+RCA execution, authoritative-source and saved-evidence tools cap each text response at 12,000 encoded bytes.
+Small receipts are returned normally; large ones return a deterministic delivery index with observation/error
+counts, previews and exact JSON pointers. The complete captured receipt stays in `checks.jsonl` and the existing
+debug artifacts. The index is not a complete capture or a qualification verdict, and previews are explicitly
+marked. Rejected expressions and unavailable values are not converted into successful observations.
+
+Use `rca_read_evidence(evidence_id="...", pointer="/debug/hits/0/evaluations/0")` for an exact selected value,
+or `pointer=""` for the whole receipt. Pages return canonical JSON text fragments with character `offset`,
+`total_chars`, `next_offset`, and hashes of the selected value and full receipt. Continue with the returned
+offset and combine fragments before parsing a split value. The byte cap also accounts for JSON escaping;
+`max_chars` is at most 4,096 and a page can be shorter to fit. `value_complete` describes delivery of the selected
+value only; `capture_truncated` still exposes a partially retrieved authority source. Paging cannot recover
+content that was never captured and never spends a product attempt. Validators continue reading full raw receipts.
+Prefer existing scalar fields or small plain projections to recursive type/AST graphs or printer/helper calls;
+the inspector's side-effect rejection, capture limits and clean/debug qualification rules are unchanged.
+
+The causal report should connect upstream inputs, the first decisive decision, subsequent state and the symptom.
+A control must distinguish the strongest competing explanation; a downstream cache observation alone is not proof
+that the cache is the cause. Preserve useful partial mechanisms when the evidence cannot distinguish alternatives.
+Behavior reports also include a controller-rendered per-claim disposition/reproduction table. A supported policy
+can coexist with a historical diagnostic that no longer reproduces; unresolved material claims still block closure.
 For a blocked conclusion, a tool-less challenger checks the plan, capabilities and ledger for an avoidable setup
 mistake or ignored evidence. It can authorize **one** materially different supported attempt, never downloads,
 broader permissions, interpreter selection, or an override of denied execution. Earlier findings/plans are retained.

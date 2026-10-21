@@ -74,10 +74,18 @@ and output contract. A by-design claim is a hypothesis to test, not a preferred 
     "the tests expect it", and "static analysis is undecidable" are not sufficient explanations by themselves.
     An established policy cannot override an applicable mandatory typing rule; a deliberate violation remains a
     bug/specification-compliance concern, not a reason to dismiss the report.
+-   Apply a rule to the exact scope, evaluation context and assumptions of the example, not merely a broad
+    statement that a related feature is supported. Runtime-equivalent forms receiving different diagnostics
+    demonstrate a concern, but not automatically a mandatory typing-rule violation. Distinguish that from an
+    established intended-behavior contract and optional diagnostic/analysis coverage. An unsupported conclusion
+    remains qualified or inconclusive; absence of a mandatory rule is still not by-design proof.
 -   Challenge the preferred interpretation with a nearby valid and invalid case or a discriminating counterexample.
     State what would falsify the conclusion. Do not manufacture a counterexample when decisive rules already settle it.
 -   Acknowledge real user impact even when behavior is intentional. An intentional false positive can justify an
     enhancement; it does not imply the user's Python program is invalid.
+-   Report policy validity separately from reproduction for each target. A supported intentional policy can
+    coexist with a historical diagnostic that no longer reproduces. State both findings and the unresolved
+    material claim explicitly rather than hiding them in an overall verdict; do not relax closure requirements.
 
 ## Final response
 

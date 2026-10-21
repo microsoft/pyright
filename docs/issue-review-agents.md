@@ -198,13 +198,41 @@ The `pyright-issue-root-cause` investigator gathers missing authoritative or exe
 `pyright-issue-root-cause-gate` checks the causal packet without tools, then
 `pyright-issue-root-cause-adversary` independently tests a competing explanation if the gate passes.
 These roles adapt Pyrx's evidence/gate/challenge pattern without depending on a Pyrx checkout.
+The gate judges **primary investigator evidence before the adversary runs**. Missing future adversarial
+execution is not a primary-evidence gap. Gate acceptance only authorizes that challenge; it is not final RCA
+acceptance or publication approval. The final result still requires the adversary's successful independent check.
 
-Implementation claims need a real producer hit and observed state from the prepared product, identical clean/debug
-inputs and matching diagnostics, plus an independent executable countercheck. The controller privately copies the
+Final qualification of implementation claims needs a real producer hit and observed state from the prepared
+product, identical clean/debug inputs and matching diagnostics, plus an independent executable countercheck.
+The controller privately copies the
 CLI bundles, maps and stubs, checks source-map/source agreement, and uses bounded read-only native inspector
 evaluations. It does not modify shared source, install tooling, attach to another process, or open a debugger port.
 This is not the evaluation-trace adapter, a performance measurement, or a security sandbox. Unsupported surfaces,
 arbitrary source patching and published-release execution remain unavailable; source reading alone is not proof.
+Preserve the original source/configuration and create separate control projects. CLI `rca_run` accepts a
+scratch-relative JSON `project` (default `pyrightconfig.json`), such as `controls\pyrightconfig.json`.
+Configuration paths are relative to that configuration, and all paths must remain within the assigned scratch.
+Each project needs its own clean baseline from that role. Freeze all source/configuration files before its
+clean/debug pair: even excluded control files or another project's configuration invalidate an earlier input
+snapshot. A stale/missing pair is rejected before debugger execution without spending a product attempt.
+Changes during execution also invalidate the capture; no relaxed fingerprint comparison is used.
+Controls execute under the same bounded eight-attempt allowance. Project selection is CLI-only, not an editor adapter.
+
+Large RCA tool receipts use bounded delivery indexes rather than overflowing the model-visible response.
+Raw captured receipts remain unchanged on disk; source locations, failed/missing observation counts and exact
+JSON pointers are available in the index. `rca_read_evidence` accepts a `pointer` (`""` selects the root),
+character `offset` and `max_chars` (at most 4,096). Follow `next_offset` to reconstruct canonical JSON fragments,
+with full-receipt/value hashes and explicit completeness/truncation metadata. Each text response stays within
+12,000 encoded bytes, including escaping. Reads do not run the product or spend attempts. A delivery index is
+not a successful capture: serialization errors and side-effect-rejected printer calls remain failures.
+Use scalar fields or small explicit projections for new observations. Host validation still uses full raw
+evidence and does not relax producer, matching-pair or independent-challenge requirements.
+
+Reports trace upstream input, the first causally decisive decision, downstream state and the symptom, with a
+control that distinguishes the strongest alternative. Matching a downstream cache effect or a failed guard
+alone can remain a useful partial diagnosis, not a complete causal explanation. Semantic policy and target
+reproduction are also reported independently in a controller-rendered claim table; unresolved material claims
+continue to block by-design closure, even when another claim has a supported design disposition.
 Missing normative/history evidence should be researched rather than automatically routed to debugging.
 RCA investigation/countercheck turns have an independent `--rca-timeout` active budget; validation correction
 shares that allowance. Side-effect-checked boolean breakpoint conditions can skip unrelated first hits.

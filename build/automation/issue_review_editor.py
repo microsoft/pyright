@@ -492,6 +492,8 @@ class EditorRuntime:
         }, indent=2), encoding="utf-8")
 
     async def run(self, request: RootCauseRun) -> dict[str, JsonValue]:
+        if request.project != "pyrightconfig.json":
+            raise ValueError("Project selection is available only for CLI runs, not editor scenarios")
         self.ensure_host_available()
         if self.snapshot_hash is None:
             await self.prepare()
