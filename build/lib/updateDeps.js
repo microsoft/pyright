@@ -2,11 +2,11 @@
 //@ts-check
 
 const { promises: fsAsync } = require('fs');
-const ncu = require('npm-check-updates');
 const path = require('path');
 const util = require('util');
 const { glob } = require('glob');
 const exec = util.promisify(require('child_process').exec);
+const ncuPromise = import('npm-check-updates').then(({ default: ncu }) => ncu);
 
 /** @type {((path: string, options?: import('fs').RmOptions) => Promise<void>) | undefined} */
 const node14rm = /** @type {any} */ (fsAsync).rm;
@@ -38,6 +38,7 @@ async function updatePackage(packageFile, transitive, reject = undefined) {
     const packageName = path.basename(path.dirname(packageFile));
 
     console.log(`${packageName}: updating with ncu`);
+    const ncu = await ncuPromise;
     const updateResult = await ncu.run({
         packageFile: packageFile,
         target: 'minor',

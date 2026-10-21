@@ -37,7 +37,7 @@
         "glob": "^11.1.0",
         "jsonc-parser": "^3.3.1",
         "lerna": "9.0.7",
-        "npm-check-updates": "^19.6.3",
+        "npm-check-updates": "^23.1.0",
         "p-queue": "^6.6.2",
         "prettier": "2.8.8",
         "syncpack": "~15.3.1",

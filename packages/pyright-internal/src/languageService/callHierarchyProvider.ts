@@ -462,7 +462,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         const fromRange: Range = convertOffsetsToRange(
             nameNode.start,
             nameNode.start + nameNode.length,
-            this._parseResults.tokenizerOutput.lines
+            this._parseResults.parserOutput.lines
         );
         outgoingCall.fromRanges.push(fromRange);
     }
@@ -669,7 +669,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         let callSource: CallHierarchyItem;
         const fileName = this._program.fileSystem.getOriginalUri(this._fileUri).fileName;
         if (executionNode.nodeType === ParseNodeType.Module) {
-            const moduleRange = convertOffsetsToRange(0, 0, this._parseResults.tokenizerOutput.lines);
+            const moduleRange = convertOffsetsToRange(0, 0, this._parseResults.parserOutput.lines);
 
             callSource = {
                 name: `(module) ${fileName}`,
@@ -682,7 +682,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             const lambdaRange = convertOffsetsToRange(
                 executionNode.start,
                 executionNode.start + executionNode.length,
-                this._parseResults.tokenizerOutput.lines
+                this._parseResults.parserOutput.lines
             );
 
             callSource = {
@@ -697,13 +697,13 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             const functionRange = convertOffsetsToRange(
                 executionNode.start,
                 executionNode.start + executionNode.length,
-                this._parseResults.tokenizerOutput.lines
+                this._parseResults.parserOutput.lines
             );
 
             const functionSelectionRange = convertOffsetsToRange(
                 executionNode.d.name.start,
                 executionNode.d.name.start + executionNode.d.name.length,
-                this._parseResults.tokenizerOutput.lines
+                this._parseResults.parserOutput.lines
             );
             const classNode = ParseTreeUtils.getEnclosingClass(executionNode, /* stopAtFunction */ true);
 
@@ -745,7 +745,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         const fromRange: Range = convertOffsetsToRange(
             nameNode.start,
             nameNode.start + nameNode.length,
-            this._parseResults.tokenizerOutput.lines
+            this._parseResults.parserOutput.lines
         );
         incomingCall.fromRanges.push(fromRange);
     }

@@ -174,7 +174,7 @@ function collectSymbolIndexDataForName(
         range = convertOffsetsToRange(
             declaration.node.start,
             declaration.node.start + declaration.node.length,
-            parseResults.tokenizerOutput.lines
+            parseResults.parserOutput.lines
         );
     }
 
@@ -188,7 +188,7 @@ function collectSymbolIndexDataForName(
         if (declaration.node.nodeType === ParseNodeType.ImportAs && declaration.node.d.alias) {
             selectionRange = range = convertTextRangeToRange(
                 declaration.node.d.alias.d.token,
-                parseResults.tokenizerOutput.lines
+                parseResults.parserOutput.lines
             );
         }
     }
