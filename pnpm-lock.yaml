@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  handlebars@>=3.0.0 <4.7.10: 4.7.10
   js-yaml@>=3.0.0 <3.15.2: 3.15.2
   js-yaml@>=4.0.0 <4.3.2: 4.3.2
   fast-uri: 3.1.8
@@ -63,8 +64,8 @@ importers:
         specifier: 9.0.7
         version: 9.0.7(@types/node@25.9.4)(supports-color@7.2.0)
       npm-check-updates:
-        specifier: ^19.6.3
-        version: 19.6.6
+        specifier: ^23.1.0
+        version: 23.1.0
       p-queue:
         specifier: ^6.6.2
         version: 6.6.2
@@ -2990,8 +2991,8 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha1-QYPk6L8Iu24Fu7L30uDI9xLKQOM=}
 
-  handlebars@4.7.9:
-    resolution: {integrity: sha1-bxOQgqtY3E5aDlHv59ta6JDVag8=}
+  handlebars@4.7.10:
+    resolution: {integrity: sha512-P5VJMVM7qgBn6vjXMw8WG9uVI+ncf2pi72j4de4yz5ZULLj2RGqLYaKOYGsgyrViQ0tePOVlN1tDCCXXtFqXKg==}
     engines: {node: '>=0.4.7'}
     hasBin: true
 
@@ -3916,9 +3917,9 @@ packages:
     resolution: {integrity: sha1-UCXYR8/QbHuNlDLfAWldATPZ7oA=}
     engines: {node: ^20.17.0 || >=22.9.0}
 
-  npm-check-updates@19.6.6:
-    resolution: {integrity: sha1-V/aogktqmebOSBSdM/yS0DfXeJs=}
-    engines: {node: '>=20.0.0', npm: '>=8.12.1'}
+  npm-check-updates@23.1.0:
+    resolution: {integrity: sha1-/E/HTNHTZjGFoMxsdc3SmSxzRL0=}
+    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0, npm: '>=10.0.0'}
     hasBin: true
 
   npm-install-checks@7.1.2:
@@ -7491,7 +7492,7 @@ snapshots:
     dependencies:
       conventional-commits-filter: 3.0.0
       dateformat: 3.0.3
-      handlebars: 4.7.9
+      handlebars: 4.7.10
       json-stringify-safe: 5.0.1
       meow: 8.1.2
       semver: 7.8.5
@@ -8176,7 +8177,7 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  handlebars@4.7.9:
+  handlebars@4.7.10:
     dependencies:
       minimist: 1.2.8
       neo-async: 2.6.2
@@ -9340,7 +9341,7 @@ snapshots:
     dependencies:
       npm-normalize-package-bin: 5.0.0
 
-  npm-check-updates@19.6.6: {}
+  npm-check-updates@23.1.0: {}
 
   npm-install-checks@7.1.2:
     dependencies:
@@ -10408,7 +10409,7 @@ snapshots:
     dependencies:
       bs-logger: 0.2.6
       fast-json-stable-stringify: 2.1.0
-      handlebars: 4.7.9
+      handlebars: 4.7.10
       jest: 30.4.2(@types/node@25.9.4)(supports-color@8.1.1)
       json5: 2.2.3
       lodash.memoize: 4.1.2

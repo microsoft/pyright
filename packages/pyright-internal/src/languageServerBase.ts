@@ -182,6 +182,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     private _workspaceDiagnosticsReporter: ResultProgressReporter<WorkspaceDiagnosticReportPartialResult> | undefined;
     private _workspaceDiagnosticsProgressReporter: ProgressReporter | undefined;
     private _workspaceDiagnosticsResolve: ((value: WorkspaceDiagnosticReport) => void) | undefined;
+    private _workspaceDiagnosticsCancellationDisposable: Disposable | undefined;
     protected isDisposed = false;
 
     protected client: ClientCapabilities = {
@@ -395,9 +396,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             this.dynamicFeatures.update(serverSettings);
 
             // If the workspace mode has changed, we may need to resolve the workspace diagnostics promise.
-            if (serverSettings.openFilesOnly && this._workspaceDiagnosticsResolve) {
-                this._workspaceDiagnosticsResolve({ items: [] });
-                this._workspaceDiagnosticsResolve = undefined;
+            if (serverSettings.openFilesOnly) {
+                this._completeWorkspaceDiagnostics();
             }
 
             // Then use the updated settings to restart the service.
@@ -1236,9 +1236,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         workDoneProgress: WorkDoneProgressReporter,
         resultReporter?: ResultProgressReporter<WorkspaceDiagnosticReportPartialResult>
     ) {
+        if (token.isCancellationRequested) {
+            return { items: [] };
+        }
+
         // Resolve any pending workspace diagnostics. We only allow one at a time.
-        this._workspaceDiagnosticsResolve?.({ items: [] });
-        this._workspaceDiagnosticsResolve = undefined;
+        this._completeWorkspaceDiagnostics();
 
         // Save the progress reporters and force a refresh of analysis.
         this._workspaceDiagnosticsProgressReporter = !isNullProgressReporter(workDoneProgress)
@@ -1249,13 +1252,20 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             workspace.service.invalidateAndScheduleReanalysis(InvalidatedReason.Reanalyzed);
         });
 
-        return new Promise<WorkspaceDiagnosticReport>((resolve, reject) => {
-            // We never resolve as this should be a continually occurring process. Scheduling analysis
-            // should cause a new workspace diagnostic to be generated.
-
-            // Save the resolve callback to be used during shutdown so that tests don't crash
-            // on the unresolved promise for the workspace diagnostics.
+        return new Promise<WorkspaceDiagnosticReport>((resolve) => {
+            // Keep the request active until cancellation, replacement, configuration change, or shutdown.
             this._workspaceDiagnosticsResolve = resolve;
+            const cancellationDisposable = token.onCancellationRequested(() => {
+                this._completeWorkspaceDiagnostics(resolve);
+            });
+            if (this._workspaceDiagnosticsResolve === resolve) {
+                this._workspaceDiagnosticsCancellationDisposable = cancellationDisposable;
+                if (token.isCancellationRequested) {
+                    this._completeWorkspaceDiagnostics(resolve);
+                }
+            } else {
+                cancellationDisposable.dispose();
+            }
         });
     }
 
@@ -1325,7 +1335,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected onShutdown(token: CancellationToken) {
         // Shutdown remaining workspaces.
-        this._workspaceDiagnosticsResolve?.({ items: [] });
+        this._completeWorkspaceDiagnostics();
         this.workspaceFactory.clear();
 
         // Stop tracking all open files.
@@ -1503,6 +1513,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         };
     }
 
+    protected getWorkspaceDiagnosticVersion(version: number | undefined): number | null {
+        return version || null;
+    }
+
     protected sendDiagnostics(params: PublishDiagnosticsParams[]) {
         for (const param of params) {
             if (param.diagnostics.length === 0) {
@@ -1514,7 +1528,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             if (this._workspaceDiagnosticsReporter) {
                 // Skip storing previous result ids, just send new results every time.
                 this._workspaceDiagnosticsReporter.report({
-                    items: [{ ...param, kind: 'full', version: param.version || null, items: param.diagnostics }],
+                    items: [
+                        {
+                            ...param,
+                            kind: 'full',
+                            version: this.getWorkspaceDiagnosticVersion(param.version),
+                            items: param.diagnostics,
+                        },
+                    ],
                 });
             } else {
                 // Otherwise send a publish diagnostic notification.
@@ -1529,6 +1550,22 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected addDynamicFeature(feature: DynamicFeature) {
         this.dynamicFeatures.add(feature);
+    }
+
+    private _completeWorkspaceDiagnostics(
+        expectedResolve: ((value: WorkspaceDiagnosticReport) => void) | undefined = this._workspaceDiagnosticsResolve
+    ) {
+        if (!expectedResolve || this._workspaceDiagnosticsResolve !== expectedResolve) {
+            return;
+        }
+
+        this._workspaceDiagnosticsResolve = undefined;
+        this._workspaceDiagnosticsCancellationDisposable?.dispose();
+        this._workspaceDiagnosticsCancellationDisposable = undefined;
+        this._workspaceDiagnosticsReporter = undefined;
+        this._workspaceDiagnosticsProgressReporter?.end();
+        this._workspaceDiagnosticsProgressReporter = undefined;
+        expectedResolve({ items: [] });
     }
 
     private _getCompatibleMarkupKind(clientSupportedFormats: MarkupKind[] | undefined) {
