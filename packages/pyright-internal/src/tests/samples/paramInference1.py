@@ -65,3 +65,10 @@ def func5(a=Proto1, b=Abstract1):
 
     # This should generate an error.
     b.method1()
+
+
+def func6(a: bool | str, b=bool):
+    if type(a) is b:
+        reveal_type(a, expected_text="bool")
+    else:
+        reveal_type(a, expected_text="str")
