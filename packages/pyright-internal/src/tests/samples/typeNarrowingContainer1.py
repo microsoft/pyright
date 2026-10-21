@@ -3,8 +3,7 @@
 
 from enum import Enum
 from types import GenericAlias
-from typing import Generic, Literal, TypeVar, final
-from typing_extensions import assert_type
+from typing import Generic, Literal, TypeVar, assert_type, final
 
 @final
 class FinalClassA: pass
