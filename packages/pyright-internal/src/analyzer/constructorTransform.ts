@@ -20,6 +20,7 @@ import { createFunctionFromConstructor } from './constructors';
 import { getParamListDetails, ParamKind } from './parameterUtils';
 import { getTypedDictMembersForClass } from './typedDicts';
 import { Arg, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
+import { makeTupleObject } from './tuples';
 import {
     AnyType,
     ClassType,
@@ -32,12 +33,23 @@ import {
     isOverloaded,
     isTypeSame,
     isTypeVar,
+    isUnpacked,
     isUnpackedClass,
+    isUnpackedTypeVarTuple,
     OverloadedType,
+    TupleTypeArg,
     Type,
+    TypeVarKind,
+    TypeVarType,
     TypedDictEntry,
 } from './types';
-import { convertToInstance, lookUpObjectMember, makeInferenceContext, MemberAccessFlags } from './typeUtils';
+import {
+    convertToInstance,
+    isTupleClass,
+    lookUpObjectMember,
+    makeInferenceContext,
+    MemberAccessFlags,
+} from './typeUtils';
 
 export function hasConstructorTransform(classType: ClassType): boolean {
     if (classType.shared.fullName === 'functools.partial') {
@@ -228,6 +240,18 @@ function applyPartialTransformToFunction(
     let reportedPositionalError = false;
     const constraints = new ConstraintTracker();
 
+    // If the variadic *args parameter is annotated with an unpacked TypeVarTuple,
+    // the arguments that map to it are processed separately (see below) because
+    // they represent a prefix of the TypeVarTuple's eventual type rather than a
+    // complete specialization of it.
+    const variadicParamInfo =
+        paramListDetails.argsIndex !== undefined ? paramListDetails.params[paramListDetails.argsIndex] : undefined;
+    const variadicParamType = variadicParamInfo
+        ? FunctionType.getParamType(origFunctionType, variadicParamInfo.index)
+        : undefined;
+    const isVariadicTypeVarTuple = !!variadicParamType && isUnpackedTypeVarTuple(variadicParamType);
+    const variadicBoundArgs: { arg: Arg; type: Type }[] = [];
+
     const remainingArgsList = argList.slice(1);
     remainingArgsList.forEach((arg, argIndex) => {
         if (!arg.valueExpression) {
@@ -236,6 +260,26 @@ function applyPartialTransformToFunction(
 
         // Is it a positional argument or a keyword argument?
         if (!arg.name) {
+            // Does this positional argument map to the variadic *args parameter?
+            if (
+                isVariadicTypeVarTuple &&
+                paramListDetails.argsIndex !== undefined &&
+                argIndex >= paramListDetails.argsIndex
+            ) {
+                // Defer the evaluation of arguments that map to an unpacked
+                // TypeVarTuple parameter until all of the arguments have been
+                // processed. These arguments form a prefix of the eventual
+                // TypeVarTuple type.
+                const argTypeResult = evaluator.getTypeOfExpression(
+                    arg.valueExpression,
+                    /* flags */ undefined,
+                    /* inferenceContext */ undefined
+                );
+
+                variadicBoundArgs.push({ arg, type: argTypeResult.type });
+                return;
+            }
+
             // Does this positional argument map to a positional parameter?
             if (
                 argIndex >= paramListDetails.params.length ||
@@ -412,7 +456,110 @@ function applyPartialTransformToFunction(
         }
     });
 
-    const specializedFunctionType = evaluator.solveAndApplyConstraints(origFunctionType, constraints);
+    let functionTypeToSpecialize = origFunctionType;
+
+    if (isVariadicTypeVarTuple && variadicBoundArgs.length > 0 && variadicParamType && variadicParamInfo) {
+        // The arguments bound to the TypeVarTuple parameter represent a prefix of its
+        // eventual type. Determine the TypeVarTuple's type by solving it based on the
+        // other (non-variadic) arguments, then validate the bound arguments against
+        // the leading portion of the solution.
+        const solvedVariadicType = evaluator.solveAndApplyConstraints(variadicParamType, constraints);
+
+        if (
+            isClassInstance(solvedVariadicType) &&
+            isTupleClass(solvedVariadicType) &&
+            isUnpacked(solvedVariadicType) &&
+            solvedVariadicType.priv.tupleTypeArgs
+        ) {
+            // The TypeVarTuple has been solved (fully or partially) based on the other
+            // arguments, so validate the bound arguments against the leading type args
+            // of the solution.
+            const tupleTypeArgs = solvedVariadicType.priv.tupleTypeArgs;
+            let tupleTypeArgIndex = 0;
+
+            variadicBoundArgs.forEach((boundArg) => {
+                const typeArg = tupleTypeArgs[tupleTypeArgIndex];
+                const isCompatible = typeArg
+                    ? evaluator.assignType(typeArg.type, boundArg.type, /* diag */ undefined, new ConstraintTracker())
+                    : false;
+
+                if (!isCompatible) {
+                    if (errorNode) {
+                        evaluator.addDiagnostic(
+                            DiagnosticRule.reportArgumentType,
+                            LocMessage.argAssignmentParamFunction().format({
+                                argType: evaluator.printType(boundArg.type),
+                                paramType: evaluator.printType(solvedVariadicType),
+                                functionName: origFunctionType.shared.name,
+                                paramName: variadicParamInfo.param.name ?? '',
+                            }),
+                            boundArg.arg.valueExpression ?? errorNode
+                        );
+                    }
+
+                    argumentErrors = true;
+                }
+
+                // An unbounded or variadic type arg accounts for the remaining
+                // arguments, so don't advance to the next type arg in that case.
+                if (typeArg && !typeArg.isUnbounded && !isUnpackedTypeVarTuple(typeArg.type)) {
+                    tupleTypeArgIndex += 1;
+                }
+            });
+
+            // The bound arguments consume the leading type args of the solution, so
+            // replace the TypeVarTuple parameter with the type args that remain.
+            const remainingTypeArgs = getRemainingVariadicTypeArgs(tupleTypeArgs, variadicBoundArgs.length);
+            if (remainingTypeArgs) {
+                if (remainingTypeArgs.length === 1 && isUnpackedTypeVarTuple(remainingTypeArgs[0].type)) {
+                    functionTypeToSpecialize = replaceVariadicParamType(
+                        origFunctionType,
+                        variadicParamInfo.index,
+                        remainingTypeArgs[0].type
+                    );
+                } else {
+                    functionTypeToSpecialize = replaceVariadicParamType(
+                        origFunctionType,
+                        variadicParamInfo.index,
+                        makeTupleObject(evaluator, remainingTypeArgs, /* isUnpacked */ true)
+                    );
+                }
+            }
+        } else if (isUnpackedTypeVarTuple(solvedVariadicType) && solvedVariadicType.priv.scopeId) {
+            // The TypeVarTuple wasn't solved by the other arguments, so solve it by
+            // prepending the bound arguments and deferring the remaining elements to
+            // a new TypeVarTuple that will be solved when the partial object is
+            // called.
+            const deferredTypeVarTuple = TypeVarType.cloneForScopeId(
+                TypeVarType.cloneForUnpacked(
+                    TypeVarType.createInstance(`${solvedVariadicType.shared.name}2`, TypeVarKind.TypeVarTuple)
+                ),
+                solvedVariadicType.priv.scopeId,
+                solvedVariadicType.priv.scopeName,
+                solvedVariadicType.priv.scopeType
+            );
+
+            constraints.setBounds(
+                solvedVariadicType,
+                makeTupleObject(
+                    evaluator,
+                    [
+                        ...variadicBoundArgs.map((boundArg) => ({ type: boundArg.type, isUnbounded: false })),
+                        { type: deferredTypeVarTuple, isUnbounded: false },
+                    ],
+                    /* isUnpacked */ true
+                )
+            );
+
+            functionTypeToSpecialize = replaceVariadicParamType(
+                origFunctionType,
+                variadicParamInfo.index,
+                deferredTypeVarTuple
+            );
+        }
+    }
+
+    const specializedFunctionType = evaluator.solveAndApplyConstraints(functionTypeToSpecialize, constraints);
     if (!isFunction(specializedFunctionType)) {
         return undefined;
     }
@@ -478,7 +625,9 @@ function applyPartialTransformToFunction(
         partialCallMemberType.shared.name,
         partialCallMemberType.shared.fullName,
         partialCallMemberType.shared.moduleName,
-        partialCallMemberType.shared.flags,
+        // The synthesized signature isn't a gradual "(*args, **kwargs)" form, so
+        // don't propagate that flag from the original __call__ method.
+        partialCallMemberType.shared.flags & ~FunctionTypeFlags.GradualCallableForm,
         specializedFunctionType.shared.docString
     );
 
@@ -496,4 +645,46 @@ function applyPartialTransformToFunction(
     newCallMemberType.shared.typeVarScopeId = specializedFunctionType.shared.typeVarScopeId;
 
     return { returnType: newCallMemberType, isTypeIncomplete: false, argumentErrors };
+}
+
+// Replaces the type of the parameter at the specified index with a new type
+// while retaining the parameter's other attributes.
+function replaceVariadicParamType(funcType: FunctionType, paramIndex: number, newParamType: Type): FunctionType {
+    const paramTypes = funcType.shared.parameters.map((_, index) => FunctionType.getParamType(funcType, index));
+    paramTypes[paramIndex] = newParamType;
+
+    return FunctionType.specialize(funcType, {
+        parameterTypes: paramTypes,
+        parameterDefaultTypes: undefined,
+        returnType: undefined,
+    });
+}
+
+// Removes the specified number of leading type args from a tuple's type args
+// and returns the remaining type args. An unbounded or variadic type arg
+// accounts for any number of arguments, so it is retained. Returns undefined
+// if more type args are consumed than the tuple contains.
+function getRemainingVariadicTypeArgs(
+    tupleTypeArgs: TupleTypeArg[],
+    consumedCount: number
+): TupleTypeArg[] | undefined {
+    let remainingCount = consumedCount;
+    const remainingTypeArgs: TupleTypeArg[] = [];
+
+    tupleTypeArgs.forEach((typeArg) => {
+        if (remainingCount === 0) {
+            remainingTypeArgs.push(typeArg);
+            return;
+        }
+
+        if (typeArg.isUnbounded || isUnpackedTypeVarTuple(typeArg.type)) {
+            remainingTypeArgs.push(typeArg);
+            remainingCount = 0;
+            return;
+        }
+
+        remainingCount -= 1;
+    });
+
+    return remainingCount > 0 ? undefined : remainingTypeArgs;
 }
