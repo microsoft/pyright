@@ -1147,6 +1147,191 @@ main().catch((error) => { console.error(error); process.exitCode = 1; });
         self.assertNotIn("GITHUB_SHA", script)
         self.assertIn('git branch new_commit "$PRIMER_SHA"', script)
 
+    def test_primer_comment_validates_source_and_ignores_artifact_pr_number(self) -> None:
+        script = r"""
+const assert = require('assert').strict;
+const fs = require('fs');
+const YAML = require('yaml');
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const workflow = YAML.parse(fs.readFileSync('.github/workflows/mypy_primer_comment.yaml', 'utf8'));
+const steps = workflow.jobs.comment.steps;
+const download = steps.find((step) => step.id === 'download');
+const post = steps.find((step) => step.id === 'post-comment');
+assert.equal(steps[0].with.ref, '${{ github.workflow_sha }}');
+assert.equal(steps[0].with['persist-credentials'], false);
+assert.equal(workflow.permissions.actions, 'read');
+assert.equal(post.env.PR_NUMBER, '${{ steps.download.outputs.pr-number }}');
+assert.equal(post.env.PR_HEAD_SHA, '${{ steps.download.outputs.head-sha }}');
+assert.equal(steps.find((step) => step.name === 'Hide old comments').if,
+    "${{ steps.post-comment.outputs.result != '' }}");
+const repository = { id: 1, full_name: 'microsoft/pyright' };
+const headRepository = { id: 2, full_name: 'contributor/pyright', owner: { login: 'contributor' } };
+const headSha = 'a'.repeat(40);
+const run = {
+    id: 42, run_attempt: 1, event: 'workflow_run',
+    path: '.github/workflows/mypy_primer_pr.yaml', conclusion: 'success',
+    repository, display_title: 'Run mypy_primer after Validation #41',
+    run_started_at: '2026-01-01T00:00:00Z',
+};
+const validation = {
+    id: 41, name: 'Validation', path: '.github/workflows/validation.yml',
+    event: 'pull_request', conclusion: 'success', repository,
+    head_sha: headSha, head_branch: 'feature', head_repository: headRepository,
+    pull_requests: [{ number: 123 }],
+};
+const pullRequest = {
+    number: 123, state: 'open', base: { repo: repository },
+    head: { sha: headSha, ref: 'feature', repo: headRepository },
+};
+const artifacts = [...Array.from({ length: 8 }, (_, i) => `mypy_primer_diffs_${i}`),
+    'mypy_primer_diffs_pr_number'].map((name, id) => ({
+        id: id + 1, name, expired: false, size_in_bytes: 100,
+        created_at: '2026-01-01T00:01:00Z',
+    }));
+const context = {
+    repo: { owner: 'microsoft', repo: 'pyright' },
+    payload: { workflow_run: run },
+};
+async function check({ inventory = artifacts, current = pullRequest, beforePost = current, source = run } = {}) {
+    const outputs = {}, files = {}, downloads = [], comments = [];
+    let prLookups = 0;
+    const github = {
+        request: async (route, parameters) => {
+            if (route.endsWith('/artifacts')) return { data: { artifacts: inventory } };
+            return { data: parameters.run_id === 42 ? source : validation };
+        },
+        rest: {
+            actions: {
+                listWorkflowRunArtifacts: 'artifacts',
+                getWorkflowRun: async () => ({ data: validation }),
+                downloadArtifact: async ({ artifact_id }) => {
+                    downloads.push(artifact_id);
+                    return { data: Buffer.from('zip') };
+                },
+            },
+            pulls: {
+                list: 'pulls', listFiles: 'files',
+                get: async () => ({ data: ++prLookups === 1 ? current : beforePost }),
+            },
+            issues: { createComment: async (parameters) => comments.push(parameters) },
+        },
+        paginate: async (method) => {
+            if (method === 'artifacts') return inventory;
+            if (method === 'pulls') return [current];
+            if (method === 'files') return [];
+            throw new Error(`Unexpected pagination: ${method}`);
+        },
+    };
+    const mockedFs = {
+        mkdirSync: () => {},
+        writeFileSync: (name, contents) => { files[name] = contents; },
+        readFileSync: (name) => {
+            assert.equal(name, 'fulldiff.txt', 'Never read an artifact-provided PR number');
+            return 'untrusted diff';
+        },
+    };
+    const mockedRequire = (name) => name === 'fs' ? mockedFs : require(name);
+    const core = { setOutput: (name, value) => { outputs[name] = value; }, notice: () => {},
+        setFailed: (message) => { throw new Error(message); } };
+    await new AsyncFunction('github', 'context', 'core', 'require', download.with.script)(
+        github, context, core, mockedRequire
+    );
+    if (outputs['has-diffs']) {
+        process.env.PR_NUMBER = String(outputs['pr-number']);
+        process.env.PR_HEAD_SHA = outputs['head-sha'];
+        await new AsyncFunction('github', 'context', 'core', 'require', post.with.script)(
+            github, context, core, mockedRequire
+        );
+    }
+    return { outputs, files, downloads, comments };
+}
+(async () => {
+    process.env.RUNNER_TEMP = require('os').tmpdir();
+    const result = await check();
+    assert.equal(result.outputs['pr-number'], 123);
+    assert.deepEqual(result.downloads, [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.equal(result.comments[0].issue_number, 123);
+    for (const inventory of [
+        [...artifacts, { ...artifacts[0], id: 100 }],
+        [...artifacts, { ...artifacts[0], name: 'mypy_primer_diffs_extra' }],
+        artifacts.slice(1),
+    ]) {
+        await assert.rejects(check({ inventory }), /primer artifact/);
+    }
+    await assert.rejects(check({ source: { ...run, path: '.github/workflows/other.yml' } }),
+        /matching primer run/);
+    for (const current of [
+        { ...pullRequest, state: 'closed' },
+        { ...pullRequest, head: { ...pullRequest.head, sha: 'b'.repeat(40) } },
+        { ...pullRequest, head: { ...pullRequest.head, repo: { id: 99 } } },
+    ]) {
+        const stale = await check({ current });
+        assert.deepEqual(stale.downloads, []);
+        assert.deepEqual(stale.comments, []);
+    }
+    const changedBeforePosting = await check({
+        beforePost: { ...pullRequest, head: { ...pullRequest.head, sha: 'b'.repeat(40) } },
+    });
+    assert.equal(changedBeforePosting.downloads.length, 8);
+    assert.deepEqual(changedBeforePosting.comments, []);
+    assert.deepEqual(JSON.parse(changedBeforePosting.files['primer-analysis-context.json']), { skipped: true });
+    assert.deepEqual((await check({ inventory: [] })).comments, []);
+})().catch((error) => { console.error(error); process.exitCode = 1; });
+"""
+        subprocess.run(["node", "-e", script], cwd=REPO_ROOT, check=True)
+
+    def test_primer_comment_only_reads_bounded_expected_archive_entries(self) -> None:
+        import os
+        from zipfile import ZipFile
+
+        workflow = _load_yaml(
+            REPO_ROOT / ".github" / "workflows" / "mypy_primer_comment.yaml"
+        )
+        script = next(
+            step["run"]
+            for step in workflow["jobs"]["comment"]["steps"]
+            if step.get("shell") == "python"
+        )
+        for invalid_name, oversized in [
+            (None, False),
+            ("pr_number.txt", False),
+            ("../fulldiff.txt", False),
+            (None, True),
+        ]:
+            with self.subTest(name=invalid_name, oversized=oversized):
+                with tempfile.TemporaryDirectory() as temporary:
+                    directory = Path(temporary) / "primer-diffs"
+                    directory.mkdir()
+                    for shard in range(8):
+                        with ZipFile(directory / f"diff_{shard}.zip", "w") as archive:
+                            name = (
+                                invalid_name
+                                if shard == 0 and invalid_name
+                                else f"diff_{shard}.txt"
+                            )
+                            contents = (
+                                "x" * (8 * 1024 * 1024 + 1)
+                                if oversized and shard == 0
+                                else f"diff {shard}\n"
+                            )
+                            archive.writestr(name, contents)
+                    result = subprocess.run(
+                        ["python", "-c", script],
+                        cwd=temporary,
+                        env={**os.environ, "RUNNER_TEMP": temporary},
+                        capture_output=True,
+                        text=True,
+                    )
+                    if invalid_name or oversized:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn("Invalid primer shard archive", result.stderr)
+                    else:
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertEqual(
+                            (Path(temporary) / "fulldiff.txt").read_text(),
+                            "".join(f"diff {shard}\n" for shard in range(8)),
+                        )
+
     def test_validated_pr_resolution_and_benchmark_only_path_filter(self) -> None:
         script = r"""
 const assert = require('assert').strict;
@@ -1265,12 +1450,17 @@ const report = require('./build/reportPullRequestCheck.js');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const load = (name) => YAML.parse(fs.readFileSync(`.github/workflows/${name}`, 'utf8'));
 const queue = load('pr_follow_up_checks.yml');
-assert.deepEqual(queue.on.pull_request_target, {
-    branches: ['main'], types: ['opened', 'synchronize', 'reopened'],
+assert.equal(queue.on.pull_request_target, undefined);
+assert.deepEqual(queue.on.workflow_run, {
+    workflows: ['Validation'], types: ['requested', 'in_progress', 'completed'],
 });
-assert.deepEqual(queue.on.workflow_run, { workflows: ['Validation'], types: ['completed'] });
 assert.equal(queue.permissions.checks, 'write');
 assert.ok(queue.jobs.report.if.includes("github.event.workflow_run.conclusion != 'success'"));
+assert.ok(queue.jobs.report.if.includes("github.event.workflow_run.event == 'pull_request'"));
+assert.ok(queue.jobs.report.if.includes("github.event.workflow_run.path == '.github/workflows/validation.yml'"));
+assert.ok(queue.jobs.report.if.includes('github.event.workflow_run.repository.id == github.event.repository.id'));
+assert.equal(queue.jobs.report.steps[0].with.ref, '${{ github.workflow_sha }}');
+assert.equal(queue.jobs.report.steps[0].with['persist-credentials'], false);
 assert.deepEqual(queue.jobs.report.strategy.matrix.check, ['mypy_primer', 'Type checker benchmark']);
 assert.equal(queue.jobs.report.concurrency['cancel-in-progress'], false);
 assert.ok(queue.jobs.report.concurrency.group.includes('matrix.check'));
@@ -1285,8 +1475,14 @@ const context = {
 let checks = [];
 let nextId = 1;
 const updates = [];
+const pullRequest = {
+    number: 123, state: 'open', head: { sha: 'c'.repeat(40), repo: { id: 2 } },
+};
 const github = {
-    rest: { checks: {
+    rest: { pulls: {
+        list: 'pulls', listFiles: 'files',
+        get: async () => ({ data: pullRequest }),
+    }, checks: {
         listForRef: 'checks',
         create: async (parameters) => {
             if (parameters.status === 'completed') {
@@ -1310,6 +1506,8 @@ const github = {
         },
     } },
     paginate: async (method, parameters) => {
+        if (method === 'pulls') return [pullRequest];
+        if (method === 'files') return [];
         assert.equal(method, 'checks');
         return checks.filter((check) =>
             check.head_sha === parameters.ref && check.name === parameters.check_name
@@ -1390,19 +1588,38 @@ const execute = async (script, eventContext = context) =>
     const benchmark = load('typecheck_benchmark_pr.yml').jobs.benchmark;
     assert.deepEqual(primer.permissions, { contents: 'read' });
     assert.deepEqual(benchmark.permissions, { contents: 'read' });
-    assert.equal(queue.jobs.report.steps[0].with.ref, '${{ github.event.repository.default_branch }}');
-    assert.equal(queue.jobs.report.steps[0].with['persist-credentials'], false);
     const queueScript = queue.jobs.report.steps[1].with.script;
     assert.equal(queue.jobs.report.steps[1].env.CHECK_NAME, '${{ matrix.check }}');
-    for (const name of queue.jobs.report.strategy.matrix.check) {
-        process.env.CHECK_NAME = name;
-        await execute(queueScript, {
-            ...context, eventName: 'pull_request_target',
-            payload: { pull_request: { head: { sha: 'c'.repeat(40) } } },
-        });
+    const validation = {
+        name: 'Validation', path: '.github/workflows/validation.yml',
+        event: 'pull_request', conclusion: null,
+        repository: { full_name: 'microsoft/pyright' },
+        head_repository: { id: 2, owner: { login: 'contributor' } },
+        head_branch: 'feature', head_sha: pullRequest.head.sha,
+    };
+    for (const action of ['requested', 'in_progress', 'completed']) {
+        for (const name of queue.jobs.report.strategy.matrix.check) {
+            process.env.CHECK_NAME = name;
+            await execute(queueScript, {
+                ...context, eventName: 'workflow_run',
+                payload: { action, workflow_run: {
+                    ...validation, conclusion: action === 'completed' ? 'failure' : null,
+                } },
+            });
+        }
+        const latest = checks.filter((check) => check.head_sha === pullRequest.head.sha);
+        assert.equal(latest.length, 2);
+        for (const check of latest) {
+            assert.equal(check.status, action === 'completed' ? 'completed' : 'queued');
+            assert.equal(check.conclusion, action === 'completed' ? 'skipped' : undefined);
+        }
     }
-    assert.deepEqual(checks.slice(0, 2).map((check) => check.status), ['queued', 'queued']);
-    assert.deepEqual(checks.slice(0, 2).map((check) => check.head_sha), ['c'.repeat(40), 'c'.repeat(40)]);
+    const countBeforeStaleRun = checks.length;
+    await execute(queueScript, {
+        ...context, eventName: 'workflow_run',
+        payload: { action: 'requested', workflow_run: { ...validation, head_sha: 'f'.repeat(40) } },
+    });
+    assert.equal(checks.length, countBeforeStaleRun);
     await execute(queueScript, {
         ...context, eventName: 'workflow_run',
         payload: { workflow_run: {
@@ -1410,7 +1627,7 @@ const execute = async (script, eventContext = context) =>
             event: 'pull_request', conclusion: 'failure',
         } },
     });
-    assert.equal(checks[0].status, 'queued');
+    assert.equal(checks.length, countBeforeStaleRun);
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 """
         subprocess.run(["node", "-e", script], cwd=REPO_ROOT, check=True)
