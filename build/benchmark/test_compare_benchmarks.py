@@ -808,6 +808,7 @@ Regression threshold: `10.0%`
                 "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
                 "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
                 "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
+                "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
                 "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
                 None,
                 "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
@@ -822,7 +823,7 @@ Regression threshold: `10.0%`
             ],
         )
         self.assertEqual(
-            pr_benchmark_steps[5],
+            pr_benchmark_steps[6],
             {
                 "name": "Locate benchmark pnpm store",
                 "id": "benchmark-pnpm",
@@ -830,7 +831,7 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[6],
+            pr_benchmark_steps[7],
             {
                 "name": "Restore trusted benchmark pnpm store",
                 "uses": "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
@@ -841,7 +842,7 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[8],
+            pr_benchmark_steps[9],
             {
                 "name": "Install base JavaScript dependencies",
                 "timeout-minutes": 10,
@@ -851,7 +852,7 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[11],
+            pr_benchmark_steps[12],
             {
                 "name": "Install candidate JavaScript dependencies",
                 "timeout-minutes": 10,
@@ -860,24 +861,33 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[10]["working-directory"],
+            pr_benchmark_steps[11]["working-directory"],
             "benchmark-base",
         )
         self.assertEqual(
-            pr_benchmark_steps[10]["env"],
+            pr_benchmark_steps[11]["env"],
             {
                 "NODE_OPTIONS": "--max-old-space-size=6656",
                 "PYTHONNOUSERSITE": "1",
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[13]["env"],
+            pr_benchmark_steps[14]["env"],
             {
                 "NODE_OPTIONS": "--max-old-space-size=6656",
                 "PYTHONNOUSERSITE": "1",
                 "PYRIGHT_BENCHMARK_ENTRY_POINT": "${{ github.workspace }}/packages/pyright/index.js",
             },
         )
+        pnpm_setup, pnpm_retry = pr_benchmark_steps[3:5]
+        self.assertEqual(pnpm_setup["id"], "pnpm-setup")
+        self.assertTrue(pnpm_setup["continue-on-error"])
+        self.assertEqual(
+            pnpm_retry["if"],
+            "${{ !cancelled() && steps.pnpm-setup.outcome == 'failure' }}",
+        )
+        self.assertNotIn("if", pnpm_setup)
+        self.assertNotIn("continue-on-error", pnpm_retry)
         history_workflow_data = _load_yaml(
             REPO_ROOT
             / ".github"
