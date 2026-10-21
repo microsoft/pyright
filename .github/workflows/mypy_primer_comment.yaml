@@ -66,8 +66,9 @@ jobs:
               throw new Error('The Validation head changed while resolving the primer run');
             }
             const resolve = require('./build/resolveValidatedPullRequest.js');
+            // Context.repo is a prototype getter, so spreading context does not retain it.
             const validated = await resolve({
-              github, context: { ...context, payload: { workflow_run: validation } }, core,
+              github, context: { ...context, repo: context.repo, payload: { workflow_run: validation } }, core,
             });
             if (!validated) {
               core.notice('Skipping comments for a stale or closed pull request');
