@@ -8,10 +8,13 @@ from collections.abc import (
     Callable,
     Collection,
     Generator,
+    ItemsView,
     Iterable,
     Iterator,
+    KeysView,
     Mapping,
     Sequence,
+    ValuesView,
 )
 from concurrent import futures
 from types import TracebackType
@@ -187,6 +190,9 @@ class Channel(abc.ABC):
 class Server(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def add_generic_rpc_handlers(self, generic_rpc_handlers: Iterable[GenericRpcHandler]) -> None: ...
+    def add_registered_method_handlers(
+        self, service_name: str, method_handlers: Mapping[str, RpcMethodHandler[Any, Any]]
+    ) -> None: ...
 
     # Returns an integer port on which server will accept RPC requests.
     @abc.abstractmethod
@@ -522,6 +528,9 @@ class Metadata(Collection[_MetadatumType]):
     def __delitem__(self, key: _MetadataKey) -> None: ...
     def delete_all(self, key: _MetadataKey) -> None: ...
     def __iter__(self) -> Iterator[_MetadatumType]: ...
+    def keys(self) -> KeysView[_MetadataKey]: ...
+    def values(self) -> ValuesView[list[_MetadataValue]]: ...
+    def items(self) -> ItemsView[_MetadataKey, list[_MetadataValue]]: ...
 
     @overload
     def get(self, key: _MetadataKey, default: None = None) -> _MetadataValue | None: ...

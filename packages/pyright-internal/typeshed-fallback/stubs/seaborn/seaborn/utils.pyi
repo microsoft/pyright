@@ -43,17 +43,17 @@ _Scalar: TypeAlias = (
     float
     | complex
     | np.number[Any]
-    # categorical
-    | bool
-    | str
-    | bytes
-    | None
     # dates
     | dt.date
     | dt.datetime
     | dt.timedelta
     | pd.Timestamp
     | pd.Timedelta
+    # categorical
+    | bool
+    | str
+    | bytes
+    | None
 )
 _Vector: TypeAlias = Iterable[_Scalar]
 _DataSourceWideForm: TypeAlias = (  # noqa: Y047

@@ -1,5 +1,4 @@
 from _typeshed import Incomplete
-from collections.abc import Callable
 from typing import Literal
 
 from .tokens import OAuth2Token
@@ -32,7 +31,6 @@ def prepare_token_revocation_request(
     url: str,
     token: str,
     token_type_hint: Literal["access_token", "refresh_token"] | None = "access_token",
-    callback: Callable[[Incomplete], Incomplete] | None = None,
     body: str = "",
     **kwargs,
 ) -> tuple[str, dict[str, str], str]: ...
