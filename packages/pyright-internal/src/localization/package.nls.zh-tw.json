@@ -146,7 +146,7 @@
         "dictKeyValuePairs": "字典項目必須包含金鑰/值組",
         "dictUnpackIsNotMapping": "預期為字典解壓縮運算子的對應",
         "disjointBaseFunction": "@disjoint_base 無法套用於函式",
-        "disjointBaseIncompatible": "基礎映像類別具有不相容的不相鄰基礎映像: {bases}",
+        "disjointBaseIncompatible": "基底類別具有不相容且不相交的基底: {bases}",
         "disjointBaseProtocol": "@disjoint_base 無法套用至 Protocol 類別",
         "disjointBaseTypedDict": "@disjoint_base 無法套用至 TypedDict 類別",
         "dunderAllSymbolNotPresent": "\"{name}\" 已在 __all__ 中指定，但在模組中不存在",

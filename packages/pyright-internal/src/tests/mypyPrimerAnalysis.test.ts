@@ -242,7 +242,9 @@ function fixture(contents = sample, headRepository = repository) {
         head_branch: 'feature',
         pull_requests: source.pullRequests.map((number) => ({ number })),
         run_started_at: '2026-09-10T00:00:00Z',
+        display_title: '',
     };
+    const validation = { ...run, id: 41, path: '.github/workflows/validation.yml' };
     const artifacts = [
         'mypy_primer_diffs_pr_number',
         ...Array.from({ length: 8 }, (_, shard) => `mypy_primer_diffs_${shard}`),
@@ -252,7 +254,7 @@ function fixture(contents = sample, headRepository = repository) {
     const request = jest.fn(
         async (route: string, parameters: Record<string, string | number>): Promise<{ data: unknown }> => {
             if (route === 'GET /repos/{owner}/{repo}/actions/runs/{run_id}') {
-                return { data: run };
+                return { data: parameters.run_id === 41 ? validation : run };
             }
             if (route.endsWith('/artifacts')) {
                 return { data: { artifacts } };
@@ -298,7 +300,7 @@ function fixture(contents = sample, headRepository = repository) {
             report: JSON.stringify(report),
         })),
     });
-    return { source, manifest, pr, run, artifacts, comments, associated, request, report, output };
+    return { source, manifest, pr, run, validation, artifacts, comments, associated, request, report, output };
 }
 
 describe('mypy_primer analysis', () => {
@@ -467,6 +469,179 @@ describe('mypy_primer analysis', () => {
         await expect(loadSource(f.request, repository, f.source)).rejects.toThrow('Missing');
         f.run.run_attempt = 2;
         await expect(loadSource(f.request, repository, f.source)).rejects.toThrow('matching');
+    });
+
+    test('uses the validated PR head for follow-up runs rather than the default branch', async () => {
+        const f = fixture(sample, 'contributor/pyright');
+        f.run.event = 'workflow_run';
+        f.run.display_title = 'Run mypy_primer after Validation #41';
+        f.run.head_sha = 'b'.repeat(40);
+        f.run.head_repository = { full_name: repository };
+        f.run.head_branch = 'main';
+        await expect(loadSource(f.request, repository, f.source)).resolves.toEqual(f.source);
+    });
+
+    test.each(['current', 'changed head', 'closed', 'different head repository'])(
+        'raw commenter resolves %s PRs with a prototype-backed Actions context',
+        async (state) => {
+            const workflow = parseDocument(
+                readFileSync(join(__dirname, '../../../../.github/workflows/mypy_primer_comment.yaml'), 'utf8')
+            );
+            const steps = workflow.getIn(['jobs', 'comment', 'steps'], true);
+            if (!isSeq(steps)) {
+                throw new Error('Missing raw commenter steps');
+            }
+            const step = steps.items.find((item) => isMap(item) && item.get('id') === 'download');
+            if (!isMap(step)) {
+                throw new Error('Missing raw commenter download step');
+            }
+            const script = step.getIn(['with', 'script']);
+            if (typeof script !== 'string') {
+                throw new Error('Missing raw commenter download script');
+            }
+
+            const f = fixture(sample, 'contributor/pyright');
+            f.run.event = 'workflow_run';
+            f.run.display_title = 'Run mypy_primer after Validation #41';
+            f.run.head_sha = 'b'.repeat(40);
+            f.run.head_repository = { full_name: repository };
+            f.run.head_branch = 'main';
+            const validation = {
+                ...f.validation,
+                name: 'Validation',
+                head_repository: { ...f.validation.head_repository, id: 123, owner: { login: 'contributor' } },
+            };
+            const pullRequest = {
+                ...f.pr,
+                head: { ...f.pr.head, repo: { ...f.pr.head.repo, id: 123 } },
+            };
+            const refreshedPullRequest = {
+                ...pullRequest,
+                state: state === 'closed' ? 'closed' : 'open',
+                head: {
+                    ...pullRequest.head,
+                    sha: state === 'changed head' ? 'c'.repeat(40) : headSha,
+                    repo: { ...pullRequest.head.repo, id: state === 'different head repository' ? 456 : 123 },
+                },
+            };
+            const artifacts = f.artifacts.map((artifact, id) => ({ ...artifact, id }));
+            const rest = {
+                actions: {
+                    listWorkflowRunArtifacts: jest.fn(),
+                    getWorkflowRun: jest.fn().mockResolvedValue({ data: validation }),
+                    downloadArtifact: jest.fn().mockResolvedValue({ data: Buffer.from('mock archive') }),
+                },
+                pulls: {
+                    list: jest.fn(),
+                    get: jest.fn().mockResolvedValue({ data: refreshedPullRequest }),
+                    listFiles: jest.fn(),
+                },
+            };
+            const paginate = jest.fn(async (method: unknown) => {
+                if (method === rest.actions.listWorkflowRunArtifacts) {
+                    return artifacts;
+                }
+                if (method === rest.pulls.list) {
+                    return [pullRequest];
+                }
+                if (method === rest.pulls.listFiles) {
+                    return [{ filename: 'example.py' }];
+                }
+                throw new Error('Unexpected pagination method');
+            });
+            const core = { notice: jest.fn(), setFailed: jest.fn(), setOutput: jest.fn() };
+            const fs = { mkdirSync: jest.fn(), writeFileSync: jest.fn() };
+            class ActionsContext {
+                payload = { workflow_run: f.run };
+
+                get repo() {
+                    return { owner: 'microsoft', repo: 'pyright' };
+                }
+            }
+            const context = new ActionsContext();
+            expect(Object.keys(context)).not.toContain('repo');
+            await runInNewContext(`(async () => { ${script} })()`, {
+                require: (name: string): unknown => {
+                    if (name === 'fs') {
+                        return fs;
+                    }
+                    if (name === 'path') {
+                        return { join };
+                    }
+                    if (name === './build/ci/mypyPrimerAnalysis.ts') {
+                        return { loadSource };
+                    }
+                    if (name === './build/resolveValidatedPullRequest.js') {
+                        return require('../../../../build/resolveValidatedPullRequest.js');
+                    }
+                    throw new Error(`Unexpected module: ${name}`);
+                },
+                process: { env: { RUNNER_TEMP: directory } },
+                Buffer,
+                github: { rest, paginate, request: f.request },
+                context,
+                core,
+            });
+            expect(context.payload.workflow_run).toBe(f.run);
+            expect(rest.actions.getWorkflowRun.mock.calls).toStrictEqual([
+                [{ ...context.repo, run_id: validation.id }],
+            ]);
+            expect(paginate).toHaveBeenCalledWith(rest.pulls.list, {
+                ...context.repo,
+                state: 'open',
+                head: 'contributor:feature',
+                per_page: 100,
+            });
+            expect(rest.pulls.get.mock.calls).toStrictEqual([[{ ...context.repo, pull_number: 7 }]]);
+            expect(core.setFailed).not.toHaveBeenCalled();
+            if (state === 'current') {
+                expect(core.notice).not.toHaveBeenCalled();
+                expect(core.setOutput.mock.calls).toStrictEqual([
+                    ['pr-number', 7],
+                    ['head-sha', headSha],
+                    ['has-diffs', 'true'],
+                ]);
+                expect(rest.actions.downloadArtifact.mock.calls).toStrictEqual(
+                    artifacts
+                        .slice(1)
+                        .map((artifact) => [{ ...context.repo, artifact_id: artifact.id, archive_format: 'zip' }])
+                );
+                expect(fs.writeFileSync.mock.calls).toStrictEqual(
+                    Array.from({ length: 8 }, (_, shard) => [
+                        join(directory, 'primer-diffs', `diff_${shard}.zip`),
+                        Buffer.from('mock archive'),
+                    ])
+                );
+            } else {
+                expect(core.setOutput).not.toHaveBeenCalled();
+                expect(rest.actions.downloadArtifact).not.toHaveBeenCalled();
+                expect(fs.writeFileSync.mock.calls).toStrictEqual([
+                    ['primer-analysis-context.json', JSON.stringify({ skipped: true })],
+                ]);
+                expect(core.notice).toHaveBeenCalledWith('Skipping comments for a stale or closed pull request');
+            }
+        }
+    );
+
+    test.each(['failure', 'cancelled'])('rejects unsuccessful %s source Validation', async (conclusion) => {
+        const f = fixture();
+        f.run.event = 'workflow_run';
+        f.run.display_title = 'Run mypy_primer after Validation #41';
+        f.validation.conclusion = conclusion;
+        await expect(loadSource(f.request, repository, f.source)).rejects.toThrow('successful pull request Validation');
+    });
+
+    test('rejects incorrect follow-up provenance', async () => {
+        const f = fixture();
+        f.run.event = 'workflow_run';
+        f.run.display_title = 'Unrelated run';
+        await expect(loadSource(f.request, repository, f.source)).rejects.toThrow('source Validation run');
+        f.run.display_title = 'Run mypy_primer after Validation #41';
+        f.validation.event = 'push';
+        await expect(loadSource(f.request, repository, f.source)).rejects.toThrow('successful pull request Validation');
+        f.validation.event = 'pull_request';
+        f.validation.path = '.github/workflows/other.yml';
+        await expect(loadSource(f.request, repository, f.source)).rejects.toThrow('successful pull request Validation');
     });
 
     test('rejects expired, duplicate, old-attempt, and oversized artifacts', async () => {
@@ -1022,7 +1197,7 @@ describe('mypy_primer analysis', () => {
         expect(() => renderReport(f.manifest, f.report, 100)).toThrow(new Error('Invalid PR attribution for example'));
     });
 
-    test('uses a short non-blocking notice only for canonical SymPy-only changes', () => {
+    test('keeps normal analysis for canonical SymPy-only changes', () => {
         const f = fixture(
             sample
                 .replace(/example/g, 'sympy')
@@ -1030,14 +1205,7 @@ describe('mypy_primer analysis', () => {
         );
         f.report.projects[0].name = 'sympy';
         expect(renderReport(f.manifest, f.report, 100)).toStrictEqual({
-            body: [
-                ...expectedReportProvenance,
-                '**Only SymPy changed.** These differences are treated as non-blocking primer noise; no other project changed.',
-                '',
-                'Recorded changes: 1 added / 1 removed diagnostic headers; 1 added / 1 removed detail lines.',
-                '',
-                ...expectedReportFooter,
-            ].join('\n'),
+            body: expectedReport.body.replace(/example/g, 'sympy'),
             fullReport: expectedReport.fullReport.replace(/example/g, 'sympy'),
         });
         expect(() => renderReport(f.manifest, { projects: [] }, 100)).toThrow(
@@ -1046,6 +1214,47 @@ describe('mypy_primer analysis', () => {
         f.report.projects[0].explanation = '';
         expect(() => renderReport(f.manifest, f.report, 100)).toThrow('Expected nonempty text');
     });
+
+    test.each(['possible-regression', 'expected-improvement'])(
+        'keeps SymPy-only type-erasure warnings visible with a %s assessment',
+        (assessment) => {
+            const f = fixture(
+                [
+                    'sympy (https://github.com/sympy/sympy)',
+                    '+   .../projects/sympy/test.py:1:1 - error: "assert_type" mismatch: expected "int" but received "Any" (reportAssertTypeFailure)',
+                    '- 0 errors, 0 warnings, 0 informations',
+                    '+ 1 error, 0 warnings, 0 informations',
+                ].join('\n')
+            );
+            const report = {
+                projects: [
+                    {
+                        ...f.report.projects[0],
+                        name: 'sympy',
+                        assessment,
+                        evidence: [
+                            {
+                                url: 'https://typing.python.org/en/latest/spec/assert.html',
+                                detail: 'Type assertion specification.',
+                            },
+                        ],
+                    },
+                ],
+            };
+            const result = renderReport(f.manifest, report, 100);
+            expect(result.body).toContain(riskOverview);
+            expect(result.body).toContain('## Potential regressions');
+            expect(result.body).toContain('### sympy:');
+            expect(result.body).toContain(
+                '**Regression warning signals require review, regardless of the AI assessment:**'
+            );
+            expect(result.body).toContain('New assertions receive bare Any/Unknown instead of their expected type.');
+            expect(result.body).toContain('**Causal analysis:**');
+            expect(result.body).toContain('**Uncertainty / next check:**');
+            expect(result.body).toContain('<https://typing.python.org/en/latest/spec/assert.html>');
+            expect(result.body).not.toContain('non-blocking primer noise');
+        }
+    );
 
     test('keeps normal analysis for noncanonical SymPy and mixed-project changes', () => {
         const f = fixture();

@@ -349,7 +349,7 @@ class LogRecord:
         # contradicts the LogRecord documentation, but seems to be intentional,
         # see https://github.com/python/cpython/issues/88639
         args: _ArgsType | None,
-        exc_info: _SysExcInfoType | None,
+        exc_info: _SysExcInfoType | Literal[False] | None,
         func: str | None = None,
         sinfo: str | None = None,
     ) -> None: ...

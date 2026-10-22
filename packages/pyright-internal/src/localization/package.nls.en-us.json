@@ -784,6 +784,10 @@
             "message": "Bytes and str values cannot be concatenated",
             "comment": ["{Locked='str'}", "{StrContains=i'bytes'}", "'bytes' is a keyword and should not be localized. It is only capitalized here because it is the first word in the sentence"]
         },
+        "mixingTemplateAndStr": {
+            "message": "Template string literals (t-strings) cannot be concatenated with string or bytes literals",
+            "comment": ["'t-string' is the common English slang for a Python template string", "{Locked='bytes'}"]
+        },
         "moduleAsType": "Module cannot be used as a type",
         "moduleNotCallable": "Module is not callable",
         "moduleUnknownMember": "\"{memberName}\" is not a known attribute of module \"{moduleName}\"",

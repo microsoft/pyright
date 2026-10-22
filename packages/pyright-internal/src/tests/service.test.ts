@@ -13,7 +13,9 @@ import { SourceEnumerator } from '../analyzer/sourceEnumerator';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { NullConsole } from '../common/console';
 import { CommandLineOptions } from '../common/commandLineOptions';
+import { StatusMutationListener } from '../common/extensibility';
 import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
+import { ServiceKeys } from '../common/serviceKeys';
 import { Uri } from '../common/uri/uri';
 import { getFileSpec, UriEx } from '../common/uri/uriUtils';
 import { TestFileSystem } from './harness/vfs/filesystem';
@@ -30,6 +32,41 @@ test('random library file changed', () => {
         ),
         true
     );
+});
+
+test('program clone initializes services before creating files and notifying listeners', () => {
+    const { state } = parseAndGetTestState(`
+// @filename: test.py
+//// [|/*marker*/value = 1|]
+`);
+    const uri = state.getMarkerByName('marker').fileUri;
+    const originalOnFileDirty = jest.fn();
+    const cloneOnFileDirty = jest.fn();
+    const secondOnProgramCloned = jest.fn();
+    const listener: StatusMutationListener = {
+        onFileDirty: originalOnFileDirty,
+        onProgramCloned(program) {
+            assert.notStrictEqual(program.serviceProvider, state.program.serviceProvider);
+            assert.strictEqual(program.getSourceFile(uri), undefined);
+            program.serviceProvider.remove(ServiceKeys.stateMutationListeners, listener);
+            program.serviceProvider.add(ServiceKeys.stateMutationListeners, { onFileDirty: cloneOnFileDirty });
+        },
+    };
+    state.program.serviceProvider.add(ServiceKeys.stateMutationListeners, listener);
+    state.program.serviceProvider.add(ServiceKeys.stateMutationListeners, {
+        onProgramCloned: secondOnProgramCloned,
+    });
+    const clone = state.program.clone();
+    try {
+        expect(secondOnProgramCloned).toHaveBeenCalledTimes(1);
+        expect(secondOnProgramCloned).toHaveBeenCalledWith(clone);
+        expect(originalOnFileDirty).not.toHaveBeenCalled();
+        expect(cloneOnFileDirty).toHaveBeenCalledWith(uri);
+        assert.strictEqual(clone.getSourceFile(uri)?.getFileContent(), 'value = 1');
+    } finally {
+        clone.dispose();
+        state.dispose();
+    }
 });
 
 test('service clone preserves effective configuration', () => {

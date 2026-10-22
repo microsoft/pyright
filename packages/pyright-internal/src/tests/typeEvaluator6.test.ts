@@ -10,9 +10,17 @@
 
 import * as assert from 'assert';
 
+import * as TypeGuards from '../analyzer/typeGuards';
+import { isInstantiableClass } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_12, pythonVersion3_8 } from '../common/pythonVersion';
+import {
+    pythonVersion3_10,
+    pythonVersion3_11,
+    pythonVersion3_12,
+    pythonVersion3_13,
+    pythonVersion3_8,
+} from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -243,7 +251,7 @@ test('OverloadOverlap1', () => {
 
     configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverlap1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 18);
+    TestUtils.validateResults(analysisResults, 26);
 });
 
 test('TypeGuard1', () => {
@@ -260,6 +268,27 @@ test('TypeGuard2', () => {
 
 test('TypeGuard3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeGuard4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeGuard5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard5.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()),
+        [DiagnosticRule.reportAttributeAccessIssue, DiagnosticRule.reportAttributeAccessIssue]
+    );
+    assert.ok(analysisResults[0].errors[0].message.includes('type[FactoryClass]'));
+    assert.ok(analysisResults[0].errors[1].message.includes('type[FactoryChild]'));
+});
+
+test('TypeGuard6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard6.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
@@ -286,6 +315,49 @@ test('TypeIs4', () => {
 test('TypeIs5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs5.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs6.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs7.py']);
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportReturnType);
+});
+
+test('TypeIs8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs8.py']);
+    TestUtils.validateResults(analysisResults, 3);
+    assert.ok(
+        analysisResults[0].errors.every(
+            (diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAttributeAccessIssue
+        )
+    );
+});
+
+test('TypeIs9', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs9.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs10.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs11.py']);
+    TestUtils.validateResults(analysisResults, 4);
+    assert.ok(
+        analysisResults[0].errors.every(
+            (diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAttributeAccessIssue
+        )
+    );
 });
 
 test('Never1', () => {
@@ -717,6 +789,64 @@ test('MatchClass8', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('MatchClass9', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass9.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 0, undefined, undefined, 0);
+});
+
+test('MatchClass10', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass10.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 6);
+});
+
+test('MatchClass11', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass11.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4, 0, undefined, undefined, 0);
+    analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportArgumentType));
+});
+
+test('MatchClass12', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass12.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 7, 0, undefined, undefined, 0);
+    analysisResults[0].errors.forEach((diag) =>
+        assert.strictEqual(diag.getRule(), DiagnosticRule.reportGeneralTypeIssues)
+    );
+});
+
+test('MatchClass13', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+
+    const narrowSpy = jest.spyOn(TypeGuards, 'narrowTypeForInstanceOrSubclass');
+    try {
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass13.py'], configOptions);
+        TestUtils.validateResults(analysisResults, 1);
+        const protocolCalls = narrowSpy.mock.calls.filter(([, , filterTypes]) =>
+            filterTypes.some((type) => isInstantiableClass(type) && type.shared.name === 'RecursiveProtocol')
+        );
+        assert.strictEqual(protocolCalls.length, 0);
+    } finally {
+        narrowSpy.mockRestore();
+    }
+});
+
 test('MatchValue1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -731,6 +861,42 @@ test('MatchMapping1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchMapping1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('MatchMapping2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    // These typing checks need the typing_extensions stubs, not its runtime package.
+    configOptions.diagnosticRuleSet.reportMissingModuleSource = 'none';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchMapping2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 8);
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportReturnType).length,
+        7
+    );
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportTypedDictNotRequiredAccess)
+            .length,
+        1
+    );
+});
+
+test('MatchMapping3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchMapping3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 8);
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportReturnType).length,
+        7
+    );
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportTypedDictNotRequiredAccess)
+            .length,
+        1
+    );
 });
 
 test('MatchLiteral1', () => {
@@ -1098,6 +1264,20 @@ test('Constructor34', () => {
             ],
         ]
     );
+});
+
+test('Constructor35', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor35.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+    assert.deepStrictEqual(analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()).sort(), [
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportGeneralTypeIssues,
+    ]);
 });
 
 test('ConstructorCallable1', () => {

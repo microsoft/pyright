@@ -10,6 +10,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_10, pythonVersion3_8, pythonVersion3_9 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
@@ -277,6 +278,69 @@ test('UnnecessaryIsInstance2', () => {
     configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('UnnecessaryIsInstance3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4, 0, 3);
+    expect(
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+    ).toEqual([
+        [52, DiagnosticRule.reportArgumentType],
+        [52, DiagnosticRule.reportArgumentType],
+        [54, DiagnosticRule.reportArgumentType],
+        [54, DiagnosticRule.reportArgumentType],
+    ]);
+
+    configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 10, 0, 3);
+    expect(
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+    ).toEqual([
+        [38, DiagnosticRule.reportUnnecessaryIsInstance],
+        [40, DiagnosticRule.reportUnnecessaryIsInstance],
+        [45, DiagnosticRule.reportUnnecessaryIsInstance],
+        [47, DiagnosticRule.reportUnnecessaryIsInstance],
+        [52, DiagnosticRule.reportArgumentType],
+        [52, DiagnosticRule.reportArgumentType],
+        [54, DiagnosticRule.reportArgumentType],
+        [54, DiagnosticRule.reportArgumentType],
+        [80, DiagnosticRule.reportUnnecessaryIsInstance],
+        [85, DiagnosticRule.reportUnnecessaryIsInstance],
+    ]);
+});
+
+test('UnnecessaryIsInstance4', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance4.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1, 0, 1);
+    expect(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+    ).toEqual([[38, DiagnosticRule.reportReturnType]]);
+
+    configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance4.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 3, 0, 1);
+    expect(
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+    ).toEqual([
+        [25, DiagnosticRule.reportUnnecessaryIsInstance],
+        [30, DiagnosticRule.reportUnnecessaryIsInstance],
+        [38, DiagnosticRule.reportReturnType],
+    ]);
 });
 
 test('UnnecessaryIsSubclass1', () => {
@@ -730,4 +794,14 @@ test('Deprecated8', () => {
     configOptions.diagnosticRuleSet.reportDeprecated = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated8.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 4);
+});
+
+test('TypeNarrowingContainer1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingContainer1.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingContainer2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingContainer2.py']);
+    TestUtils.validateResults(analysisResults, 1);
 });

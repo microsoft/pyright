@@ -15,6 +15,9 @@ a2: _TypedDict
 v1 = function
 
 # This should generate an error.
+v2 = isinstance(1, ellipsis)
+
+# This should generate an error.
 v3 = _TypedDict
 
 

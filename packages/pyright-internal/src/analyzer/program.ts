@@ -45,7 +45,7 @@ import { ISourceFileFactory } from './programTypes';
 import { Scope } from './scope';
 import { CheckOperationFactory, IPythonMode, SourceFile } from './sourceFile';
 import { SourceFileInfo } from './sourceFileInfo';
-import { isUserCode, verifyNoCyclesInChainedFiles } from './sourceFileInfoUtils';
+import { isUserCode, isUserCodeOrOpenByClient, verifyNoCyclesInChainedFiles } from './sourceFileInfoUtils';
 import { SourceMapper } from './sourceMapper';
 import { Symbol, SymbolTable } from './symbol';
 import { createTracePrinter } from './tracePrinter';
@@ -177,6 +177,7 @@ export class Program {
     private _evaluator: TypeEvaluator | undefined;
     private _experimentalOverloadResult?: ExperimentalOverloadResultController;
     private _evaluatorInvocationCount = 0;
+    private _evaluatorRecreationPending = false;
     private _cacheClearPending = false;
     private _disposed = false;
     private _parsedFileCount = 0;
@@ -268,6 +269,7 @@ export class Program {
     }
 
     dispose() {
+        this._evaluatorRecreationPending = false;
         this._cacheClearPending = false;
         if ((this._testOnlyChecking || this._experimentalOverloadResult) && !this._disposed) {
             this._evaluator?.disposeEvaluator();
@@ -584,7 +586,7 @@ export class Program {
             // stale type cache. This mirrors markFilesDirty's markDirtySet.size
             // check so the close path cannot silently diverge from it.
             if (markDirtySet.size > 0) {
-                this._createNewEvaluator();
+                this._recreateEvaluatorWhenIdle();
             }
         }
 
@@ -694,7 +696,7 @@ export class Program {
         this._sourceFileList.forEach((fileInfo) => {
             const sourceFile = fileInfo.sourceFile;
             if (sourceFile.isCheckingRequired()) {
-                if (this._shouldCheckFile(fileInfo)) {
+                if (this._shouldCheckFile(fileInfo) && isUserCodeOrOpenByClient(fileInfo)) {
                     sourceFile.getIPythonMode() === IPythonMode.CellDocs
                         ? cellsToAnalyzeCount++
                         : filesToAnalyzeCount++;
@@ -1125,11 +1127,15 @@ export class Program {
         const program = new Program(
             this._importResolver,
             this._configOptions,
-            this.serviceProvider,
+            this.serviceProvider.clone(),
             new LogTracker(this._console, 'Cloned'),
             this._disableChecker
         );
         program._editModeTracker.markClonedProgram();
+
+        // Rebind program-owned services before creating files or sending cache invalidations.
+        const listeners = [...(program.serviceProvider.tryGet(ServiceKeys.stateMutationListeners) ?? [])];
+        listeners.forEach((listener) => listener.onProgramCloned?.(program));
 
         // Clone user and open files in their original order. Open files must be created
         // with their full construction metadata before they are marked as tracked;
@@ -1177,12 +1183,8 @@ export class Program {
             this._cacheClearPending = true;
             return;
         }
-        this._cacheClearPending = false;
-        this._createNewEvaluator();
-        this._discardCachedParseResults();
-        this._parsedFileCount = 0;
 
-        this.serviceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => l.onClearCache?.());
+        this._emptyCacheNow();
     }
 
     bindShadowFile(stubFileUri: Uri, shadowFile: Uri): SourceFile | undefined {
@@ -1285,6 +1287,15 @@ export class Program {
         }
     }
 
+    private _emptyCacheNow() {
+        this._cacheClearPending = false;
+        this._createNewEvaluator();
+        this._discardCachedParseResults();
+        this._parsedFileCount = 0;
+
+        this.serviceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => l.onClearCache?.());
+    }
+
     // Wrapper function that should be used when invoking this._evaluator
     // with a cancellation token. It handles cancellation exceptions and
     // any other unexpected exceptions.
@@ -1304,8 +1315,12 @@ export class Program {
         this._evaluatorInvocationCount++;
         const release = () => {
             this._evaluatorInvocationCount--;
-            if (!this._disposed && this._evaluatorInvocationCount === 0 && this._cacheClearPending) {
-                this.emptyCache();
+            if (!this._disposed && this._evaluatorInvocationCount === 0) {
+                if (this._cacheClearPending) {
+                    this.emptyCache();
+                } else if (this._evaluatorRecreationPending) {
+                    this._createNewEvaluator();
+                }
             }
         };
         try {
@@ -1352,6 +1367,7 @@ export class Program {
     // errors for files that have been deleted or closed.
     private _removeUnneededFiles(): FileDiagnostics[] {
         const fileDiagnostics: FileDiagnostics[] = [];
+        let filesRemoved = false;
 
         // If a file is no longer tracked, opened or shadowed, it can
         // be removed from the program.
@@ -1369,6 +1385,7 @@ export class Program {
 
                 fileInfo.sourceFile.prepareForClose();
                 this._removeSourceFileFromListAndMap(fileInfo.uri, i);
+                filesRemoved = true;
 
                 // Unlink any imports and remove them from the list if
                 // they are no longer referenced.
@@ -1421,6 +1438,11 @@ export class Program {
 
                 i++;
             }
+        }
+
+        // Cached types can retain declaration trees after their source files are removed.
+        if (filesRemoved) {
+            this._recreateEvaluatorWhenIdle();
         }
 
         return fileDiagnostics;
@@ -2020,7 +2042,16 @@ export class Program {
         return sourceFileInfo;
     }
 
+    private _recreateEvaluatorWhenIdle() {
+        if (this._evaluatorInvocationCount > 0) {
+            this._evaluatorRecreationPending = true;
+        } else {
+            this._createNewEvaluator();
+        }
+    }
+
     private _createNewEvaluator() {
+        this._evaluatorRecreationPending = false;
         this.createNewEvaluatorInternal();
 
         if (this._evaluator) {
