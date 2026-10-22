@@ -1010,6 +1010,41 @@ test('Strings: bytes string with non-ASCII', () => {
     assert.equal(stringToken1.length, 11);
 });
 
+test('Strings: multiline text without escapes', () => {
+    for (const text of ['first\nsecond\n', 'first\r\nsecond\r\n', 'first\rsecond', 'first\r\r\nsecond\n']) {
+        const token = new Tokenizer().tokenize(`"""${text}"""`).tokens.getItemAt(0) as StringToken;
+        for (const elideCrlf of [true, false]) {
+            const result = StringTokenUtils.getUnescapedString(token, elideCrlf);
+            assert.equal(result.value, elideCrlf ? text.replace(/\r\n/g, '\n') : text);
+            assert.deepEqual(result.unescapeErrors, []);
+            assert.equal(result.nonAsciiInBytes, false);
+        }
+    }
+});
+
+test('Strings: non-ASCII bytes and escapes after newlines', () => {
+    for (const newline of ['\n', '\r\n', '\r']) {
+        const token = new Tokenizer().tokenize(`b"""first${newline}ñ"""`).tokens.getItemAt(0) as StringToken;
+        for (const elideCrlf of [true, false]) {
+            const result = StringTokenUtils.getUnescapedString(token, elideCrlf);
+            assert.equal(result.value, `first${elideCrlf && newline === '\r\n' ? '\n' : newline}ñ`);
+            assert.equal(result.nonAsciiInBytes, true);
+            assert.deepEqual(result.unescapeErrors, []);
+        }
+
+        const escaped = new Tokenizer().tokenize(`"""first${newline}\\d\\n"""`).tokens.getItemAt(0) as StringToken;
+        const result = StringTokenUtils.getUnescapedString(escaped);
+        assert.equal(result.value, `first${newline === '\r\n' ? '\n' : newline}\\d\n`);
+        assert.deepEqual(result.unescapeErrors, [
+            {
+                offset: 5 + newline.length,
+                length: 2,
+                errorType: StringTokenUtils.UnescapeErrorType.InvalidEscapeSequence,
+            },
+        ]);
+    }
+});
+
 test('Strings: raw strings with escapes', () => {
     const t = new Tokenizer();
     const results = t.tokenize('R"\\"" r"\\\r\n\\\n\\a"');
