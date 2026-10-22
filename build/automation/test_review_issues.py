@@ -22,6 +22,7 @@ from copilot.generated.session_events import (
     PermissionRequestWrite,
     SessionIndexedSearchData,
 )
+from copilot.session import CopilotSession
 from pydantic import JsonValue, ValidationError
 
 from issue_review_models import (
@@ -33,11 +34,14 @@ from issue_review_models import (
     DuplicateFindings,
     DuplicateReport,
     Entry,
+    ExploratoryReproductionScenario,
     HistoricalSearch,
     Issue,
     Label,
     ReviewFindings,
+    ReproductionGate,
     ReproductionPlan,
+    ReproductionScenario,
     RootCause,
     RootCauseChallenge,
     RootCauseFindings,
@@ -62,6 +66,7 @@ from review_issues import (
     dry_run_proposal,
     main as review_main,
     reject_operator_approval,
+    validate_reproduction_report,
     response_schema,
     save_dry_run_proposals,
     state_lock,
@@ -381,6 +386,7 @@ class ModelTests(unittest.TestCase):
         for model in (
             Audit, ReviewFindings, DuplicateReport, DuplicateFindings, Adjudication, DraftCheck,
             RootCauseFindings, RootCauseGate, RootCauseChallenge, ReproductionPlan, BlockedChallenge,
+            ReproductionScenario, ExploratoryReproductionScenario, ReproductionGate,
         ):
             with self.subTest(model=model.__name__):
                 check(response_schema(model))
@@ -396,6 +402,27 @@ class ModelTests(unittest.TestCase):
         data = json.loads(audit().model_dump_json())
         data.pop("product_surface")
         self.assertEqual(Audit.model_validate(data).product_surface, "cli")
+
+    def test_reproduction_wire_schemas_have_only_typed_closed_objects(self):
+        def check(schema):
+            if "$ref" not in schema and "anyOf" not in schema:
+                self.assertIn("type", schema, "Strict response schemas cannot contain an unconstrained JsonValue")
+            if schema.get("type") == "object":
+                self.assertIs(schema.get("additionalProperties"), False)
+                self.assertEqual(schema.get("required"), list(schema.get("properties", {})))
+            for child in schema.get("$defs", {}).values():
+                check(child)
+            for child in schema.get("properties", {}).values():
+                check(child)
+            for child in schema.get("anyOf", []):
+                check(child)
+            if "items" in schema:
+                check(schema["items"])
+        for model in (ReproductionScenario, ExploratoryReproductionScenario, ReproductionGate):
+            with self.subTest(model=model.__name__):
+                schema = response_schema(model)
+                self.assertEqual(schema["type"], "object")
+                check(schema)
 
     def test_model_defaults_to_gpt_61_sol_and_can_be_overridden(self):
         with patch("sys.argv", ["review_issues.py"]):
@@ -753,6 +780,133 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("rca_run", correction)
             client.create_session.assert_awaited_once()
             session.disconnect.assert_awaited_once()
+
+    async def test_installed_sdk_wraps_each_reproduction_schema_once_without_live_transport(self):
+        client = AsyncMock()
+        client.request.return_value = {"messageId": "offline-message"}
+        session = CopilotSession("offline-session", client)
+        for model in (ReproductionScenario, ExploratoryReproductionScenario, ReproductionGate):
+            with self.subTest(model=model.__name__):
+                schema = response_schema(model)
+                await session.send("Offline schema serialization only", response_schema=schema)
+                method, params = client.request.await_args.args
+                self.assertEqual(method, "session.send")
+                self.assertEqual(params["responseFormat"], {
+                    "type": "json_schema", "jsonSchema": {"name": "response", "strict": True, "schema": schema},
+                })
+                self.assertEqual(params["responseFormat"]["jsonSchema"]["schema"]["type"], "object")
+                self.assertNotIn("responseFormat", params["responseFormat"]["jsonSchema"]["schema"])
+
+    async def test_reproduction_sdk_keeps_raw_and_decoded_records_and_revalidates_after_correction(self):
+        profile = Agent.load(AGENTS / "pyright-issue-reproduction-gate.md", "pyright-issue-reproduction-gate")
+        wire = {
+            "approved": True, "problems": [], "claim_ids": ["claim"],
+            "receipt_hashes": [{"key": "original:main", "value": "a" * 64}],
+        }
+        valid = json.dumps(wire)
+        invalid = json.dumps({**wire, "receipt_hashes": wire["receipt_hashes"] * 2})
+        session = AsyncMock()
+        session.session_id = "offline-session"
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=profile.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+        session.send_and_wait.side_effect = [
+            SimpleNamespace(data=AssistantMessageData(content=content, message_id="offline-message"))
+            for content in (invalid, valid)
+        ]
+        client = AsyncMock()
+        client.create_session.return_value = session
+        seen = []
+
+        def validate(content):
+            seen.append(ReproductionGate.model_validate_json(content))
+
+        scratch = Path(self.temporary.name)
+        result = await SDK(client, "gpt-6.1-sol", 30).run(
+            profile, "Validate exact receipts", scratch, schema=ReproductionGate, validate=validate, native_tools=[],
+        )
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(seen[0].receipt_hashes, {"original:main": "a" * 64})
+        self.assertEqual(json.loads(result), seen[0].model_dump())
+        for attempt, raw in enumerate((invalid, valid), 1):
+            self.assertEqual((scratch / f"{profile.name}-response-{attempt}.txt").read_text(), raw)
+        self.assertEqual((scratch / f"{profile.name}-last-response.txt").read_text(), valid)
+        self.assertEqual((scratch / f"{profile.name}-decoded-response-2.json").read_text(), result)
+        for call in session.send_and_wait.await_args_list:
+            self.assertIn("Structured-output transport:", call.args[0])
+            self.assertEqual(call.kwargs["response_schema"], response_schema(ReproductionGate))
+        session.disconnect.assert_awaited_once()
+
+    async def test_exploratory_sdk_retains_raw_wire_and_decoded_configuration_disclosures(self):
+        from test_issue_review_reproduction import exploratory_scenario
+
+        profile = Agent.load(AGENTS / "pyright-issue-reproducer.md", "pyright-issue-reproducer")
+        expected = exploratory_scenario()
+        wire = json.loads(expected.model_dump_json())
+        for name in ("files", "control_files", "configuration"):
+            wire[name] = [
+                {"key": key, "value": json.dumps(value) if name == "configuration" else value}
+                for key, value in wire[name].items()
+            ]
+        raw = json.dumps(wire)
+        session = AsyncMock()
+        session.session_id = "offline-session"
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=profile.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+        session.send_and_wait.return_value = SimpleNamespace(
+            data=AssistantMessageData(content=raw, message_id="offline-message")
+        )
+        client = AsyncMock()
+        client.create_session.return_value = session
+        scratch = Path(self.temporary.name)
+        decoded = await SDK(client, "gpt-6.1-sol", 30).run(
+            profile, "Offline transport only", scratch, schema=ExploratoryReproductionScenario, native_tools=[],
+        )
+        self.assertEqual(ExploratoryReproductionScenario.model_validate_json(decoded), expected)
+        self.assertEqual((scratch / f"{profile.name}-response-1.txt").read_text(), raw)
+        self.assertEqual((scratch / f"{profile.name}-decoded-response-1.json").read_text(), decoded)
+        self.assertEqual(session.send_and_wait.await_args.kwargs["response_schema"], response_schema(ExploratoryReproductionScenario))
+
+    async def test_reconstruction_quote_validation_uses_existing_bounded_sdk_correction(self):
+        from test_issue_review_reproduction import exploratory_scenario
+
+        profile = Agent.load(AGENTS / "pyright-issue-reproducer.md", "pyright-issue-reproducer")
+        expected = exploratory_scenario()
+        quote = "First quoted passage."
+        report = quote + "\n\nIntervening source and version blocks.\n\nSecond quoted passage."
+        expected.claims[0].report_quote = quote
+        wire = json.loads(expected.model_dump_json())
+        for name in ("files", "control_files", "configuration"):
+            wire[name] = [
+                {"key": key, "value": json.dumps(value) if name == "configuration" else value}
+                for key, value in wire[name].items()
+            ]
+        valid = json.dumps(wire)
+        wire["claims"][0]["report_quote"] = quote + "\nSecond quoted passage."
+        invalid = json.dumps(wire)
+        session = AsyncMock()
+        session.session_id = "offline-session"
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=profile.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+        session.send_and_wait.side_effect = [
+            SimpleNamespace(data=AssistantMessageData(content=content, message_id="offline-message"))
+            for content in (invalid, valid)
+        ]
+        client = AsyncMock()
+        client.create_session.return_value = session
+        scratch = Path(self.temporary.name)
+        result = await SDK(client, "gpt-6.1-sol", 30).run(
+            profile, "Reconstruct the exact report", scratch, schema=ExploratoryReproductionScenario,
+            validate=lambda content: validate_reproduction_report(
+                ExploratoryReproductionScenario.model_validate_json(content), report,
+            ),
+            native_tools=[],
+        )
+        self.assertEqual(ExploratoryReproductionScenario.model_validate_json(result), expected)
+        self.assertEqual(session.send_and_wait.await_count, 2)
+        self.assertIn("exact contiguous span", session.send_and_wait.await_args_list[1].args[0])
+        self.assertEqual((scratch / f"{profile.name}-response-1.txt").read_text(), invalid)
+        self.assertEqual((scratch / f"{profile.name}-response-2.txt").read_text(), valid)
+        session.disconnect.assert_awaited_once()
 
     async def test_duplicate_sdk_session_has_no_write_or_execution_tools(self):
         profile = Agent.load(AGENTS / "pyright-issue-dupe-investigator.md", "pyright-issue-dupe-investigator")

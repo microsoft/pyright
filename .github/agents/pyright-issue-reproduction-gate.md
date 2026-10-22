@@ -20,6 +20,13 @@ relevant type/diagnostic controls, not just exit codes, error counts or disappea
 formatting changes are not semantic resolution. Check the reported expectation and the predicates' applicability:
 neither matching a positive control elsewhere nor a broad "no errors" result establishes resolution.
 
+Strict comparisons may not assume missing configuration. When the controller policy explicitly marks a stage
+EXPLORATORY, inspect the disclosed bounded Python/checking choices and their source compatibility separately from
+verbatim quoted reported settings. Chosen settings must genuinely be omitted, never substituted for reported values
+or presented as reporter facts. Other genuine prerequisites and all original/control, setup, import and precision
+requirements remain unchanged. Approval concerns only conditional observations: the controller makes the entire
+exploratory stage permanently ineligible for labels, comments and closures, even if no assumptions were needed.
+
 Require pristine original source/configuration receipts for every target before any separately instrumented
 precision-control receipts. Broken/resolved predicates must be observable on the original without added queries.
 Controls can change evaluation order/cache state and mask or introduce a bug. A successful control never replaces
@@ -32,6 +39,10 @@ Approximation must be disclosed and never presented as the reporter's exact bina
 upstream commit, not the feature checkout or a bundle with the same version string. Blocked/missing checks are never
 negative observations. Main must also pass affirmative checks before any not-reproducible label is proposed.
 All material claims must be resolved before an issue-wide action; partial semantic results cannot settle integration.
+
+Require the operator-selected registry and verified package checksum in target provenance. Direct npm requires
+published SHA-512; explicitly selected Microsoft-feed mode may use its published SHA-1 with a separate acquired
+archive SHA-512 receipt. A locally computed SHA-512 is not evidence that the registry published that checksum.
 
 Inspect raw evidence with rca_read_evidence. Oversized receipts use exact saved pages; follow next_offset until the
 relevant input/output fields are complete. Indexes and shortened previews are not successful observations, and saved

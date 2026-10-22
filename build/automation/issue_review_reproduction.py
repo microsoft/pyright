@@ -16,6 +16,7 @@ import shutil
 import stat
 import subprocess
 import tarfile
+import tempfile
 import uuid
 from collections.abc import Callable, Mapping
 from datetime import datetime
@@ -27,12 +28,16 @@ from urllib.request import HTTPRedirectHandler, build_opener
 
 from pydantic import BaseModel, Field, JsonValue
 
-from issue_review_models import Issue, ReproductionScenario, ReproductionTarget
+from issue_review_models import ExploratoryReproductionScenario, Issue, ReproductionScenario, ReproductionTarget
 from issue_review_rca import Runner
 
 VERSION = re.compile(r"1\.[0-9]+\.[0-9]+")
 SHA = re.compile(r"[0-9a-f]{40}")
 REGISTRY = "https://registry.npmjs.org/pyright"
+NPM_REGISTRY = "https://registry.npmjs.org"
+MICROSOFT_REGISTRY = "https://packagefeedproxy.microsoft.io/npm"
+REGISTRIES = (NPM_REGISTRY, MICROSOFT_REGISTRY)
+MICROSOFT_FEED = "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry"
 UPSTREAM = "https://github.com/microsoft/pyright.git"
 MAX_DOWNLOAD = 128 * 1024 * 1024
 
@@ -49,7 +54,8 @@ class PackageRepository(BaseModel):
 
 class PackageDistribution(BaseModel):
     tarball: str
-    integrity: str
+    integrity: str | None = None
+    shasum: str | None = None
 
 
 class PublishedPackage(BaseModel):
@@ -76,14 +82,33 @@ def tree_hash(directory: Path) -> str:
 class RegistryRedirects(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         validate_registry_url(newurl)
+        if urlparse(req.full_url).netloc != urlparse(newurl).netloc:
+            raise ValueError("Registry redirects must remain on the selected origin")
         return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def registry_base(registry: str) -> str:
+    registry = registry.rstrip("/")
+    if registry not in REGISTRIES:
+        raise ValueError("Select the official npm registry or the explicitly approved Microsoft feed")
+    return registry
+
+
+def artifact_urls(version: str, registry: str) -> set[str]:
+    origins = [NPM_REGISTRY]
+    if registry == MICROSOFT_REGISTRY:
+        origins += [MICROSOFT_REGISTRY, MICROSOFT_FEED]
+    return {f"{origin}/pyright/-/pyright-{version}.tgz" for origin in origins}
 
 
 def validate_registry_url(url: str) -> None:
     parsed = urlparse(url)
     if (
-        parsed.scheme != "https" or parsed.netloc != "registry.npmjs.org"
-        or not (parsed.path == "/pyright" or re.fullmatch(r"/pyright/-/pyright-1\.\d+\.\d+\.tgz", parsed.path))
+        not any(
+            url == f"{registry}/pyright"
+            or re.fullmatch(re.escape(registry) + r"/pyright/-/pyright-1\.\d+\.\d+\.tgz", url)
+            for registry in REGISTRIES
+        )
         or parsed.query or parsed.fragment
     ):
         raise ValueError("Artifact URL is not the trusted Pyright npm registry")
@@ -107,7 +132,9 @@ def date(value: str) -> datetime:
 
 def release_target(
     catalog: ReleaseCatalog, role: Literal["historical", "main", "latest"], version: str, reason: str, approximate: bool,
+    *, registry: str = NPM_REGISTRY,
 ) -> ReproductionTarget:
+    registry = registry_base(registry)
     if not VERSION.fullmatch(version):
         raise ValueError("Only exact stable Pyright versions are supported")
     value = catalog.versions.get(version)
@@ -119,24 +146,34 @@ def release_target(
     }:
         raise ValueError("Published package does not identify the trusted upstream project")
     dist = metadata.dist
-    if not re.fullmatch(r"sha512-[A-Za-z0-9+/]+={0,2}", dist.integrity):
-        raise ValueError("Published package lacks SHA-512 integrity")
-    expected = f"{REGISTRY}/-/pyright-{version}.tgz"
-    if dist.tarball != expected:
+    if dist.integrity is not None:
+        if not re.fullmatch(r"sha512-[A-Za-z0-9+/]+={0,2}", dist.integrity):
+            raise ValueError("Published package lacks valid SHA-512 integrity")
+        integrity = dist.integrity
+    elif registry == MICROSOFT_REGISTRY and re.fullmatch(r"[0-9a-f]{40}", dist.shasum or ""):
+        integrity = "sha1-" + base64.b64encode(bytes.fromhex(dist.shasum or "")).decode()
+    else:
+        raise ValueError(
+            "Published package lacks SHA-512 integrity" if registry == NPM_REGISTRY
+            else "Microsoft feed package lacks a valid published integrity checksum"
+        )
+    if dist.tarball not in artifact_urls(version, registry):
         raise ValueError("Unexpected Pyright package artifact URL")
     published = catalog.time.get(version)
     if not isinstance(published, str):
         raise ValueError("Release publication date unavailable")
     date(published)
     return ReproductionTarget(
-        role=role, identity=f"npm:pyright@{version}", version=version, source=expected,
-        selection_reason=reason, approximate=approximate, integrity=dist.integrity, published_at=published,
+        role=role, identity=f"npm:pyright@{version}", version=version, source=dist.tarball, registry=registry,
+        selection_reason=reason, approximate=approximate, integrity=integrity, published_at=published,
     )
 
 
 def select_targets(
     catalog: ReleaseCatalog | dict, issue: Issue, scenario: ReproductionScenario, discussion: str, main_sha: str,
+    *, registry: str = NPM_REGISTRY,
 ) -> list[ReproductionTarget]:
+    registry = registry_base(registry)
     catalog = ReleaseCatalog.model_validate(catalog)
     if not SHA.fullmatch(main_sha):
         raise ValueError("Upstream main must be pinned to a full commit SHA")
@@ -174,16 +211,17 @@ def select_targets(
         try:
             if not selected:
                 raise ValueError("Latest publication is unavailable")
-            return release_target(catalog, role, selected, why, approx)
+            return release_target(catalog, role, selected, why, approx, registry=registry)
         except ValueError as error:
             return ReproductionTarget(
                 role=role, identity=f"npm:pyright@{selected or 'unavailable'}", version=selected or "unavailable",
-                source=REGISTRY, selection_reason=why, approximate=approx, status="blocked", error=str(error),
+                source=f"{registry}/pyright", registry=registry,
+                selection_reason=why, approximate=approx, status="blocked", error=str(error),
             )
     return [
         published("historical", version, reason, approximate),
         ReproductionTarget(
-            role="main", identity=main_sha, version="pending build", source=UPSTREAM,
+            role="main", identity=main_sha, version="pending build", source=UPSTREAM, registry=registry,
             selection_reason="Actual upstream microsoft/pyright main pinned by GitHub commits/main",
         ),
         published("latest", catalog.dist_tags.get("latest"), "Latest actual npm publication at target selection", False),
@@ -198,6 +236,31 @@ def relative_path(name: str) -> Path:
 
 
 Phase = Literal["original", "control"]
+
+
+def validate_exploratory_settings(scenario: ExploratoryReproductionScenario, report: str) -> None:
+    if any(
+        item.report_quote not in report or not re.search(rf"(?<![\w.]){re.escape(item.value)}(?![\w.])", item.report_quote)
+        for item in scenario.reported_configuration
+    ):
+        raise ValueError("Reported settings need exact report quotes containing their unchanged values")
+    explicit: dict[str, set[str]] = {}
+    for match in re.finditer(
+        r"""(?<!\w)["']?(pythonVersion|typeCheckingMode)["']?\s*[:=]\s*["']?([A-Za-z0-9.]+)""", report
+    ):
+        key, value = match.groups()
+        if (key == "pythonVersion" and re.fullmatch(r"3\.\d+", value)) or (
+            key == "typeCheckingMode" and value in {"off", "basic", "standard", "strict"}
+        ):
+            explicit.setdefault(key, set()).add(value)
+    for match in re.finditer(
+        r"(?i)(?:\bPython(?:\s+version)?\s*[:=]?\s+|--pythonversion(?:=|\s+))(3\.\d+)(?![\d.])", report
+    ):
+        explicit.setdefault("pythonVersion", set()).add(match.group(1))
+    assumed = {item.setting for item in scenario.configuration_assumptions}
+    for key, values in explicit.items():
+        if len(values) != 1 or scenario.configuration.get(key) not in values or key in assumed:
+            raise ValueError(f"Exploration cannot replace or relabel the reported {key} setting")
 
 
 def scenario_inputs(scenario: ReproductionScenario, *, phase: Phase = "original") -> dict[str, str]:
@@ -371,10 +434,61 @@ def remove_owned_directory(directory: Path) -> None:
 
 
 class TargetStore:
-    def __init__(self, directory: Path, runner: Runner):
+    def __init__(self, directory: Path, runner: Runner, *, registry: str = NPM_REGISTRY):
         self.directory, self.runner = directory.resolve(), runner
+        self.registry = registry_base(registry)
         self.lock = asyncio.Lock()
         self._failures: dict[str, str] = {}
+
+    def _npm_command(self, *arguments: str) -> list[str]:
+        npm = shutil.which("npm")
+        if npm is None:
+            raise ValueError("npm is required for the explicitly selected Microsoft feed")
+        return [
+            npm, *arguments, f"--registry={self.registry}", "--strict-ssl=true", "--ignore-scripts",
+            "--json", "--loglevel=error", "--fetch-retries=0", "--fetch-timeout=60000",
+        ]
+
+    async def catalog(self) -> ReleaseCatalog:
+        self.directory.mkdir(parents=True, exist_ok=True)
+        log: list[dict] = []
+        catalog = None
+        error = None
+        try:
+            if self.registry == NPM_REGISTRY:
+                data = await asyncio.to_thread(download, REGISTRY)
+                log.append({
+                    "method": "GET", "url": REGISTRY, "sha256": hashlib.sha256(data).hexdigest(),
+                    "content": data.decode("utf-8"),
+                })
+                catalog = ReleaseCatalog.model_validate_json(data)
+            else:
+                metadata = json.loads(await self.command(
+                    self._npm_command("view", "pyright", "time", "dist-tags"), self.directory, log,
+                ))
+                versions = json.loads(await self.command(
+                    self._npm_command("view", "pyright@1", "name", "version", "repository", "dist"), self.directory, log,
+                ))
+                if not isinstance(metadata, dict) or not isinstance(versions, list) or not versions:
+                    raise ValueError("The configured feed did not return a complete publication catalog")
+                by_version = {}
+                for package in versions:
+                    if not isinstance(package, dict) or not isinstance(package.get("version"), str):
+                        raise ValueError("The configured feed returned invalid version metadata")
+                    version = package["version"]
+                    if version in by_version:
+                        raise ValueError("The configured feed returned duplicate version metadata")
+                    by_version[version] = package
+                catalog = ReleaseCatalog.model_validate({**metadata, "versions": by_version})
+            return catalog
+        except (OSError, ValueError, TimeoutError) as failure:
+            error = str(failure)
+            raise
+        finally:
+            (self.directory / f"catalog-{uuid.uuid4().hex}.json").write_text(json.dumps({
+                "registry": self.registry, "commands": log, "error": error,
+                "catalog_hash": None if catalog is None else fingerprint(catalog.model_dump()),
+            }, indent=2), encoding="utf-8")
 
     async def command(self, command: list[str], cwd: Path, log: list[dict]) -> str:
         record: dict[str, JsonValue] = {
@@ -393,26 +507,38 @@ class TargetStore:
 
     def verify(self, target: ReproductionTarget) -> None:
         if (
-            target.status != "ready" or not target.directory or not target.cli or not target.tree_hash
+            target.registry != self.registry or target.status != "ready"
+            or not target.directory or not target.cli or not target.tree_hash
+            or (target.role != "main" and not re.fullmatch(r"sha512-[A-Za-z0-9+/]+={0,2}", target.artifact_sha512 or ""))
             or not Path(target.directory).resolve().is_relative_to(self.directory)
-            or not Path(target.cli).resolve().is_relative_to(Path(target.directory).resolve())
+            or Path(target.cli).resolve() != (Path(target.directory) / "index.js").resolve()
+            or not Path(target.cli).is_file()
             or tree_hash(Path(target.directory)) != target.tree_hash
         ):
             raise ValueError("Pinned checker target is unavailable or its integrity changed")
 
     async def prepare(self, target: ReproductionTarget) -> None:
         async with self.lock:
-            key = fingerprint({"identity": target.identity, "integrity": target.integrity, "source": target.source})
+            if target.registry != self.registry:
+                raise ValueError("Selected target registry differs from the explicit acquisition policy")
+            key = fingerprint({
+                "identity": target.identity, "integrity": target.integrity, "source": target.source,
+                "registry": self.registry,
+                "entrypoint": "index.js",
+            })
             if key in self._failures:
                 raise ValueError(self._failures[key])
             base = self.directory / key
             metadata = base / "target.json"
             if metadata.exists():
                 saved = ReproductionTarget.model_validate_json(metadata.read_text(encoding="utf-8"))
-                if (saved.identity, saved.integrity, saved.source) != (target.identity, target.integrity, target.source):
+                if (saved.identity, saved.integrity, saved.source, saved.registry) != (
+                    target.identity, target.integrity, target.source, target.registry,
+                ):
                     raise ValueError("Cached target provenance changed")
                 target.directory, target.cli, target.tree_hash = saved.directory, saved.cli, saved.tree_hash
                 target.version, target.status = saved.version, saved.status
+                target.artifact_sha512 = saved.artifact_sha512
                 self.verify(target)
                 return
             base.mkdir(parents=True, exist_ok=True)
@@ -422,23 +548,54 @@ class TargetStore:
             log: list[dict] = []
             acquisitions: list[dict[str, JsonValue]] = []
             try:
-                work.mkdir()
+                if target.role == "main":
+                    # pnpm's resolved loader paths can exceed Windows limits beneath the hashed cache.
+                    work = Path(tempfile.mkdtemp(prefix="pyr-")).resolve()
+                else:
+                    work.mkdir()
                 work_created = True
                 runtime.mkdir()
                 runtime_created = True
                 if target.role != "main":
                     if (
                         not VERSION.fullmatch(target.version) or target.identity != f"npm:pyright@{target.version}"
-                        or target.source != f"{REGISTRY}/-/pyright-{target.version}.tgz"
+                        or target.source not in artifact_urls(target.version, self.registry)
                     ):
                         raise ValueError("Release target must be the exact trusted project package")
-                    acquisition: dict[str, JsonValue] = {"method": "GET", "url": target.source}
+                    acquisition: dict[str, JsonValue] = {
+                        "method": "GET" if self.registry == NPM_REGISTRY else "npm pack --ignore-scripts",
+                        "url": target.source, "registry": self.registry, "expected_integrity": target.integrity,
+                    }
                     acquisitions.append(acquisition)
-                    data = await asyncio.to_thread(download, target.source)
-                    observed_integrity = "sha512-" + base64.b64encode(hashlib.sha512(data).digest()).decode()
-                    acquisition.update({"bytes": len(data), "integrity": observed_integrity})
+                    if self.registry == NPM_REGISTRY:
+                        data = await asyncio.to_thread(download, target.source)
+                    else:
+                        packed = json.loads(await self.command(self._npm_command(
+                            "pack", f"pyright@{target.version}", "--pack-destination", str(work),
+                        ), work, log))
+                        name = f"pyright-{target.version}.tgz"
+                        if (
+                            not isinstance(packed, list) or len(packed) != 1 or not isinstance(packed[0], dict)
+                            or packed[0].get("name") != "pyright" or packed[0].get("version") != target.version
+                            or packed[0].get("filename") != name
+                        ):
+                            raise ValueError("npm did not return the exact selected Pyright package")
+                        archive_path = work / name
+                        if archive_path.is_symlink() or archive_path.stat().st_size > MAX_DOWNLOAD:
+                            raise ValueError("Trusted artifact exceeds the download bound or is a link")
+                        data = archive_path.read_bytes()
+                    target.artifact_sha512 = "sha512-" + base64.b64encode(hashlib.sha512(data).digest()).decode()
+                    if target.integrity and target.integrity.startswith("sha512-"):
+                        observed_integrity = target.artifact_sha512
+                    elif self.registry == MICROSOFT_REGISTRY and target.integrity and target.integrity.startswith("sha1-"):
+                        observed_integrity = "sha1-" + base64.b64encode(hashlib.sha1(data).digest()).decode()
+                    else:
+                        raise ValueError("Selected registry does not permit this artifact checksum")
+                    acquisition.update({
+                        "bytes": len(data), "integrity": observed_integrity, "artifact_sha512": target.artifact_sha512,
+                    })
                     if observed_integrity != target.integrity:
-                        raise ValueError("Published checker package failed SHA-512 integrity verification")
+                        raise ValueError("Published checker package failed integrity verification")
                     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
                         total = 0
                         for member in archive.getmembers():
@@ -459,7 +616,6 @@ class TargetStore:
                                 if source is None:
                                     raise ValueError("Package file has no contents")
                                 destination.write_bytes(source.read())
-                    cli = runtime / "dist" / "pyright.js"
                 else:
                     if target.source != UPSTREAM or not SHA.fullmatch(target.identity):
                         raise ValueError("Main target must be the trusted upstream pinned commit")
@@ -476,13 +632,15 @@ class TargetStore:
                         raise ValueError("pnpm is unavailable for isolated upstream main build")
                     await self.command([
                         pnpm, "install", "--frozen-lockfile", "--ignore-scripts",
-                        "--registry=https://registry.npmjs.org", "--config.manage-package-manager-versions=false",
+                        f"--registry={self.registry}", "--config.manage-package-manager-versions=false",
                     ], work, log)
                     # Only this known upstream project script runs, never a reporter-supplied command.
                     await self.command([pnpm, "--dir", str(Path("packages") / "pyright"), "run", "webpack"], work, log)
                     shutil.copytree(work / "packages" / "pyright" / "dist", runtime / "dist")
-                    cli = runtime / "dist" / "pyright.js"
-                if not cli.is_file():
+                    shutil.copyfile(work / "packages" / "pyright" / "index.js", runtime / "index.js")
+                # The upstream package entrypoint initializes discovery of its bundled typeshed.
+                cli = runtime / "index.js"
+                if not cli.is_file() or not (runtime / "dist" / "pyright.js").is_file():
                     raise ValueError("Target does not contain the supported bundled Pyright CLI")
                 observed = await self.command(["node", str(cli), "--version"], runtime, log)
                 if not re.fullmatch(r"pyright 1\.\d+\.\d+", observed):

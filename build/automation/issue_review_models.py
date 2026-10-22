@@ -361,6 +361,47 @@ class ReproductionScenario(Record):
         return self
 
 
+EXPLORATORY_SETTINGS = {
+    "pythonVersion": [f"3.{minor}" for minor in range(8, 16)],
+    "typeCheckingMode": ["basic", "standard", "strict"],
+}
+
+
+class ConfigurationAssumption(Record):
+    setting: Literal["pythonVersion", "typeCheckingMode"]
+    value: Text
+    reason: Text
+
+    @model_validator(mode="after")
+    def bounded(self) -> Self:
+        if self.value not in EXPLORATORY_SETTINGS[self.setting]:
+            raise ValueError("Exploratory setting is outside the controller's bounded choices")
+        return self
+
+
+class ReportedConfigurationSetting(Record):
+    setting: Literal["pythonVersion", "typeCheckingMode"]
+    value: Text
+    report_quote: Text
+
+
+class ExploratoryReproductionScenario(ReproductionScenario):
+    configuration_assumptions: list[ConfigurationAssumption]
+    reported_configuration: list[ReportedConfigurationSetting]
+
+    @model_validator(mode="after")
+    def disclosed_settings(self) -> Self:
+        settings = [*self.configuration_assumptions, *self.reported_configuration]
+        keys = [item.setting for item in settings]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Chosen and reported settings must have unique, non-overlapping disclosures")
+        if set(keys) != set(EXPLORATORY_SETTINGS).intersection(self.configuration):
+            raise ValueError("Every effective Python/checking setting needs a reported quote or assumption")
+        if any(self.configuration.get(item.setting) != item.value for item in settings):
+            raise ValueError("Every disclosed setting must match the frozen configuration")
+        return self
+
+
 class ReproductionTarget(Record):
     role: Literal["historical", "main", "latest"]
     identity: Text
@@ -370,6 +411,8 @@ class ReproductionTarget(Record):
     approximate: bool = False
     published_at: str | None = None
     integrity: str | None = None
+    registry: str = "https://registry.npmjs.org"
+    artifact_sha512: str | None = None
     directory: str | None = None
     cli: str | None = None
     tree_hash: str | None = None
@@ -382,12 +425,43 @@ class ReproductionGate(DraftCheck):
     receipt_hashes: dict[str, str]
 
 
+class ResponseMapEntry(Record):
+    key: str
+    value: str
+
+
+class ReproductionScenarioTransport(Record):
+    summary: Text
+    reported_version: str | None
+    version_quote: str | None
+    files: list[ResponseMapEntry] = Field(description="Entries map relative file paths to exact original source text.")
+    control_files: list[ResponseMapEntry] = Field(description="Entries map relative file paths to exact separate control source text.")
+    configuration: list[ResponseMapEntry] = Field(
+        description='Entries map setting names to JSON-encoded values; for example {"key":"pythonVersion","value":"\\"3.13\\""} or {"key":"reportUnknownVariableType","value":"true"}.'
+    )
+    claims: list[ReproductionClaim] = Field(min_length=1)
+    prerequisites: list[str]
+    limitations: list[str]
+
+
+class ReproductionGateTransport(DraftCheck):
+    claim_ids: list[str]
+    receipt_hashes: list[ResponseMapEntry] = Field(description="Entries map exact receipt IDs to their exact digest strings.")
+
+
+class ExploratoryReproductionScenarioTransport(ReproductionScenarioTransport):
+    configuration_assumptions: list[ConfigurationAssumption]
+    reported_configuration: list[ReportedConfigurationSetting]
+
+
 class ReproductionStage(Record):
     input_hash: Text
     discussion_hash: Text
     directory: Text
     status: Literal["running", "complete", "blocked", "failed"] = "running"
-    scenario: ReproductionScenario | None = None
+    scenario: ReproductionScenario | ExploratoryReproductionScenario | None = None
+    exploratory: bool = Field(default=False, frozen=True)
+    policy_hash: str | None = None
     targets: list[ReproductionTarget] = Field(default_factory=list)
     receipt_ids: list[str] = Field(default_factory=list)
     outcomes: dict[str, Literal["reproduced", "not_reproduced", "blocked"]] = Field(default_factory=dict)
@@ -397,7 +471,12 @@ class ReproductionStage(Record):
     proposed_labels: list[str] = Field(default_factory=list)
     comment_hash: str | None = None
 
+    def observation_only(self) -> bool:
+        return self.exploratory or isinstance(self.scenario, ExploratoryReproductionScenario)
+
     def action(self) -> Literal["fixed", "not_reproducible"] | None:
+        if self.observation_only():
+            return None
         if self.status != "complete" or self.gate is None or not self.gate.approved:
             return None
         if self.outcomes.get("main") != "not_reproduced":
@@ -561,6 +640,8 @@ class Entry(Record):
         return self.adjudication is not None and self.closure_reason() is None
 
     def closure_reason(self) -> Literal["by_design", "duplicate"] | None:
+        if self.reproduction_stage is not None and self.reproduction_stage.observation_only():
+            return None
         if self.review is None or self.duplicates is None or self.adjudication is None:
             return None
         self.adjudication.validate_reports(self.review, self.duplicates)

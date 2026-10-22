@@ -37,9 +37,20 @@ observed without modification, the stage abstains. Both frozen variants are comp
 - The latest npm publication at selection time, independently executed to distinguish released fixes from fixes
   awaiting release. An unavailable latest target does not invalidate an otherwise verified historical/main fix.
 
-Only the fixed project npm package URL is acquired. Published packages require project identity and SHA-512
-integrity; archive links and path escapes are rejected. Main is fetched from the fixed upstream repository,
+Only the fixed project npm package is acquired. Direct npm remains the default and requires its published SHA-512
+integrity. An operator may explicitly select the configured Microsoft feed with
+`--reproduction-registry https://packagefeedproxy.microsoft.io/npm`; there is no automatic registry fallback.
+This mode uses the installed npm client with certificate verification and package scripts disabled for metadata
+and exact-version package acquisition. It verifies the feed's published SHA-1 checksum when SHA-512 metadata is
+absent, and separately records SHA-512 of the acquired archive. That local SHA-512 receipt is **not** claimed to
+be a published checksum. Registry choice, exact metadata/acquisition commands and both checksums are preserved
+and bound to cache/run identity. Unexpected package identities/URLs and checksum mismatches remain blocked;
+archive links and path escapes are rejected. Main is fetched from the fixed upstream repository,
 checked against its pinned SHA, and installed with the upstream frozen lockfile and dependency scripts disabled.
+Its uniquely owned source work directory uses the system temporary root to avoid Windows loader path limits,
+not the deep hashed runtime cache. Both released and source-built targets retain and execute their unchanged
+package `index.js` beside complete `dist` assets; running the inner bundle directly skips upstream typeshed-root
+initialization. The cache layout is separately keyed, and resumed direct-bundle targets are rejected.
 The known upstream CLI build script runs only in this private source/dependency tree. Git long-path support and
 hook suppression are command-local; global Git/OS settings and shared checkouts are unchanged. Acquisition/build
 commands, outputs and target manifests are retained under `targets`. This executes trusted project build tooling,
@@ -94,6 +105,36 @@ gate evidence and blockers. `--no-rca` disables RCA only, not reproduction. Qual
 behavior/duplicate investigation or expensive RCA. The existing source-CLI audit's prohibition on claiming
 released-checker provenance remains intact: these new separately recorded targets do not retroactively validate it.
 
+### Opt-in exploratory reproduction
+
+Strict reproduction remains the default. `--exploratory-reproduction` is an explicit, **observation-only** alternative
+when the report omits effective Python/checking settings. Reconstruction may choose source-compatible Python 3.8-3.15
+or basic/standard/strict checking, recording each chosen setting, exact string value and rationale separately from
+verbatim quoted reported settings. Every effective Python/checking value needs exactly one disclosure. Reported
+settings and pristine source must be preserved; other missing prerequisites cannot be assumed away. The host rejects
+unbounded, duplicate, mismatched or undisclosed choices, invented setting quotes and changes to recognized literal
+`pythonVersion`/`typeCheckingMode` declarations (including playground query parameters). The independent gate still
+checks the full report, including settings expressed in prose and source compatibility.
+
+**The entire exploratory stage is ineligible for labels, closures and comment drafting**, even with an empty
+assumptions list, an approved gate or fixed-looking comparison outcomes. It stops after reproduction: no behavior/
+duplicate adjudication or RCA expansion. This host policy also applies without `--dry-run`, to resumed checkpoints,
+pending publication ledgers and direct drafting/publication calls. Proposals say `blocked`/observation-only, not
+`close_fixed` or `label_not_reproducible`. Use `--dry-run` as an additional read-only safeguard.
+
+Controller-owned run/stage policy, scenario disclosures and receipt/evidence hashes bind the mode and settings.
+Use a **fresh state directory** to change modes; a flag cannot upgrade strict or exploratory saved evidence.
+Legacy strict checkpoints retain their original scenario/evidence projection. Routine controller responsibilities
+(target preparation, original-first execution, precision verification) are workflow expectations/limitations, not
+missing report prerequisites. Saved freeform prerequisites are never deleted or reinterpreted. Genuine missing
+dependencies, unsupported surfaces, unsafe/inapplicable configuration and unavailable original observations remain
+blocked; stderr/setup, import, exact original and precision validators are unchanged.
+
+Exploratory results do not change previous frozen-run scores. A later live pilot needs separate authorization,
+fresh state, a declared short per-role `--timeout` rather than an implicit 900 seconds, and actual production checker
+receipts before claiming execution. Offline unit runners and adversarial approved-looking records are regression
+fixtures only, not issue observations or live gate approvals. This opt-in does not authorize another cohort run.
+
 Non-dry publication uses the existing closure ledger with distinct fixed/label reasons, evidence and draft hashes.
 It rechecks implementation/target/input identity and screened issue/discussion freshness before each mutation,
 preserves unrelated labels, reconciles exact marker/authored comments and existing labels on retry, and verifies
@@ -103,6 +144,36 @@ is never directly published. No-live-action tests use fake GitHub/SDK clients; t
 without invoking inference or touching any issue.
 An unfinished fixed-closure ledger is also reconciled when a lost response left the issue already closed and
 therefore absent from GitHub's open-issue listing.
+
+### Developmental reproduction evaluation (2026-10-22)
+
+The completed evaluations do **not** establish backlog-wide effectiveness or readiness for automatic issue actions.
+Both frozen twenty-case attempts blocked before any checker execution. The first had nineteen SDK/API schema
+rejections and one missing original. After transport repair, the second had eleven unmet-prerequisite scenarios,
+four semantically invalid records, four 900-second timeouts of undetermined cause, and one missing original.
+These are blocked coverage, not semantic misses, successful negative results or proof of safe publication.
+Old protocols, results and scores were preserved rather than selectively repaired or rerun.
+
+A separately authorized two-case developmental report replay used exploratory mode plus `--dry-run`, with
+180 seconds active per model role including correction. It completed in 504.7 seconds across three model
+sessions and four requests:
+
+| Report | Actual observations | Qualification |
+| --- | --- | --- |
+| [#11015](https://github.com/microsoft/pyright/issues/11015) | Historical 1.1.406 reproduced both reported keyword errors; pinned upstream main `4e9ebcb013fd552a754371e519b9f44074bef849` and published 1.1.414 did not. Six checker receipts, all originals before separate controls, one analyzed file and empty stderr per execution. All eight precision predicates passed on every control; the evidence gate approved. | Python 3.14 was reported, but standard checking was explicitly assumed. This is a conditional fixed-pattern observation, not an actionable closure. |
+| [#11876](https://github.com/microsoft/pyright/issues/11876) | A noncontiguous evidence quote was rejected before target selection; no checker execution or gate session occurred. | No reproduction or resolution conclusion. |
+
+For both entries, eleven host action/drafting entry points rejected observation-only results before action I/O.
+No comments, labels, closures or drafts were produced. This pilot did not demonstrate the both-negative
+`label_not_reproducible` path or validate by-design/duplicate decisions.
+
+The later correction routes exact quote and reported-setting checks through the existing bounded SDK correction
+loop, without relaxing evidence requirements or deleting prerequisites. It has not been exercised live.
+Raw evidence remains outside Git. The pilot's frozen protocol SHA-256 is
+`d96a786f5b6b20009af583f3a53c43c96d818c8d870e8da91b2072a9f6502b62`; results SHA-256 is
+`1ad4babd35f71198ac46006056c6f0dcdfe513b1a1082b877be1144c2cf7c180`.
+Use a fresh, explicitly scoped, observation-only dry run for further evaluation; automatic issue actions are
+not yet recommended.
 
 ## Blinded historical RCA evaluation
 
@@ -162,9 +233,12 @@ public-report/model memorization cannot be ruled out. Do not tune prompts or sel
 ## Setup
 
 Requires `uv`, authenticated `copilot` and `gh` executables, Node.js, Git, pnpm, and a prepared source CLI.
-Historical reproduction also requires verified HTTPS access to `registry.npmjs.org`; the isolated main build
+Historical reproduction also requires verified HTTPS access to `registry.npmjs.org` or explicit selection of the
+configured Microsoft feed (which additionally requires the installed npm client); the isolated main build
 needs upstream GitHub access and the pinned upstream lockfile's dependencies. Missing network access, TLS trust,
 versions or build prerequisites are recorded as blocked, never as a successful negative check.
+The selected registry also applies to the isolated main dependency install; its frozen lockfile integrity and
+disabled dependency scripts remain mandatory.
 Issue screening also requires an existing Microsoft-Decision-1 deployment and Microsoft Entra ID inference access.
 The script declares Python 3.11+ and its dependencies using PEP 723 metadata. `uv run` manages the Python
 environment automatically; no manual virtual environment or `pip install` is needed.
@@ -466,6 +540,14 @@ as a failure, not silently accepted or converted into an issue disposition.
 Structured responses use strict provider-compatible schemas: every declared field is required on the wire, including
 fields with local defaults, while nullable fields can still be `null`. Local Pydantic evidence validation remains
 unchanged; defaults continue to support older checkpoints.
+Reproduction scenario and gate responses encode maps as typed `key`/`value` entry arrays, avoiding open-ended
+objects and untyped `JsonValue` definitions in the provider's strict schema. Configuration entry values contain
+JSON text so their original types and values survive transport. The controller rejects duplicate keys, malformed
+or nonfinite JSON, then applies the unchanged scenario/gate models and evidence validators. Raw wire responses
+and decoded records are saved separately; this representation changes neither saved scenario semantics nor action gates.
+Report-quote and reported-setting evidence checks participate in the existing bounded response correction before
+target selection. Quotes must remain exact contiguous spans; a failed quote is not repaired by the host. Genuine
+unmet prerequisites still block execution, and saved scenarios are revalidated rather than silently corrected.
 
 `--dry-run` and `--read-only` are aliases: they disable GitHub mutations and comment drafting, not scratch-file creation
 or checking. Reconstructed

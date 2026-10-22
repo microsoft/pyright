@@ -73,8 +73,18 @@ The first reconstructs every material claim, report-faithful static inputs/setti
 and affirmative precision controls; the second validates the actual comparison, not its cause. Neither role
 drafts or publishes comments. The controller alone acquires integrity-checked published npm packages and an
 isolated, SHA-pinned upstream main build, never a reporter installer or a similarly versioned feature bundle.
+Main source builds use a uniquely owned system-temporary checkout, separate from the hashed runtime cache, to
+avoid Windows dependency-loader path limits. Work directories are removed on success or failure. Main runtimes
+retain the unchanged upstream `index.js` alongside the complete built `dist`, including bundled typeshed;
+published packages likewise run their own `index.js`. Calling the inner bundle directly skips upstream root/
+stub initialization and is not supported. Cache identity includes this entrypoint layout; older direct-bundle
+targets and saved receipts cannot pass the new verification.
 An explicit reported Pyright release takes precedence over the newest actual publication on/before issue
 creation. Approximate selection is disclosed; issue update time is separately preserved.
+Registry selection is operator-controlled, never inferred from issue text. Direct npm requires published SHA-512.
+Explicit Microsoft-feed mode verifies its published checksum, preserving any legacy SHA-1 separately from the
+acquired archive's locally recorded SHA-512. The latter is an execution/cache binding, not a claim that the feed
+published SHA-512. Metadata, acquisition commands and the selected registry remain part of the provenance.
 
 Pristine report-faithful original source/configuration is frozen separately from any added type-query controls.
 All original target executions precede separate instrumented runs. Only original symptoms establish reproduction
@@ -98,6 +108,20 @@ rich-mirror and factual checking; dry runs disable drafting, label creation, com
 exact unapproved proposals. See [historical reproduction](../build/automation/README.md#historical-reproduction-before-rca)
 for target/build prerequisites and supported-surface limits. The older source-checkout audit remains unable to
 claim published-release reproduction from its prepared CLI; the new stage's evidence is independent.
+
+Strict reconstruction is the default. The explicit `--exploratory-reproduction` mode permits disclosed, bounded
+source-compatible choices only for genuinely omitted Python/checking settings. Quoted reported settings and chosen
+experimental values remain separate; pristine source, genuine prerequisites and exact original/control precision
+requirements are unchanged. Routine controller responsibilities belong in limitations, never unmet prerequisites,
+but saved prerequisite text is not automatically stripped or reinterpreted.
+
+The host binds exploratory mode and configuration disclosures to run/stage/receipt/evidence identity and makes the
+**entire stage observation-only**, regardless of gate approval or whether assumptions were needed. It cannot draft,
+label, close, resume a publication ledger or fall through to behavior/duplicate/RCA publication. Changing modes
+requires fresh state; legacy strict evidence retains its original projection. An exploratory proposal is blocked
+for action, not proof of a fixed or non-reproducible issue. Previous frozen outcomes remain unchanged. Any subsequent
+small real-issue pilot requires separate authorization and a declared short per-role budget; unit fixtures are not
+actual checker execution or gate approval.
 
 Reproduction and validity are separate questions. A reproduced diagnostic may be correct; a historical bug may no longer
 reproduce. Record the reported release, current release, and checkout separately, even when only one is available.

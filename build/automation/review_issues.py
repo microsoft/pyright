@@ -22,6 +22,7 @@ import hashlib
 import http.client
 import importlib.metadata
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -52,6 +53,7 @@ from pydantic import BaseModel, Field, JsonValue, TypeAdapter
 
 from issue_review_evidence import PAGE_CHARS, evidence_json as evidence_response_raw, evidence_page, evidence_response
 from issue_review_models import (
+    EXPLORATORY_SETTINGS,
     REPOSITORY,
     Adjudication,
     Audit,
@@ -59,14 +61,19 @@ from issue_review_models import (
     Closure,
     DraftCheck,
     DuplicateFindings,
+    ExploratoryReproductionScenario,
+    ExploratoryReproductionScenarioTransport,
     Entry,
     Issue,
     Record,
     ReproductionGate,
+    ReproductionGateTransport,
     ReproductionPlan,
     ReproductionScenario,
+    ReproductionScenarioTransport,
     ReproductionStage,
     ReproductionTarget,
+    ResponseMapEntry,
     ReviewEvidence,
     ReviewFindings,
     RootCause,
@@ -79,18 +86,20 @@ from issue_review_models import (
 from issue_review_editor import EditorRuntime, editor_failure, editor_signature, fingerprint as editor_fingerprint
 from issue_review_rca import RootCauseRun, RootCauseRuntime
 from issue_review_reproduction import (
+    NPM_REGISTRY,
+    REGISTRIES,
     Outcome,
     Phase,
     ReleaseCatalog,
     TargetStore,
     classify as reproduction_outcome,
-    download as registry_download,
     fingerprint as reproduction_fingerprint,
     observe_claims,
     release_wording,
     scenario_inputs,
     select_targets,
     tree_hash,
+    validate_exploratory_settings,
 )
 from issue_review_safety import ENVIRONMENT as SCORER_ENVIRONMENT
 from issue_review_safety import SCREENING_SCOPE, InjectionScreening, ScreeningBlocked, child_environment
@@ -155,10 +164,83 @@ def response_schema(model: type[BaseModel]) -> dict[str, JsonValue]:
             return [portable(item) for item in value]
         return value
 
-    schema = portable(model.model_json_schema())
+    transport = (
+        ExploratoryReproductionScenarioTransport if model is ExploratoryReproductionScenario
+        else ReproductionScenarioTransport if model is ReproductionScenario
+        else ReproductionGateTransport if model is ReproductionGate else model
+    )
+    schema = portable(transport.model_json_schema())
     if not isinstance(schema, dict):
         raise AutomationError("Expected an object schema")
     return schema
+
+
+def reproduction_response(model: type[BaseModel], content: str) -> str:
+    def unique(items: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
+        result: dict[str, JsonValue] = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError(f"Duplicate response map key: {key!r}")
+            result[key] = value
+        return result
+
+    def invalid_constant(value: str) -> float:
+        raise ValueError(f"Nonfinite JSON number: {value}")
+
+    def finite_number(value: str) -> float:
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError(f"Nonfinite JSON number: {value}")
+        return number
+
+    def strict_json(value: str) -> JsonValue:
+        return JSON.validate_python(json.loads(
+            value, object_pairs_hook=unique, parse_constant=invalid_constant, parse_float=finite_number,
+        ))
+
+    def mapping(entries: list[ResponseMapEntry]) -> dict[str, str]:
+        unique([(entry.key, entry.value) for entry in entries])
+        return {entry.key: entry.value for entry in entries}
+
+    if model in (ReproductionScenario, ExploratoryReproductionScenario):
+        transport = ExploratoryReproductionScenarioTransport if model is ExploratoryReproductionScenario else ReproductionScenarioTransport
+        scenario = transport.model_validate(strict_json(content))
+        record = scenario.model_dump()
+        record["files"] = mapping(scenario.files)
+        record["control_files"] = mapping(scenario.control_files)
+        record["configuration"] = {
+            key: strict_json(value) for key, value in mapping(scenario.configuration).items()
+        }
+        return model.model_validate(record).model_dump_json()
+    if model is ReproductionGate:
+        gate = ReproductionGateTransport.model_validate(strict_json(content))
+        return ReproductionGate.model_validate({
+            **gate.model_dump(), "receipt_hashes": mapping(gate.receipt_hashes),
+        }).model_dump_json()
+    return content
+
+
+def response_transport_guidance(model: type[BaseModel] | None) -> str:
+    if model not in (ReproductionScenario, ExploratoryReproductionScenario, ReproductionGate):
+        return ""
+    return (
+        "\nStructured-output transport: follow the supplied response schema. Represent maps as arrays of "
+        '{"key": "...", "value": "..."} entries with unique keys, not JSON objects. Preserve exact source '
+        "text, receipt IDs and hashes. For configuration ONLY, value is a JSON-encoded setting value, "
+        'so a string setting uses value="\\"strict\\"" and a boolean setting uses value="true". '
+        "Do not change original source, configuration values or JSON types to fit the transport. "
+        "The controller decodes these entries and applies all original semantic/evidence validators."
+    )
+
+
+def validate_reproduction_report(scenario: ReproductionScenario, report: str) -> None:
+    if isinstance(scenario, ExploratoryReproductionScenario):
+        validate_exploratory_settings(scenario, report)
+    if any(claim.report_quote not in report for claim in scenario.claims):
+        raise AutomationError(
+            "Every material claim must quote one exact contiguous span of actual report/discussion evidence; "
+            "do not concatenate noncontiguous passages or omit text within a quote"
+        )
 
 
 def discussion_hash(comments: list[JsonValue]) -> str:
@@ -1083,7 +1165,8 @@ class SDK:
                     for attempt in range(2):
                         # Own the deadline so human approval can pause it without replacing SDK response correlation.
                         response = await session.send_and_wait(
-                            prompt, response_schema=None if schema is None else response_schema(schema), timeout=float("inf")
+                            prompt + response_transport_guidance(schema),
+                            response_schema=None if schema is None else response_schema(schema), timeout=float("inf")
                         )
                         if tools is not None and tools.screening_error is not None:
                             raise tools.screening_error
@@ -1094,6 +1177,9 @@ class SDK:
                         atomic_write(logs / f"{agent.name}-last-response.txt", content)
                         try:
                             if schema is not None:
+                                content = reproduction_response(schema, content)
+                                if schema in (ReproductionScenario, ExploratoryReproductionScenario, ReproductionGate):
+                                    atomic_write(logs / f"{agent.name}-decoded-response-{attempt + 1}.json", content)
                                 schema.model_validate_json(content)
                             if validate is not None:
                                 validate(content)
@@ -1185,6 +1271,7 @@ class Console:
         rca_enabled: bool = True,
         rca_timeout: float = 900,
         reproduction_store: TargetStore | None = None,
+        exploratory_reproduction: bool = False,
     ):
         self.github, self.sdk, self.state = github, sdk, state
         self.reviewer, self.duplicate, self.writer = reviewer, duplicate, writer
@@ -1193,9 +1280,12 @@ class Console:
         self.ask, self.read_only = ask, read_only
         self.current_context = current_context or (lambda: self.context_hash)
         self.retry_rca = retry_rca
-        self.rca_enabled = rca_enabled
+        self.rca_enabled = rca_enabled and not exploratory_reproduction
         self.rca_timeout = rca_timeout
         self.reproduction_store = reproduction_store
+        self.exploratory_reproduction = exploratory_reproduction
+        if exploratory_reproduction and reproduction_store is None:
+            raise AutomationError("Exploratory reproduction requires a trusted target store")
         self.reproduction_agents = [
             Agent.load(AGENTS / f"{name}.md", name)
             for name in ("pyright-issue-reproducer", "pyright-issue-reproduction-gate")
@@ -1224,7 +1314,52 @@ class Console:
         return Entry.model_validate_json(path.read_text(encoding="utf-8")) if path.exists() else None
 
     def key(self, issue: Issue) -> str:
-        return digest(self.context_hash + issue.model_dump_json())
+        mode = "exploratory-reproduction\0" if self.exploratory_reproduction else ""
+        return digest(self.context_hash + mode + issue.model_dump_json())
+
+    def reproduction_policy(self, entry: Entry, stage: ReproductionStage) -> dict[str, JsonValue]:
+        policy: dict[str, JsonValue] = {
+            "schema_version": 1, "exploratory": stage.exploratory,
+            "input_hash": entry.input_hash, "context_hash": entry.context_hash,
+            "discussion_hash": stage.discussion_hash,
+        }
+        if stage.exploratory:
+            policy["allowed_assumptions"] = {key: [*values] for key, values in EXPLORATORY_SETTINGS.items()}
+        return policy
+
+    def validate_reproduction_policy(self, entry: Entry) -> None:
+        stage = entry.reproduction_stage
+        if stage is not None and (
+            stage.exploratory != self.exploratory_reproduction or (
+                stage.scenario is not None and isinstance(stage.scenario, ExploratoryReproductionScenario) != stage.exploratory
+            )
+        ):
+            raise AutomationError("Reproduction mode changed; use a fresh state directory, never upgrade saved evidence")
+        if self.exploratory_reproduction and (
+            entry.context_hash != self.context_hash or entry.input_hash != self.key(entry.issue)
+        ):
+            raise AutomationError("Exploratory reproduction requires a fresh snapshot/state; never upgrade saved checkpoints")
+        if stage is None:
+            return
+        path = Path(stage.directory) / "policy.json"
+        if stage.policy_hash is None and not path.exists() and not stage.exploratory:
+            return
+        expected = self.reproduction_policy(entry, stage)
+        if (
+            not path.is_file() or path.read_bytes() != json.dumps(expected, indent=2).encode("utf-8")
+            or stage.policy_hash != reproduction_fingerprint(expected)
+        ):
+            raise AutomationError("Controller-owned reproduction policy is missing or changed")
+
+    def observation_only(self, entry: Entry) -> bool:
+        return self.exploratory_reproduction or (
+            entry.reproduction_stage is not None and entry.reproduction_stage.observation_only()
+        )
+
+    def require_actionable_mode(self, entry: Entry) -> None:
+        if self.observation_only(entry):
+            raise AutomationError("Exploratory reproduction is observation-only; labels, comments and closures are ineligible")
+        self.validate_reproduction_policy(entry)
 
     def records(self, number: int) -> list[JsonValue]:
         return [
@@ -1252,24 +1387,31 @@ class Console:
         return [record for record in records if isinstance(record, dict)]
 
     def reproduction_hash(self, stage: ReproductionStage) -> str:
-        return reproduction_fingerprint({
+        evidence: dict[str, JsonValue] = {
             "input": stage.input_hash, "discussion": stage.discussion_hash,
             "scenario": None if stage.scenario is None else stage.scenario.model_dump(),
             "targets": [target.model_dump() for target in stage.targets],
-            "receipts": self.reproduction_records(stage), "outcomes": stage.outcomes,
-            "labels": stage.proposed_labels,
+            "receipts": [record for record in self.reproduction_records(stage)],
+            "outcomes": {role: outcome for role, outcome in stage.outcomes.items()},
+            "labels": [*stage.proposed_labels],
             "gate": None if stage.gate is None else stage.gate.model_dump(),
             "status": stage.status,
-        })
+        }
+        if stage.policy_hash is not None or stage.observation_only():
+            evidence["controller_policy"] = {"exploratory": stage.exploratory, "hash": stage.policy_hash}
+        return reproduction_fingerprint(evidence)
 
     def reproduction_gate_records(self, stage: ReproductionStage) -> list[dict[str, JsonValue]]:
-        return [{
+        scenario: dict[str, JsonValue] = {
             "id": "reproduction-scenario", "kind": "reproduction_scenario",
             "input_hash": stage.input_hash, "discussion_hash": stage.discussion_hash,
             "scenario": None if stage.scenario is None else stage.scenario.model_dump(mode="json"),
             "targets": [target.model_dump(mode="json", exclude={"error"}) for target in stage.targets],
             "outcomes": {role: value for role, value in stage.outcomes.items()},
-        }, *self.reproduction_records(stage)]
+        }
+        if stage.policy_hash is not None or stage.observation_only():
+            scenario["controller_policy"] = {"exploratory": stage.exploratory, "hash": stage.policy_hash}
+        return [scenario, *self.reproduction_records(stage)]
 
     def reproduction_outcomes(self, stage: ReproductionStage) -> dict[str, Outcome]:
         if stage.scenario is None:
@@ -1287,6 +1429,7 @@ class Console:
         return outcomes
 
     def require_reproduction_evidence(self, entry: Entry) -> ReproductionStage:
+        self.require_actionable_mode(entry)
         stage = entry.reproduction_stage
         if (
             stage is None or stage.action() is None or stage.scenario is None or self.reproduction_store is None
@@ -1318,6 +1461,8 @@ class Console:
                 if len(matches) != 1:
                     raise AutomationError("Every selected target needs exactly one receipt for each required phase")
                 record = matches[0]
+                if stage.policy_hash is not None and record.get("policy_hash") != stage.policy_hash:
+                    raise AutomationError("Receipt used a different controller-owned reproduction policy")
                 if record.get("scenario_hash") != reproduction_fingerprint(stage.scenario.model_dump()):
                     raise AutomationError("Receipt used different reproduction inputs")
                 if record.get("target") != target.model_dump(mode="json"):
@@ -1354,6 +1499,7 @@ class Console:
     async def reproduce(self, entry: Entry, *, retry_blocked: bool = False) -> None:
         if self.reproduction_store is None:
             return
+        self.validate_reproduction_policy(entry)
         directory = self.directory(entry.issue.number)
         await self.github.screen_issue(entry.issue, directory)
         comments = await self.github.comments(entry.issue.number)
@@ -1384,12 +1530,33 @@ class Console:
             attempt.mkdir(parents=True)
             stage = entry.reproduction_stage = ReproductionStage(
                 input_hash=entry.input_hash, discussion_hash=discussion, directory=str(attempt),
+                exploratory=self.exploratory_reproduction,
             )
+            policy = self.reproduction_policy(entry, stage)
+            stage.policy_hash = reproduction_fingerprint(policy)
+            atomic_write(attempt / "policy.json", json.dumps(policy, indent=2))
             self.save(entry)
         attempt = Path(stage.directory)
         show(f"#{entry.issue.number}: reproducing against historical release and pinned upstream main.")
         try:
+            report_text = entry.issue.title + "\n" + (entry.issue.body or "") + "\n" + discussion_text(comments)
             if stage.scenario is None:
+                scenario_model = ExploratoryReproductionScenario if stage.exploratory else ReproductionScenario
+                settings_guidance = (
+                    "This controller explicitly enabled EXPLORATORY, OBSERVATION-ONLY reproduction. When Python "
+                    "version or checking mode is genuinely omitted, choose a bounded source-compatible value "
+                    "and disclose EACH choice in configuration_assumptions (setting, exact value, reason for "
+                    "that choice). These are chosen experimental values, NEVER reporter facts. Preserve every "
+                    "explicit reported setting and pristine source. Put reported Python/checking settings in "
+                    "reported_configuration with setting, exact value and exact report_quote containing that value. "
+                    "Every effective Python/checking setting needs exactly one reported quote OR assumption; "
+                    "never both and never invent a quote. Allowed chosen values: " + json.dumps(EXPLORATORY_SETTINGS)
+                    + ". Assume no other settings, dependencies or missing observations. Even a passing gate "
+                    "cannot authorize any action in this mode. "
+                    if stage.exploratory else
+                    "STRICT reproduction: no configuration assumptions are permitted. Missing effective "
+                    "Python/checking settings remain unmet prerequisites. "
+                )
                 raw = await self.sdk.run(
                     self.reproduction_agents[0],
                     "Reconstruct this report without causal attribution. Return ReproductionScenario only. "
@@ -1407,24 +1574,29 @@ class Console:
                     "For each claim define exact diagnostic/type messages, 1-based source lines, and "
                     "broken/resolved observations. Missing errors alone are insufficient: affirmative precision "
                     "controls must hold across BOTH targets separately, without replacing original observations. "
+                    "Each report_quote must copy one contiguous verbatim span; never join separated passages. "
                     "Quote the reported Pyright version when given (not a Pylance version), otherwise use null. "
-                    "Enumerate missing prerequisites. No research, commands, downloads, comments or publication. "
+                    "Only genuine UNMET report prerequisites belong in prerequisites. Routine controller duties "
+                    "(target preparation, original-first execution, precision verification) belong in limitations, "
+                    "NEVER prerequisites. Do not remove actual missing dependencies, unsupported surfaces or "
+                    "unobservable original symptoms to force progress. No research, commands, downloads, comments or publication. "
+                    + settings_guidance
                     + SURFACE_GUIDANCE + "\nUntrusted issue:\n" + entry.issue.model_dump_json()
                     + "\nUntrusted complete discussion:\n" + json.dumps(comments),
-                    attempt, schema=ReproductionScenario,
+                    attempt, schema=scenario_model,
+                    validate=lambda content: validate_reproduction_report(
+                        scenario_model.model_validate_json(content), report_text,
+                    ),
                 )
-                stage.scenario = ReproductionScenario.model_validate_json(raw)
+                stage.scenario = scenario_model.model_validate_json(raw)
                 self.save(entry)
             scenario = stage.scenario
             scenario_inputs(scenario)
-            report_text = entry.issue.title + "\n" + (entry.issue.body or "") + "\n" + discussion_text(comments)
-            if any(claim.report_quote not in report_text for claim in scenario.claims):
-                raise AutomationError("Every material claim must quote actual report/discussion evidence")
+            validate_reproduction_report(scenario, report_text)
             if not stage.targets:
                 async with self._reproduction_metadata_lock:
                     if self._reproduction_catalog is None:
-                        catalog = await asyncio.to_thread(registry_download, "https://registry.npmjs.org/pyright")
-                        self._reproduction_catalog = ReleaseCatalog.model_validate_json(catalog)
+                        self._reproduction_catalog = await self.reproduction_store.catalog()
                     if self._reproduction_main is None:
                         upstream = await self.github.api("GET", f"repos/{REPOSITORY}/commits/main")
                         if not isinstance(upstream, dict) or not isinstance(upstream.get("sha"), str):
@@ -1432,11 +1604,12 @@ class Console:
                         self._reproduction_main = str(upstream["sha"])
                     stage.targets = select_targets(
                         self._reproduction_catalog, entry.issue, scenario, discussion_text(comments), self._reproduction_main,
+                        registry=self.reproduction_store.registry,
                     )
                 atomic_write(attempt / "selection.json", json.dumps({
                     "issue_created_at": entry.issue.created_at, "issue_updated_at": entry.issue.updated_at,
                     "selected_at": datetime.now(timezone.utc).isoformat(),
-                    "registry": "https://registry.npmjs.org/pyright",
+                    "registry": self.reproduction_store.registry,
                     "catalog_hash": reproduction_fingerprint(self._reproduction_catalog.model_dump()),
                     "main_endpoint": f"https://api.github.com/repos/{REPOSITORY}/commits/main",
                     "targets": [target.model_dump() for target in stage.targets],
@@ -1455,9 +1628,10 @@ class Console:
                             raise AutomationError("Repeated reproduction role/phase in interrupted ledger")
                         restored = ReproductionTarget.model_validate(prior[0]["target"])
                         if (
-                            (restored.identity, restored.source, restored.integrity) !=
-                            (target.identity, target.source, target.integrity)
+                            (restored.identity, restored.source, restored.integrity, restored.registry) !=
+                            (target.identity, target.source, target.integrity, target.registry)
                             or prior[0].get("scenario_hash") != reproduction_fingerprint(scenario.model_dump())
+                            or (stage.policy_hash is not None and prior[0].get("policy_hash") != stage.policy_hash)
                         ):
                             raise AutomationError("Interrupted reproduction target/input identity changed")
                         stage.targets[stage.targets.index(target)] = restored
@@ -1486,6 +1660,7 @@ class Console:
                             "error": str(error), "outcome": "blocked",
                             "claim_outcomes": {claim.id: "blocked" for claim in scenario.claims},
                         }
+                    record["policy_hash"] = stage.policy_hash
                     records.append(record)
                     atomic_write(attempt / "receipts.jsonl", "".join(json.dumps(item) + "\n" for item in records))
                     stage.receipt_ids = [str(item["id"]) for item in records]
@@ -1514,7 +1689,14 @@ class Console:
                 "complete evidence. Return ReproductionGate with every claim ID and supplied raw receipt hashes. "
                 "A blocked latest-release check does not invalidate a verified historical/main comparison, but "
                 "release availability must stay unverified. No causal attribution, comment draft or publication.\n"
-                "Untrusted issue:\n" + entry.issue.model_dump_json() + "\nDiscussion:\n" + json.dumps(comments)
+                + (
+                    "The controller policy marks this stage EXPLORATORY and permanently ACTION-INELIGIBLE. "
+                    "Disclosed bounded settings may be chosen only when genuinely omitted; they are not reporter "
+                    "facts. Validate conditional observations and source compatibility without waiving any other "
+                    "evidence requirement. Approval cannot authorize a label, comment or closure.\n"
+                    if stage.exploratory else ""
+                )
+                + "Untrusted issue:\n" + entry.issue.model_dump_json() + "\nDiscussion:\n" + json.dumps(comments)
                 + "\nScenario, pinned targets and controller receipts (read indexed fields in full):\n"
                 + "\n".join(evidence_response(record) for record in gate_records)
                 + "\nRaw receipt hashes:\n" + json.dumps({
@@ -1546,11 +1728,15 @@ class Console:
     async def review(self, issue: Issue, *, retry_failed: bool) -> Entry:
         await self.github.screen_issue(issue, self.directory(issue.number))
         cached = self.load(issue.number)
+        if cached is not None:
+            self.validate_reproduction_policy(cached)
         if cached and cached.root_cause and cached.root_cause.publication and cached.root_cause.publication.status != "posted":
+            self.require_actionable_mode(cached)
             if cached.context_hash != self.context_hash:
                 raise AutomationError("Unfinished RCA publication has different review inputs; inspect its checkpoint before proceeding")
             return cached
         if cached and cached.closure and cached.closure.status not in {"closed", "labeled"}:
+            self.require_actionable_mode(cached)
             if cached.context_hash != self.context_hash:
                 raise AutomationError(f"#{issue.number} has an unfinished closure from different review inputs; inspect its entry.json before proceeding")
             return cached
@@ -1559,6 +1745,11 @@ class Console:
                 show(f"#{issue.number}: previous failure: {cached.error}; use --retry-failed to retry")
                 return cached
             await self.reproduce(cached, retry_blocked=retry_failed)
+            if self.observation_only(cached):
+                cached.decision = "reviewed"
+                cached.error = cached.reproduction_stage.error if cached.reproduction_stage else None
+                self.save(cached)
+                return cached
             if cached.reproduction_stage and cached.reproduction_stage.action():
                 if cached.decision == "failed":
                     cached.decision, cached.error = "pending", None
@@ -1576,6 +1767,11 @@ class Console:
         entry.decision, entry.error = "failed", "Review interrupted before a validated response was saved"
         self.save(entry)
         await self.reproduce(entry, retry_blocked=retry_failed)
+        if self.observation_only(entry):
+            entry.decision = "reviewed"
+            entry.error = entry.reproduction_stage.error if entry.reproduction_stage else None
+            self.save(entry)
+            return entry
         if entry.reproduction_stage and entry.reproduction_stage.action():
             entry.decision, entry.error = "pending", None
             self.save(entry)
@@ -1649,6 +1845,8 @@ class Console:
         return entry
 
     async def investigate_duplicates(self, entry: Entry) -> None:
+        if self.observation_only(entry):
+            return
         if entry.reproduction_stage and entry.reproduction_stage.action():
             return
         await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
@@ -1688,6 +1886,8 @@ class Console:
             self.save(entry)
 
     async def adjudicate(self, entry: Entry) -> None:
+        if self.observation_only(entry):
+            return
         await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         if entry.review is None or entry.duplicates is None:
             raise AutomationError("Both investigation reports are required before adjudication")
@@ -1986,6 +2186,7 @@ class Console:
         self.save(entry)
 
     async def investigate_root_cause(self, entry: Entry) -> None:
+        self.require_actionable_mode(entry)
         await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         self.require_report_evidence(entry)
         if self.current_context() != self.context_hash or self.key(await self.github.issue(entry.issue.number)) != entry.input_hash:
@@ -2243,6 +2444,7 @@ class Console:
             raise
 
     def require_rca_evidence(self, entry: Entry) -> RootCause:
+        self.require_actionable_mode(entry)
         self.require_report_evidence(entry)
         root_cause = entry.root_cause
         if root_cause is None or not root_cause.publishable() or root_cause.findings is None:
@@ -2264,6 +2466,7 @@ class Console:
         return root_cause
 
     async def prepare_root_cause_comment(self, entry: Entry) -> str:
+        self.require_actionable_mode(entry)
         if self.read_only:
             raise AutomationError("This run is read-only; comment drafting is disabled")
         await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
@@ -2310,6 +2513,7 @@ class Console:
         return comment
 
     async def post_root_cause(self, entry: Entry) -> None:
+        self.require_actionable_mode(entry)
         await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         if self.read_only:
             raise AutomationError("This run is read-only; no RCA comment may be posted")
@@ -2383,6 +2587,8 @@ class Console:
         show(f"Posted potential root cause for #{entry.issue.number}: {url}")
 
     async def ensure_root_cause(self, entry: Entry) -> None:
+        if self.observation_only(entry):
+            return
         if entry.reproduction_stage and entry.reproduction_stage.action():
             self.require_reproduction_evidence(entry)
             return
@@ -2410,6 +2616,7 @@ class Console:
             self.save(entry)
 
     async def prepare_comment(self, entry: Entry) -> str:
+        self.require_actionable_mode(entry)
         if self.read_only:
             raise AutomationError("This run is read-only; comment drafting is disabled")
         if entry.reproduction_stage and entry.reproduction_stage.action():
@@ -2477,6 +2684,7 @@ class Console:
         return comment
 
     async def prepare_reproduction_comment(self, entry: Entry) -> str:
+        self.require_actionable_mode(entry)
         if self.read_only:
             raise AutomationError("This run is read-only; comment drafting is disabled")
         await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
@@ -2534,6 +2742,7 @@ class Console:
         return comment
 
     async def publish_reproduction(self, entry: Entry) -> None:
+        self.require_actionable_mode(entry)
         if self.read_only:
             raise AutomationError("This run is read-only; no GitHub mutations")
         stage = self.require_reproduction_evidence(entry)
@@ -2654,6 +2863,7 @@ class Console:
         self.save(entry)
 
     def require_closure_evidence(self, entry: Entry) -> Literal["by_design", "duplicate"]:
+        self.require_actionable_mode(entry)
         reason = entry.closure_reason()
         if reason is None or entry.adjudication is None:
             raise AutomationError("Adjudication does not support closure; needs-investigation issues remain open")
@@ -2673,6 +2883,7 @@ class Console:
                 raise AutomationError("Canonical issue changed since investigation; no duplicate closure allowed")
 
     async def close(self, entry: Entry) -> None:
+        self.require_actionable_mode(entry)
         if entry.reproduction_stage and entry.reproduction_stage.action():
             await self.publish_reproduction(entry)
             return
@@ -2781,6 +2992,9 @@ class Console:
         show(f"Closed #{entry.issue.number}: {closure.comment_url}")
 
     async def evaluate(self, entry: Entry) -> None:
+        if self.observation_only(entry):
+            self.validate_reproduction_policy(entry)
+            return
         if entry.reproduction_stage and entry.reproduction_stage.action():
             self.require_reproduction_evidence(entry)
             if not self.read_only and entry.reproduction_stage.action() == "fixed":
@@ -2802,6 +3016,11 @@ class Console:
                     await self.prepare_root_cause_comment(entry)
 
     async def decide(self, entry: Entry) -> bool:
+        if self.observation_only(entry):
+            self.validate_reproduction_policy(entry)
+            entry.decision = "reviewed"
+            self.save(entry)
+            return True
         if entry.reproduction_stage and entry.reproduction_stage.action():
             self.require_reproduction_evidence(entry)
             if not self.read_only:
@@ -2827,6 +3046,7 @@ class Console:
         return True
 
     def require_report_evidence(self, entry: Entry) -> None:
+        self.require_actionable_mode(entry)
         if entry.review is None or entry.duplicates is None or entry.adjudication is None:
             raise AutomationError("Both reports and adjudication are required")
         entry.adjudication.validate_reports(entry.review, entry.duplicates)
@@ -2893,9 +3113,19 @@ class ChunkResult:
 def unfinished_reproduction_publication(entry: Entry | None) -> bool:
     return (
         entry is not None and entry.closure is not None
+        and (entry.reproduction_stage is None or not entry.reproduction_stage.observation_only())
         and entry.closure.reason in {"fixed", "not_reproducible"}
         and entry.closure.status not in {"closed", "labeled"}
     )
+
+
+def require_run_mode(state: Path, exploratory: bool) -> None:
+    path = state / "run.json"
+    if path.exists():
+        previous = JSON.validate_json(path.read_text(encoding="utf-8"))
+        mode = previous.get("exploratory_reproduction", False) if isinstance(previous, dict) else None
+        if not isinstance(mode, bool) or mode != exploratory:
+            raise AutomationError("Run reproduction mode changed; use a fresh state directory")
 
 
 def dry_run_proposal(result: ChunkResult, *, rca_enabled: bool) -> dict[str, JsonValue]:
@@ -2904,9 +3134,15 @@ def dry_run_proposal(result: ChunkResult, *, rca_enabled: bool) -> dict[str, Jso
     adjudication = None if entry is None else entry.adjudication
     root_cause = None if entry is None else entry.root_cause
     reproduction = None if entry is None else entry.reproduction_stage
+    observation_only = reproduction is not None and reproduction.observation_only()
     blockers: list[JsonValue] = []
     action = "leave_open"
-    if result.status != "ready":
+    if observation_only:
+        action = "blocked"
+        blockers.append("Exploratory reproduction is observation-only; assumptions cannot authorize labels, comments or closures")
+        if result.status != "ready":
+            blockers.append(result.message or result.status)
+    elif result.status != "ready":
         action = "blocked"
         blockers.append(result.message or result.status)
     elif reproduction is not None and reproduction.action() is not None and entry is not None and entry.decision not in {"failed", "closed", "keep"}:
@@ -2944,7 +3180,7 @@ def dry_run_proposal(result: ChunkResult, *, rca_enabled: bool) -> dict[str, Jso
         "issue_updated_at": result.issue.updated_at,
         "investigation_status": result.status, "proposed_action": action,
         "validated_reports": bool(
-            (result.status == "ready" or result.validated_reports)
+            not observation_only and (result.status == "ready" or result.validated_reports)
             and review is not None and adjudication is not None and entry is not None and entry.duplicates is not None
         ),
         "validated_reproduction": result.status == "ready" and reproduction is not None and reproduction.action() is not None,
@@ -2973,7 +3209,7 @@ def dry_run_proposal(result: ChunkResult, *, rca_enabled: bool) -> dict[str, Jso
         "release_wording": release_wording(reproduction.targets, reproduction.outcomes)
         if reproduction is not None and reproduction.action() == "fixed" else None,
         "by_design_closure_candidate": (
-            result.status == "ready" and review is not None
+            not observation_only and result.status == "ready" and review is not None
             and review.closure_candidate() and review.observed_product()
         ),
         "claims": [] if review is None else [claim.model_dump(mode="json") for claim in review.claims],
@@ -3052,6 +3288,9 @@ def chunk_table(results: list[ChunkResult], *, rca_enabled: bool) -> str:
             reproduction = None if entry is None else entry.reproduction_stage
             if result.status == "failed":
                 summary = result.message
+            elif reproduction is not None and reproduction.observation_only():
+                by_design = duplicate = "Not evaluated"
+                summary = f"Exploratory, action-ineligible: {reproduction.error or reproduction.status}"
             elif reproduction is not None and reproduction.action():
                 summary = f"Reproduction: {reproduction.action()} (historical/main verified; RCA not needed)"
             elif root_cause is not None:
@@ -3083,6 +3322,14 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--retry-failed", action="store_true")
     parser.add_argument("--retry-rca", action="store_true", help="Resume compatible failed RCA checkpoints; retry completed blocked/inconclusive attempts")
     parser.add_argument("--no-rca", action="store_true", help="Disable root-cause analysis and RCA comment publication")
+    parser.add_argument(
+        "--reproduction-registry", choices=REGISTRIES, default=NPM_REGISTRY,
+        help="Explicit trusted npm registry for checker targets and isolated main dependencies (default: public npm)",
+    )
+    parser.add_argument(
+        "--exploratory-reproduction", action="store_true",
+        help="Opt in to disclosed bounded Python/checking assumptions; reproduction-only, never draft or publish",
+    )
     parser.add_argument("--read-only", "--dry-run", action="store_true", help="Review only; disable comment drafting and GitHub mutations")
     parser.add_argument(
         "--non-interactive", action="store_true",
@@ -3097,6 +3344,7 @@ def arguments() -> argparse.Namespace:
 
 async def main(args: argparse.Namespace) -> None:
     non_interactive = getattr(args, "non_interactive", False)
+    exploratory = getattr(args, "exploratory_reproduction", False)
     if non_interactive and not args.read_only:
         raise AutomationError("--non-interactive requires --dry-run")
     scorer = InjectionScreening.from_environment()
@@ -3115,7 +3363,7 @@ async def main(args: argparse.Namespace) -> None:
             ) if path.is_file()
         ), None)
     writer = Agent.load(writer_path, "rich-mirror") if writer_path else None
-    if writer is None and not args.read_only:
+    if writer is None and not args.read_only and not exploratory:
         raise AutomationError("Automatic publication requires rich-mirror. Supply --writer-agent or use --dry-run.")
     rca_agents = [
         Agent.load(AGENTS / f"{name}.md", name) for name in (
@@ -3142,7 +3390,10 @@ async def main(args: argparse.Namespace) -> None:
     editor_options = {
         "code": str(args.rca_code_path) if getattr(args, "rca_code_path", None) else None,
         "python_extension": str(args.rca_python_extension) if getattr(args, "rca_python_extension", None) else None,
+        "reproduction_registry": getattr(args, "reproduction_registry", NPM_REGISTRY),
     }
+    if exploratory:
+        editor_options["reproduction_mode"] = "exploratory"
     fingerprint = context_hash(profiles, args.model, release, runtime, editor_options)
     issues = await github.open_issues() if args.issues is None else [
         await github.issue(number) for number in dict.fromkeys(args.issues)
@@ -3160,12 +3411,13 @@ async def main(args: argparse.Namespace) -> None:
     issues = [issue for issue in issues if issue.state == "open" or issue.number in reconcile]
     show(f"{len(issues)} open/reconciliation issues in {REPOSITORY}; chunks of {args.chunk_size}. State: {args.state_dir}")
     show(f"Model for all SDK stages: {args.model}")
-    rca_enabled = not getattr(args, "no_rca", False)
-    show(f"RCA: {'enabled by default' if rca_enabled else 'disabled (--no-rca)'}.")
+    rca_enabled = not getattr(args, "no_rca", False) and not exploratory
+    show(f"RCA: {'enabled by default' if rca_enabled else 'disabled (--no-rca or exploratory mode)'}.")
     rca_timeout = getattr(args, "rca_timeout", 900)
     if rca_enabled:
         show(f"RCA investigation/countercheck active budget: {rca_timeout}s per turn (separate from --timeout).")
     show(
+        "Exploratory reproduction: observation-only; no drafting, mutations, adjudication or RCA." if exploratory else
         "Dry run: no drafting or GitHub mutations, including label creation." if args.read_only else
         "Automatic publication: label verified non-reproductions; close fixed/by-design/duplicate issues; post qualified RCA."
     )
@@ -3174,15 +3426,18 @@ async def main(args: argparse.Namespace) -> None:
     show("Prepare the source CLI with 'pnpm run build:cli:dev' before this run. Do not change source or build outputs during review.")
     show("Copilot searches use ripgrep; optional indexed search is disabled for SDK compatibility.")
     with state_lock(args.state_dir):
+        require_run_mode(args.state_dir, exploratory)
         atomic_write(args.state_dir / "run.json", json.dumps({
             "repository": REPOSITORY, "revision": git("rev-parse", "HEAD"),
             "context_hash": fingerprint, "runtime": runtime.strip(),
             "sdk": importlib.metadata.version("github-copilot-sdk"),
             "requested_model": args.model, "release": release,
             "screening_scope": SCREENING_SCOPE,
-            "rca_enabled": rca_enabled, "automatic_publication": not args.read_only,
+            "rca_enabled": rca_enabled, "automatic_publication": not args.read_only and not exploratory,
             "timeout_seconds": args.timeout, "rca_timeout_seconds": rca_timeout,
+            "reproduction_registry": getattr(args, "reproduction_registry", NPM_REGISTRY),
             "non_interactive": non_interactive,
+            "exploratory_reproduction": exploratory,
             "started_at": datetime.now(timezone.utc).isoformat(),
         }, indent=2))
         connection = RuntimeConnection.for_stdio(path=args.cli_path)
@@ -3201,7 +3456,11 @@ async def main(args: argparse.Namespace) -> None:
                 editor_code=getattr(args, "rca_code_path", None), python_extension=getattr(args, "rca_python_extension", None),
                 rca_enabled=rca_enabled,
                 rca_timeout=rca_timeout,
-                reproduction_store=TargetStore(args.state_dir / "targets", target_process),
+                reproduction_store=TargetStore(
+                    args.state_dir / "targets", target_process,
+                    registry=getattr(args, "reproduction_registry", NPM_REGISTRY),
+                ),
+                exploratory_reproduction=exploratory,
             )
             pending = [
                 issue for issue in issues if (
@@ -3231,7 +3490,7 @@ async def main(args: argparse.Namespace) -> None:
             ]
             failures = skipped = 0
             completed: list[ChunkResult] = []
-            if args.read_only:
+            if args.read_only or exploratory:
                 save_dry_run_proposals(args.state_dir, fingerprint, completed, len(pending), rca_enabled=rca_enabled)
             if len(pending) < len(issues):
                 show(f"{len(issues) - len(pending)} unchanged completed/kept/failed entries skipped; --retry-failed retries failures.")
@@ -3247,11 +3506,13 @@ async def main(args: argparse.Namespace) -> None:
                     entry = await console.review(issue, retry_failed=args.retry_failed)
                     if entry.decision == "failed":
                         return ChunkResult(issue, entry, "failed", entry.error or "Previous investigation failed")
-                    if entry.review is not None and entry.duplicates is not None and entry.adjudication is not None:
+                    if not console.observation_only(entry) and entry.review is not None and entry.duplicates is not None and entry.adjudication is not None:
                         console.require_report_evidence(entry)
                         reports_validated = True
                     await console.evaluate(entry)
-                    entry.elapsed_seconds, entry.error = time.monotonic() - started, None
+                    entry.elapsed_seconds = time.monotonic() - started
+                    if not console.observation_only(entry):
+                        entry.error = None
                     console.save(entry)
                     return ChunkResult(issue, entry)
                 except ScreeningBlocked as error:
@@ -3305,7 +3566,7 @@ async def main(args: argparse.Namespace) -> None:
                         console.save(entry)
                         show(f"#{entry.issue.number}: STEP FAILED: {error}. Progress is saved.")
                 completed.extend(results)
-                if args.read_only:
+                if args.read_only or exploratory:
                     save_dry_run_proposals(args.state_dir, fingerprint, completed, len(pending), rca_enabled=rca_enabled)
                     show(f"Dry-run action proposals saved to {args.state_dir / 'proposals.json'} (not approved for publication).")
                 if offset + args.chunk_size < len(pending):
