@@ -1,7 +1,8 @@
 # This sample tests the handling of the zero-argument form of super()
 # within a comprehension when the target Python version is older than 3.12.
-# Prior to PEP 709, list, set, and dict comprehensions each executed in
-# their own frame whose first argument was the implicit iterator.
+# Each comprehension has its own frame whose first argument is the iterator.
+# Iterator types are not precise enough to establish that this receiver is
+# incompatible, so a separate frame alone should not generate a diagnostic.
 
 
 class ClassA:
@@ -11,18 +12,10 @@ class ClassA:
 
 class ClassB(ClassA):
     def method2(self):
-        # This should generate an error because a list comprehension
-        # executes in its own frame prior to Python 3.12.
-        [super().method1() for _ in [1]]
+        reveal_type([super().method1() for _ in [1]], expected_text="list[None]")
 
-        # This should generate an error because a set comprehension
-        # executes in its own frame prior to Python 3.12.
-        {super().method1() for _ in [1]}
+        reveal_type({super().method1() for _ in [1]}, expected_text="set[None]")
 
-        # This should generate an error because a dict comprehension
-        # executes in its own frame prior to Python 3.12.
-        {0: super().method1() for _ in [1]}
+        reveal_type({0: super().method1() for _ in [1]}, expected_text="dict[int, None]")
 
-        # This should generate an error because a generator expression
-        # executes in its own frame.
-        list(super().method1() for _ in [1])
+        reveal_type(list(super().method1() for _ in [1]), expected_text="list[None]")

@@ -10107,8 +10107,8 @@ export function createTypeEvaluator(
                         nodeInfo
                     )
                 ) {
-                    // The frame that executes the call doesn't receive a first
-                    // argument, so the zero-argument form raises at runtime.
+                    // The evaluation scope cannot supply a first positional
+                    // argument for the zero-argument form.
                     addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.superCallZeroArgForm(),

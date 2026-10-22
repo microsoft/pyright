@@ -14,6 +14,7 @@ import { ConfigOptions } from '../common/configOptions';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
+    pythonVersion3_12,
     pythonVersion3_13,
     pythonVersion3_15,
     pythonVersion3_9,
@@ -191,10 +192,10 @@ test('AugmentedAssignment3', () => {
 test('Super1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super1.py']);
 
-    TestUtils.validateResults(analysisResults, 10);
+    TestUtils.validateResults(analysisResults, 9);
 
     const errorLines = analysisResults[0].errors.map((e) => e.range.start.line + 1);
-    assert.deepStrictEqual(errorLines, [37, 46, 52, 67, 75, 88, 94, 101, 109, 116]);
+    assert.deepStrictEqual(errorLines, [37, 46, 52, 67, 75, 94, 101, 109, 116]);
 });
 
 test('Super2', () => {
@@ -274,10 +275,21 @@ test('Super14', () => {
     configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super14.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 0);
+});
 
-    const errorLines = analysisResults[0].errors.map((e) => e.range.start.line + 1);
-    assert.deepStrictEqual(errorLines, [16, 20, 24, 28]);
+test('Super15', () => {
+    for (const pythonVersion of [pythonVersion3_11, pythonVersion3_12]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super15.py'], configOptions);
+        const expectedErrorLines = pythonVersion === pythonVersion3_11 ? [] : [49];
+
+        TestUtils.validateResults(analysisResults, expectedErrorLines.length);
+
+        const errorLines = analysisResults[0].errors.map((e) => e.range.start.line + 1);
+        assert.deepStrictEqual(errorLines, expectedErrorLines);
+    }
 });
 
 test('MissingSuper1', () => {

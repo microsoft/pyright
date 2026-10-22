@@ -739,12 +739,10 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
     return undefined;
 }
 
-// Determines whether a zero-argument `super()` call at the specified node
-// can succeed at runtime. The zero-argument form uses the first argument of
-// the frame that is executing the call along with the compiler-provided
-// `__class__` cell, so the caller must separately verify that an enclosing
-// class is present. This routine verifies only that the executing frame is
-// one that receives a first argument.
+// Checks whether the evaluation scope can supply a first positional argument
+// for a zero-argument `super()` call. This is not proof of runtime validity:
+// the caller must check for an enclosing class, and this routine does not
+// establish compatibility of the implicit receiver or model annotation frames.
 export function isZeroArgSuperCallAllowed(
     node: ParseNode,
     pythonVersion: PythonVersion,
@@ -766,12 +764,11 @@ export function isZeroArgSuperCallAllowed(
             }
 
             case ParseNodeType.Comprehension: {
-                // A generator expression always executes in its own frame whose
-                // first argument is the implicit iterator, not the method's
-                // "self" argument. List, set, and dict comprehensions likewise
-                // used a separate frame prior to Python 3.12 (PEP 709).
+                // A separate comprehension frame receives its iterator as the
+                // first argument. That iterator could itself be an instance of
+                // the enclosing class, so this frame alone cannot prove failure.
                 if (curNode.d.isGenerator || PythonVersion.isLessThan(pythonVersion, pythonVersion3_12)) {
-                    return false;
+                    return true;
                 }
                 break;
             }

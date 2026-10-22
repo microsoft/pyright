@@ -83,8 +83,8 @@ class ClassD(ClassB, ClassC):
         {super().method1() for _ in [1]}
         {0: super().method1() for _ in [1]}
 
-        # This should generate an error because a generator expression always
-        # executes in its own frame whose first argument is the iterator.
+        # A generator's implicit iterator could be a compatible receiver,
+        # so its separate frame alone does not establish an error.
         list(super().method1() for _ in [1])
 
 
