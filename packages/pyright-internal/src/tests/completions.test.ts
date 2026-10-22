@@ -861,6 +861,95 @@ test('completion quote trigger - middle', async () => {
     assert.strictEqual(result?.items.length, 0);
 });
 
+test('completion incomplete only while auto-import candidates are deferred', () => {
+    const code = `
+// @filename: test.py
+//// import os
+//// /*empty*/
+//// pri/*module*/
+//// def func():
+////     private_value = 1
+////     pri/*function*/
+//// Pri/*autoImport*/
+
+// @filename: unused.py
+//// class PriorityAutoImport:
+////     pass
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    state.openFiles(state.testData.files.map((f) => f.fileName));
+
+    while (state.workspace.service.test_program.analyze());
+
+    const getCompletions = (markerName: string) => {
+        const marker = state.getMarkerByName(markerName);
+        const uri = Uri.file(marker.fileName, state.serviceProvider);
+        const position = state.convertOffsetToPosition(marker.fileName, marker.position);
+        const options: CompletionOptions = {
+            format: 'markdown',
+            snippet: false,
+            lazyEdit: false,
+        };
+
+        return new CompletionProvider(state.program, uri, position, options, CancellationToken.None).getCompletions();
+    };
+
+    const emptyResult = getCompletions('empty');
+    assert(emptyResult);
+    assert.strictEqual(emptyResult.isIncomplete, true);
+    assert(emptyResult.items.some((item) => item.label === 'print'));
+    assert(!emptyResult.items.some((item) => item.label === 'PriorityAutoImport'));
+
+    for (const markerName of ['module', 'function']) {
+        const result = getCompletions(markerName);
+        assert(result);
+        assert.strictEqual(result.isIncomplete, false);
+        assert(result.items.some((item) => item.label === 'print'));
+    }
+
+    const functionResult = getCompletions('function')!;
+    assert(functionResult.items.some((item) => item.label === 'private_value'));
+
+    const autoImportResult = getCompletions('autoImport');
+    assert(autoImportResult);
+    assert.strictEqual(autoImportResult.isIncomplete, false);
+    assert(autoImportResult.items.some((item) => item.label === 'PriorityAutoImport'));
+});
+
+test('completion list is complete when auto-import is disabled', () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "autoImportCompletions": false
+//// }
+
+// @filename: test.py
+//// /*marker*/
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker = state.getMarkerByName('marker');
+    const uri = Uri.file(marker.fileName, state.serviceProvider);
+    const position = state.convertOffsetToPosition(marker.fileName, marker.position);
+    const options: CompletionOptions = {
+        format: 'markdown',
+        snippet: false,
+        lazyEdit: false,
+    };
+
+    const result = new CompletionProvider(
+        state.program,
+        uri,
+        position,
+        options,
+        CancellationToken.None
+    ).getCompletions();
+
+    assert(result);
+    assert.strictEqual(result.isIncomplete, false);
+});
+
 test('auto import sort text', async () => {
     const code = `
 // @filename: test.py
