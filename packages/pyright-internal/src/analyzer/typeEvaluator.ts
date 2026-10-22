@@ -26207,6 +26207,20 @@ export function createTypeEvaluator(
                 assert(memberInfo !== undefined);
 
                 let destMemberType = getEffectiveTypeOfSymbol(symbol);
+
+                // The synthesized NamedTuple _replace method adds typed field
+                // parameters to typeshed's "**kwargs: Any" signature. Don't let
+                // them change the variance inferred from the typeshed declaration.
+                if (
+                    name === '_replace' &&
+                    ClassType.isNamedTupleClass(destType) &&
+                    symbol.getSynthesizedType() &&
+                    isFunction(destMemberType) &&
+                    FunctionType.isSynthesizedMethod(destMemberType)
+                ) {
+                    return;
+                }
+
                 const srcMemberType = getTypeOfMember(memberInfo);
                 destMemberType = partiallySpecializeType(destMemberType, destType, getTypeClassType());
 
