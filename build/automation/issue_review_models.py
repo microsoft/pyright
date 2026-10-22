@@ -6,7 +6,7 @@
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 Text = Annotated[str, Field(min_length=1)]
 Confidence = Literal["high", "medium", "low"]
@@ -295,6 +295,7 @@ class Issue(BaseModel):
     state: Literal["open", "closed"]
     state_reason: str | None = None
     updated_at: str
+    created_at: str | None = None
     comments: int
     labels: list[Label] = Field(default_factory=list)
 
@@ -307,11 +308,105 @@ class Closure(Record):
     body: str
     expected_issue: Issue
     discussion_hash: str
-    status: Literal["prepared", "comment_posted", "closed"] = "prepared"
+    status: Literal["prepared", "comment_posted", "closed", "labeled"] = "prepared"
     comment_id: int | None = None
     comment_url: str | None = None
-    reason: Literal["by_design", "duplicate"] = "by_design"
+    reason: Literal["by_design", "duplicate", "fixed", "not_reproducible"] = "by_design"
     duplicate_of: int | None = None
+    labels: list[str] = Field(default_factory=list)
+    evidence_hash: str | None = None
+
+
+class Symptom(Record):
+    file: Text
+    line: int = Field(ge=1)
+    severity: Literal["error", "warning", "information"]
+    message: Text
+    rule: str | None
+    present: bool
+
+
+class ReproductionClaim(Record):
+    id: Text
+    report_quote: Text
+    surface: Literal["cli", "editor", "lsp", "other"]
+    broken: list[Symptom] = Field(min_length=1)
+    resolved: list[Symptom] = Field(min_length=1)
+    precision: list[Symptom] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def affirmative(self) -> Self:
+        if not all(item.present for item in self.precision):
+            raise ValueError("Precision requires affirmative diagnostic/type observations")
+        if not any(item.present for item in [*self.broken, *self.resolved]):
+            raise ValueError("The original symptom must be observable without adding type queries")
+        return self
+
+
+class ReproductionScenario(Record):
+    summary: Text
+    reported_version: str | None
+    version_quote: str | None
+    files: dict[str, str]
+    control_files: dict[str, str] = Field(default_factory=dict)
+    configuration: dict[str, JsonValue]
+    claims: list[ReproductionClaim] = Field(min_length=1)
+    prerequisites: list[str]
+    limitations: list[str]
+
+    @model_validator(mode="after")
+    def validate_version_evidence(self) -> Self:
+        if (self.reported_version is None) != (self.version_quote is None):
+            raise ValueError("An explicit reported version requires its exact report quote")
+        return self
+
+
+class ReproductionTarget(Record):
+    role: Literal["historical", "main", "latest"]
+    identity: Text
+    version: Text
+    source: Text
+    selection_reason: Text
+    approximate: bool = False
+    published_at: str | None = None
+    integrity: str | None = None
+    directory: str | None = None
+    cli: str | None = None
+    tree_hash: str | None = None
+    status: Literal["selected", "ready", "blocked"] = "selected"
+    error: str | None = None
+
+
+class ReproductionGate(DraftCheck):
+    claim_ids: list[str]
+    receipt_hashes: dict[str, str]
+
+
+class ReproductionStage(Record):
+    input_hash: Text
+    discussion_hash: Text
+    directory: Text
+    status: Literal["running", "complete", "blocked", "failed"] = "running"
+    scenario: ReproductionScenario | None = None
+    targets: list[ReproductionTarget] = Field(default_factory=list)
+    receipt_ids: list[str] = Field(default_factory=list)
+    outcomes: dict[str, Literal["reproduced", "not_reproduced", "blocked"]] = Field(default_factory=dict)
+    gate: ReproductionGate | None = None
+    evidence_hash: str | None = None
+    error: str | None = None
+    proposed_labels: list[str] = Field(default_factory=list)
+    comment_hash: str | None = None
+
+    def action(self) -> Literal["fixed", "not_reproducible"] | None:
+        if self.status != "complete" or self.gate is None or not self.gate.approved:
+            return None
+        if self.outcomes.get("main") != "not_reproduced":
+            return None
+        if self.outcomes.get("historical") == "reproduced":
+            return "fixed"
+        if self.outcomes.get("historical") == "not_reproduced":
+            return "not_reproducible"
+        return None
 
 
 class ReproductionPlan(Record):
@@ -460,6 +555,7 @@ class Entry(Record):
     scratch_directory: str | None = None
     rca_opt_in: Literal["not_asked", "declined", "accepted"] = "not_asked"
     root_cause: RootCause | None = None
+    reproduction_stage: ReproductionStage | None = None
 
     def unresolved(self) -> bool:
         return self.adjudication is not None and self.closure_reason() is None

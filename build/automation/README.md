@@ -1,25 +1,115 @@
 # Parallel Pyright issue review
 
 `review_issues.py` uses the Python Copilot SDK to investigate open **microsoft/pyright** issues in bounded chunks.
-Each issue gets a behavior investigation from `pyright-issue-by-design-reviewer` (`review.md`), a separate duplicate
+Each issue first gets an isolated historical/main reproduction comparison and evidence gate. Cases that remain
+unresolved get a behavior investigation from `pyright-issue-by-design-reviewer` (`review.md`), a separate duplicate
 investigation (`duplicates.md`), and a
 tool-less adjudication. Issues in each chunk are evaluated concurrently, with automatic root-cause analysis for
 reports that do not qualify for closure. The console displays a table with **By Design**, **Dupe**, and
 **Root Cause Summary** columns before publication.
-**Non-dry runs automatically post evidence-backed explanations and close eligible by-design/duplicate issues,
+**Non-dry runs automatically label qualified non-reproductions, close verified fixed/by-design/duplicate issues,
 or post a qualified root-cause investigation while leaving other issues open.** There is no per-issue publication
 prompt. Use `--dry-run` to disable all comment drafting and GitHub mutations, and `--no-rca` to disable RCA.
 Dry runs save per-issue `proposal.json` files and a run-level `proposals.json`, including the proposed action
-(`close_by_design`, `close_duplicate`, `post_root_cause`, `leave_open`, or `blocked`), per-claim confidence,
+(`close_fixed`, `label_not_reproducible`, `close_by_design`, `close_duplicate`, `post_root_cause`, `leave_open`, or `blocked`), per-claim confidence,
 blocking reasons, and evidence paths. These are unreviewed action proposals, not closing-comment drafts or
 publication authorization. Writer/draft validation and publication freshness checks remain unperformed.
 Failed or screened-out issues remain explicit; run completion does not mean every investigation succeeded.
 The console does not implement fixes.
 The original `pyright-issue-reviewer` remains a separate read-only, non-executing reviewer and is not used by this console.
 
+## Historical reproduction before RCA
+
+`pyright-issue-reproducer` reconstructs an inspected static-only scenario from the screened issue and complete
+discussion. It does not execute reporter code/commands or diagnose a cause. The controller freezes pristine
+report-faithful `files`, explicit Python/checking settings, exact original symptom predicates and affirmative
+precision controls. Added queries belong only in a separate complete `control_files` tree, with the same file set
+and configuration. Every original target executes before any instrumented controls, in separate immutable probe
+directories with independent raw receipts. Only original executions establish reproduction/resolution; controls
+must also pass but cannot replace the original or erase a reproduced symptom. If the original symptom cannot be
+observed without modification, the stage abstains. Both frozen variants are compared identically against:
+
+- The explicitly reported published Pyright version, when available; otherwise the newest actual npm publication
+  on/before **issue creation**, not its last update. Date-based selection is explicitly approximate, not a claim
+  about the reporter's exact binary.
+- Actual upstream `microsoft/pyright` **main pinned to a full commit SHA**, fetched into an isolated target cache.
+  The feature checkout and its prepared CLI cannot stand in for this target, even with matching version strings.
+- The latest npm publication at selection time, independently executed to distinguish released fixes from fixes
+  awaiting release. An unavailable latest target does not invalidate an otherwise verified historical/main fix.
+
+Only the fixed project npm package URL is acquired. Published packages require project identity and SHA-512
+integrity; archive links and path escapes are rejected. Main is fetched from the fixed upstream repository,
+checked against its pinned SHA, and installed with the upstream frozen lockfile and dependency scripts disabled.
+The known upstream CLI build script runs only in this private source/dependency tree. Git long-path support and
+hook suppression are command-local; global Git/OS settings and shared checkouts are unchanged. Acquisition/build
+commands, outputs and target manifests are retained under `targets`. This executes trusted project build tooling,
+not arbitrary issue commands, and is **not a security sandbox**. Cache contents and frozen inputs are rehashed
+before publication. A missing/unsupported tool or package stays blocked rather than using a prepared local bundle.
+Identical preparation failures are reused within the run instead of repeatedly installing/downloading the same
+unavailable target; a new run can retry them. Uniquely created preparation work directories are removed on success
+and failure; failed runtime directories are removed too. Successful integrity-checked runtime caches and exact
+preparation logs are retained. Cleanup never scans or removes unrelated cache directories.
+
+The independent `pyright-issue-reproduction-gate` checks the complete report, material claims, effective setup,
+actual outputs and target provenance. Oversized receipts use the same 12,000-byte indexes and exact paginated
+saved reads as RCA; full raw receipts/errors are retained. Receipt hashes and all claim IDs must match.
+The scenario/selection snapshot uses this transport too. Approval requires complete delivery of indexed
+scenario/input/output/error fields, not just an index, preview, or partial page.
+Negative results require analyzed files, exact symptom-specific observations and affirmative expected output,
+not just success, an error-count change or a missing diagnostic. Missing imports, Any/Unknown degradation,
+changed/disabled checks, unrelated new errors and output-format differences are not fixes.
+Nonempty stderr also blocks the comparison and preserves its exact text, including ignored/unrecognized,
+invalid or inapplicable configuration settings and setup failures outside JSON. Keys are not validated against
+today's diagnostic list: each selected checker must actually accept the frozen settings without setup output.
+Separate control receipts are marked `verified`, never used as negative original reproduction evidence.
+The first runner supports self-contained CLI diagnostic/type claims only. Editor/LSP delivery, navigation,
+environment discovery, unavailable third-party dependencies, crashes/performance and other unsupported symptoms
+remain blocked. Semantic and integration claims in a mixed report stay separate; a CLI result cannot settle
+an unresolved integration claim. Current limitations intentionally favor abstention over unsafe issue-wide action.
+
+| Historical | Pinned main | Qualified automatic action |
+| --- | --- | --- |
+| Reproduced | Affirmatively resolved | Rich-mirror explanation and close with `state_reason=completed` |
+| Affirmatively not reproduced | Affirmatively not reproduced | Add/reuse `not reproducible`; leave issue **open**, without a comment |
+| Either | Reproduced | Continue behavior/duplicate investigation and default RCA |
+| Blocked/failed/incomplete | Any | No reproduction-based action; retain blockers and continue existing investigation |
+| Either | Blocked/failed/incomplete | No reproduction-based action; retain blockers and continue existing investigation |
+
+A fixed comment may name an independently verified published version. If the selected latest publication still
+fails, it explicitly says **fixed on main / awaiting release**, reusing `fixed in next version (main)` or
+`addressed in next version` when available. If release status is unverified, it says so rather than promising
+availability in a release. Closure does **not** wait for release, per the selected policy. Reproduction does not
+claim specification correctness, by-design behavior or a causal diagnosis.
+
+Per-issue `entry.json` contains a separate `reproduction_stage`, not a semantic disposition. Its attempt directory
+contains `selection.json` (creation/update times, exact target identities and reasons), `receipts.jsonl` (IDs,
+commands, inputs, actual outputs and outcomes) and `reproduction.json` (gate, hashes, blockers and proposed labels).
+Interrupted attempts reuse matching receipts without spending execution attempts; changed inputs/targets are
+rejected before action. `--retry-failed` can retry blocked comparisons in a fresh attempt while retaining old
+artifacts. Use a fresh state directory after changed implementation inputs.
+
+`--dry-run`/`--read-only` disables **all** comment drafting and GitHub mutations, including repository-label creation.
+Proposals preserve exact intended labels and completed-closure reasons plus release wording, target provenance,
+gate evidence and blockers. `--no-rca` disables RCA only, not reproduction. Qualified reproduction actions need no
+behavior/duplicate investigation or expensive RCA. The existing source-CLI audit's prohibition on claiming
+released-checker provenance remains intact: these new separately recorded targets do not retroactively validate it.
+
+Non-dry publication uses the existing closure ledger with distinct fixed/label reasons, evidence and draft hashes.
+It rechecks implementation/target/input identity and screened issue/discussion freshness before each mutation,
+preserves unrelated labels, reconciles exact marker/authored comments and existing labels on retry, and verifies
+the final completed/open state. Changed evidence or ambiguous outcomes stop for inspection instead of posting
+another comment. Fixed comments always use rich-mirror followed by bounded factual checking; investigator prose
+is never directly published. No-live-action tests use fake GitHub/SDK clients; target acquisition can be smoke-tested
+without invoking inference or touching any issue.
+An unfinished fixed-closure ledger is also reconciled when a lost response left the issue already closed and
+therefore absent from GitHub's open-issue listing.
+
 ## Setup
 
-Requires `uv`, authenticated `copilot` and `gh` executables, Node.js, and a prepared source CLI.
+Requires `uv`, authenticated `copilot` and `gh` executables, Node.js, Git, pnpm, and a prepared source CLI.
+Historical reproduction also requires verified HTTPS access to `registry.npmjs.org`; the isolated main build
+needs upstream GitHub access and the pinned upstream lockfile's dependencies. Missing network access, TLS trust,
+versions or build prerequisites are recorded as blocked, never as a successful negative check.
 Issue screening also requires an existing Microsoft-Decision-1 deployment and Microsoft Entra ID inference access.
 The script declares Python 3.11+ and its dependencies using PEP 723 metadata. `uv run` manages the Python
 environment automatically; no manual virtual environment or `pip install` is needed.

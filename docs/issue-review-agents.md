@@ -66,6 +66,39 @@ for explicit deployment configuration, privacy boundaries, bounds and local audi
 
 ## Decision standard
 
+### Console reproduction gate
+
+The console runs `pyright-issue-reproducer` and `pyright-issue-reproduction-gate` before causal investigation.
+The first reconstructs every material claim, report-faithful static inputs/settings, exact symptom predicates
+and affirmative precision controls; the second validates the actual comparison, not its cause. Neither role
+drafts or publishes comments. The controller alone acquires integrity-checked published npm packages and an
+isolated, SHA-pinned upstream main build, never a reporter installer or a similarly versioned feature bundle.
+An explicit reported Pyright release takes precedence over the newest actual publication on/before issue
+creation. Approximate selection is disclosed; issue update time is separately preserved.
+
+Pristine report-faithful original source/configuration is frozen separately from any added type-query controls.
+All original target executions precede separate instrumented runs. Only original symptoms establish reproduction
+or resolution; successful controls cannot replace original evidence or mask a reproduced main bug. If that
+original surface cannot be observed without modification, abstain. Ignored/invalid/inapplicable settings and any
+unverified configuration/setup stderr block evidence even with successful JSON, analyzed files and precise reveals.
+
+Historical reproduction plus affirmative resolution of every claim on main supports a **completed** fixed
+closure without RCA. Independently verified latest-release resolution permits naming that version; a still-failing
+release requires fixed-on-main/awaiting-release wording, while unavailable release checks stay explicitly
+unverified. Closure on main does not wait for publication. Non-reproduction on historical and main, with complete
+positive controls, supports only an open-issue `not reproducible` label. Missing/failed checks and unsupported or
+mixed editor/LSP surfaces cannot become negative evidence. A currently reproduced issue continues through the
+existing behavior/duplicate/RCA flow. Reproduction never replaces semantic adjudication or establishes a cause.
+
+The separate checkpoint records target reasons, exact versions/commit/integrity, immutable scenario/configuration,
+commands, inputs/outputs, receipt IDs, claim-specific predicates, gate hashes, outcomes and blockers. Gate evidence
+uses bounded exact saved reads, not shortened output treated as complete. Publication revalidates hashes and issue/
+discussion freshness, preserves unrelated labels and uses the existing retry ledger. Fixed comments require
+rich-mirror and factual checking; dry runs disable drafting, label creation, comments and closure while persisting
+exact unapproved proposals. See [historical reproduction](../build/automation/README.md#historical-reproduction-before-rca)
+for target/build prerequisites and supported-surface limits. The older source-checkout audit remains unable to
+claim published-release reproduction from its prepared CLI; the new stage's evidence is independent.
+
 Reproduction and validity are separate questions. A reproduced diagnostic may be correct; a historical bug may no longer
 reproduce. Record the reported release, current release, and checkout separately, even when only one is available.
 Inspect actual types and diagnostics, not just exit codes or total error counts.
