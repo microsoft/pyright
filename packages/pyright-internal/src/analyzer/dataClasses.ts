@@ -698,9 +698,11 @@ export function synthesizeDataClassMethods(
                         effectiveType = applySolvedTypeVars(effectiveType, solution);
                     }
 
-                    // Is the field type a descriptor object? If so, we need to extract the corresponding
-                    // type of the __init__ method parameter from the __set__ method.
-                    effectiveType = transformDescriptorType(evaluator, effectiveType);
+                    // Dataclass descriptors accept their __set__ input type. NamedTuple
+                    // fields store the annotated object without invoking a descriptor.
+                    if (!isNamedTuple) {
+                        effectiveType = transformDescriptorType(evaluator, effectiveType);
+                    }
 
                     if (entry.converter) {
                         const fieldType = effectiveType;

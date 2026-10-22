@@ -709,6 +709,58 @@ test('NamedTupleReplace2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('NamedTupleReplace3', () => {
+    for (const pythonVersion of [pythonVersion3_12, pythonVersion3_13]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace3.py'], configOptions);
+        TestUtils.validateResults(analysisResults, 2);
+        assert.deepStrictEqual(
+            analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+            [
+                [15, DiagnosticRule.reportCallIssue],
+                [54, DiagnosticRule.reportCallIssue],
+            ]
+        );
+    }
+});
+
+test('NamedTupleReplace4', () => {
+    for (const pythonVersion of [pythonVersion3_12, pythonVersion3_13]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace4.py'], configOptions);
+        const expectedErrors = [
+            [25, DiagnosticRule.reportArgumentType],
+            [28, DiagnosticRule.reportArgumentType],
+        ];
+        if (pythonVersion === pythonVersion3_13) {
+            expectedErrors.push([35, DiagnosticRule.reportArgumentType], [38, DiagnosticRule.reportArgumentType]);
+        }
+        TestUtils.validateResults(analysisResults, expectedErrors.length);
+        assert.deepStrictEqual(
+            analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+            expectedErrors
+        );
+    }
+});
+
+test('NamedTupleReplace5', () => {
+    for (const pythonVersion of [pythonVersion3_12, pythonVersion3_13]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace5.py'], configOptions);
+        TestUtils.validateResults(analysisResults, 2);
+        assert.deepStrictEqual(
+            analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+            [
+                [19, DiagnosticRule.reportReturnType],
+                [28, DiagnosticRule.reportReturnType],
+            ]
+        );
+    }
+});
+
 test('NamedTuple12', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = pythonVersion3_12;

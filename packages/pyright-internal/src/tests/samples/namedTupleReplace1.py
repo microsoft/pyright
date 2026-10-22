@@ -1,5 +1,5 @@
 # This sample tests that NamedTuple _replace rejects unknown field names
-# (which raise TypeError at runtime) and statically reports field values
+# (which raise an exception at runtime) and statically reports field values
 # whose types are incompatible with the field annotations.
 
 

@@ -26213,6 +26213,8 @@ export function createTypeEvaluator(
                 // them change the variance inferred from the typeshed declaration.
                 if (
                     name === '_replace' &&
+                    ClassType.isNamedTupleClass(destType) &&
+                    symbol.getSynthesizedType() &&
                     isFunction(destMemberType) &&
                     FunctionType.isSynthesizedMethod(destMemberType)
                 ) {

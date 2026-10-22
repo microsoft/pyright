@@ -178,14 +178,21 @@ export function createNamedTupleType(
                 const entries = entriesArg.valueExpression.d.strings
                     .map((s) => s.d.value)
                     .join('')
-                    .split(/[,\s]+/);
+                    .split(/[,\s]+/)
+                    .filter((entryName) => entryName.length > 0);
                 const firstParamWithDefaultIndex =
                     defaultArgCount === undefined ? 0 : Math.max(0, entries.length - defaultArgCount);
                 entries.forEach((entryName, index) => {
                     entryName = entryName.trim();
                     if (entryName) {
-                        entryName = renameUnderscore(evaluator, entryName, allowRename, entryNameNode, index);
-                        entryName = renameKeyword(evaluator, entryName, allowRename, entryNameNode, index);
+                        entryName = validateAndRenameField(
+                            evaluator,
+                            entryName,
+                            allowRename,
+                            entryNameNode,
+                            index,
+                            namedTupleEntries
+                        );
 
                         const entryType = UnknownType.create();
                         const paramInfo = FunctionParam.create(
@@ -219,6 +226,7 @@ export function createNamedTupleType(
                         };
                         newSymbol.addDeclaration(declaration);
                         classFields.set(entryName, newSymbol);
+                        namedTupleEntries.add(entryName);
                         entryTypes.push(entryType);
                     }
                 });
@@ -227,7 +235,6 @@ export function createNamedTupleType(
                 entriesArg.valueExpression?.nodeType === ParseNodeType.Tuple
             ) {
                 const entryList = entriesArg.valueExpression;
-                const entryMap = new Map<string, string>();
                 const entryExpressions =
                     entriesArg.valueExpression?.nodeType === ParseNodeType.List
                         ? entriesArg.valueExpression.d.items
@@ -271,16 +278,14 @@ export function createNamedTupleType(
                         ) {
                             entryName = nameTypeResult.type.priv.literalValue as string;
 
-                            if (!entryName) {
-                                evaluator.addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    LocMessage.namedTupleEmptyName(),
-                                    entryNameNode
-                                );
-                            } else {
-                                entryName = renameUnderscore(evaluator, entryName, allowRename, entryNameNode, index);
-                                entryName = renameKeyword(evaluator, entryName, allowRename, entryNameNode, index);
-                            }
+                            entryName = validateAndRenameField(
+                                evaluator,
+                                entryName,
+                                allowRename,
+                                entryNameNode,
+                                index,
+                                namedTupleEntries
+                            );
                         } else {
                             addGenericGetAttribute = true;
                         }
@@ -291,17 +296,6 @@ export function createNamedTupleType(
                     if (!entryName) {
                         entryName = `_${index.toString()}`;
                     }
-
-                    if (entryMap.has(entryName)) {
-                        evaluator.addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            LocMessage.namedTupleNameUnique(),
-                            entryNameNode || entry
-                        );
-                    }
-
-                    // Record names in a map to detect duplicates.
-                    entryMap.set(entryName, entryName);
 
                     if (!entryType) {
                         entryType = UnknownType.create();
@@ -545,48 +539,46 @@ export function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[]
     return isUpdateNeeded;
 }
 
-function renameKeyword(
+function validateAndRenameField(
     evaluator: TypeEvaluator,
     name: string,
     allowRename: boolean,
     errorNode: ExpressionNode,
-    index: number
+    index: number,
+    existingNames: ReadonlySet<string>
 ): string {
-    // Determine whether the name is a keyword in python.
     const isKeyword = Tokenizer.isPythonKeyword(name);
 
-    if (!isKeyword) {
-        // No rename necessary.
-        return name;
-    }
-
-    if (allowRename) {
-        // Rename based on index.
+    if (
+        allowRename &&
+        (!name || !Tokenizer.isPythonIdentifier(name) || name.startsWith('_') || isKeyword || existingNames.has(name))
+    ) {
         return `_${index}`;
     }
 
-    evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.namedTupleNameKeyword(), errorNode);
-    return name;
-}
-
-function renameUnderscore(
-    evaluator: TypeEvaluator,
-    name: string,
-    allowRename: boolean,
-    errorNode: ExpressionNode,
-    index: number
-): string {
-    if (!name.startsWith('_')) {
-        // No rename necessary.
-        return name;
+    if (!name) {
+        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.namedTupleEmptyName(), errorNode);
+        name = `_${index}`;
+    } else {
+        if (name.startsWith('_')) {
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.namedTupleFieldUnderscore(),
+                errorNode
+            );
+        }
+        if (isKeyword) {
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.namedTupleNameKeyword(),
+                errorNode
+            );
+        }
     }
 
-    if (allowRename) {
-        // Rename based on index.
-        return `_${index}`;
+    if (existingNames.has(name)) {
+        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.namedTupleNameUnique(), errorNode);
     }
-
-    evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.namedTupleFieldUnderscore(), errorNode);
 
     return name;
 }
