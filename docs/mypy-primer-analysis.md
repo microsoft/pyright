@@ -10,6 +10,8 @@ Follow-up checks are queued from Validation's `workflow_run` events, not
 than immediately when a PR opens or updates; unsuccessful Validation completes
 queued checks as skipped. Both the queue and raw-comment workflows check out the
 trusted workflow commit without persisting credentials.
+The `mypy_primer` check reports computation, not comment publication; a successful
+check does not imply that a result comment was posted.
 
 Before posting the raw diff, the commenter verifies the source primer run,
 successful Validation, and complete artifact inventory. The target PR is resolved
@@ -213,8 +215,9 @@ and publisher gates; rerun the primer tests and compile again to confirm stable
 output. If Dependabot updated other actions in the generated workflow, reconcile
 their authored Markdown pins before regeneration rather than silently downgrading
 them. Local compilation does not prove a live comment was posted: `workflow_run`
-uses the trusted default-branch workflow, so a PR-only repair cannot fix an existing
-run on `main`.
+uses the trusted default-branch workflow. A reporting repair must reach `main`, and
+a new reporting run must use the fixed workflow commit. Rerunning an older failed
+run retains its original workflow SHA; it does not pick up later fixes on `main`.
 
 For `gh aw compile --staged`, the publisher reads the staged flag from the trusted
 activation artifact rather than relying on an environment variable inherited by
