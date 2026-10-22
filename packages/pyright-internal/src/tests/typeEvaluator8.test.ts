@@ -570,7 +570,7 @@ test('Tuple10', () => {
 test('Tuple11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple11.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Tuple12', () => {
@@ -1549,4 +1549,81 @@ test('TypeForm9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm9.py']);
 
     TestUtils.validateResults(analysisResults, 10);
+});
+
+test('TupleComparisonResults1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults1.py']);
+    TestUtils.validateResults(analysisResults, 18);
+});
+
+test('TupleComparisonResults2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults2.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TupleComparisonResults3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TupleComparisonResults4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults4.py']);
+    TestUtils.validateResults(analysisResults, 16);
+});
+
+test('TupleComparisonResults5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults5.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TupleComparisonResults6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles([
+        'tupleComparisonResource_hierarchy_64.py',
+        'tupleComparisonResource_hierarchy_128.py',
+        'tupleComparisonResource_hierarchy_256.py',
+        'tupleComparisonResource_literal_union.py',
+        'tupleComparisonResource_bool_union.py',
+        'tupleComparisonResource_mixed_union.py',
+        'tupleComparisonResource_mixed_union_consumer.py',
+        'tupleComparisonResource_unsupported_union.py',
+        'tupleComparisonResource_narrow_argument_union.py',
+        'tupleComparisonResource_nested_tuple.py',
+        'tupleComparisonResource_nested_list.py',
+        'tupleComparisonResource_repeated_nested_types.py',
+        'tupleComparisonResource_recursive_container.py',
+        'tupleComparisonResource_recursive_nonbool.py',
+        'tupleComparisonResource_recursive_bad_consumer.py',
+        'tupleComparisonResource_long_alias_chain.py',
+        'tupleComparisonResource_cyclic_source.py',
+        'tupleComparisonResource_growing_alias_lt.py',
+        'tupleComparisonResource_growing_alias_le.py',
+        'tupleComparisonResource_growing_alias_gt.py',
+        'tupleComparisonResource_growing_alias_ge.py',
+        'tupleComparisonResource_growing_custom_bool.py',
+        'tupleComparisonResource_growing_custom_str.py',
+        'tupleComparisonResource_growing_two_parameters.py',
+        'tupleComparisonResource_literal_boolean_result.py',
+        'tupleComparisonResource_large_variadic_suffix.py',
+        'tupleComparisonResource_large_variadic_custom.py',
+        'tupleComparisonResource_large_variadic_nonbool.py',
+        'tupleComparisonResource_one_sided_variadic.py',
+        'tupleComparisonResource_deep_nonbool.py',
+    ]);
+    const expectedErrors = [0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    analysisResults.forEach((result, index) => TestUtils.validateResults([result], expectedErrors[index]));
+});
+
+test('TupleComparisonResults7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults7.py']);
+    TestUtils.validateResults(analysisResults, 28);
+});
+
+test('TupleComparisonResults8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults8.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TupleComparisonResults9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults9.py']);
+    TestUtils.validateResults(analysisResults, 16);
 });

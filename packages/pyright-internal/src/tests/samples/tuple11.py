@@ -9,6 +9,8 @@ def func1(t1: tuple[int, ...], t2: tuple[int, ...]) -> bool:
 
 
 def func2(t1: tuple[int, ...], t2: tuple[str, int]) -> bool:
+    # A nonempty t1 reaches an invalid int-versus-str comparison.
+    # This generates an operator error and an unknown-result diagnostic.
     return t1 < t2
 
 

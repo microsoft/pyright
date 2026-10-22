@@ -25,6 +25,7 @@ import { getInfoReader, AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { getEnclosingLambda, isWithinLoop, operatorSupportsChaining, printOperator } from './parseTreeUtils';
 import { getScopeForNode } from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
+import { getTupleComparisonResult, isTupleOrdering } from './tupleComparison';
 import { EvalFlags, MagicMethodDeprecationInfo, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     InferenceContext,
@@ -1271,6 +1272,34 @@ function validateArithmeticOperation(
                     }
 
                     const tupleClassType = evaluator.getTupleClassType();
+
+                    if (
+                        isTupleOrdering(operator) &&
+                        isClassInstance(leftSubtypeExpanded) &&
+                        isTupleClass(leftSubtypeExpanded) &&
+                        leftSubtypeExpanded.priv.tupleTypeArgs &&
+                        isClassInstance(rightSubtypeExpanded) &&
+                        isTupleClass(rightSubtypeExpanded) &&
+                        rightSubtypeExpanded.priv.tupleTypeArgs
+                    ) {
+                        const result = getTupleComparisonResult(
+                            evaluator,
+                            leftSubtypeExpanded,
+                            rightSubtypeExpanded,
+                            operator,
+                            errorNode
+                        );
+                        if (!result) {
+                            diag.addMessage(
+                                LocMessage.typeNotSupportBinaryOperator().format({
+                                    operator: printOperator(operator),
+                                    leftType: evaluator.printType(leftSubtypeExpanded),
+                                    rightType: evaluator.printType(rightSubtypeExpanded),
+                                })
+                            );
+                        }
+                        return result?.type ?? UnknownType.create(isIncomplete);
+                    }
 
                     // Special-case __add__ for tuples when the types for both tuples are known.
                     if (
