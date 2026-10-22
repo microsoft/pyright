@@ -11,7 +11,7 @@
 import * as assert from 'assert';
 
 import { EvalFlags } from '../analyzer/typeEvaluatorTypes';
-import { ClassType, isClassInstance, isInstantiableClass, UnknownType } from '../analyzer/types';
+import { ClassType, isAny, isClassInstance, isInstantiableClass, UnknownType } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8, pythonVersion3_12 } from '../common/pythonVersion';
@@ -1122,6 +1122,56 @@ test('SpecialForm4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialForm4.py']);
 
     TestUtils.validateResults(analysisResults, 72);
+});
+
+test.each(['bundled', 'assignment'])('AnySpecialFormIsScopedToEvaluator (%s)', (typingStub) => {
+    const code = `
+// @filename: test.py
+//// from typing import Any
+//// value = /*marker*/Any
+${
+    typingStub === 'assignment'
+        ? `
+// @filename: /typeshed-fallback/stdlib/typing.pyi
+//// Any = object()
+`
+        : ''
+}
+    `;
+    const first = parseAndGetTestState(code).state;
+    const second = parseAndGetTestState(code).state;
+
+    try {
+        const firstNode = getNodeAtMarker(first);
+        assert.ok(firstNode.nodeType === ParseNodeType.Name);
+        const firstType = first.program.evaluator!.getTypeOfExpression(firstNode, EvalFlags.NoConvertSpecialForm).type;
+        assert.ok(isAny(firstType));
+        const firstSpecialForm = firstType.props?.specialForm;
+        assert.ok(firstSpecialForm);
+
+        const secondNode = getNodeAtMarker(second);
+        assert.ok(secondNode.nodeType === ParseNodeType.Name);
+        const secondType = second.program.evaluator!.getTypeOfExpression(
+            secondNode,
+            EvalFlags.NoConvertSpecialForm
+        ).type;
+        assert.ok(isAny(secondType));
+        const secondSpecialForm = secondType.props?.specialForm;
+        assert.ok(secondSpecialForm);
+
+        assert.ok(firstType.props?.specialForm === firstSpecialForm);
+        assert.ok(firstType !== secondType);
+        assert.ok(firstSpecialForm !== secondSpecialForm);
+        assert.ok(firstType.props?.typeForm && isAny(firstType.props.typeForm));
+        assert.ok(secondType.props?.typeForm && isAny(secondType.props.typeForm));
+        assert.strictEqual(
+            first.program.evaluator!.getTypeOfExpression(firstNode, EvalFlags.NoConvertSpecialForm).type,
+            firstType
+        );
+    } finally {
+        first.dispose();
+        second.dispose();
+    }
 });
 
 // TypeForm support is enabled by default and no longer requires

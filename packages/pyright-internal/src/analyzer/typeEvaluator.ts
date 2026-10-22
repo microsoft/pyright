@@ -693,6 +693,9 @@ export function createTypeEvaluator(
     wrapWithLogger: LogWrapper
 ): TypeEvaluator {
     const nodeInfo = AnalyzerNodeInfo.createAnalyzerNodeInfoAccessor(evaluatorOptions.nodeInfoReader);
+    // Special-form metadata references this evaluator's classes and must not
+    // be attached to a process-global Any singleton.
+    const anyTypeSpecialForm = AnyType.createSpecialForm();
     const maxCodeComplexity = evaluatorOptions.maxCodeComplexity;
     const operationController: EvaluationOperationController | undefined =
         evaluatorOptions.experimentalOverloadResult ?? evaluatorOptions.testOnlyExpression;
@@ -1372,12 +1375,8 @@ export function createTypeEvaluator(
                 );
                 anyClass.shared.baseClasses.push(prefetched.objectClass);
                 computeMroLinearization(anyClass);
-                const anySpecialForm = AnyType.createSpecialForm();
-
-                if (isAny(anySpecialForm)) {
-                    TypeBase.setSpecialForm(anySpecialForm, anyClass);
-                    TypeBase.setTypeForm(anySpecialForm, convertToInstance(anySpecialForm));
-                }
+                TypeBase.setSpecialForm(anyTypeSpecialForm, anyClass);
+                TypeBase.setTypeForm(anyTypeSpecialForm, convertToInstance(anyTypeSpecialForm));
             }
         }
     }
@@ -18606,7 +18605,7 @@ export function createTypeEvaluator(
         const assignedName = nameNode.d.value;
 
         if (assignedName === 'Any') {
-            return AnyType.createSpecialForm();
+            return anyTypeSpecialForm;
         }
 
         const specialTypes: Map<string, AliasMapEntry> = new Map([
@@ -19988,7 +19987,7 @@ export function createTypeEvaluator(
 
             // If Any is defined using a class statement, treat it as a special form.
             if (node.d.name.d.value === 'Any' && fileInfo.isTypingStubFile) {
-                decoratedType = AnyType.createSpecialForm();
+                decoratedType = anyTypeSpecialForm;
             }
 
             // Update the undecorated class type.
