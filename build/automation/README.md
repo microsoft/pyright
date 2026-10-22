@@ -104,6 +104,61 @@ without invoking inference or touching any issue.
 An unfinished fixed-closure ledger is also reconciled when a lost response left the issue already closed and
 therefore absent from GitHub's open-issue listing.
 
+## Blinded historical RCA evaluation
+
+`evaluate_issue_rca.py` is a thin adapter around the production RCA controller, tools, validators, investigator,
+tool-less gate and independent adversary. It does not use the open-issue console or alter the role prompts.
+It starts directly at RCA and does not exercise the historical-versus-main reproduction stage.
+It accepts a reviewed anonymous `BlindReport` JSON file, an isolated historical source archive with a matching
+source-built CLI/maps, and a new output directory. Native tools, current source, tests, git and GitHub research
+are unavailable to the SDK roles. Historical implementation reads and scratch writes use bounded custom tools;
+normative references are limited to Python/typing/PEP hosts. Target-report injection screening remains mandatory.
+No publication, source fixes, historical checkout switching or shared build replacement occurs.
+
+```powershell
+uv run build\automation\evaluate_issue_rca.py --report C:\benchmark\reports\case-a.json --source C:\benchmark\targets\v0 --output C:\benchmark\runs\pilot
+```
+
+Prepare and inspect inputs separately: remove issue identity, resolutions, fix references and solution-bearing
+edits; retain unchanged original code and distinguish reported configuration from experimental settings.
+The source root needs `benchmark-provenance.json` containing `source_commit`, `archive_sha256`, `source_sha256`
+and `build_sha256`; compute the latter two with `target_fingerprint(root, False/True)` after the historical build.
+These controller-recorded hashes detect subsequent changes, not an independently certified build provenance.
+Keep archives, builds, reports, held-out references and execution evidence outside Git.
+
+`--cohort manifest.json --chunk-size 3` runs bounded concurrent chunks through one shared screening queue.
+The manifest contains `protocol_version`, `protocol_sha256`, `harness_sha256`, `implementation_sha256`
+and unique `cases` with `id`, absolute `report`/`source`
+paths, `report_sha256`, `source_sha256` and `build_sha256`. Freeze it only after verifying the original reported
+failure on each chosen historical target. A case with a genuine missing surface can instead declare
+`availability: "unavailable"` and `availability_reason`; it remains an explicit result, not a successful diagnosis.
+Hashes use the module's `digest` function; report hashes use validated `BlindReport.model_dump_json()`.
+The harness hash covers the adapter file, and the protocol hash covers `PROTOCOL`.
+Use `implementation_fingerprints()` to freeze the controller, runtime, helper and role profiles.
+
+Protocol version 2 exposes `rca_run(project="controls\\pyrightconfig.json")` for separate control projects.
+Paths inside each config are relative to that config's directory. Each role receives its own unchanged
+`original.py` and `pyrightconfig.json`; neither can be overwritten. Inspect actual analyzed-file counts and
+diagnostics before counting intended controls as executed. Freeze the full source/configuration tree before
+each same-project clean/debug pair; adding even excluded controls requires a fresh clean run.
+Version 1 lacked project selection, so its excluded control files were not execution evidence.
+Version 3 retains the production bounded evidence schemas and forwarding, including `pointer`, `offset` and
+`max_chars` for saved-evidence reads. Historical implementation reads also retain ID-bearing raw receipts and
+use the same delivery index/page transport. Include `issue_review_evidence.py` in the implementation freeze.
+Delivery completeness is independent of capture completeness: paging cannot recover a failed or absent observation.
+`evidence-delivery.jsonl` preserves the actual bounded initial/readback text, read arguments, encoded sizes and
+attempt counts for transport auditing, separately from the unchanged raw execution ledger.
+A gate requiring an independent adversary before the controller has reached that role is a sequencing failure,
+not evidence that the primary causal diagnosis is wrong; the repaired gate evaluates primary evidence first.
+Reruns on previously examined cases are paired regression evaluations, not fresh holdouts. Preserve the old
+reports/results and freeze a new version/output directory rather than resuming their role sessions.
+
+Compare frozen findings with withheld fix/regression evidence separately. A `found` status or file/keyword
+overlap is not causal correctness; an inconclusive or gate-rejected result may still contain helpful findings.
+Report exact mechanisms, partial matches, wrong diagnoses, operational errors and unavailable cases separately,
+with explicit denominators. Controller-reviewed references remain provisional, not human-approved gold;
+public-report/model memorization cannot be ruled out. Do not tune prompts or selectively rerun failed cases.
+
 ## Setup
 
 Requires `uv`, authenticated `copilot` and `gh` executables, Node.js, Git, pnpm, and a prepared source CLI.
