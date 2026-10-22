@@ -3950,7 +3950,7 @@ export class TypeVarTransformer {
         let requiresUpdate = false;
         const newTypeArgs = aliasInfo.typeArgs.map((typeArg) => {
             const updatedType = this.apply(typeArg, recursionCount);
-            if (type !== updatedType) {
+            if (typeArg !== updatedType) {
                 requiresUpdate = true;
             }
             return updatedType;
