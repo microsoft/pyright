@@ -14,10 +14,6 @@ a2: _TypedDict
 # This should generate an error.
 v1 = function
 
-# This should generate an error, but it doesn't because
-# of a typeshed issue.
-v2 = isinstance(1, ellipsis)
-
 # This should generate an error.
 v3 = _TypedDict
 
