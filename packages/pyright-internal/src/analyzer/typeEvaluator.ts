@@ -275,6 +275,7 @@ import {
     isUnknown,
     isUnpacked,
     isUnpackedClass,
+    isUnpackedTypeVar,
     isUnpackedTypeVarTuple,
     LiteralValue,
     maxTypeRecursionCount,
@@ -18092,6 +18093,8 @@ export function createTypeEvaluator(
                             noteSawUnpacked(typeArg);
                         }
                         validateTypeVarTupleIsUnpacked(typeArg.type, typeArg.node);
+                    } else if (paramLimit === undefined && isUnpackedTypeVar(typeArg.type)) {
+                        noteSawUnpacked(typeArg);
                     } else if (paramLimit === undefined && isUnpackedClass(typeArg.type)) {
                         if (isUnboundedTupleClass(typeArg.type)) {
                             noteSawUnpacked(typeArg);
