@@ -79,12 +79,10 @@ class SubclassF1(BaseF):
 
 
 class SubclassF2(BaseF):
-    # This should generate an error because of a return type mismatch.
     def method1[T: str](self, x: int | T) -> T | int: ...
 
 
 class SubclassF3(BaseF):
-    # This should generate an error because of a return type mismatch.
     def method1[T: (str, bytes)](self, x: int | T) -> T | int: ...
 
 

@@ -1116,7 +1116,7 @@ function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightTyp
     return undefined;
 }
 
-function customMetaclassSupportsMethod(type: Type, methodName: string): boolean {
+export function customMetaclassSupportsMethod(type: Type, methodName: string): boolean {
     if (!isInstantiableClass(type)) {
         return false;
     }
@@ -1142,7 +1142,7 @@ function customMetaclassSupportsMethod(type: Type, methodName: string): boolean 
         return false;
     }
 
-    if (isInstantiableClass(memberInfo.classType) && ClassType.isBuiltIn(memberInfo.classType, 'type')) {
+    if (isInstantiableClass(memberInfo.classType) && ClassType.isBuiltIn(memberInfo.classType, ['type', 'object'])) {
         return false;
     }
 

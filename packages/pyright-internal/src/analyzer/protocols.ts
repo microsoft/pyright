@@ -10,8 +10,9 @@
 
 import { assert } from '../common/debug';
 import { defaultMaxDiagnosticDepth, DiagnosticAddendum } from '../common/diagnostic';
-import { LocAddendum } from '../localization/localize';
-import { ParamCategory } from '../parser/parseNodes';
+import { DiagnosticRule } from '../common/diagnosticRules';
+import { LocAddendum, LocMessage } from '../localization/localize';
+import { ExpressionNode, ParamCategory } from '../parser/parseNodes';
 import { ConstraintSolution } from './constraintSolution';
 import { assignTypeVar } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
@@ -49,6 +50,7 @@ import {
     ClassMember,
     containsLiteralType,
     derivesFromClassRecursive,
+    doForEachSubtype,
     lookUpClassMember,
     makeFunctionTypeVarsBound,
     MemberAccessFlags,
@@ -267,6 +269,37 @@ export function isProtocolUnsafeOverlap(evaluator: TypeEvaluator, protocol: Clas
     });
 
     return isUnsafeOverlap;
+}
+
+export function validateProtocolUnsafeOverlap(
+    evaluator: TypeEvaluator,
+    errorNode: ExpressionNode,
+    protocol: ClassType,
+    testType: Type
+) {
+    if (ClassType.isProtocolClass(protocol)) {
+        const diag = new DiagnosticAddendum();
+
+        doForEachSubtype(testType, (testSubtype) => {
+            if (isClassInstance(testSubtype) && isProtocolUnsafeOverlap(evaluator, protocol, testSubtype)) {
+                diag.addMessage(
+                    LocAddendum.protocolUnsafeOverlap().format({
+                        name: testSubtype.shared.name,
+                    })
+                );
+            }
+        });
+
+        if (!diag.isEmpty()) {
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.protocolUnsafeOverlap().format({
+                    name: protocol.shared.name,
+                }) + diag.getString(),
+                errorNode
+            );
+        }
+    }
 }
 
 function makeProtocolCompatibilityCacheClassKey(classType: ClassType): string {

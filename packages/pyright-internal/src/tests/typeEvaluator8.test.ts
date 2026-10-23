@@ -13,7 +13,14 @@ import * as assert from 'assert';
 import { EvalFlags } from '../analyzer/typeEvaluatorTypes';
 import { ClassType, isClassInstance, isInstantiableClass, UnknownType } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
-import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8, pythonVersion3_12 } from '../common/pythonVersion';
+import { DiagnosticRule } from '../common/diagnosticRules';
+import {
+    pythonVersion3_10,
+    pythonVersion3_11,
+    pythonVersion3_8,
+    pythonVersion3_12,
+    pythonVersion3_13,
+} from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
@@ -581,7 +588,10 @@ test('Tuple12', () => {
 test('Tuple13', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple13.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 9);
+    analysisResults[0].errors.forEach((diagnostic) =>
+        assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportArgumentType)
+    );
 });
 
 test('Tuple15', () => {
@@ -678,6 +688,77 @@ test('NamedTuple11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple11.py']);
 
     TestUtils.validateResults(analysisResults, 3);
+});
+
+test('NamedTupleReplace1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 8);
+
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 8);
+});
+
+test('NamedTupleReplace2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('NamedTupleReplace3', () => {
+    for (const pythonVersion of [pythonVersion3_12, pythonVersion3_13]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace3.py'], configOptions);
+        TestUtils.validateResults(analysisResults, 2);
+        assert.deepStrictEqual(
+            analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+            [
+                [15, DiagnosticRule.reportCallIssue],
+                [54, DiagnosticRule.reportCallIssue],
+            ]
+        );
+    }
+});
+
+test('NamedTupleReplace4', () => {
+    for (const pythonVersion of [pythonVersion3_12, pythonVersion3_13]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace4.py'], configOptions);
+        const expectedErrors = [
+            [25, DiagnosticRule.reportArgumentType],
+            [28, DiagnosticRule.reportArgumentType],
+        ];
+        if (pythonVersion === pythonVersion3_13) {
+            expectedErrors.push([35, DiagnosticRule.reportArgumentType], [38, DiagnosticRule.reportArgumentType]);
+        }
+        TestUtils.validateResults(analysisResults, expectedErrors.length);
+        assert.deepStrictEqual(
+            analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+            expectedErrors
+        );
+    }
+});
+
+test('NamedTupleReplace5', () => {
+    for (const pythonVersion of [pythonVersion3_12, pythonVersion3_13]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTupleReplace5.py'], configOptions);
+        TestUtils.validateResults(analysisResults, 2);
+        assert.deepStrictEqual(
+            analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+            [
+                [19, DiagnosticRule.reportReturnType],
+                [28, DiagnosticRule.reportReturnType],
+            ]
+        );
+    }
 });
 
 test('NamedTuple12', () => {
@@ -861,6 +942,25 @@ test('Descriptor5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor5.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Descriptor6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor6.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Descriptor7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor7.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [82, DiagnosticRule.reportOptionalOperand],
+            [134, DiagnosticRule.reportAttributeAccessIssue],
+        ]
+    );
 });
 
 test('Partial1', () => {

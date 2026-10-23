@@ -118,6 +118,7 @@ class WriteableData {
 
     parsedFileContents: string | undefined;
     parsedFileContentsHash: StringUtils.StringFingerprint | undefined;
+    parsedFileUseNotebookMode = false;
     tokenizerLines: TextRangeCollection<TextRange> | undefined;
     tokenizerOutput: TokenizerOutput | undefined;
     lineCount: number | undefined;
@@ -662,7 +663,9 @@ export class SourceFile {
         // If we've cached the tokenizer output, use the cached version.
         // Otherwise re-tokenize the contents on demand.
         const tokenizeContents = this._tokenizeContents.bind(this);
+        const parserOutput = this._writableData.parserOutput;
         const parsedFileContents = this._writableData.parsedFileContents;
+        const useNotebookMode = this._writableData.parsedFileUseNotebookMode;
         const contentHash =
             this._writableData.parsedFileContentsHash ??
             StringUtils.getStringFingerprint(this._writableData.parsedFileContents);
@@ -670,15 +673,15 @@ export class SourceFile {
 
         return {
             contentHash,
-            parserOutput: this._writableData.parserOutput,
+            parserOutput,
             get tokenizerOutput(): TokenizerOutput {
                 // Lazily tokenize the file contents only when accessed for the first time.
                 if (!tokenizerOutput) {
-                    tokenizerOutput = tokenizeContents(parsedFileContents, contentHash);
+                    tokenizerOutput = tokenizeContents(parsedFileContents, contentHash, parserOutput, useNotebookMode);
                 }
                 return tokenizerOutput!;
             },
-            text: this._writableData.parsedFileContents,
+            text: parsedFileContents,
         };
     }
 
@@ -765,12 +768,13 @@ export class SourceFile {
 
             try {
                 contentHash ??= StringUtils.getStringFingerprint(fileContents!);
+                const useNotebookMode = this._ipythonMode !== IPythonMode.None;
                 // Parse the token stream, building the abstract syntax tree.
                 const parseFileResults = this._parseFile(
                     configOptions,
                     this._uri,
                     fileContents!,
-                    this._ipythonMode !== IPythonMode.None,
+                    useNotebookMode,
                     diagSink,
                     contentHash
                 );
@@ -780,6 +784,7 @@ export class SourceFile {
                 this._writableData.tokenizerLines = parseFileResults.tokenizerOutput.lines;
                 this._writableData.parsedFileContents = fileContents;
                 this._writableData.parsedFileContentsHash = parseFileResults.contentHash;
+                this._writableData.parsedFileUseNotebookMode = useNotebookMode;
                 this._writableData.typeIgnoreLines = parseFileResults.tokenizerOutput.typeIgnoreLines;
                 this._writableData.typeIgnoreAll = parseFileResults.tokenizerOutput.typeIgnoreAll;
                 this._writableData.pyrightIgnoreLines = parseFileResults.tokenizerOutput.pyrightIgnoreLines;
@@ -853,6 +858,7 @@ export class SourceFile {
                 // Create dummy parse results.
                 this._writableData.parsedFileContents = '';
                 this._writableData.parsedFileContentsHash = StringUtils.getStringFingerprint('');
+                this._writableData.parsedFileUseNotebookMode = false;
                 this._writableData.tokenizerLines = new TextRangeCollection<TextRange>([]);
 
                 const parseTree = ModuleNode.create({ start: 0, length: 0 });
@@ -1634,14 +1640,27 @@ export class SourceFile {
         return this.parseFileContents(fileContents, parseOptions, diagSink, contentHash);
     }
 
-    private _tokenizeContents(fileContents: string, contentHash: StringUtils.StringFingerprint): TokenizerOutput {
+    private _tokenizeContents(
+        fileContents: string,
+        contentHash: StringUtils.StringFingerprint,
+        parserOutput: ParserOutput,
+        useNotebookMode: boolean
+    ): TokenizerOutput {
         const tokenizer = new Tokenizer();
-        const output = tokenizer.tokenize(fileContents);
+        const output = tokenizer.tokenize(
+            fileContents,
+            0,
+            fileContents.length,
+            0,
+            useNotebookMode,
+            parserOutput.parseTree
+        );
 
         // When the file is open, cache the tokenizer results.
         // Because the tokenizer is lazy, ensure that the state remains unchanged before caching its output.
         if (
             this._writableData.clientDocumentContents !== undefined &&
+            this._writableData.parserOutput === parserOutput &&
             this._writableData.lastFileContentHash &&
             StringUtils.areStringFingerprintsEqual(this._writableData.lastFileContentHash, contentHash)
         ) {

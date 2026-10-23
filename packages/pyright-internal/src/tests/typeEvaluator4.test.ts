@@ -8,6 +8,8 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import assert from 'assert';
+
 import { ConfigOptions } from '../common/configOptions';
 import {
     pythonVersion3_10,
@@ -20,6 +22,7 @@ import {
     pythonVersion3_9,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { LocMessage } from '../localization/localize';
 import * as TestUtils from './testUtils';
 
 test('Final1', () => {
@@ -145,7 +148,10 @@ test('TString2', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_14;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tstring2.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 1);
+    TestUtils.validateResults(analysisResults1, 6);
+
+    const mixingErrors = analysisResults1[0].errors.filter((e) => e.message === LocMessage.mixingTemplateAndStr());
+    assert.strictEqual(mixingErrors.length, 4);
 });
 
 test('MemberAccess1', () => {
@@ -424,11 +430,11 @@ test('DataClassReplace1', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['dataclassReplace1.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 10);
+    TestUtils.validateResults(analysisResults1, 12);
 
     configOptions.defaultPythonVersion = pythonVersion3_13;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['dataclassReplace1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 4);
+    TestUtils.validateResults(analysisResults2, 6);
 });
 
 test('DataClassFrozen1', () => {

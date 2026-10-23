@@ -13,6 +13,7 @@ import { assert } from '../common/debug';
 import {
     ArgCategory,
     AssignmentExpressionNode,
+    CallNode,
     ExpressionNode,
     isExpressionNode,
     NameNode,
@@ -26,6 +27,7 @@ import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { Declaration, DeclarationType } from './declaration';
 import { transformTypeForEnumMember } from './enums';
+import { customMetaclassSupportsMethod } from './operations';
 import { getParamListDetails, ParamKind } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
@@ -35,6 +37,7 @@ import { getTypedDictMembersForClass } from './typedDicts';
 import { AssignTypeFlags, EvalFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     AnyType,
+    ClassDetailsShared,
     ClassType,
     ClassTypeFlags,
     combineTypes,
@@ -43,6 +46,7 @@ import {
     FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
+    isAny,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -71,6 +75,7 @@ import {
     addConditionToType,
     ClassMember,
     computeMroLinearization,
+    containsAnyRecursive,
     convertToInstance,
     convertToInstantiable,
     derivesFromAnyOrUnknown,
@@ -99,6 +104,7 @@ import {
     makeTypeVarsFree,
     mapSubtypes,
     MemberAccessFlags,
+    selfSpecializeClass,
     specializeTupleClass,
     someSubtypes,
     specializeWithUnknownTypeArgs,
@@ -109,6 +115,11 @@ import {
 export interface TypeNarrowingResult {
     type: Type;
     isIncomplete: boolean;
+}
+
+export interface IsInstanceClassTypeInfo {
+    classTypes: (ClassType | TypeVarType | FunctionType)[];
+    negativeClassTypes: (ClassType | TypeVarType | FunctionType)[];
 }
 
 export type TypeNarrowingCallback = (type: Type) => TypeNarrowingResult | undefined;
@@ -214,47 +225,98 @@ export function getTypeNarrowingCallback(
                 }
             }
 
-            // Look for "type(X) is Y", "type(X) is not Y", "type(X) == Y" or "type(X) != Y".
-            if (testExpression.d.leftExpr.nodeType === ParseNodeType.Call) {
-                if (
-                    testExpression.d.leftExpr.d.args.length === 1 &&
-                    testExpression.d.leftExpr.d.args[0].d.argCategory === ArgCategory.Simple
+            // Look for "type(X) is Y", "type(X) is not Y", "type(X) == Y" or "type(X) != Y",
+            // as well as reverse forms "Y is type(X)", "Y is not type(X)", "Y == type(X)", "Y != type(X)".
+            let typeCallNode: CallNode | undefined;
+            let otherExpr: ExpressionNode | undefined;
+
+            const isTypeCall = (expr: ExpressionNode, referenceExpr?: ExpressionNode): expr is CallNode =>
+                expr.nodeType === ParseNodeType.Call &&
+                expr.d.args.length === 1 &&
+                expr.d.args[0].d.argCategory === ArgCategory.Simple &&
+                (!referenceExpr ||
+                    isMatchingExpressionOrWalrusRhs(evaluator, referenceExpr, expr.d.args[0].d.valueExpr)) &&
+                isTypeCallBase(evaluator.getTypeOfExpression(expr.d.leftExpr, EvalFlags.CallBaseDefaults).type);
+
+            // Either operand may be the call; pick the one whose argument matches the reference.
+            if (isTypeCall(testExpression.d.leftExpr, reference)) {
+                typeCallNode = testExpression.d.leftExpr;
+                otherExpr = testExpression.d.rightExpr;
+            } else if (isTypeCall(testExpression.d.rightExpr, reference)) {
+                typeCallNode = testExpression.d.rightExpr;
+                otherExpr = testExpression.d.leftExpr;
+            }
+
+            if (typeCallNode && otherExpr) {
+                const otherResult = evaluator.getTypeOfExpression(otherExpr);
+                const classTypes: ClassType[] = [];
+                let isClassType = true;
+                let classTypeVar: TypeVarType | undefined;
+
+                if (isTypeVar(otherResult.type) && TypeBase.isInstantiable(otherResult.type)) {
+                    classTypeVar = convertToInstance(otherResult.type);
+                } else if (
+                    isClassInstance(otherResult.type) &&
+                    ClassType.isBuiltIn(otherResult.type, 'type') &&
+                    otherResult.type.priv.typeArgs?.length === 1 &&
+                    isTypeVar(otherResult.type.priv.typeArgs[0])
                 ) {
-                    const arg0Expr = testExpression.d.leftExpr.d.args[0].d.valueExpr;
-                    if (isMatchingExpressionOrWalrusRhs(evaluator, reference, arg0Expr)) {
-                        const callType = evaluator.getTypeOfExpression(
-                            testExpression.d.leftExpr.d.leftExpr,
-                            EvalFlags.CallBaseDefaults
-                        ).type;
+                    classTypeVar = otherResult.type.priv.typeArgs[0];
+                }
 
-                        if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type')) {
-                            const rhsResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
-                            const classTypes: ClassType[] = [];
-                            let isClassType = true;
+                evaluator.mapSubtypesExpandTypeVars(otherResult.type, /* options */ undefined, (expandedSubtype) => {
+                    let instantiable: ClassType | undefined;
 
-                            evaluator.mapSubtypesExpandTypeVars(
-                                rhsResult.type,
-                                /* options */ undefined,
-                                (expandedSubtype) => {
-                                    if (isInstantiableClass(expandedSubtype)) {
-                                        classTypes.push(expandedSubtype);
-                                    } else {
-                                        isClassType = false;
-                                    }
-                                    return undefined;
-                                }
+                    if (isClass(expandedSubtype)) {
+                        if (
+                            isClassInstance(expandedSubtype) &&
+                            ClassType.isBuiltIn(expandedSubtype, 'type') &&
+                            expandedSubtype.priv.typeArgs &&
+                            expandedSubtype.priv.typeArgs.length > 0
+                        ) {
+                            const extracted = convertToInstantiable(
+                                expandedSubtype.priv.typeArgs[0],
+                                /* includeSubclasses */ true
                             );
-
-                            if (isClassType && classTypes.length > 0) {
-                                return (type: Type) => {
-                                    return {
-                                        type: narrowTypeForTypeIs(evaluator, type, classTypes, adjIsPositiveTest),
-                                        isIncomplete: !!rhsResult.isIncomplete,
-                                    };
-                                };
+                            if (isInstantiableClass(extracted)) {
+                                instantiable = extracted;
                             }
+                        } else if (isInstantiableClass(expandedSubtype)) {
+                            instantiable = expandedSubtype;
                         }
                     }
+
+                    if (instantiable) {
+                        classTypes.push(instantiable);
+                    } else {
+                        isClassType = false;
+                    }
+                    return undefined;
+                });
+
+                if (isClassType && classTypes.length > 0) {
+                    const allowLegacyEquality =
+                        !isOrIsNotOperator &&
+                        typeCallNode === testExpression.d.leftExpr &&
+                        ((isInstantiableClass(otherResult.type) &&
+                            !otherResult.type.priv.includeSubclasses &&
+                            !otherResult.type.priv.isTypeArgExplicit) ||
+                            isTypeCall(otherExpr));
+
+                    return (type: Type) => {
+                        return {
+                            type: narrowTypeForTypeIs(
+                                evaluator,
+                                type,
+                                classTypes,
+                                adjIsPositiveTest,
+                                isOrIsNotOperator,
+                                classTypeVar,
+                                allowLegacyEquality
+                            ),
+                            isIncomplete: !!otherResult.isIncomplete,
+                        };
+                    };
                 }
             }
 
@@ -368,6 +430,22 @@ export function getTypeNarrowingCallback(
                         return (type: Type) => {
                             return {
                                 type: narrowTypeForLiteralComparison(
+                                    evaluator,
+                                    type,
+                                    rightType,
+                                    adjIsPositiveTest,
+                                    /* isIsOperator */ false
+                                ),
+                                isIncomplete: !!rightTypeResult.isIncomplete,
+                            };
+                        };
+                    }
+
+                    // Look for X == <class> or X != <class>.
+                    if (isInstantiableClass(rightType)) {
+                        return (type: Type) => {
+                            return {
+                                type: narrowTypeForClassComparison(
                                     evaluator,
                                     type,
                                     rightType,
@@ -654,10 +732,13 @@ export function getTypeNarrowingCallback(
                     const arg1TypeResult = evaluator.getTypeOfExpression(arg1Expr, EvalFlags.IsInstanceArgDefaults);
                     const arg1Type = arg1TypeResult.type;
 
-                    const classTypeList = getIsInstanceClassTypes(evaluator, arg1Type);
+                    const classTypeInfo = getIsInstanceClassTypes(evaluator, arg1Type, arg1Expr);
                     const isIncomplete = !!callTypeResult.isIncomplete || !!arg1TypeResult.isIncomplete;
 
-                    if (classTypeList) {
+                    if (classTypeInfo) {
+                        const classTypeList = isPositiveTest
+                            ? classTypeInfo.classTypes
+                            : classTypeInfo.negativeClassTypes;
                         return (type: Type) => {
                             return {
                                 type: narrowTypeForInstanceOrSubclass(
@@ -1376,29 +1457,45 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, node: ExpressionNode,
     return result;
 }
 
-// The "isinstance" and "issubclass" calls support two forms - a simple form
-// that accepts a single class, and a more complex form that accepts a tuple
-// of classes (including arbitrarily-nested tuples). This method determines
-// which form and returns a list of classes or undefined.
+// The "isinstance" and "issubclass" calls accept classes, runtime unions,
+// and arbitrarily-nested tuples of these. This method extracts possible
+// classes and guaranteed negative filters,
+// or undefined if the filter contains a non-class type.
 export function getIsInstanceClassTypes(
     evaluator: TypeEvaluator,
-    argType: Type
-): (ClassType | TypeVarType | FunctionType)[] | undefined {
+    argType: Type,
+    argExpr: ExpressionNode
+): IsInstanceClassTypeInfo | undefined {
     let foundNonClassType = false;
-    const classTypeList: (ClassType | TypeVarType | FunctionType)[] = [];
+    const classTypes: (ClassType | TypeVarType | FunctionType)[] = [];
+    const negativeClassTypes: (ClassType | TypeVarType | FunctionType)[] = [];
 
     // Create a helper function that returns a list of class types or
     // undefined if any of the types are not valid.
-    const addClassTypesToList = (types: Type[]) => {
+    const addClassTypesToList = (types: Type[], isAmbiguous: boolean, isUnboundedEntry: boolean) => {
         types.forEach((subtype) => {
             if (isClass(subtype)) {
                 subtype = specializeWithUnknownTypeArgs(subtype, evaluator.getTupleClassType());
 
                 if (isInstantiableClass(subtype) && ClassType.isBuiltIn(subtype, 'Callable')) {
                     subtype = convertToInstantiable(getUnknownTypeForCallable());
+                } else if (TypeBase.isInstance(subtype) && ClassType.isBuiltIn(subtype, 'type')) {
+                    if (subtype.priv.typeArgs && subtype.priv.typeArgs.length > 0) {
+                        const typeArg = subtype.priv.typeArgs[0];
+                        if (isAnyOrUnknown(typeArg)) {
+                            foundNonClassType = true;
+                            return;
+                        }
+                        if (isInstantiableClass(typeArg)) {
+                            subtype = ClassType.cloneIncludeSubclasses(typeArg);
+                        } else if (isClassInstance(typeArg)) {
+                            subtype = ClassType.cloneAsInstantiable(typeArg);
+                        }
+                    }
                 }
             }
 
+            let classType: ClassType | TypeVarType | FunctionType;
             if (isInstantiableClass(subtype)) {
                 // If this is a reference to a class that has type promotions (e.g.
                 // float or complex), remove the promotions for purposes of the
@@ -1406,48 +1503,132 @@ export function getIsInstanceClassTypes(
                 if (!subtype.priv.includeSubclasses && subtype.priv.includePromotions) {
                     subtype = ClassType.cloneRemoveTypePromotions(subtype);
                 }
-                classTypeList.push(subtype);
+
+                classType = subtype;
             } else if (isTypeVar(subtype) && TypeBase.isInstantiable(subtype)) {
-                classTypeList.push(subtype);
+                classType = subtype;
             } else if (isNoneTypeClass(subtype)) {
                 assert(isInstantiableClass(subtype));
-                classTypeList.push(subtype);
+                classType = subtype;
             } else if (
                 isFunction(subtype) &&
                 subtype.shared.parameters.length === 2 &&
                 subtype.shared.parameters[0].category === ParamCategory.ArgsList &&
                 subtype.shared.parameters[1].category === ParamCategory.KwargsDict
             ) {
-                classTypeList.push(subtype);
+                classType = subtype;
             } else {
                 foundNonClassType = true;
+                return;
+            }
+
+            classTypes.push(classType);
+
+            // Unbounded entries may be absent, and alternative class objects
+            // are not all guaranteed to participate in the runtime check.
+            if (!isUnboundedEntry && !isAmbiguous) {
+                negativeClassTypes.push(classType);
             }
         });
     };
 
-    const addClassTypesRecursive = (type: Type, recursionCount = 0) => {
+    const addClassTypesRecursive = (
+        type: Type,
+        isAmbiguous: boolean,
+        isUnboundedEntry: boolean,
+        recursionCount: number,
+        expression?: ExpressionNode
+    ) => {
         if (recursionCount > maxTypeRecursionCount) {
             return;
         }
 
-        if (isClass(type) && TypeBase.isInstance(type) && isTupleClass(type)) {
-            if (type.priv.tupleTypeArgs) {
-                type.priv.tupleTypeArgs.forEach((tupleEntry) => {
-                    addClassTypesRecursive(tupleEntry.type, recursionCount + 1);
-                });
+        // A runtime union checks both operands, but either operand can itself
+        // be an alternative class object. Keep their certainty separate.
+        if (
+            isUnion(type) &&
+            expression?.nodeType === ParseNodeType.BinaryOperation &&
+            expression.d.operator === OperatorType.BitwiseOr
+        ) {
+            const leftType = evaluator.getCachedType(expression.d.leftExpr);
+            const rightType = evaluator.getCachedType(expression.d.rightExpr);
+            if (
+                leftType &&
+                rightType &&
+                !customMetaclassSupportsMethod(leftType, '__or__') &&
+                !customMetaclassSupportsMethod(rightType, '__ror__')
+            ) {
+                // Match the union evaluator's normalization of None operands to NoneType.
+                const adjustedLeftType = isNoneInstance(leftType)
+                    ? convertToInstantiable(evaluator.getNoneType())
+                    : leftType;
+                const adjustedRightType = isNoneInstance(rightType)
+                    ? convertToInstantiable(evaluator.getNoneType())
+                    : rightType;
+                addClassTypesRecursive(
+                    adjustedLeftType,
+                    isAmbiguous,
+                    isUnboundedEntry,
+                    recursionCount,
+                    expression.d.leftExpr
+                );
+                addClassTypesRecursive(
+                    adjustedRightType,
+                    isAmbiguous,
+                    isUnboundedEntry,
+                    recursionCount,
+                    expression.d.rightExpr
+                );
+                return;
             }
-        } else {
-            doForEachSubtype(type, (subtype) => {
-                addClassTypesToList([subtype]);
-            });
         }
+
+        const isRuntimeUnion = type.props?.specialForm && ClassType.isBuiltIn(type.props.specialForm, 'UnionType');
+        const isAmbiguousType = isAmbiguous || (isUnion(type) && !isRuntimeUnion);
+
+        doForEachSubtype(type, (subtype) => {
+            if (isClassInstance(subtype) && isTupleClass(subtype)) {
+                if (subtype.priv.tupleTypeArgs) {
+                    let entryExpressions: (ExpressionNode | undefined)[] | undefined;
+                    if (expression?.nodeType === ParseNodeType.Tuple) {
+                        const expressions: (ExpressionNode | undefined)[] = [];
+                        expression.d.items.forEach((item) => {
+                            if (item.nodeType !== ParseNodeType.Unpack) {
+                                expressions.push(item);
+                                return;
+                            }
+                            const unpackedType = evaluator.getCachedType(item.d.expr);
+                            const entryCount =
+                                unpackedType && isClassInstance(unpackedType) && isTupleClass(unpackedType)
+                                    ? unpackedType.priv.tupleTypeArgs?.length ?? 1
+                                    : 1;
+                            for (let index = 0; index < entryCount; index++) {
+                                expressions.push(undefined);
+                            }
+                        });
+                        if (expressions.length === subtype.priv.tupleTypeArgs.length) {
+                            entryExpressions = expressions;
+                        }
+                    }
+                    subtype.priv.tupleTypeArgs.forEach((tupleEntry, index) => {
+                        addClassTypesRecursive(
+                            tupleEntry.type,
+                            isAmbiguousType,
+                            isUnboundedEntry || tupleEntry.isUnbounded,
+                            recursionCount + 1,
+                            entryExpressions?.[index]
+                        );
+                    });
+                }
+            } else {
+                addClassTypesToList([subtype], isAmbiguousType, isUnboundedEntry);
+            }
+        });
     };
 
-    doForEachSubtype(argType, (subtype) => {
-        addClassTypesRecursive(subtype);
-    });
+    addClassTypesRecursive(argType, /* isAmbiguous */ false, /* isUnboundedEntry */ false, 0, argExpr);
 
-    return foundNonClassType ? undefined : classTypeList;
+    return foundNonClassType ? undefined : { classTypes, negativeClassTypes };
 }
 
 export function narrowTypeForInstanceOrSubclass(
@@ -1460,6 +1641,23 @@ export function narrowTypeForInstanceOrSubclass(
     errorNode: ExpressionNode,
     nodeInfo: AnalyzerNodeInfoAccessor
 ) {
+    if (!isInstanceCheck && !isTypeIsCheck && !isPositiveTest) {
+        // A custom subclass check can reject even the exact same final class.
+        // Preserve the existing narrowing policy for non-final classes, including ABCs.
+        filterTypes = filterTypes.filter((filterType) => {
+            const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
+            return (
+                !isInstantiableClass(concreteFilterType) ||
+                !ClassType.isFinal(concreteFilterType) ||
+                !customMetaclassSupportsMethod(concreteFilterType, '__subclasscheck__')
+            );
+        });
+    }
+
+    if (!isPositiveTest && filterTypes.length === 0) {
+        return type;
+    }
+
     // First try with intersection types disallowed.
     const narrowedType = narrowTypeForInstanceOrSubclassInternal(
         evaluator,
@@ -1696,8 +1894,12 @@ function narrowTypeForInstance(
                 // note this case specially so we don't do any narrowing, which
                 // will generate false positives.
                 if (filterIsSuperclass) {
-                    if (!isTypeIsCheck && concreteFilterType.priv.includeSubclasses) {
-                        // If the filter type includes subclasses, we can't eliminate
+                    if (
+                        !isTypeIsCheck &&
+                        concreteFilterType.priv.includeSubclasses &&
+                        !ClassType.isFinal(concreteFilterType)
+                    ) {
+                        // If the filter type includes subclasses and is not final, we can't eliminate
                         // this type in the negative direction. We'll relax this for
                         // TypeIs checks.
                         isClassRelationshipIndeterminate = true;
@@ -2293,14 +2495,27 @@ function narrowTypeForContainerType(
         return referenceType;
     }
 
-    // Determine which tuple types can be eliminated. Only "None" and
-    // literal types can be handled here.
+    // Determine which tuple types can be eliminated. Only "None",
+    // literal types, and final instantiable classes can be handled here.
+    // Non-final instantiable classes (type[A]) cannot be eliminated in negative
+    // tests because a subclass SubA(A) reaches the negative branch at runtime
+    // (since SubA != A). Generic classes are also excluded because a
+    // specialized class object like Box[int] is not the same runtime object
+    // as Box. Classes that define or inherit __class_getitem__ are excluded
+    // for the same reason.
     const typesToEliminate: Type[] = [];
     containerType.priv.tupleTypeArgs.forEach((tupleEntry) => {
         if (!tupleEntry.isUnbounded) {
             if (isNoneInstance(tupleEntry.type)) {
                 typesToEliminate.push(tupleEntry.type);
             } else if (isClassInstance(tupleEntry.type) && isLiteralType(tupleEntry.type)) {
+                typesToEliminate.push(tupleEntry.type);
+            } else if (
+                isInstantiableClass(tupleEntry.type) &&
+                ClassType.isFinal(tupleEntry.type) &&
+                tupleEntry.type.shared.typeParams.length === 0 &&
+                !lookUpClassMember(tupleEntry.type, '__class_getitem__')
+            ) {
                 typesToEliminate.push(tupleEntry.type);
             }
         }
@@ -2310,9 +2525,15 @@ function narrowTypeForContainerType(
         return referenceType;
     }
 
-    return mapSubtypes(referenceType, (referenceSubtype) => {
-        referenceSubtype = evaluator.makeTopLevelTypeVarsConcrete(referenceSubtype);
-        if (isClassInstance(referenceSubtype) && referenceSubtype.priv.literalValue === undefined) {
+    const canNarrowLiterals = typesToEliminate.some(isClassInstance);
+
+    return mapSubtypes(referenceType, (unexpandedSubtype) => {
+        const referenceSubtype = evaluator.makeTopLevelTypeVarsConcrete(unexpandedSubtype);
+        if (
+            canNarrowLiterals &&
+            isClassInstance(referenceSubtype) &&
+            referenceSubtype.priv.literalValue === undefined
+        ) {
             // If we're able to enumerate all possible literal values
             // (for bool or enum), we can eliminate all others in a negative test.
             const allLiteralTypes = enumerateLiteralsForType(evaluator, referenceSubtype);
@@ -2327,7 +2548,7 @@ function narrowTypeForContainerType(
             return undefined;
         }
 
-        return referenceSubtype;
+        return unexpandedSubtype;
     });
 }
 
@@ -2691,31 +2912,242 @@ function narrowTypeForDiscriminatedFieldNoneComparison(
     });
 }
 
+function isTypeCallBase(callType: Type): boolean {
+    return isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type');
+}
+
+// Determines whether two classes have incompatible disjoint bases (PEP 800),
+// in which case no class can derive from both of them.
+function areDisjointBasesIncompatible(classType1: ClassType, classType2: ClassType): boolean {
+    const base1 = ClassType.getDisjointBase(classType1);
+    const base2 = ClassType.getDisjointBase(classType2);
+    return !!base1 && !!base2 && !ClassType.getMostDerivedDisjointBase([base1, base2]);
+}
+
+// Fill gradual holes without replacing facts inferred from the guarded value.
+function fillTypeGuardGradualArgs(
+    input: Type,
+    hint: Type | undefined,
+    results: Map<Type, Map<Type, Type>>,
+    recursionCount = 0
+): Type {
+    if (!hint || input === hint || recursionCount > maxTypeRecursionCount) {
+        return input;
+    }
+
+    if (isAnyOrUnknown(input)) {
+        return isAnyOrUnknown(hint) ? (isAny(hint) ? hint : input) : hint;
+    }
+
+    if (!isClass(input) || !isClass(hint) || !ClassType.isSameGenericClass(input, hint)) {
+        return input;
+    }
+
+    let inputResults = results.get(input);
+    const cachedResult = inputResults?.get(hint);
+    if (cachedResult !== undefined) {
+        return cachedResult;
+    }
+
+    if (!inputResults) {
+        inputResults = new Map<Type, Type>();
+        results.set(input, inputResults);
+    }
+
+    // Bound recursive aliases and reuse shared argument graphs within this narrowing operation.
+    inputResults.set(hint, input);
+
+    const inputTuple = input.priv.tupleTypeArgs;
+    const hintTuple = hint.priv.tupleTypeArgs;
+    if (inputTuple || hintTuple) {
+        if (
+            !inputTuple ||
+            !hintTuple ||
+            inputTuple.length !== hintTuple.length ||
+            inputTuple.some(
+                (arg, index) =>
+                    arg.isUnbounded !== hintTuple[index].isUnbounded ||
+                    !!arg.isOptional !== !!hintTuple[index].isOptional
+            )
+        ) {
+            return input;
+        }
+
+        const tupleArgs = inputTuple.map((arg, index) => ({
+            ...arg,
+            type: fillTypeGuardGradualArgs(arg.type, hintTuple[index].type, results, recursionCount + 1),
+        }));
+        const result = tupleArgs.every((arg, index) => arg.type === inputTuple[index].type)
+            ? input
+            : specializeTupleClass(input, tupleArgs, input.priv.isTypeArgExplicit, input.priv.isUnpacked);
+        inputResults.set(hint, result);
+        return result;
+    }
+
+    const inputArgs = input.priv.typeArgs;
+    const hintArgs = hint.priv.typeArgs;
+    if (!inputArgs || !hintArgs || inputArgs.length !== hintArgs.length) {
+        return input;
+    }
+
+    const typeArgs = inputArgs.map((arg, index) =>
+        fillTypeGuardGradualArgs(arg, hintArgs[index], results, recursionCount + 1)
+    );
+    const result = typeArgs.every((arg, index) => arg === inputArgs[index])
+        ? input
+        : ClassType.specialize(input, typeArgs, input.priv.isTypeArgExplicit);
+    inputResults.set(hint, result);
+    return result;
+}
+
 // Attempts to narrow a type based on a "type(x) is y" or "type(x) is not y" check.
-function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: ClassType[], isPositiveTest: boolean) {
+function narrowTypeForTypeIs(
+    evaluator: TypeEvaluator,
+    type: Type,
+    classTypes: ClassType[],
+    isPositiveTest: boolean,
+    isIsOperator: boolean,
+    classTypeVar: TypeVarType | undefined,
+    allowLegacyEquality: boolean
+) {
+    const metaclassEqualityResults = isIsOperator ? undefined : new Map<ClassDetailsShared, boolean>();
+    const hasEqualitySemantics = allowLegacyEquality
+        ? hasDeclaredIdentityEqualitySemantics
+        : hasIdentityEqualitySemantics;
+    if (
+        metaclassEqualityResults &&
+        classTypes.some((classType) => !hasEqualitySemantics(classType, metaclassEqualityResults))
+    ) {
+        return type;
+    }
+
     // We currently don't support narrowing in the negative direction
     // when there are more than one class types.
     if (!isPositiveTest && classTypes.length > 1) {
         return type;
     }
 
+    // Retain the TypeVar rather than its expanded constraints so assignments and loop joins preserve correlation.
+    if (isIsOperator && isPositiveTest && classTypeVar && isAnyOrUnknown(type)) {
+        return classTypeVar;
+    }
+
+    let gradualArgResults: Map<Type, Map<Type, Type>> | undefined;
     const typesToCombine = classTypes.map((classType) => {
         return evaluator.mapSubtypesExpandTypeVars(
             type,
             /* options */ undefined,
             (subtype: Type, unexpandedSubtype: Type) => {
                 if (isClassInstance(subtype)) {
-                    const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
+                    const isLiteral = subtype.priv.literalValue !== undefined;
+                    const instantiableSubtype = isLiteral
+                        ? ClassType.cloneIncludeSubclasses(
+                              ClassType.cloneAsInstantiable(ClassType.cloneWithLiteral(subtype, undefined)),
+                              /* includeSubclasses */ false
+                          )
+                        : ClassType.cloneAsInstantiable(subtype);
+                    if (
+                        metaclassEqualityResults &&
+                        !hasEqualitySemantics(instantiableSubtype, metaclassEqualityResults)
+                    ) {
+                        return unexpandedSubtype;
+                    }
+
+                    const matches = ClassType.isDerivedFrom(classType, instantiableSubtype);
+
+                    // A literal has an exact runtime class, not an arbitrary subclass.
+                    if (matches && isLiteral && !ClassType.isSameGenericClass(instantiableSubtype, classType)) {
+                        return isPositiveTest ? undefined : subtype;
+                    }
+
                     if (isPositiveTest) {
                         if (matches) {
-                            if (ClassType.isSameGenericClass(ClassType.cloneAsInstantiable(subtype), classType)) {
+                            if (ClassType.isSameGenericClass(instantiableSubtype, classType)) {
                                 return addConditionToType(subtype, getTypeCondition(classType));
                             }
 
-                            return addConditionToType(ClassType.cloneAsInstance(classType), subtype.props?.condition);
+                            let narrowedClass = classType;
+
+                            if (subtype.priv.typeArgs || subtype.priv.tupleTypeArgs) {
+                                if (classType.shared.typeParams.length > 0) {
+                                    if (
+                                        containsAnyRecursive(classType) ||
+                                        !evaluator.assignType(subtype, ClassType.cloneAsInstance(classType))
+                                    ) {
+                                        const genericClass = selfSpecializeClass(
+                                            ClassType.specialize(classType, undefined)
+                                        );
+                                        const constraints = new ConstraintTracker();
+                                        if (
+                                            !evaluator.assignType(
+                                                subtype,
+                                                ClassType.cloneAsInstance(genericClass),
+                                                undefined,
+                                                constraints,
+                                                AssignTypeFlags.Contravariant |
+                                                    AssignTypeFlags.PopulateExpectedType |
+                                                    AssignTypeFlags.SkipPopulateUnknownExpectedType
+                                            )
+                                        ) {
+                                            return addConditionToType(subtype, getTypeCondition(classType));
+                                        }
+
+                                        const specializedClass = evaluator.solveAndApplyConstraints(
+                                            genericClass,
+                                            constraints,
+                                            {
+                                                replaceUnsolved: {
+                                                    scopeIds: getTypeVarScopeIds(classType),
+                                                    useUnknown: true,
+                                                    tupleClassType: evaluator.getTupleClassType(),
+                                                },
+                                            }
+                                        );
+                                        if (!isInstantiableClass(specializedClass)) {
+                                            return addConditionToType(subtype, getTypeCondition(classType));
+                                        }
+
+                                        const results = (gradualArgResults ??= new Map<Type, Map<Type, Type>>());
+                                        narrowedClass = ClassType.specialize(
+                                            specializedClass,
+                                            specializedClass.priv.typeArgs?.map((arg, index) =>
+                                                fillTypeGuardGradualArgs(arg, classType.priv.typeArgs?.[index], results)
+                                            )
+                                        );
+                                    }
+                                } else if (!evaluator.assignType(subtype, ClassType.cloneAsInstance(classType))) {
+                                    return classType.priv.includeSubclasses && !ClassType.isFinal(classType)
+                                        ? addConditionToType(subtype, getTypeCondition(classType))
+                                        : undefined;
+                                }
+                            }
+
+                            return addConditionToType(
+                                ClassType.cloneAsInstance(narrowedClass),
+                                subtype.props?.condition
+                            );
                         }
 
                         if (!classType.priv.includeSubclasses) {
+                            if (evaluator.assignType(subtype, ClassType.cloneAsInstance(classType))) {
+                                return addConditionToType(
+                                    ClassType.cloneAsInstance(classType),
+                                    getTypeCondition(subtype)
+                                );
+                            }
+                            return undefined;
+                        }
+
+                        // A subclass of both the subtype and the class could satisfy the
+                        // comparison, so eliminate the subtype only if no such class can exist.
+                        if (
+                            (ClassType.isFinal(classType) ||
+                                isLiteral ||
+                                ClassType.isFinal(instantiableSubtype) ||
+                                areDisjointBasesIncompatible(instantiableSubtype, classType)) &&
+                            !evaluator.assignType(ClassType.cloneAsInstance(classType), subtype) &&
+                            !evaluator.assignType(subtype, ClassType.cloneAsInstance(classType))
+                        ) {
                             return undefined;
                         }
 
@@ -2724,10 +3156,11 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: C
                         }
                     }
 
-                    if (!classType.priv.includeSubclasses) {
-                        // If the class if marked final and it matches, then
+                    // A final class has no subclasses, so it is treated as an exact class.
+                    if (!classType.priv.includeSubclasses || ClassType.isFinal(classType)) {
+                        // If the runtime class is exact and it matches, then
                         // we can eliminate it in the negative case.
-                        if (matches && ClassType.isFinal(subtype)) {
+                        if (matches && (isLiteral || ClassType.isFinal(instantiableSubtype))) {
                             return undefined;
                         }
 
@@ -2739,6 +3172,9 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: C
                 }
 
                 if (isAnyOrUnknown(subtype)) {
+                    if (metaclassEqualityResults && !allowLegacyEquality) {
+                        return subtype;
+                    }
                     return isPositiveTest
                         ? ClassType.cloneAsInstance(addConditionToType(classType, getTypeCondition(subtype)))
                         : subtype;
@@ -2752,16 +3188,100 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classTypes: C
     return combineTypes(typesToCombine);
 }
 
+function hasUnresolvedMetaclassInMro(classType: ClassType): boolean {
+    return classType.shared.mro.some(
+        (baseClass) =>
+            !isInstantiableClass(baseClass) || !!(baseClass.shared.flags & ClassTypeFlags.HasUnresolvedMetaclass)
+    );
+}
+
+// Determines whether an equality comparison ("==" or "!=") involving the
+// specified class object is guaranteed to have identity semantics. This
+// requires that the class is statically closed (it cannot be a subclass
+// with a different metaclass), is not generic (specialized aliases compare
+// by value), and its metaclass does not override "__eq__" or "__ne__".
+function hasIdentityEqualitySemantics(
+    classType: ClassType,
+    metaclassEqualityResults: Map<ClassDetailsShared, boolean>
+): boolean {
+    if (classType.priv.includeSubclasses && !ClassType.isFinal(classType)) {
+        return false;
+    }
+
+    if (classType.shared.typeParams.length > 0) {
+        return false;
+    }
+
+    return hasDeclaredIdentityEqualitySemantics(classType, metaclassEqualityResults);
+}
+
+// Legacy forward type(x) equality guards check declared metaclasses without closing subclass hierarchies.
+function hasDeclaredIdentityEqualitySemantics(
+    classType: ClassType,
+    metaclassEqualityResults: Map<ClassDetailsShared, boolean>
+): boolean {
+    const metaclass = classType.shared.effectiveMetaclass;
+    if (
+        !metaclass ||
+        !isInstantiableClass(metaclass) ||
+        hasUnresolvedMetaclassInMro(classType) ||
+        hasUnresolvedMetaclassInMro(metaclass)
+    ) {
+        return false;
+    }
+
+    if (ClassType.isBuiltIn(metaclass, 'type')) {
+        return true;
+    }
+
+    // Cloned metaclasses share method definitions, but the class-specific checks above cannot be shared.
+    const cachedResult = metaclassEqualityResults.get(metaclass.shared);
+    if (cachedResult !== undefined) {
+        return cachedResult;
+    }
+
+    const result =
+        !customMetaclassSupportsMethod(classType, '__eq__') && !customMetaclassSupportsMethod(classType, '__ne__');
+    metaclassEqualityResults.set(metaclass.shared, result);
+    return result;
+}
+
 // Attempts to narrow a type based on a comparison with a class using "is" or
-// "is not". This pattern is sometimes used for sentinels.
+// "is not", or "==" or "!=".
 function narrowTypeForClassComparison(
     evaluator: TypeEvaluator,
     referenceType: Type,
     classType: ClassType,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    isIsOperator = true
 ): Type {
+    // Limit reuse to this invocation so results cannot outlive the evaluation that established them.
+    const metaclassEqualityResults = isIsOperator ? undefined : new Map<ClassDetailsShared, boolean>();
+    if (metaclassEqualityResults && !hasIdentityEqualitySemantics(classType, metaclassEqualityResults)) {
+        return referenceType;
+    }
+
     return mapSubtypes(referenceType, (subtype) => {
+        // Multiple class constraints expand to a union with distinct conditions, which equality cannot narrow.
+        if (
+            metaclassEqualityResults &&
+            isTypeVar(subtype) &&
+            !subtype.shared.recursiveAlias &&
+            subtype.shared.constraints.length > 1 &&
+            subtype.shared.constraints.every(isClassInstance)
+        ) {
+            return subtype;
+        }
+
         let concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+        if (
+            metaclassEqualityResults &&
+            (!isInstantiableClass(concreteSubtype) ||
+                !hasIdentityEqualitySemantics(concreteSubtype, metaclassEqualityResults))
+        ) {
+            return subtype;
+        }
 
         if (isPositiveTest) {
             if (
@@ -2781,6 +3301,9 @@ function narrowTypeForClassComparison(
 
             if (isClass(concreteSubtype)) {
                 if (TypeBase.isInstance(concreteSubtype)) {
+                    if (!isIsOperator) {
+                        return subtype;
+                    }
                     return ClassType.isBuiltIn(concreteSubtype, 'object') ? classType : undefined;
                 }
 

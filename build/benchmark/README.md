@@ -117,17 +117,26 @@ result contract, and the comparator rejects mismatched environments.
 
 ## Maintainer workflow
 
-Pull requests that change `packages/pyright-internal/src/analyzer/` automatically run the hosted
-benchmark once, when opened or marked ready for review. Draft pull requests wait until they are
-ready. Subsequent commits and reopened pull requests do not trigger another automatic run. The
-trusted trigger runs from the base repository and dispatches the existing read-only benchmark
-workflow without checking out or executing pull-request code.
+Pull requests that change `packages/pyright-internal/src/analyzer/` or
+`packages/pyright-internal/typeshed-fallback/` automatically run the hosted benchmark only after
+`Validation` succeeds, including all test platforms, type checking, style, and
+the build. `mypy_primer` also waits for successful Validation and runs on every pull request. For
+external contributors, both wait for a maintainer to approve workflows to run before Validation can
+start. Subsequent commits require successful Validation for the new head before either check runs.
+The trusted triggers run from the base repository and reject outdated PR heads.
+
+Both follow-up checks appear on the PR head as queued while Validation runs, then report their
+execution results with links to the workflow runs. If Validation does not pass, both are skipped;
+the benchmark is also skipped for PRs without analyzer or bundled typeshed changes. Check reporting does not change
+branch protection. Only trusted reporting jobs receive permission to write checks; jobs executing
+the candidate code keep read-only repository access.
 
 To run the benchmark again, or to run it for another pull request, a maintainer can comment exactly
 `/benchmark` on an open or merged pull request. The command must be the entire comment. The trusted
 command workflow checks that the commenter has `write`, `maintain`, or `admin` repository permission
 and then explicitly dispatches the benchmark with the pull request's head and candidate commits.
-Closed, unmerged pull requests are ignored. Users without one of these permissions cannot start the
+The command also requires successful Validation for the PR head. Closed, unmerged pull requests are
+ignored. Users without one of these permissions cannot start the
 benchmark.
 
 For an open pull request, the dispatched workflow runs GitHub's current synthetic merge commit. For
@@ -140,13 +149,22 @@ validates the result's head, candidate, and first-parent commits, then renders t
 comparison using default-branch code. It creates or updates one benchmark comment. The trusted job runs on a separate runner with
 pull-request write permission. The Actions job summary and benchmark artifact contain both results.
 
+Each PR benchmark shard retries pnpm setup once if the initial bootstrap fails, allowing recovery
+from transient download failures. The setup action cleans its installation directory before each
+attempt. A second failure still fails the shard; missing package results remain an error.
+
+Shards must use matching benchmark settings and runner profiles. The descriptive `platform_details`
+field may differ when hosted runners use different kernel versions; merged results retain all distinct
+descriptions in sorted order. Platform, architecture, runner class and image, CPU count, and Python
+version must still match.
+
 The benchmark measures the exact first-parent and candidate commits on the same hosted runner. The
 trusted job appends both measurements to the checked-in Pyright release history and uploads an HTML
 report, execution-time and peak-memory SVG charts, and combined JSON as a 90-day artifact linked from
 the benchmark comment. The published release history remains unchanged.
 
-After the automatic run, comment `/benchmark` after pushing a new commit or when rerunning the same
-head. The trigger workflows must already exist on the repository's default branch; a pull request
+After successful Validation, comment `/benchmark` to rerun the same head or request a benchmark for
+another pull request. The trigger workflows must already exist on the repository's default branch; a pull request
 that first introduces them cannot trigger itself.
 
 ## Options

@@ -3420,27 +3420,44 @@ export class Binder extends ParseTreeWalker {
                         });
                     }
 
-                    // Look for "type(X) is Y" or "type(X) is not Y".
+                    // Look for type(X) on either side without skipping references in the other operand.
+                    let isLeftNarrowing: boolean;
                     if (
-                        isOrIsNotOperator &&
                         expression.d.leftExpr.nodeType === ParseNodeType.Call &&
                         expression.d.leftExpr.d.leftExpr.nodeType === ParseNodeType.Name &&
                         expression.d.leftExpr.d.leftExpr.d.value === 'type' &&
                         expression.d.leftExpr.d.args.length === 1 &&
                         expression.d.leftExpr.d.args[0].d.argCategory === ArgCategory.Simple
                     ) {
-                        return this._isNarrowingExpression(
+                        isLeftNarrowing = this._isNarrowingExpression(
                             expression.d.leftExpr.d.args[0].d.valueExpr,
                             expressionList,
                             { ...options, isComplexExpression: true }
                         );
+                    } else {
+                        isLeftNarrowing = this._isNarrowingExpression(expression.d.leftExpr, expressionList, {
+                            ...options,
+                            isComplexExpression: true,
+                            allowDiscriminatedNarrowing: true,
+                        });
                     }
 
-                    const isLeftNarrowing = this._isNarrowingExpression(expression.d.leftExpr, expressionList, {
-                        ...options,
-                        isComplexExpression: true,
-                        allowDiscriminatedNarrowing: true,
-                    });
+                    // Look for "Y is type(X)", "Y is not type(X)", "Y == type(X)" or "Y != type(X)".
+                    if (
+                        expression.d.rightExpr.nodeType === ParseNodeType.Call &&
+                        expression.d.rightExpr.d.leftExpr.nodeType === ParseNodeType.Name &&
+                        expression.d.rightExpr.d.leftExpr.d.value === 'type' &&
+                        expression.d.rightExpr.d.args.length === 1 &&
+                        expression.d.rightExpr.d.args[0].d.argCategory === ArgCategory.Simple
+                    ) {
+                        const isRightNarrowing = this._isNarrowingExpression(
+                            expression.d.rightExpr.d.args[0].d.valueExpr,
+                            expressionList,
+                            { ...options, isComplexExpression: true }
+                        );
+
+                        return isLeftNarrowing || isRightNarrowing;
+                    }
 
                     // Look for "X is Y" or "X is not Y".
                     // Look for X == <literal> or X != <literal>
@@ -3617,6 +3634,11 @@ export class Binder extends ParseTreeWalker {
         if (!this._isCodeUnreachable()) {
             this._addExceptTargets(this._currentFlowNode!);
 
+            const deletionCall = ParseTreeUtils.getTypedDictKeyDeletionCall(node);
+            if (deletionCall && isCodeFlowSupportedForReference(deletionCall.d.leftExpr)) {
+                this._currentScopeCodeFlowExpressions!.add(createKeyForReference(deletionCall.d.leftExpr));
+            }
+
             const flowNode: FlowCall = {
                 flags: FlowFlags.Call,
                 id: this._getUniqueFlowNodeId(),
@@ -3670,6 +3692,11 @@ export class Binder extends ParseTreeWalker {
 
             if (isSupportedReference) {
                 this._currentScopeCodeFlowExpressions!.add(createKeyForReference(node));
+            }
+
+            // Key presence changes the containing TypedDict's narrowed type.
+            if (node.nodeType === ParseNodeType.Index && isCodeFlowSupportedForReference(node.d.leftExpr)) {
+                this._currentScopeCodeFlowExpressions!.add(createKeyForReference(node.d.leftExpr));
             }
 
             if (unbound) {

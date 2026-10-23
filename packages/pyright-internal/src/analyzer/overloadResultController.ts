@@ -44,7 +44,7 @@ import {
     TypeEvaluator,
     TypeResult,
 } from './typeEvaluatorTypes';
-import { isClassInstance, isOverloadResult, OverloadResultType, Type, TypeCategory } from './types';
+import { isClassInstance, isOverloadResult, isTypeSame, OverloadResultType, Type, TypeCategory } from './types';
 import { InferenceContext } from './typeUtils';
 
 export interface OverloadResultLimits {
@@ -128,7 +128,7 @@ type OperationMode =
     | 'materialize-witness'
     | 'context';
 interface Use {
-    node: NameNode;
+    node: ExpressionNode;
     value: TypeResult;
 }
 interface Inputs {
@@ -457,7 +457,7 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
         }
         assert(!generation.building.has(record));
         const outcome = this._build(generation, record);
-        const selected = record.annotated ? outcome.successes[0] : undefined;
+        const selected = record.annotated || outcome.baseline.failed ? outcome.successes[0] : undefined;
         this._trial(
             generation,
             record,
@@ -783,6 +783,16 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
 
     private _inputs(generation: Generation, record: LocalOverloadOperation): Inputs {
         const uses: Use[] = [];
+        if (record.reader && record.seed && record.expression.nodeType === ParseNodeType.Call) {
+            const value = record.expression.d.args[0]?.d.valueExpr;
+            if (value) {
+                const input = this._variant(generation, record, value, EvalFlags.None);
+                const outcome = this._build(generation, input);
+                if (!outcome.canonical.isIncomplete && (!outcome.baseline.failed || outcome.successes.length > 0)) {
+                    uses.push({ node: value, value: outcome.canonical });
+                }
+            }
+        }
         for (const node of record.nodes) {
             if (node.nodeType !== ParseNodeType.Name || node === record.target) {
                 continue;
@@ -953,30 +963,34 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
         generation.building.add(record);
         try {
             const inputs = this._inputs(generation, record);
-            const baseline = this._trial(generation, record, 'baseline', inputs);
+            const inlineReader = record.reader && !!record.seed;
+            const baseline = this._trial(generation, record, inlineReader ? 'reader' : 'baseline', inputs);
             const alias =
                 !!record.target &&
                 !record.annotated &&
                 record.expression === inputs.alternative?.node &&
                 !baseline.failed;
             const successes: Outcome['successes'] = [];
+            let candidates: readonly Type[] = [];
             let cutoff = false;
+            const nestedSeed = record.seed && record.expression !== record.seed.node;
             if (
                 !alias &&
                 !record.reader &&
-                (!record.target || !baseline.failed || record.annotated) &&
+                (!record.target || !baseline.failed || record.annotated || nestedSeed) &&
                 !baseline.result.isIncomplete
             ) {
                 const alternative = inputs.alternative?.value.type;
                 try {
-                    let candidates: readonly Type[] = [];
-                    if (record.seed && !baseline.failed) {
+                    if (record.seed && (!baseline.failed || nestedSeed)) {
                         if (record.seed.automatic) {
                             // Discovery runs inside the same private ordinary cache
                             // and diagnostic transaction as the complete operation.
                             const discovery = this._trial(
                                 generation,
-                                record,
+                                nestedSeed
+                                    ? this._variant(generation, record, record.seed.node, EvalFlags.None)
+                                    : record,
                                 'candidate',
                                 inputs,
                                 undefined,
@@ -1034,7 +1048,7 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
                 }
             }
             let canonical = baseline.result;
-            if (record.reader) {
+            if (record.reader && !inlineReader) {
                 canonical = this._trial(generation, record, 'reader', inputs).result;
             } else if (alias) {
                 canonical = inputs.alternative!.value;
@@ -1043,13 +1057,26 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
                 const uncertainty =
                     record.seed?.uncertainty ??
                     (source && isOverloadResult(source) ? source.priv.uncertaintyKind : TypeCategory.Any);
+                const resultTypes = successes.map((s) => s.outcome.result.type);
+                // Only a directly seeded operation proves that every retained alternative was tried.
+                // Projected carriers can contain a successful subset, so equivalent results there
+                // must keep their uncertainty.
+                const equivalentCompleteResults =
+                    !!record.seed &&
+                    candidates.length > 1 &&
+                    successes.length === candidates.length &&
+                    resultTypes.every((type) => isTypeSame(type, resultTypes[0]));
+                // An inline operation can fail for the first receiver but succeed for another.
+                // Later uses must project that successful result, not the failed Unknown.
                 canonical = {
-                    ...baseline.result,
-                    type: OverloadResultType.create(
-                        successes.map((s) => s.outcome.result.type),
-                        baseline.result.type,
-                        uncertainty
-                    ),
+                    ...(baseline.failed ? successes[0].outcome.result : baseline.result),
+                    type: equivalentCompleteResults
+                        ? resultTypes[0]
+                        : OverloadResultType.create(
+                              resultTypes,
+                              baseline.failed ? successes[0].outcome.result.type : baseline.result.type,
+                              uncertainty
+                          ),
                 };
             }
             let value: TypeResult | undefined;
@@ -1057,7 +1084,7 @@ export class ExperimentalOverloadResultController implements EvaluationOperation
                 value =
                     record.annotated && successes.length
                         ? successes[0].outcome.result
-                        : !baseline.failed
+                        : !baseline.failed || successes.length
                         ? canonical
                         : undefined;
             }

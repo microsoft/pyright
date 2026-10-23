@@ -226,9 +226,8 @@ test('Builtins1', () => {
         'type',
         'vars',
         'zip',
-        // These really shouldn't be exposed but are defined by builtins.pyi currently.
+        // This really shouldn't be exposed but is defined by builtins.pyi currently.
         'function',
-        'ellipsis',
     ];
 
     const moduleScope = analysisResults[0].moduleScope;
@@ -331,7 +330,10 @@ test('TypeNarrowingAssert1', () => {
 test('TypeNarrowingTypeIs1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypeIs1.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
+    assert.ok(
+        analysisResults[0].errors.every((diagnostic) => diagnostic.getRule() === DiagnosticRule.reportReturnType)
+    );
 });
 
 test('TypeGuardMethod1', () => {
@@ -351,6 +353,9 @@ test('TypeNarrowingTypeEquals1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypeEquals1.py']);
 
     TestUtils.validateResults(analysisResults, 3);
+    assert.ok(
+        analysisResults[0].errors.every((diagnostic) => diagnostic.getRule() === DiagnosticRule.reportReturnType)
+    );
 });
 
 test('TypeNarrowingIsNone1', () => {
@@ -537,6 +542,34 @@ test('TypeNarrowingIsinstance21', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance21.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingIsinstance22', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance22.py']);
+
+    TestUtils.validateResults(analysisResults, 4, 0, 80);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [70, DiagnosticRule.reportReturnType],
+            [107, DiagnosticRule.reportReturnType],
+            [115, DiagnosticRule.reportArgumentType],
+            [366, DiagnosticRule.reportReturnType],
+        ]
+    );
+});
+
+test('TypeNarrowingIsinstance23', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance23.py']);
+
+    TestUtils.validateResults(analysisResults, 1, 0, 15);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [[122, DiagnosticRule.reportReturnType]]
+    );
 });
 
 test('TypeNarrowingTupleLength1', () => {
@@ -789,7 +822,7 @@ test('Lambda3', () => {
 test('Lambda4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda4.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Lambda5', () => {
@@ -873,6 +906,33 @@ test('Lambda16', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda16.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Lambda17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda17.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Lambda18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda18.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportAssignmentType);
+});
+
+test('Lambda19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda19.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [11, DiagnosticRule.reportAssignmentType],
+            [12, DiagnosticRule.reportAssignmentType],
+            [13, DiagnosticRule.reportAssignmentType],
+        ]
+    );
 });
 
 test('Call1', () => {

@@ -13,8 +13,10 @@ allowBuilds:
   unrs-resolver: true
 
 overrides:
+  'handlebars@>=3.0.0 <4.7.10': '4.7.10'
   'js-yaml@>=3.0.0 <3.15.2': '3.15.2'
   'js-yaml@>=4.0.0 <4.3.2': '4.3.2'
+  fast-uri: '3.1.8'
   tar: '7.5.19'
   nx: '22.7.8'
   '@nx/devkit': '22.7.8'

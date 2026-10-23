@@ -32,7 +32,7 @@ class Timeout(BaseException):
     @overload
     @classmethod
     def start_new(
-        cls, timeout: None | float = None, exception: type[BaseException] | BaseException | None = None, ref: bool = True
+        cls, timeout: float | None = None, exception: type[BaseException] | BaseException | None = None, ref: bool = True
     ) -> Self: ...
     @overload
     @classmethod

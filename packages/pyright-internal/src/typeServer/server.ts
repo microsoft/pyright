@@ -20,7 +20,14 @@
  *     phases; the seams (`notebookManager`, overlay file system) are left in place.
  */
 
-import { CancellationToken, Connection, Diagnostic, WorkDoneProgressServerReporter } from 'vscode-languageserver';
+import {
+    CancellationToken,
+    Connection,
+    Diagnostic,
+    ResultProgressReporter,
+    WorkDoneProgressReporter,
+    WorkDoneProgressServerReporter,
+} from 'vscode-languageserver';
 import {
     CodeActionParams,
     DidChangeNotebookDocumentParams,
@@ -32,13 +39,16 @@ import {
     ExecuteCommandParams,
     InitializeParams,
     InitializeResult,
+    WorkspaceDiagnosticParams,
+    WorkspaceDiagnosticReportPartialResult,
 } from 'vscode-languageserver-protocol';
 import { CodeAction, Command } from 'vscode-languageserver-types';
 
 import { AnalysisResults } from '../analyzer/analysis';
-import { InvalidatedReason } from '../analyzer/backgroundAnalysisProgram';
+import { BackgroundAnalysisProgram, InvalidatedReason } from '../analyzer/backgroundAnalysisProgram';
 import { Declaration } from '../analyzer/declaration';
 import { ImportResolver } from '../analyzer/importResolver';
+import { MaxAnalysisTime } from '../analyzer/program';
 import { isPythonBinary } from '../analyzer/pythonPathUtils';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { Type } from '../analyzer/types';
@@ -82,6 +92,7 @@ export class TypeServer extends LanguageServerBase {
     private _globalTypeCache: ITypeCache;
     protected notebookManager: NotebookDocumentHandler | undefined;
     private readonly _uriMapper: INotebookUriMapper | undefined;
+    private _nativeWorkspaceDiagnosticProgress = false;
 
     constructor(serverOptions: ServerOptions, connection: Connection) {
         super(serverOptions, connection);
@@ -269,6 +280,35 @@ export class TypeServer extends LanguageServerBase {
         return new FullAccessHost(this.serverOptions.serviceProvider);
     }
 
+    protected override createBackgroundAnalysisProgram(
+        serviceId: string,
+        serviceProvider: ServiceProvider,
+        configOptions: ConfigOptions,
+        importResolver: ImportResolver,
+        backgroundAnalysis?: IBackgroundAnalysis,
+        maxAnalysisTime?: MaxAnalysisTime
+    ): BackgroundAnalysisProgram {
+        if (!this._nativeWorkspaceDiagnosticProgress) {
+            return super.createBackgroundAnalysisProgram(
+                serviceId,
+                serviceProvider,
+                configOptions,
+                importResolver,
+                backgroundAnalysis,
+                maxAnalysisTime
+            );
+        }
+        return new NativeWorkspaceDiagnosticAnalysisProgram(
+            this._sendNativeAnalysisProgress.bind(this),
+            serviceId,
+            serviceProvider,
+            configOptions,
+            importResolver,
+            backgroundAnalysis,
+            maxAnalysisTime
+        );
+    }
+
     protected override createImportResolver(
         serviceProvider: ServiceProvider,
         options: ConfigOptions,
@@ -281,6 +321,35 @@ export class TypeServer extends LanguageServerBase {
         importResolver.invalidateCache();
 
         return importResolver;
+    }
+
+    protected override onWorkspaceDiagnostics(
+        params: WorkspaceDiagnosticParams,
+        token: CancellationToken,
+        workDoneProgress: WorkDoneProgressReporter,
+        resultReporter?: ResultProgressReporter<WorkspaceDiagnosticReportPartialResult>
+    ) {
+        if (!this._nativeWorkspaceDiagnosticProgress) {
+            return super.onWorkspaceDiagnostics(params, token, workDoneProgress, resultReporter);
+        }
+        return this._onNativeWorkspaceDiagnostics(params, token, workDoneProgress, resultReporter);
+    }
+
+    protected override sendProgressMessage(fileCount: number, cellCount?: number) {
+        if (!this._nativeWorkspaceDiagnosticProgress || !this.workspaceDiagnosticsReporter) {
+            super.sendProgressMessage(fileCount, cellCount);
+            return;
+        }
+
+        // TSP query counters are not analysis counts and must not overwrite workspace progress.
+        if (cellCount === undefined) {
+            return;
+        }
+        this._sendNativeAnalysisProgress();
+    }
+
+    protected override getWorkspaceDiagnosticVersion(version: number | undefined): number | null {
+        return this._nativeWorkspaceDiagnosticProgress ? version ?? null : super.getWorkspaceDiagnosticVersion(version);
     }
 
     protected createProgressReporter(): ProgressReporter {
@@ -384,9 +453,17 @@ export class TypeServer extends LanguageServerBase {
         // constructor returns; `initialize()` runs before any notifications arrive.
         this.connection.onNotification('notebookDocument/didOpen', (params: DidOpenNotebookDocumentParams) => {
             this.notebookManager?.onDidOpenNotebookDocument(params);
+            if (this._nativeWorkspaceDiagnosticProgress) {
+                return this._sendNativeNotebookAnalysisProgress(params.notebookDocument.uri);
+            }
+            return undefined;
         });
         this.connection.onNotification('notebookDocument/didChange', (params: DidChangeNotebookDocumentParams) => {
             this.notebookManager?.onDidChangeNotebookDocument(params);
+            if (this._nativeWorkspaceDiagnosticProgress) {
+                return this._sendNativeNotebookAnalysisProgress(params.notebookDocument.uri);
+            }
+            return undefined;
         });
         this.connection.onNotification('notebookDocument/didClose', (params: DidCloseNotebookDocumentParams) => {
             this.notebookManager?.onDidCloseNotebookDocument(params);
@@ -398,6 +475,12 @@ export class TypeServer extends LanguageServerBase {
         supportedCommands: string[],
         supportedCodeActions: string[]
     ): Promise<InitializeResult> {
+        const options: unknown = params.initializationOptions;
+        this._nativeWorkspaceDiagnosticProgress =
+            typeof options === 'object' &&
+            options !== null &&
+            'nativeWorkspaceDiagnosticProgress' in options &&
+            options.nativeWorkspaceDiagnosticProgress === true;
         // Create the notebook manager here (not in setupConnection) because SWC's TC39
         // class-field semantics reinitialize `notebookManager` to undefined after the base
         // class constructor returns. This method runs when the Initialize request is processed,
@@ -408,6 +491,12 @@ export class TypeServer extends LanguageServerBase {
         }
 
         const result = await super.initialize(params, supportedCommands, supportedCodeActions);
+        if (this._nativeWorkspaceDiagnosticProgress) {
+            result.capabilities.experimental = {
+                ...result.capabilities.experimental,
+                workspaceDiagnosticAnalysisCounts: true,
+            };
+        }
 
         // Advertise notebook support so the client sends notebookDocument/* notifications.
         if (this.notebookManager) {
@@ -580,6 +669,52 @@ export class TypeServer extends LanguageServerBase {
             }
         }
         return undefined;
+    }
+
+    private async _onNativeWorkspaceDiagnostics(
+        params: WorkspaceDiagnosticParams,
+        token: CancellationToken,
+        workDoneProgress: WorkDoneProgressReporter,
+        resultReporter?: ResultProgressReporter<WorkspaceDiagnosticReportPartialResult>
+    ) {
+        await this.getWorkspaces();
+        if (token.isCancellationRequested) {
+            return { items: [] };
+        }
+        const pending = super.onWorkspaceDiagnostics(params, token, workDoneProgress, resultReporter);
+        this._sendNativeAnalysisProgress();
+        return pending;
+    }
+
+    private _sendNativeAnalysisProgress() {
+        if (!this.workspaceDiagnosticsReporter || this.isDisposed) {
+            return;
+        }
+        let files = 0;
+        let cells = 0;
+        for (const workspace of this.workspaceFactory.getNonDefaultWorkspaces()) {
+            const counts = workspace.service.backgroundAnalysisProgram.program.getFilesToAnalyzeCount();
+            files += counts.files;
+            cells += counts.cells;
+        }
+        const reporter = this.getAnalysisProgressReporter();
+        if (files + cells === 0) {
+            reporter.end();
+            return;
+        }
+        if (!reporter.isDisplayingProgress()) {
+            reporter.begin();
+        }
+        reporter.report(
+            `${files} ${files === 1 ? 'file' : 'files'} and ` + `${cells} ${cells === 1 ? 'cell' : 'cells'} to analyze`
+        );
+    }
+
+    private async _sendNativeNotebookAnalysisProgress(notebook: string) {
+        // Notebook synchronization creates the program's cells on its own sequenced queue.
+        const prefix = NotebookUriMapper.getNotebookPrefixUri(Uri.parse(notebook, this.caseSensitiveDetector));
+        await this.notebookManager?.getNotebookDataForCell(prefix);
+        this._sendNativeAnalysisProgress();
     }
 
     private _getWorkspaceForUri(uri: Uri): Workspace | undefined {
@@ -811,6 +946,23 @@ export class TypeServer extends LanguageServerBase {
             old: newSnapshot - 1,
             new: newSnapshot,
         });
+    }
+}
+
+class NativeWorkspaceDiagnosticAnalysisProgram extends BackgroundAnalysisProgram {
+    constructor(
+        private readonly _reportProgress: () => void,
+        ...args: ConstructorParameters<typeof BackgroundAnalysisProgram>
+    ) {
+        super(...args);
+    }
+
+    override startAnalysis(token: CancellationToken): boolean {
+        // Enumeration creates pending files after subscription, before analysis consumes their counts.
+        if (!token.isCancellationRequested) {
+            this._reportProgress();
+        }
+        return super.startAnalysis(token);
     }
 }
 

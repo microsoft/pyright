@@ -107,7 +107,7 @@ import { getParamListDetails } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
-import { isMethodOnlyProtocol, isProtocolUnsafeOverlap } from './protocols';
+import { isMethodOnlyProtocol, validateProtocolUnsafeOverlap } from './protocols';
 import { Scope, ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
@@ -4152,15 +4152,18 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const classTypeList = getIsInstanceClassTypes(this._evaluator, arg1Type);
-        if (!classTypeList) {
+        const classTypeInfo = getIsInstanceClassTypes(this._evaluator, arg1Type, node.d.args[1].d.valueExpr);
+        if (!classTypeInfo) {
             return;
         }
+
+        const classTypeList = classTypeInfo.classTypes;
 
         // Check for unsafe protocol overlaps.
         classTypeList.forEach((filterType) => {
             if (isInstantiableClass(filterType)) {
-                this._validateUnsafeProtocolOverlap(
+                validateProtocolUnsafeOverlap(
+                    this._evaluator,
                     node.d.args[0].d.valueExpr,
                     ClassType.cloneAsInstance(filterType),
                     isInstanceCheck ? arg0Type : convertToInstance(arg0Type)
@@ -4173,7 +4176,7 @@ export class Checker extends ParseTreeWalker {
             const narrowedTypeNegative = narrowTypeForInstanceOrSubclass(
                 this._evaluator,
                 arg0Type,
-                classTypeList,
+                classTypeInfo.negativeClassTypes,
                 isInstanceCheck,
                 /* isTypeIsCheck */ false,
                 /* isPositiveTest */ false,
@@ -4212,38 +4215,6 @@ export class Checker extends ParseTreeWalker {
                         classType: this._evaluator.printType(classType),
                     }),
                     node
-                );
-            }
-        }
-    }
-
-    private _validateUnsafeProtocolOverlap(errorNode: ExpressionNode, protocol: ClassType, testType: Type) {
-        // If this is a protocol class, check for an "unsafe overlap"
-        // with the arg0 type.
-        if (ClassType.isProtocolClass(protocol)) {
-            let isUnsafeOverlap = false;
-            const diag = new DiagnosticAddendum();
-
-            doForEachSubtype(testType, (testSubtype) => {
-                if (isClassInstance(testSubtype)) {
-                    if (isProtocolUnsafeOverlap(this._evaluator, protocol, testSubtype)) {
-                        isUnsafeOverlap = true;
-                        diag.addMessage(
-                            LocAddendum.protocolUnsafeOverlap().format({
-                                name: testSubtype.shared.name,
-                            })
-                        );
-                    }
-                }
-            });
-
-            if (isUnsafeOverlap) {
-                this._evaluator.addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    LocMessage.protocolUnsafeOverlap().format({
-                        name: protocol.shared.name,
-                    }) + diag.getString(),
-                    errorNode
                 );
             }
         }
@@ -7365,6 +7336,11 @@ export class Checker extends ParseTreeWalker {
     private _isFinalFunction(name: string, symbol: Symbol, type: Type) {
         if (SymbolNameUtils.isPrivateName(name)) {
             return false;
+        }
+
+        // Synthesized methods (like NamedTuple._replace) have no declarations.
+        if (isFunction(type) && FunctionType.isSynthesizedMethod(type) && FunctionType.isFinal(type)) {
+            return true;
         }
 
         // Was this declared with a "def" statement?

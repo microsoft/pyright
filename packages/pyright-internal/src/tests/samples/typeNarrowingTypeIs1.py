@@ -133,6 +133,15 @@ class H:
 
 def func9[T: H](x: type[T], y: H) -> T:
     if type(y) == x:
+        # A subclass of H can have a metaclass whose equality does not imply identity.
+        reveal_type(y, expected_text="H")
+        # This should generate an error because equality does not establish T.
+        return y
+    return x(y)
+
+
+def func9_identity[T: H](x: type[T], y: H) -> T:
+    if type(y) is x:
         reveal_type(y, expected_text="H*")
         return y
     return x(y)
