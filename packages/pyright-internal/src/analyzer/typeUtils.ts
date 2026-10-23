@@ -4053,6 +4053,10 @@ export class TypeVarTransformer {
 
             // If this is an empty tuple, don't recompute the non-tuple type argument.
             if (newTupleTypeArgs && newTupleTypeArgs.length > 0) {
+                if (!specializationNeeded) {
+                    return classType;
+                }
+
                 // Combine the tuple type args into a single non-tuple type argument.
                 newTypeArgs = [combineTupleTypeArgs(newTupleTypeArgs)];
             }
@@ -4099,16 +4103,8 @@ export class TypeVarTransformer {
             let functionType = sourceType;
 
             const declaredReturnType = FunctionType.getEffectiveReturnType(functionType);
-            const specializedReturnType = declaredReturnType
-                ? this.apply(declaredReturnType, recursionCount)
-                : undefined;
+            let specializedReturnType = declaredReturnType ? this.apply(declaredReturnType, recursionCount) : undefined;
             let typesRequiredSpecialization = declaredReturnType !== specializedReturnType;
-
-            const specializedParams: SpecializedFunctionTypes = {
-                parameterTypes: [],
-                parameterDefaultTypes: undefined,
-                returnType: specializedReturnType,
-            };
 
             const paramSpec = FunctionType.getParamSpecFromArgsKwargs(functionType);
 
@@ -4130,23 +4126,34 @@ export class TypeVarTransformer {
 
             let variadicParamIndex: number | undefined;
             let variadicTypesToUnpack: TupleTypeArg[] | undefined;
-            const specializedDefaultArgs: (Type | undefined)[] = [];
+            let specializedParamTypes: Type[] | undefined;
+            let specializedDefaultArgs: (Type | undefined)[] | undefined;
+            let hasDefaultArgs = false;
 
             for (let i = 0; i < functionType.shared.parameters.length; i++) {
                 const paramType = FunctionType.getParamType(functionType, i);
                 const specializedType = this.apply(paramType, recursionCount);
-                specializedParams.parameterTypes.push(specializedType);
+                if (paramType !== specializedType) {
+                    specializedParamTypes ??= functionType.shared.parameters.map((_, index) =>
+                        FunctionType.getParamType(functionType, index)
+                    );
+                    specializedParamTypes[i] = specializedType;
+                    typesRequiredSpecialization = true;
+                }
 
                 // Do we need to specialize the default argument type for this parameter?
-                let defaultArgType = FunctionType.getParamDefaultType(functionType, i);
+                const defaultArgType = FunctionType.getParamDefaultType(functionType, i);
                 if (defaultArgType) {
+                    hasDefaultArgs = true;
                     const specializedArgType = this.apply(defaultArgType, recursionCount);
                     if (specializedArgType !== defaultArgType) {
-                        defaultArgType = specializedArgType;
+                        specializedDefaultArgs ??= functionType.shared.parameters.map((_, index) =>
+                            FunctionType.getParamDefaultType(functionType, index)
+                        );
+                        specializedDefaultArgs[i] = specializedArgType;
                         typesRequiredSpecialization = true;
                     }
                 }
-                specializedDefaultArgs.push(defaultArgType);
 
                 if (
                     variadicParamIndex === undefined &&
@@ -4163,10 +4170,6 @@ export class TypeVarTransformer {
                         variadicTypesToUnpack = specializedType.priv.tupleTypeArgs;
                     }
                 }
-
-                if (paramType !== specializedType) {
-                    typesRequiredSpecialization = true;
-                }
             }
 
             let specializedInferredReturnType: Type | undefined;
@@ -4176,7 +4179,7 @@ export class TypeVarTransformer {
                     recursionCount
                 );
                 if (specializedInferredReturnType !== functionType.shared.inferredReturnType?.type) {
-                    specializedParams.returnType = specializedInferredReturnType;
+                    specializedReturnType = specializedInferredReturnType;
                     typesRequiredSpecialization = true;
                 }
             }
@@ -4202,9 +4205,18 @@ export class TypeVarTransformer {
                 return functionType;
             }
 
-            if (specializedDefaultArgs.some((t) => t !== undefined)) {
-                specializedParams.parameterDefaultTypes = specializedDefaultArgs;
-            }
+            const specializedParams: SpecializedFunctionTypes = {
+                parameterTypes:
+                    specializedParamTypes ??
+                    functionType.shared.parameters.map((_, index) => FunctionType.getParamType(functionType, index)),
+                parameterDefaultTypes: hasDefaultArgs
+                    ? specializedDefaultArgs ??
+                      functionType.shared.parameters.map((_, index) =>
+                          FunctionType.getParamDefaultType(functionType, index)
+                      )
+                    : undefined,
+                returnType: specializedReturnType,
+            };
 
             // If there was no unpacked variadic type variable, we're done.
             if (!variadicTypesToUnpack) {
