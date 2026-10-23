@@ -10083,23 +10083,37 @@ export function createTypeEvaluator(
             if (enclosingClassType) {
                 targetClassType = enclosingClassType ?? UnknownType.create();
 
+                const functionInfo = enclosingFunction
+                    ? getFunctionInfoFromDecorators(
+                          evaluatorInterface,
+                          enclosingFunction,
+                          /* isInClass */ true,
+                          nodeInfo
+                      )
+                    : undefined;
+
                 // Zero-argument forms of super are not allowed within static methods.
                 // This results in a runtime exception.
-                if (enclosingFunction) {
-                    const functionInfo = getFunctionInfoFromDecorators(
-                        evaluatorInterface,
-                        enclosingFunction,
-                        /* isInClass */ true,
-                        nodeInfo
+                if (functionInfo !== undefined && (functionInfo.flags & FunctionTypeFlags.StaticMethod) !== 0) {
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.superCallZeroArgFormStaticMethod(),
+                        node.d.leftExpr
                     );
-
-                    if ((functionInfo?.flags & FunctionTypeFlags.StaticMethod) !== 0) {
-                        addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            LocMessage.superCallZeroArgFormStaticMethod(),
-                            node.d.leftExpr
-                        );
-                    }
+                } else if (
+                    !ParseTreeUtils.isZeroArgSuperCallAllowed(
+                        node,
+                        nodeInfo.getFileInfo(node).executionEnvironment.pythonVersion,
+                        nodeInfo
+                    )
+                ) {
+                    // The evaluation scope cannot supply a first positional
+                    // argument for the zero-argument form.
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.superCallZeroArgForm(),
+                        node.d.leftExpr
+                    );
                 }
             } else {
                 addDiagnostic(
