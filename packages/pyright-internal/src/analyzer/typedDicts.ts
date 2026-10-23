@@ -675,6 +675,48 @@ export function synthesizeTypedDictClassMethods(
             return OverloadedType.create([updateMethod2, updateMethod1, updateMethod3]);
         }
 
+        function createOrMethod(methodName: string, strType: Type, isInPlace: boolean): FunctionType | OverloadedType {
+            const selfType = ClassType.cloneAsInstance(classType);
+            const partialType = allEntriesAreReadOnly
+                ? NeverType.createNever()
+                : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType));
+
+            const createOverload = (valueType: Type, returnType: Type) => {
+                const method = FunctionType.createSynthesizedInstance(
+                    methodName,
+                    isInPlace ? FunctionTypeFlags.None : FunctionTypeFlags.Overloaded
+                );
+                FunctionType.addParam(method, selfParam);
+                FunctionType.addParam(
+                    method,
+                    FunctionParam.create(ParamCategory.Simple, valueType, FunctionParamFlags.TypeDeclared, 'value')
+                );
+                FunctionType.addPositionOnlyParamSeparator(method);
+                method.shared.declaredReturnType = returnType;
+                return method;
+            };
+
+            // The in-place operator modifies the TypedDict, so (like "update") it
+            // accepts only a partial TypedDict containing writable entries.
+            if (isInPlace) {
+                return createOverload(partialType, selfType);
+            }
+
+            const overloads = [createOverload(selfType, selfType), createOverload(partialType, selfType)];
+
+            const dictType = evaluator.getBuiltInObject(node, 'dict', [strType, AnyType.create()]);
+            if (isClassInstance(dictType)) {
+                overloads.push(
+                    createOverload(
+                        dictType,
+                        evaluator.getBuiltInObject(node, 'dict', [strType, evaluator.getObjectType()])
+                    )
+                );
+            }
+
+            return OverloadedType.create(overloads);
+        }
+
         const getOverloads: FunctionType[] = [];
         const popOverloads: FunctionType[] = [];
         const setDefaultOverloads: FunctionType[] = [];
@@ -760,6 +802,19 @@ export function synthesizeTypedDictClassMethods(
         }
 
         symbolTable.set('update', Symbol.createWithType(SymbolFlags.ClassMember, createUpdateMethod()));
+
+        symbolTable.set(
+            '__or__',
+            Symbol.createWithType(SymbolFlags.ClassMember, createOrMethod('__or__', strType, false))
+        );
+        symbolTable.set(
+            '__ror__',
+            Symbol.createWithType(SymbolFlags.ClassMember, createOrMethod('__ror__', strType, false))
+        );
+        symbolTable.set(
+            '__ior__',
+            Symbol.createWithType(SymbolFlags.ClassMember, createOrMethod('__ior__', strType, true))
+        );
 
         // If the TypedDict is closed and all of its entries are NotRequired and
         // not ReadOnly, add a "clear" and "popitem" method.
