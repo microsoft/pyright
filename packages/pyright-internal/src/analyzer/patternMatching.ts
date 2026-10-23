@@ -32,6 +32,7 @@ import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { CodeFlowReferenceExpressionNode } from './codeFlowTypes';
 import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
+import { isEnumClassWithMembers } from './enums';
 import { getTypeVarScopesForNode, isMatchingExpression } from './parseTreeUtils';
 import { validateProtocolUnsafeOverlap } from './protocols';
 import { getTypedDictMembersForClass } from './typedDicts';
@@ -169,7 +170,7 @@ export function narrowTypeBasedOnPattern(
         }
 
         case ParseNodeType.PatternValue: {
-            return narrowTypeBasedOnValuePattern(evaluator, type, pattern, isPositiveTest);
+            return narrowTypeBasedOnValuePattern(evaluator, type, pattern, isPositiveTest, nodeInfo);
         }
 
         case ParseNodeType.PatternCapture: {
@@ -1421,10 +1422,16 @@ function narrowTypeBasedOnValuePattern(
     evaluator: TypeEvaluator,
     subjectType: Type,
     pattern: PatternValueNode,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
-    const valueType = evaluator.getTypeOfExpression(pattern.d.expr).type;
+    let valueType = evaluator.getTypeOfExpression(pattern.d.expr).type;
     const narrowedSubtypes: Type[] = [];
+
+    // A Never or NoReturn value pattern compares against its special form at runtime.
+    if (isNever(valueType) && valueType.props?.specialForm) {
+        valueType = valueType.props.specialForm;
+    }
 
     evaluator.mapSubtypesExpandTypeVars(
         valueType,
@@ -1513,7 +1520,24 @@ function narrowTypeBasedOnValuePattern(
                         // override __eq__. If neither does, equality implies identity, so
                         // narrow to the value type.
                         if (!hasCustomEq(valueSubtypeExpanded) && !hasCustomEq(subjectSubtypeExpanded)) {
-                            return valueSubtypeUnexpanded;
+                            if (
+                                evaluator.assignType(subjectSubtypeExpanded, valueSubtypeExpanded) ||
+                                evaluator.assignType(valueSubtypeExpanded, subjectSubtypeExpanded)
+                            ) {
+                                return valueSubtypeUnexpanded;
+                            }
+
+                            // A special form's class does not model its runtime object.
+                            if (isClass(valueSubtypeExpanded) && ClassType.isSpecialFormClass(valueSubtypeExpanded)) {
+                                return subjectSubtypeUnexpanded;
+                            }
+
+                            // An unrelated subject can match only through a subclass that overrides __eq__.
+                            return isClass(subjectSubtypeExpanded) &&
+                                (ClassType.isFinal(subjectSubtypeExpanded) ||
+                                    isEnumClassWithMembers(evaluator, subjectSubtypeExpanded, nodeInfo))
+                                ? undefined
+                                : subjectSubtypeUnexpanded;
                         }
 
                         // Literal (including enum) values are handled specially: narrow to
