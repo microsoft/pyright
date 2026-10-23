@@ -1,7 +1,7 @@
 # This sample tests that @runtime_checkable can be applied only to
 # classes that are protocols (Protocol must appear in the base list).
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, final, runtime_checkable
 
 
 @runtime_checkable
@@ -85,8 +85,8 @@ class P6(Protocol):
 def replace_with_p6(cls: type) -> type[P6]: ...
 
 
-# Applying runtime_checkable to a replacement protocol should not make
-# that other protocol class runtime-checkable.
+# A type[P6] return annotation does not identify the P6 class object, so
+# applying runtime_checkable should not mark P6 itself runtime-checkable.
 @runtime_checkable
 @replace_with_p6
 class C5:
@@ -113,3 +113,84 @@ class P7(Protocol):
 def func2(val: object, cls: type):
     isinstance(val, P7)
     issubclass(cls, P7)
+
+
+# The unparameterized list deliberately makes the return type Unknown.
+def replace_with_unknown(cls: type, classes: list = [P1]):
+    return classes[0]
+
+
+def identity[T](cls: T) -> T:
+    return cls
+
+
+@runtime_checkable
+@replace_with_unknown
+class C6:
+    def foo(self) -> int:
+        return 1
+
+
+@runtime_checkable
+@identity
+@replace_with_unknown
+class C7:
+    pass
+
+
+@runtime_checkable
+@final
+@replace_with_unknown
+class C8:
+    pass
+
+
+@runtime_checkable
+@runtime_checkable
+@replace_with_unknown
+class C9:
+    pass
+
+
+# A known replacement above the Unknown result restores validation.
+# This should generate an error because C1 is not a protocol.
+@runtime_checkable
+@replace_with_non_protocol
+@replace_with_unknown
+class C10:
+    pass
+
+
+@runtime_checkable
+@identity
+@replace_with_unknown
+class P8(Protocol):
+    def baz(self) -> int: ...
+
+
+def func3(val: object, cls: type):
+    isinstance(val, P8)
+    issubclass(cls, P8)
+
+
+reveal_type(C6, expected_text="type[C6]")
+reveal_type(C6().foo(), expected_text="int")
+reveal_type(C7, expected_text="type[C7]")
+reveal_type(C8, expected_text="type[C8]")
+reveal_type(C9, expected_text="type[C9]")
+reveal_type(C10, expected_text="type[C1]")
+reveal_type(P8, expected_text="type[P8]")
+
+
+def class_identity[T](cls: type[T]) -> type[T]:
+    return cls
+
+
+@runtime_checkable
+@class_identity
+@replace_with_unknown
+class C11:
+    pass
+
+
+reveal_type(C11, expected_text="type[C11]")

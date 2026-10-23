@@ -315,7 +315,8 @@ export function applyClassDecorator(
     inputClassType: Type,
     originalClassType: ClassType,
     decoratorNode: DecoratorNode,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    nodeInfo: AnalyzerNodeInfoAccessor,
+    isInputTypeUnknown: boolean
 ): Type {
     const fileInfo = nodeInfo.getFileInfo(decoratorNode);
     let flags = fileInfo.isStubFile ? EvalFlags.ForwardRefs : EvalFlags.None;
@@ -437,10 +438,14 @@ export function applyClassDecorator(
             // Class decorators are applied bottom-up, so validate the class type
             // that this decorator actually receives rather than the original
             // (undecorated) class. If a lower decorator produced something other
-            // than a known class (e.g. Any, a union or type[object]), we can't
-            // tell what runtime_checkable receives, so don't report an error and
-            // assume it receives the class being declared.
-            if (isInstantiableClass(inputClassType) && !ClassType.isBuiltIn(inputClassType, 'object')) {
+            // than a known class (e.g. Any, a union or type[object]), or the input
+            // is a recovery type retained for an Unknown result, don't report
+            // an error and assume it receives the class being declared.
+            if (
+                !isInputTypeUnknown &&
+                isInstantiableClass(inputClassType) &&
+                !ClassType.isBuiltIn(inputClassType, 'object')
+            ) {
                 if (!ClassType.isProtocolClass(inputClassType)) {
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,

@@ -26,6 +26,7 @@ import {
     pythonVersion3_8,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { LocMessage } from '../localization/localize';
 import { ParseNodeType } from '../parser/parseNodes';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
@@ -1021,12 +1022,40 @@ test('Protocol54', () => {
 test('Protocol55', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol55.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 
-    // Verify that the errors are reported on the expected `@runtime_checkable`
-    // decorators rather than on some other (unrelated) declaration.
-    const errorLines = analysisResults[0].errors.map((diag) => diag.range.start.line).sort((a, b) => a - b);
-    assert.deepStrictEqual(errorLines, [13, 24, 45, 97]);
+    const decoratorErrors = analysisResults[0].errors.filter(
+        (diag) => diag.getRule() === DiagnosticRule.reportGeneralTypeIssues
+    );
+    assert.deepStrictEqual(
+        decoratorErrors.map((diag) => ({ message: diag.message, range: diag.range })),
+        [13, 24, 45, 156].map((line) => ({
+            message: LocMessage.runtimeCheckableNotProtocol(),
+            range: { start: { line, character: 1 }, end: { line, character: 18 } },
+        }))
+    );
+    const protocolErrors = analysisResults[0].errors.filter(
+        (diag) => diag.getRule() === DiagnosticRule.reportArgumentType
+    );
+    assert.deepStrictEqual(
+        protocolErrors.map((diag) => diag.range.start.line),
+        [97]
+    );
+});
+
+test('Protocol55UntypedDecorators', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportUntypedClassDecorator = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol55.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 12);
+    const untypedDecoratorErrors = analysisResults[0].errors.filter(
+        (diag) => diag.getRule() === DiagnosticRule.reportUntypedClassDecorator
+    );
+    assert.deepStrictEqual(
+        untypedDecoratorErrors.map((diag) => diag.range.start.line),
+        [127, 135, 142, 149, 158, 165, 190]
+    );
 });
 
 test('ProtocolExplicit1', () => {
