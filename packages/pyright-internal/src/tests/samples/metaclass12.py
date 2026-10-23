@@ -1,6 +1,7 @@
 # This sample tests that class instances with a custom metaclass
 # do not inherit members from the metaclass (such as type.__dict__).
 
+from types import MappingProxyType
 from typing import Any
 
 
@@ -45,3 +46,16 @@ class C(metaclass=Meta2):
 # should remain accessible through the class and its instances.
 reveal_type(C.label, expected_text="str")
 reveal_type(C().label, expected_text="str")
+
+
+class MetaMeta(type):
+    pass
+
+
+class Meta3(type, metaclass=MetaMeta):
+    pass
+
+
+def func2(cls: Meta3):
+    # Instances of a metaclass are classes, so "__dict__" comes from "type".
+    reveal_type(cls.__dict__, expected_text="MappingProxyType[str, Any]")
