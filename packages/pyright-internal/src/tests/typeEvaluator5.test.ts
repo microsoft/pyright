@@ -359,6 +359,11 @@ test('TypeAliasType2', () => {
     TestUtils.validateResults(analysisResults, 7);
 });
 
+test('TypeAliasType3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasType3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypedDictReadOnly1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly1.py']);
     TestUtils.validateResults(analysisResults, 4);
