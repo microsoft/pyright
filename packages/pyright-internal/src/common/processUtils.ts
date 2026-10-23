@@ -7,7 +7,11 @@
  */
 import * as child_process from 'child_process';
 
-import { getWindowsProcessTreeTerminationScript, windowsProcessTreePowerShellArgs } from './windowsProcessTree';
+import {
+    getWindowsProcessTreeBatchTerminationScript,
+    getWindowsProcessTreeTerminationScript,
+    windowsProcessTreePowerShellArgs,
+} from './windowsProcessTree';
 
 /** @deprecated Retain the spawned child and use terminateChild; a PID alone does not prove ownership. */
 export function terminateProcessTree(pid: number) {
@@ -74,6 +78,62 @@ export function terminateChild(
         child.kill?.(signal);
     } catch {
         // Ignore.
+    }
+}
+
+export function terminateChildren(children: readonly child_process.ChildProcess[], signal: NodeJS.Signals = 'SIGTERM') {
+    if (process.platform !== 'win32') {
+        const retained = [...new Set(children)];
+        const errors: unknown[] = [];
+        for (const child of retained) {
+            try {
+                terminateChild(child, signal);
+            } catch (error) {
+                errors.push(error);
+            }
+        }
+        if (errors.length) {
+            throw new ProcessTreeBatchTerminationError(retained, errors);
+        }
+        return;
+    }
+    const owned = [...new Set(children)].filter(
+        (child) =>
+            child instanceof child_process.ChildProcess &&
+            child.pid &&
+            Number.isSafeInteger(child.pid) &&
+            child.pid > 0 &&
+            child.exitCode === null &&
+            !child.signalCode &&
+            Reflect.get(child, '_handle')
+    );
+    if (owned.length < 2) {
+        for (const child of owned) {
+            terminateChild(child, signal);
+        }
+        return;
+    }
+    try {
+        child_process.execFileSync('powershell.exe', windowsProcessTreePowerShellArgs, {
+            input: getWindowsProcessTreeBatchTerminationScript(owned.map((child) => child.pid!)),
+            stdio: ['pipe', 'pipe', 'pipe'],
+            windowsHide: true,
+        });
+    } catch (error) {
+        throw new ProcessTreeBatchTerminationError(owned, [error]);
+    }
+}
+
+export class ProcessTreeBatchTerminationError extends Error {
+    constructor(readonly children: readonly child_process.ChildProcess[], readonly errors: readonly unknown[]) {
+        super(
+            `Owned process-tree batch cleanup is incomplete: ${errors
+                .map((error) => (error instanceof Error ? error.message : String(error)))
+                .join('\n')}`
+        );
+        this.name = 'ProcessTreeBatchTerminationError';
+        Object.defineProperty(this, 'children', { enumerable: false });
+        Object.defineProperty(this, 'errors', { enumerable: false });
     }
 }
 

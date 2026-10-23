@@ -1050,6 +1050,7 @@ function chompLeadingSpaceWithMapping(
 
     // Rebuild mapping segments by walking line-by-line over the original content.
     const newSegments: ContentToRawSegment[] = [];
+    let sourceSegmentIndex = 0;
     let sourcePos = 0;
     let outPos = 0;
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
@@ -1061,7 +1062,14 @@ function chompLeadingSpaceWithMapping(
         if (line.length > 0) {
             const keepStart = lineStart + 1;
             const keepEnd = lineEnd;
-            appendChompedSegments(contentToRawSegments, keepStart, keepEnd, outPos, newSegments);
+            sourceSegmentIndex = appendChompedSegments(
+                contentToRawSegments,
+                sourceSegmentIndex,
+                keepStart,
+                keepEnd,
+                outPos,
+                newSegments
+            );
             outPos += keepEnd - keepStart;
         }
 
@@ -1069,7 +1077,14 @@ function chompLeadingSpaceWithMapping(
 
         // Keep newline except for the final line.
         if (lineIndex < lines.length - 1) {
-            appendChompedSegments(contentToRawSegments, sourcePos, sourcePos + 1, outPos, newSegments);
+            sourceSegmentIndex = appendChompedSegments(
+                contentToRawSegments,
+                sourceSegmentIndex,
+                sourcePos,
+                sourcePos + 1,
+                outPos,
+                newSegments
+            );
             sourcePos += 1;
             outPos += 1;
         }
@@ -1080,12 +1095,19 @@ function chompLeadingSpaceWithMapping(
 
 function appendChompedSegments(
     sourceSegments: ContentToRawSegment[],
+    sourceSegmentIndex: number,
     sourceStart: number,
     sourceEnd: number,
     outputStart: number,
     out: ContentToRawSegment[]
-): void {
-    for (const seg of sourceSegments) {
+): number {
+    // Source segments and requested spans are ordered, so earlier segments never need another scan.
+    for (; sourceSegmentIndex < sourceSegments.length; sourceSegmentIndex++) {
+        const seg = sourceSegments[sourceSegmentIndex];
+        if (seg.contentStart >= sourceEnd) {
+            break;
+        }
+
         const overlapStart = Math.max(sourceStart, seg.contentStart);
         const overlapEnd = Math.min(sourceEnd, seg.contentEnd);
         if (overlapStart >= overlapEnd) {
@@ -1100,5 +1122,9 @@ function appendChompedSegments(
             contentEnd: contentStart + overlapLen,
             rawStart,
         });
+        if (seg.contentEnd > sourceEnd) {
+            break;
+        }
     }
+    return sourceSegmentIndex;
 }
