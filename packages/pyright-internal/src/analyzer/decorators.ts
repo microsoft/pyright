@@ -315,7 +315,8 @@ export function applyClassDecorator(
     inputClassType: Type,
     originalClassType: ClassType,
     decoratorNode: DecoratorNode,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    nodeInfo: AnalyzerNodeInfoAccessor,
+    isInputTypeUnknown: boolean
 ): Type {
     const fileInfo = nodeInfo.getFileInfo(decoratorNode);
     let flags = fileInfo.isStubFile ? EvalFlags.ForwardRefs : EvalFlags.None;
@@ -434,7 +435,31 @@ export function applyClassDecorator(
         }
 
         if (FunctionType.isBuiltIn(decoratorType, 'runtime_checkable')) {
-            originalClassType.shared.flags |= ClassTypeFlags.RuntimeCheckable;
+            // Class decorators are applied bottom-up, so validate the class type
+            // that this decorator actually receives rather than the original
+            // (undecorated) class. If a lower decorator produced something other
+            // than a known class (e.g. Any, a union or type[object]), or the input
+            // is a recovery type retained for an Unknown result, don't report
+            // an error and assume it receives the class being declared.
+            if (
+                !isInputTypeUnknown &&
+                isInstantiableClass(inputClassType) &&
+                !ClassType.isBuiltIn(inputClassType, 'object')
+            ) {
+                if (!ClassType.isProtocolClass(inputClassType)) {
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.runtimeCheckableNotProtocol(),
+                        decoratorNode.d.expr
+                    );
+                } else if (ClassType.isSameGenericClass(inputClassType, originalClassType)) {
+                    // Only mark the class being declared. Don't mutate a different
+                    // protocol class that a lower decorator returned.
+                    originalClassType.shared.flags |= ClassTypeFlags.RuntimeCheckable;
+                }
+            } else {
+                originalClassType.shared.flags |= ClassTypeFlags.RuntimeCheckable;
+            }
 
             // Don't call getTypeOfDecorator for runtime_checkable. It appears
             // frequently in stubs, and it's a waste of time to validate its

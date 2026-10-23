@@ -19836,17 +19836,27 @@ export function createTypeEvaluator(
 
             // Now determine the decorated type of the class.
             let decoratedType: Type = classType;
+            let isDecoratedTypeUnknown = false;
             let foundUnknown = false;
 
             for (let i = node.d.decorators.length - 1; i >= 0; i--) {
                 const decorator = node.d.decorators[i];
 
                 const newDecoratedType = useSignatureTracker(node.parent ?? node, () =>
-                    applyClassDecorator(evaluatorInterface, decoratedType, classType, decorator, nodeInfo)
+                    applyClassDecorator(
+                        evaluatorInterface,
+                        decoratedType,
+                        classType,
+                        decorator,
+                        nodeInfo,
+                        isDecoratedTypeUnknown
+                    )
                 );
                 const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
 
                 if (unknownOrAny && isUnknown(unknownOrAny)) {
+                    isDecoratedTypeUnknown = true;
+
                     // Report this error only on the first unknown type.
                     if (!foundUnknown) {
                         addDiagnostic(
@@ -19858,6 +19868,9 @@ export function createTypeEvaluator(
                         foundUnknown = true;
                     }
                 } else {
+                    // Preserving the recovery type also preserves its uncertainty.
+                    isDecoratedTypeUnknown = isDecoratedTypeUnknown && isTypeSame(newDecoratedType, decoratedType);
+
                     // Apply the decorator only if the type is known.
                     decoratedType = newDecoratedType;
                 }
