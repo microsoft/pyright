@@ -690,6 +690,12 @@ test('NamedTuple11', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('NamedTuple13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple13.py']);
+
+    TestUtils.validateResults(analysisResults, 5);
+});
+
 test('NamedTupleReplace1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

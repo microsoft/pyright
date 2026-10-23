@@ -254,9 +254,9 @@ export function createNamedTupleType(
                         if (entry.nodeType === ParseNodeType.Tuple && entry.d.items.length === 2) {
                             entryNameNode = entry.d.items[0];
                             entryTypeNode = entry.d.items[1];
-                            entryType = convertToInstance(
-                                evaluator.getTypeOfExpressionExpectingType(entryTypeNode).type
-                            );
+                            // The typing spec treats functional NamedTuple field types as
+                            // type expressions, same as class-based annotations.
+                            entryType = evaluator.getTypeOfAnnotation(entryTypeNode);
                         } else {
                             evaluator.addDiagnostic(
                                 DiagnosticRule.reportArgumentType,
