@@ -23,6 +23,7 @@ def func1(val: ReturnsNonBool):
     # This should generate an error.
     a = not val
 
+    # This should generate an error.
     b = val or 1
     # This should generate an error.
     if b:
@@ -31,6 +32,19 @@ def func1(val: ReturnsNonBool):
     c = 1 and val
     # This should generate an error.
     if c:
+        pass
+
+    d = 1 or val
+    if d:
+        pass
+
+    e = None and val
+    if e:
+        pass
+
+    f = None or val
+    # This should generate an error.
+    if f:
         pass
 
     # This should generate an error.
@@ -55,6 +69,7 @@ def func2(val: TVal | ReturnsBool) -> TVal | ReturnsBool:
     # This should generate an error.
     a = not val
 
+    # This should generate an error.
     b = val or 1
     # This should generate an error.
     if b:
@@ -63,6 +78,19 @@ def func2(val: TVal | ReturnsBool) -> TVal | ReturnsBool:
     c = 1 and val
     # This should generate an error.
     if c:
+        pass
+
+    d = 1 or val
+    if d:
+        pass
+
+    e = None and val
+    if e:
+        pass
+
+    f = None or val
+    # This should generate an error.
+    if f:
         pass
 
     # This should generate an error.
