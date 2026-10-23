@@ -72,3 +72,16 @@ class GenericMovie[T](TypedDict):
 def func3(movie: GenericMovie[int]):
     reveal_type(movie | {"extra": 1}, expected_text="GenericMovie[int]")
     movie |= {"extra": 1}
+
+
+def func4(movie: MovieRO):
+    reveal_type(movie | {"title": "Alien", "year": 1979}, expected_text="MovieRO")
+
+
+def func5(movie: Movie):
+    if "rating" in movie:
+        merged = movie | {}
+        reveal_type(merged["rating"], expected_text="float")
+
+        movie |= {"year": 2000}
+        reveal_type(movie["rating"], expected_text="float")

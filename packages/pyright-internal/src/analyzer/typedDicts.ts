@@ -74,6 +74,7 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     specializeTupleClass,
+    synthesizeTypeVarForSelfCls,
 } from './typeUtils';
 
 // Creates a new custom TypedDict "alternate syntax" factory class.
@@ -675,18 +676,21 @@ export function synthesizeTypedDictClassMethods(
             return OverloadedType.create([updateMethod2, updateMethod1, updateMethod3]);
         }
 
-        function createOrMethod(methodName: string, strType: Type, isInPlace: boolean): FunctionType | OverloadedType {
-            const selfType = ClassType.cloneAsInstance(classType);
+        function createOrMethod(methodName: string, strType: Type, isInPlace: boolean): OverloadedType {
+            const selfType = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false);
+            const orSelfParam = FunctionParam.create(
+                ParamCategory.Simple,
+                selfType,
+                FunctionParamFlags.TypeDeclared,
+                'self'
+            );
             const partialType = allEntriesAreReadOnly
                 ? NeverType.createNever()
                 : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType));
 
             const createOverload = (valueType: Type, returnType: Type) => {
-                const method = FunctionType.createSynthesizedInstance(
-                    methodName,
-                    isInPlace ? FunctionTypeFlags.None : FunctionTypeFlags.Overloaded
-                );
-                FunctionType.addParam(method, selfParam);
+                const method = FunctionType.createSynthesizedInstance(methodName, FunctionTypeFlags.Overloaded);
+                FunctionType.addParam(method, orSelfParam);
                 FunctionType.addParam(
                     method,
                     FunctionParam.create(ParamCategory.Simple, valueType, FunctionParamFlags.TypeDeclared, 'value')
@@ -696,16 +700,12 @@ export function synthesizeTypedDictClassMethods(
                 return method;
             };
 
-            // The in-place operator modifies the TypedDict, so (like "update") it
-            // accepts only a partial TypedDict containing writable entries.
-            if (isInPlace) {
-                return createOverload(partialType, selfType);
-            }
-
+            // In addition to the overloads in typeshed, accept a partial TypedDict
+            // so a dict expression can provide a subset of the writable entries.
             const overloads = [createOverload(selfType, selfType), createOverload(partialType, selfType)];
 
             const dictType = evaluator.getBuiltInObject(node, 'dict', [strType, AnyType.create()]);
-            if (isClassInstance(dictType)) {
+            if (!isInPlace && isClassInstance(dictType)) {
                 overloads.push(
                     createOverload(
                         dictType,

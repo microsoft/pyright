@@ -331,7 +331,7 @@ export function getTypeOfBinaryOperation(
             // If this is a bitwise or ("|"), use the type of the left operand. This allows
             // us to support the case where a TypedDict is being updated with a dict expression.
             if (isClassInstance(leftType) && ClassType.isTypedDictClass(leftType)) {
-                expectedOperandType = getPartialTypedDict(leftType);
+                expectedOperandType = getTypedDictUpdateType(leftType);
             }
         }
     }
@@ -524,7 +524,7 @@ export function getTypeOfAugmentedAssignment(
         // us to support the case where a TypedDict is being updated with a dict expression.
         expectedOperandType =
             isClassInstance(leftType) && ClassType.isTypedDictClass(leftType)
-                ? getPartialTypedDict(leftType)
+                ? getTypedDictUpdateType(leftType)
                 : leftType;
     }
 
@@ -1153,9 +1153,13 @@ export function customMetaclassSupportsMethod(type: Type, methodName: string): b
 }
 
 // Returns the expected type for a dict expression used to update a TypedDict
-// with "|" or "|=". Any subset of the (unnarrowed) entries may be provided.
-function getPartialTypedDict(typedDictType: ClassType): ClassType {
-    return ClassType.cloneForPartialTypedDict(ClassType.cloneForNarrowedTypedDictEntries(typedDictType, undefined));
+// with "|" or "|=". It may provide all entries or any subset of the
+// (unnarrowed) writable entries.
+function getTypedDictUpdateType(typedDictType: ClassType): Type {
+    return combineTypes([
+        typedDictType,
+        ClassType.cloneForPartialTypedDict(ClassType.cloneForNarrowedTypedDictEntries(typedDictType, undefined)),
+    ]);
 }
 
 // All functions in Python derive from object, so they inherit all
