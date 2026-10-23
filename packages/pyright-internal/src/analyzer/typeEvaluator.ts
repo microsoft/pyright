@@ -253,6 +253,7 @@ import {
     FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
+    getInferredTupleLiteralBase,
     InheritanceChain,
     isAny,
     isAnyOrUnknown,
@@ -282,6 +283,7 @@ import {
     NeverType,
     OverloadedType,
     ParamSpecType,
+    preserveInferredTupleLiterals,
     removeFromUnion,
     removeUnbound,
     SentinelLiteral,
@@ -1383,6 +1385,18 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfExpression(
+        node: ExpressionNode,
+        flags = EvalFlags.None,
+        inferenceContext?: InferenceContext
+    ): TypeResult {
+        const result = getTypeOfExpressionWithCache(node, flags, inferenceContext);
+        if ((flags & EvalFlags.StripTupleLiterals) !== 0 && result.type.props?.inferredTupleLiteral) {
+            return { ...result, type: getInferredTupleLiteralBase(result.type) };
+        }
+        return result;
+    }
+
+    function getTypeOfExpressionWithCache(
         node: ExpressionNode,
         flags = EvalFlags.None,
         inferenceContext?: InferenceContext
@@ -29718,7 +29732,14 @@ export function createTypeEvaluator(
             return { type: combineTypes([narrowedType, declaredType]), isIncomplete: assignedTypeResult.isIncomplete };
         }
 
-        return { type: narrowedType, isIncomplete: assignedTypeResult.isIncomplete };
+        return {
+            type:
+                narrowedType.props?.inferredTupleLiteral &&
+                !assignType(declaredType, getInferredTupleLiteralBase(narrowedType))
+                    ? preserveInferredTupleLiterals(narrowedType)
+                    : narrowedType,
+            isIncomplete: assignedTypeResult.isIncomplete,
+        };
     }
 
     function validateOverrideMethod(

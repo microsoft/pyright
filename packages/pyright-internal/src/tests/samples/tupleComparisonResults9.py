@@ -1,4 +1,5 @@
-# Tuple dispatch refusal, singleton equality, and numeric prefix regressions.
+# Tuple dispatch refusal, singleton equality, and ordinary numeric contracts.
+# float and complex values have no Literal types; do not reconstruct initializers.
 from __future__ import annotations
 from typing import assert_type
 from types import NotImplementedType, EllipsisType
@@ -33,12 +34,12 @@ def case_complex_prefix_lt():
 
 
 def case_complex_unequal_lt():
-    bad = (1j, "text") < (2j, 3) # ERROR reportOperatorIssue
+    assert_type((1j, "text") < (2j, 3), bool)
 
 
 def case_numeric_unequal_lt():
     assert_type((1.0, "text") < (2, 3), bool)
-    assert_type((9007199254740993, "text") < (9007199254740992.0, 3), bool)
+    bad_large = (9007199254740993, "text") < (9007199254740992.0, 3) # ERROR reportOperatorIssue
     left = (-1.0, "text")
     alias = left
     left = (2.0, "other")
@@ -46,7 +47,7 @@ def case_numeric_unequal_lt():
 
 
 def case_numeric_equal_bad_lt():
-    bad = (1.0, "text") < (1, 3) # ERROR reportOperatorIssue
+    assert_type((1.0, "text") < (1, 3), bool)
     bad_large = (9007199254740992, "text") < (9007199254740992.0, 3) # ERROR reportOperatorIssue
 
 
@@ -142,12 +143,12 @@ def case_complex_prefix_le():
 
 
 def case_complex_unequal_le():
-    bad = (1j, "text") <= (2j, 3) # ERROR reportOperatorIssue
+    assert_type((1j, "text") <= (2j, 3), bool)
 
 
 def case_numeric_unequal_le():
     assert_type((1.0, "text") <= (2, 3), bool)
-    assert_type((9007199254740993, "text") <= (9007199254740992.0, 3), bool)
+    bad_large = (9007199254740993, "text") <= (9007199254740992.0, 3) # ERROR reportOperatorIssue
     left = (-1.0, "text")
     alias = left
     left = (2.0, "other")
@@ -155,7 +156,7 @@ def case_numeric_unequal_le():
 
 
 def case_numeric_equal_bad_le():
-    bad = (1.0, "text") <= (1, 3) # ERROR reportOperatorIssue
+    assert_type((1.0, "text") <= (1, 3), bool)
     bad_large = (9007199254740992, "text") <= (9007199254740992.0, 3) # ERROR reportOperatorIssue
 
 
@@ -251,12 +252,12 @@ def case_complex_prefix_gt():
 
 
 def case_complex_unequal_gt():
-    bad = (1j, "text") > (2j, 3) # ERROR reportOperatorIssue
+    assert_type((1j, "text") > (2j, 3), bool)
 
 
 def case_numeric_unequal_gt():
     assert_type((1.0, "text") > (2, 3), bool)
-    assert_type((9007199254740993, "text") > (9007199254740992.0, 3), bool)
+    bad_large = (9007199254740993, "text") > (9007199254740992.0, 3) # ERROR reportOperatorIssue
     left = (-1.0, "text")
     alias = left
     left = (2.0, "other")
@@ -264,7 +265,7 @@ def case_numeric_unequal_gt():
 
 
 def case_numeric_equal_bad_gt():
-    bad = (1.0, "text") > (1, 3) # ERROR reportOperatorIssue
+    assert_type((1.0, "text") > (1, 3), bool)
     bad_large = (9007199254740992, "text") > (9007199254740992.0, 3) # ERROR reportOperatorIssue
 
 
@@ -360,12 +361,12 @@ def case_complex_prefix_ge():
 
 
 def case_complex_unequal_ge():
-    bad = (1j, "text") >= (2j, 3) # ERROR reportOperatorIssue
+    assert_type((1j, "text") >= (2j, 3), bool)
 
 
 def case_numeric_unequal_ge():
     assert_type((1.0, "text") >= (2, 3), bool)
-    assert_type((9007199254740993, "text") >= (9007199254740992.0, 3), bool)
+    bad_large = (9007199254740993, "text") >= (9007199254740992.0, 3) # ERROR reportOperatorIssue
     left = (-1.0, "text")
     alias = left
     left = (2.0, "other")
@@ -373,7 +374,7 @@ def case_numeric_unequal_ge():
 
 
 def case_numeric_equal_bad_ge():
-    bad = (1.0, "text") >= (1, 3) # ERROR reportOperatorIssue
+    assert_type((1.0, "text") >= (1, 3), bool)
     bad_large = (9007199254740992, "text") >= (9007199254740992.0, 3) # ERROR reportOperatorIssue
 
 

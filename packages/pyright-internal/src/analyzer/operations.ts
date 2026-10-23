@@ -55,6 +55,8 @@ import {
     TypeBase,
     UnknownType,
     combineTypes,
+    exceedsInferredTupleLiteralProduct,
+    getInferredTupleLiteralBase,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -1258,6 +1260,11 @@ function validateArithmeticOperation(
 ): TypeResult {
     let deprecatedInfo: MagicMethodDeprecationInfo | undefined;
     const isIncomplete = !!leftTypeResult.isIncomplete || !!rightTypeResult.isIncomplete;
+
+    if (exceedsInferredTupleLiteralProduct(leftTypeResult.type, rightTypeResult.type)) {
+        leftTypeResult = { ...leftTypeResult, type: getInferredTupleLiteralBase(leftTypeResult.type) };
+        rightTypeResult = { ...rightTypeResult, type: getInferredTupleLiteralBase(rightTypeResult.type) };
+    }
 
     const type = evaluator.mapSubtypesExpandTypeVars(
         leftTypeResult.type,

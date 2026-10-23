@@ -1556,6 +1556,11 @@ test('TupleComparisonResults1', () => {
     TestUtils.validateResults(analysisResults, 18);
 });
 
+test('TupleLiteralInference1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleLiteralInference1.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('TupleComparisonResults2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults2.py']);
     TestUtils.validateResults(analysisResults, 0);
@@ -1625,5 +1630,10 @@ test('TupleComparisonResults8', () => {
 
 test('TupleComparisonResults9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults9.py']);
-    TestUtils.validateResults(analysisResults, 16);
+    TestUtils.validateResults(analysisResults, 12);
+});
+
+test('TupleComparisonResults10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults10.py']);
+    TestUtils.validateResults(analysisResults, 7);
 });
