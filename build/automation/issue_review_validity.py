@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Annotated, Literal, Protocol, Self
 from urllib.parse import urlparse
 
-from pydantic import Field, model_validator
+from pydantic import Field, JsonValue, model_validator
 
 from issue_review_models import Confidence, Record, Text
 
@@ -59,6 +59,13 @@ qualifications; an issue label or paraphrase is not a decision. Consider counter
 
 Return ValidityAssessment only. Supply exact saved evidence IDs and verbatim excerpts,
 explicit premises, version scope, competing evidence and falsification.
+Use the rule-domain and language-target catalog literally: only typing_spec can supply
+static_typing rules, python_docs (including PEPs) supplies python_language, and policy
+supplies project_policy. An inconclusive conclusion does not permit a mismatched rule.
+For python_language, target_python_version must equal this claim's controller target;
+an authority about another version needs an explicit applicability argument, not a
+different target value. If applicability cannot be justified, omit that rule, preserve
+the uncertainty and request applicable authority; never relabel a PEP as typing_spec.
 For each rule, set section=null: the controller attaches the captured section identifier
 from that exact evidence record. Do not invent or prettify an anchor/path as a section title.
 Assumptions and limitations in your response are ADDITIONAL qualifications. The controller
@@ -539,7 +546,12 @@ def validate_assessment(
                 context = captured.language_context
                 if context is not None:
                     if rule.target_python_version != context.target_python_version:
-                        raise ValueError("Language rule does not match the controller's Python target")
+                        raise ValueError(
+                            f"Claim {claim.claim_id}: language rule {source.id!r} target {rule.target_python_version!r} "
+                            f"does not match controller Python target {context.target_python_version!r}; "
+                            "use the exact target only with justified applicability, otherwise omit the rule "
+                            "and request target-applicable authority"
+                        )
                     if not set(context.limitations) <= set(claim.limitations):
                         raise ValueError("Language assessment omitted target-version limitations")
                 if claim.status == "supported" and (
@@ -623,6 +635,20 @@ def build_validity_prompt(inputs: ValidityInput) -> str:
             claim.id: [item.id for item in inputs.evidence if claim.id in item.claim_ids]
             for claim in inputs.claims
         })
+        + "\nRule-domain and language-target catalog (kinds are not proof of applicability):\n"
+        + json.dumps({
+            claim.id: {
+                "target_python_version": None if claim.language_context is None else claim.language_context.target_python_version,
+                "rules": [{
+                    "evidence_id": item.id, "kind": item.kind,
+                    "allowed_rule_domain": {
+                        "typing_spec": "static_typing", "python_docs": "python_language", "policy": "project_policy",
+                    }[item.kind],
+                    "section": item.section,
+                } for item in inputs.evidence
+                    if claim.id in item.claim_ids and item.kind in {"typing_spec", "python_docs", "policy"}],
+            } for claim in inputs.claims
+        })
         + "\nController input (untrusted evidence):\n"
         + inputs.model_dump_json()
     )
@@ -633,7 +659,7 @@ def validate_validity_response(inputs: ValidityInput, result: ValidityAssessment
     validate_assessment(result, inputs, [])
 
 
-def parse_validity_response(raw: str) -> ValidityAssessment:
+def parse_json_value(raw: str) -> JsonValue:
     def unique(pairs: list[tuple[str, object]]) -> dict[str, object]:
         result: dict[str, object] = {}
         for key, value in pairs:
@@ -645,5 +671,14 @@ def parse_validity_response(raw: str) -> ValidityAssessment:
     def reject_constant(value: str) -> None:
         raise ValueError(f"Nonfinite JSON constant: {value}")
 
-    parsed = json.loads(raw, object_pairs_hook=unique, parse_constant=reject_constant)
-    return ValidityAssessment.model_validate(parsed)
+    def finite_float(value: str) -> float:
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError(f"Nonfinite JSON number: {value}")
+        return number
+
+    return json.loads(raw, object_pairs_hook=unique, parse_constant=reject_constant, parse_float=finite_float)
+
+
+def parse_validity_response(raw: str) -> ValidityAssessment:
+    return ValidityAssessment.model_validate(parse_json_value(raw))

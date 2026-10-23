@@ -23,6 +23,7 @@ from collections.abc import Callable, Iterator, Sequence
 from email.parser import BytesParser
 from pathlib import Path
 from typing import Annotated, Literal
+from urllib.parse import unquote_plus, urlsplit
 
 from pydantic import ConfigDict, Field, JsonValue
 
@@ -39,7 +40,7 @@ Setting = Literal["pythonVersion", "typeCheckingMode"]
 CapabilityStatus = Literal["available", "missing", "unknown", "unsupported", "failed"]
 RequirementKind = Literal["checker_target", "static_stubs", "runtime_distribution", "static_feature", "unsupported"]
 DeclarationKind = Literal[
-    "literal_setting", "interpreter_version", "checker_cli", "checker_version", "dependency_version",
+    "literal_setting", "interpreter_version", "checker_cli", "checker_version", "dependency_version", "playground_query",
 ]
 
 
@@ -60,6 +61,15 @@ class EvidenceSpan(CapturedRecord):
     start: int = Field(ge=0, le=MAX_DOCUMENT_CHARS)
     end: int = Field(ge=0, le=MAX_DOCUMENT_CHARS)
     quote: BoundedText
+
+
+class ReportedDiagnostic(CapturedRecord):
+    output_block_id: Label
+    message: BoundedText
+    rendered_message: BoundedText
+    rule: Label | None
+    evidence: EvidenceSpan
+    transform: Literal["pyright_cli_renderer"] = "pyright_cli_renderer"
 
 
 class SourceLimitation(CapturedRecord):
@@ -324,6 +334,96 @@ def _shell_declarations(
     return declarations
 
 
+def _playground_declarations(
+    report_hash: str, document: ReportDocument, start: int, url: str,
+) -> list[ReportedDeclaration]:
+    if re.match(r"^https?://pyright-play\.net(?:[/?#]|$)", url, re.IGNORECASE) is None:
+        return []
+    parsed = urlsplit(url)
+    if parsed.scheme not in {"http", "https"} or parsed.netloc.lower() != "pyright-play.net" or parsed.path not in {"", "/"}:
+        return []
+    if not parsed.query:
+        return []
+    pairs = parsed.query.split("&")
+    if len(pairs) > 128:
+        raise ValueError("Playground query exceeds 128 fields; no settings selected")
+    cursor = start + url.index("?") + 1
+    declarations = []
+    for pair in pairs:
+        key, separator, raw_value = pair.partition("=")
+        end = cursor + len(pair)
+        if re.search(r"%(?![0-9a-fA-F]{2})", key):
+            raise ValueError("Malformed percent escape in playground setting name")
+        key = unquote_plus(key, errors="strict")
+        if key in {
+            "pythonVersion", "typeCheckingMode", "pythonPlatform", "enableExperimentalFeatures", "pyrightVersion",
+            "strict", "extraPaths", "stubPath", "typeshedPath", "venv", "venvPath", "executionEnvironments",
+            "extends", "include", "exclude", "ignore",
+        } or re.fullmatch(r"report[A-Z]\w*", key):
+            if not separator or re.search(r"%(?![0-9a-fA-F]{2})", raw_value):
+                raise ValueError(f"Malformed playground setting {key!r}")
+            value: JsonValue = unquote_plus(raw_value, errors="strict")
+            if key == "strict":
+                key, value = "typeCheckingMode", "strict" if value == "true" else value
+            elif (key == "enableExperimentalFeatures" or key.startswith("report")) and value in {"true", "false"}:
+                value = value == "true"
+            declarations.append(_declaration(
+                report_hash, document, key, value, cursor, end, declaration_kind="playground_query",
+            ))
+        cursor = end + 1
+    return declarations
+
+
+def reported_diagnostics(capture: SourceCapture) -> list[ReportedDiagnostic]:
+    """Bounded CLI-rendered candidates, not a complete diagnostic inventory or observations."""
+    header = re.compile(r"^  .+:\d+:\d+ - (?:error|warning|information): (.+)$")
+    boundary = re.compile(r"^ {2,3}(?=\S)(?:.*(?: - |: ))?(?:error|warning|information): ")
+    rule_suffix = re.compile(r" \((report[A-Z]\w*)\)$")
+    results = []
+    documents = {item.id: item for item in capture.documents}
+    for block in capture.blocks:
+        if block.source_kind not in {"other", "unclassified"}:
+            continue
+        lines = _lines(block.content)
+        index = 0
+        while index < len(lines):
+            _, offset, line = lines[index]
+            match = header.fullmatch(line.rstrip("\r\n"))
+            index += 1
+            if match is None:
+                continue
+            message_lines = [match[1]]
+            end = offset + len(line.rstrip("\r\n"))
+            ambiguous = False
+            while index < len(lines) and not rule_suffix.search(message_lines[-1]):
+                continuation = lines[index][2].rstrip("\r\n")
+                if not continuation.startswith("  ") or boundary.match(continuation):
+                    break
+                if continuation[2:] and not continuation[2:3].isspace():
+                    ambiguous = True
+                    break
+                message_lines.append(continuation[2:])
+                end = lines[index][1] + len(continuation)
+                index += 1
+            if ambiguous:
+                continue
+            message = "\n".join(message_lines)
+            rendered = block.content[offset + match.start(1):end]
+            rule = rule_suffix.search(message)
+            if rule:
+                message = message[:rule.start()]
+                rendered = rendered[:rendered.rfind(" (" + rule[1] + ")")]
+            start, stop = _raw_source_offset(block, offset), _raw_source_offset(block, end)
+            quote = documents[block.document_id].text[start:stop]
+            if not message or max(len(quote), len(message), len(rendered)) > 4096:
+                continue
+            results.append(ReportedDiagnostic(
+                output_block_id=block.id, message=message, rendered_message=rendered, rule=rule[1] if rule else None,
+                evidence=EvidenceSpan(document_id=block.document_id, start=start, end=stop, quote=quote),
+            ))
+    return results
+
+
 def capture_sources(report_id: str, documents: Sequence[ReportDocument]) -> SourceCapture:
     """Capture every supplied fence independently; never reconstruct or join code."""
     if not documents or len(documents) > 128:
@@ -451,8 +551,19 @@ def capture_sources(report_id: str, documents: Sequence[ReportDocument]) -> Sour
             previous = None
             if len(blocks) > MAX_BLOCKS or len(limitations) > 256:
                 raise ValueError("Report exceeds the bounded source/limitation count; nothing is silently omitted")
-        # Only prose outside fenced blocks supplies global declarations. Python
-        # strings and diagnostic output are not configuration evidence.
+        for url in re.finditer(r"""https?://[^\s<>()`"']+""", document.text, re.IGNORECASE):
+            if any(start <= url.start() < end for start, end in excluded):
+                continue
+            excluded.append(url.span())
+            try:
+                declarations.extend(_playground_declarations(report_hash, document, url.start(), url.group()))
+            except ValueError as error:
+                limitations.append(SourceLimitation(
+                    code="invalid_configuration", document_id=document.id, start=url.start(), end=url.end(),
+                    detail=f"Unsupported playground declarations: {error}",
+                ))
+        # URLs are parsed separately; URL suffixes and encoded source cannot
+        # masquerade as free-standing prose settings.
         patterns: list[tuple[str, str, DeclarationKind]] = [
             ("pythonVersion", r'(?i)\bPython[ \t]+(?:version[ \t]*[:=]?[ \t]+)?`?([0-9][A-Za-z0-9_.+-]*)', "interpreter_version"),
             ("pythonVersion", r'(?i)\bPython[ \t]+version[ \t]*[:=]?[ \t]+`?([^\s`,;]+)', "interpreter_version"),

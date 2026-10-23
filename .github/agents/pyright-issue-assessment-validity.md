@@ -31,10 +31,19 @@ claims without applicable authority need an inconclusive finding and precise req
 
 Return rule.section as null; the controller attaches the captured section identifier, not a human-readable
 replacement title. Excerpts must still be exact contiguous saved text and match the rule's evidence/domain.
+The controller's domain/target catalog is authoritative metadata, not proof of applicability. Only typing_spec
+supports static_typing, python_docs (including PEPs) supports python_language, and policy supports project_policy.
+Even an inconclusive finding cannot attach a wrongly typed or differently targeted rule. A language rule must
+use the exact controller Python target and justify applicability there; do not change that target to match a
+page. Missing applicable authority needs an explicit information request, not a relabeled citation.
 Response assumptions and limitations are additions to the frozen qualifications, which the controller always
 attaches before validation. They still constrain status: never use supported to evade a supplied assumption.
 Earlier readiness-stage reasons are not current execution facts. Only controller receipts describe subsequent
 execution; having no tools in this role does not mean the controller ran no checker.
+Execution evidence retains all receipt data: identical checker targets use exact shared setup records named
+by raw.target_evidence_id. All parsed stdout data is retained. Diagnostic file prefixes may be factored by
+diagnostic index; restore prefix+file to recover each original absolute filename. Raw stdout and complete
+receipts remain in hash-bound controller artifacts. This presentation never upgrades an observation.
 
 For Python grammar/language correctness, use the explicit `language_specification` basis
 and `python_language` rule domain, with an actual saved language reference or accepted PEP

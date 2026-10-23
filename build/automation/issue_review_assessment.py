@@ -26,7 +26,8 @@ from issue_review_reproduction import (
 )
 from issue_review_sources import (
     MaterializedSetup, ReportDocument, SettingChoice, SetupCapability, SourceAssociation, SourceCapture,
-    capture_sources, inspect_requirements, materialize_setup, resolve_setup, verify_capture, verify_materialized_setup,
+    capture_sources, inspect_requirements, materialize_setup, reported_diagnostics, resolve_setup, verify_capture,
+    verify_materialized_setup,
 )
 
 Screen = Callable[[JsonValue, Path, str], Awaitable[None]]
@@ -145,7 +146,11 @@ def build_plan(
         ):
             raise ValueError("Captured source content/filename association differs from the frozen original manifest")
     if draft.version_quote is not None and (
-        draft.version_quote not in report or draft.reported_version is None or draft.reported_version not in draft.version_quote
+        draft.version_quote not in report or draft.reported_version is None
+        or draft.reported_version not in draft.version_quote and not any(
+            item.setting == "pyrightVersion" and item.supported and item.value == draft.reported_version
+            and item.evidence.quote == draft.version_quote for item in capture.declarations
+        )
     ):
         raise ValueError("Reported checker version requires a contiguous exact report quote")
     reported_versions = {
@@ -157,6 +162,20 @@ def build_plan(
     source_by_id = {source.id: source for source in capture.blocks}
     if len(capabilities) > 64 or len({item.requirement_hash for item in capabilities}) != len(capabilities):
         raise ValueError("Controller setup capabilities must be bounded and unique")
+    diagnostics = reported_diagnostics(capture)
+
+    def reported_message(value: str | None) -> bool:
+        if value is None:
+            return True
+        if any(value == item.message for item in diagnostics):
+            return True
+        if any(value == item.rendered_message and value != item.message for item in diagnostics):
+            raise ValueError(
+                "Reported message contains CLI presentation indentation; copy the exact controller-provided "
+                "diagnostic candidate message, retaining its quoted provenance, not a manually normalized variant"
+            )
+        return value in report
+
     results = []
     for claim in draft.claims:
         if claim.report_quote not in report:
@@ -176,16 +195,19 @@ def build_plan(
         for location in claim.discovery.locations if claim.discovery is not None else []:
             if location.end_line > len(source_by_id[location.source_id].content.splitlines()):
                 raise ValueError("Discovery location lies outside the captured pristine source")
-        if claim.discovery is not None and any(
-            value is not None and value not in report
-            for value in (claim.discovery.reported_message, claim.discovery.reported_rule)
+        if claim.discovery is not None and (
+            not reported_message(claim.discovery.reported_message)
+            or claim.discovery.reported_rule is not None and claim.discovery.reported_rule not in report
         ):
-            raise ValueError("Frozen reported symptom wording/rule must be exact report evidence, or honestly unknown")
+            raise ValueError(
+                f"Claim {claim.id}: frozen reported wording/rule must be exact report evidence or an exact "
+                "controller-provided CLI diagnostic candidate. Preserve whitespace; otherwise use null, not a guess."
+            )
         scenario = None
         if claim.readiness == "ready" and not reasons:
             try:
                 if claim.verification is not None and any(
-                    symptom.message not in report
+                    not reported_message(symptom.message)
                     for symptom in [*claim.verification.broken, *claim.verification.resolved]
                 ):
                     raise ValueError("Exact original diagnostic wording is unavailable; use historical discovery, not guesses")
@@ -466,6 +488,7 @@ class AssessmentController:
         report = report_text(self.issue, self.comments)
         if any(
             symptom.message not in known_messages and symptom.message not in report
+            and symptom.message != discovery.scope.reported_message
             for symptom in [*verification.broken, *verification.resolved]
         ):
             raise ValueError("Refinement cannot invent unobserved diagnostic wording")

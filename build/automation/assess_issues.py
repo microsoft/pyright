@@ -46,8 +46,8 @@ from issue_review_assessment_models import (
 from issue_review_models import Issue, ReproductionTarget
 from issue_review_reproduction import REGISTRIES, ReleaseCatalog, TargetStore, fingerprint, select_targets
 from issue_review_safety import InjectionScreening, child_environment
-from issue_review_sources import MaterializedSetup, SetupCapability, SourceCapture, materialize_setup
-from issue_review_validity import ValidityEvidence
+from issue_review_sources import MaterializedSetup, SetupCapability, SourceCapture, materialize_setup, reported_diagnostics
+from issue_review_validity import ValidityEvidence, parse_json_value
 from review_issues import (
     AGENTS, ROOT, SDK, Agent, AutomationError, GitHub, discussion_text, show, target_process,
 )
@@ -139,6 +139,11 @@ def readiness_prompt(issue: Issue, comments: list[dict[str, JsonValue]], capture
     return (
         "Return AssessmentDraft version1. This is permanently read-only, not reproduction or semantic validity. "
         "Preserve every material claim including unsupported broader claims; never discard one to obtain a disposition. "
+        "Keep distinct user concerns, not a separate claim for every diagnostic line, premise, workaround or "
+        "supporting control of the same concern. Never merge or rename externally declared IDs/summaries. "
+        "Ordinary static diagnostics or revealed types on supplied Python code use surface=cli, even without a "
+        "reported CLI command. This adapter does not establish editor/LSP/runtime behavior: keep genuinely "
+        "editor-only completion, hover, navigation, staleness or runtime concerns separately unsupported. "
         "Reference captured Python/stub IDs with safe relative .py/.pyi paths in sources and claim.source_ids, "
         "never retype originals. Do NOT associate JSON configuration as a Python source or include its ID in "
         "claim.source_ids: the controller materializes captured configuration separately. "
@@ -156,6 +161,10 @@ def readiness_prompt(issue: Issue, comments: list[dict[str, JsonValue]], capture
         "Controller duties (target acquisition, originals-before-controls, precision checks) are workflow, not "
         "missing reporter prerequisites. Report quotes must be single contiguous exact spans. "
         "Source filenames without evidence are disclosed controller conventions. "
+        "Preserve exact diagnostic whitespace. For recognized CLI-rendered candidates below, copy message "
+        "verbatim: the controller removes only the known renderer indentation and rule suffix, retaining an "
+        "exact raw evidence span. Candidate.output_block_id identifies an output fence, NOT a Python source "
+        "association. Do not manually normalize any other quoted diagnostic or invent wording. "
         + (
             "Bounded assumed Python/checking settings are permitted ONLY when genuinely omitted; disclose choices "
             "as experiments in setting_choices, never replace explicit declarations. "
@@ -165,6 +174,8 @@ def readiness_prompt(issue: Issue, comments: list[dict[str, JsonValue]], capture
         + "\nUntrusted issue:\n" + issue.model_dump_json()
         + "\nUntrusted complete discussion:\n" + json.dumps(comments)
         + "\nController-captured source/configuration evidence:\n" + capture.model_dump_json()
+        + "\nOptional controller-derived CLI diagnostic candidates (not observations or a complete inventory):\n"
+        + json.dumps([item.model_dump(mode="json") for item in reported_diagnostics(capture)])
     )
 
 
@@ -409,6 +420,66 @@ async def refinement(
     return result
 
 
+def execution_evidence_content(
+    receipt: AssessmentReceipt, artifact: Path, *, target_evidence: ValidityEvidence | None = None,
+) -> str:
+    """Keep all receipt data, factoring JSON presentation and reversible diagnostic path prefixes."""
+    original = artifact.read_bytes()
+    if AssessmentReceipt.model_validate_json(original) != receipt:
+        raise ValueError("Execution evidence differs from its saved controller receipt")
+    data = receipt.model_dump(mode="json")
+    data["receipt_artifact"] = {"location": str(artifact), "sha256": hashlib.sha256(original).hexdigest()}
+    raw = data["raw"]
+    if target_evidence is not None:
+        if (
+            target_evidence.kind != "setup" or target_evidence.provenance != "controller_capture"
+            or receipt.claim_id not in target_evidence.claim_ids
+            or parse_json_value(target_evidence.content) != raw.get("target")
+        ):
+            raise ValueError("Shared checker target differs from its exact controller receipt or claim scope")
+        raw.pop("target")
+        raw["target_evidence_id"] = target_evidence.id
+    stdout = raw.get("stdout")
+    if isinstance(stdout, str):
+        try:
+            parsed = parse_json_value(stdout)
+        except ValueError as error:
+            raw["stdout_representation"] = {"format": "verbatim", "reason": str(error)}
+        else:
+            prefixes: dict[str, list[int]] = {}
+            cwd = raw.get("cwd")
+            diagnostics = parsed.get("generalDiagnostics") if isinstance(parsed, dict) else None
+            if isinstance(cwd, str) and isinstance(diagnostics, list):
+                for index, diagnostic in enumerate(diagnostics):
+                    if not isinstance(diagnostic, dict):
+                        continue
+                    filename = diagnostic.get("file")
+                    if not isinstance(filename, str):
+                        continue
+                    path = Path(filename)
+                    if not path.is_absolute():
+                        continue
+                    try:
+                        relative = path.relative_to(cwd)
+                    except ValueError:
+                        continue
+                    if not relative.parts or ".." in relative.parts:
+                        continue
+                    suffix = filename[-len(str(relative)):]
+                    if Path(suffix) != relative:
+                        continue
+                    prefix = filename[:-len(suffix)]
+                    prefixes.setdefault(prefix, []).append(index)
+                    diagnostic["file"] = suffix
+            raw.pop("stdout")
+            raw["stdout_json"] = parsed
+            raw["stdout_representation"] = {
+                "format": "full_json_with_reversible_diagnostic_file_prefixes",
+                "diagnostic_file_prefixes": prefixes, "raw_sha256": hashlib.sha256(stdout.encode("utf-8")).hexdigest(),
+            }
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+
+
 async def validity_phase(
     controller: AssessmentController, args: argparse.Namespace, sdk: SDK, result: AssessmentRun,
     *, github: GitHub,
@@ -420,6 +491,28 @@ async def validity_phase(
     )
 
     evidence, claims = [], []
+    shared_captures: dict[tuple[str, str], ValidityEvidence] = {}
+
+    def capture_evidence(
+        identifier: str, kind: Literal["source", "setup", "report"], content: str, claim_id: str,
+    ) -> ValidityEvidence:
+        shared = shared_captures.get((kind, content)) if kind in {"source", "setup"} else None
+        if shared is not None:
+            if claim_id not in shared.claim_ids:
+                shared.claim_ids.append(claim_id)
+            return shared
+        captured = ValidityEvidence(
+            id=identifier, kind=kind, provenance="controller_capture",
+            location=f"assessment:{controller.policy.input_hash}", section=kind,
+            content=content, sha256=content_hash(content), claim_ids=[claim_id],
+            source_id=None, setup_id=None, target="not_applicable", observation="not_applicable",
+            version=None, retrieved_at=None,
+        )
+        evidence.append(captured)
+        if kind in {"source", "setup"}:
+            shared_captures[kind, content] = captured
+        return captured
+
     for claim in controller.plan.claims:
         source_id, setup_id = f"source-{claim.id}", f"setup-{claim.id}"
         prepared = controller.claim_setup(claim.id)
@@ -431,26 +524,22 @@ async def validity_phase(
             }, sort_keys=True)),
             (f"report-{claim.id}", "report", claim.report_quote),
         ]
-        for identifier, kind, content in captures:
-            evidence.append(ValidityEvidence(
-                id=identifier, kind=kind, provenance="controller_capture",
-                location=f"assessment:{controller.policy.input_hash}:{claim.id}", section=kind,
-                content=content, sha256=content_hash(content), claim_ids=[claim.id],
-                source_id=None, setup_id=None, target="not_applicable", observation="not_applicable",
-                version=None, retrieved_at=None,
-            ))
-        evidence_ids = [source_id, setup_id, f"report-{claim.id}"]
+        evidence_ids = [
+            capture_evidence(identifier, kind, content, claim.id).id for identifier, kind, content in captures
+        ]
+        source_id, setup_id = evidence_ids[:2]
         progress = next(item for item in result.progress if item.claim_id == claim.id)
         for identifier in progress.receipt_ids:
             candidates = [
                 *controller.directory.glob(f"discovery-{claim.id}/receipt.json"),
                 *controller.directory.glob(f"verification-{claim.id}/*-receipt.json"),
             ]
-            receipt = next((AssessmentReceipt.model_validate_json(path.read_text(encoding="utf-8"))
-                            for path in candidates
-                            if json.loads(path.read_text(encoding="utf-8"))["id"] == identifier), None)
-            if receipt is None:
+            receipt_path = next((
+                path for path in candidates if json.loads(path.read_text(encoding="utf-8"))["id"] == identifier
+            ), None)
+            if receipt_path is None:
                 raise ValueError("Validity cannot invent an execution fact without its saved controller receipt")
+            receipt = AssessmentReceipt.model_validate_json(receipt_path.read_text(encoding="utf-8"))
             target = ReproductionTarget.model_validate(receipt.raw["target"])
             observed = progress.target_observations.get(target.role, "unobserved")
             observation = (
@@ -467,10 +556,16 @@ async def validity_phase(
                 "Historical discovery only; never verification or reproduction" if receipt.observation == "captured" else
                 "Blocked historical discovery; no qualified observation"
             )
-            content = receipt.model_dump_json()
+            target_evidence = capture_evidence(
+                "execution-target-" + fingerprint(receipt.raw["target"]), "setup",
+                json.dumps(receipt.raw["target"], ensure_ascii=False, separators=(",", ":")), claim.id,
+            )
+            if target_evidence.id not in evidence_ids:
+                evidence_ids.append(target_evidence.id)
+            content = execution_evidence_content(receipt, receipt_path, target_evidence=target_evidence)
             evidence.append(ValidityEvidence(
                 id=receipt.id, kind="execution", provenance="controller_execution",
-                location=str(controller.directory), section=section,
+                location=str(receipt_path), section=section,
                 content=content, sha256=content_hash(content), claim_ids=[claim.id],
                 source_id=source_id, setup_id=setup_id, target=target.role, observation=observation,
                 version=target.version, retrieved_at=None,

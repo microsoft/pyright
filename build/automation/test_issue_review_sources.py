@@ -68,6 +68,107 @@ def verify_fake_target(target: ReproductionTarget) -> None:
 
 
 class CaptureTests(unittest.TestCase):
+    def test_playground_query_settings_have_exact_bounded_provenance_not_greedy_prose_values(self):
+        reported = capture(
+            "[Example](https://pyright-play.net/?pythonVersion=3%2E13&strict=true"
+            "&reportUnusedVariable=warning&enableExperimentalFeatures=true&code=print%281%29)\n"
+            + fence("value = 1\n")
+        )
+        self.assertEqual(
+            {item.setting: item.value for item in reported.declarations},
+            {"pythonVersion": "3.13", "typeCheckingMode": "strict",
+             "reportUnusedVariable": "warning", "enableExperimentalFeatures": True},
+        )
+        self.assertTrue(all(item.supported for item in reported.declarations))
+        self.assertTrue(all(item.declaration_kind == "playground_query" for item in reported.declarations))
+        self.assertEqual(reported.declarations[0].evidence.quote, "pythonVersion=3%2E13")
+        for item in reported.declarations:
+            verify_span(reported, item.evidence)
+        setup = materialize_setup(reported, [associate(reported)], [])
+        self.assertEqual(setup.blockers, ())
+        self.assertEqual(setup.files, {"sample.py": "value = 1\n"})
+        verify_capture(reported)
+
+    def test_url_queries_do_not_relax_invalid_literals_conflicts_or_unknown_playground_modes(self):
+        for query in (
+            "pythonVersion=3.13&pythonVersion=3.14&strict=true",
+            "pythonVersion=3.14.1&strict=true",
+            "pythonVersion=3.13&strict=false",
+            "pythonVersion=3.13&strict=true&include=outside",
+        ):
+            with self.subTest(query=query):
+                reported = capture("https://pyright-play.net/?" + query + "\n" + fence("value = 1\n"))
+                self.assertTrue(materialize_setup(reported, [associate(reported)], []).blockers)
+        reported = capture(
+            'pythonVersion=3.13&not_a_url\ntypeCheckingMode="strict"\n' + fence("value = 1\n")
+        )
+        self.assertTrue(any(item.value == "3.13&not_a_url" and not item.supported for item in reported.declarations))
+        reported = capture(
+            "https://pyright-play.net/?pythonVersion=3%ZZ13&strict=true\n" + fence("value = 1\n")
+        )
+        self.assertTrue(any(item.code == "invalid_configuration" for item in reported.limitations))
+
+    def test_unrelated_urls_and_encoded_source_are_not_setting_declarations(self):
+        reported = capture(
+            "https://example.test/?pythonVersion=3.15&typeCheckingMode=strict\n"
+            "https://pyright-play.net.example.test/?pythonVersion=3.15\n"
+            "https://pyright-play.net/?code=pythonVersion%3D3.15%26strict%3Dtrue\n"
+            + SETTINGS + fence("value = 1\n")
+        )
+        self.assertEqual(
+            [(item.setting, item.value) for item in reported.declarations],
+            [("pythonVersion", "3.13"), ("typeCheckingMode", "strict")],
+        )
+        uppercase = capture("HTTPS://PYRIGHT-PLAY.NET/?pythonVersion=3.13&strict=true\n")
+        self.assertEqual(
+            {item.setting: item.value for item in uppercase.declarations},
+            {"pythonVersion": "3.13", "typeCheckingMode": "strict"},
+        )
+
+    def test_cli_diagnostic_messages_keep_exact_quotes_and_only_remove_renderer_indentation(self):
+        from issue_review_sources import reported_diagnostics
+
+        reported = capture(fence(
+            '  sample.py:3:5 - error: Cannot use __aenter__\n'
+            '    Attribute "__aenter__" is unknown (reportGeneralTypeIssues)\n'
+            '  sample.py:4:1 - information: Type of "value" is "Literal[1]"\n'
+            "1 error, 0 warnings, 1 information\n", language="text", indentation=2,
+        ))
+        diagnostics = reported_diagnostics(reported)
+        self.assertEqual(len(diagnostics), 2)
+        self.assertEqual(
+            diagnostics[0].message, 'Cannot use __aenter__\n  Attribute "__aenter__" is unknown',
+        )
+        self.assertEqual(diagnostics[0].rule, "reportGeneralTypeIssues")
+        self.assertIn('    Attribute "__aenter__"', diagnostics[0].evidence.quote)
+        self.assertEqual(diagnostics[1].message, 'Type of "value" is "Literal[1]"')
+        for item in diagnostics:
+            verify_span(reported, item.evidence)
+        self.assertEqual(reported.blocks[0].raw_content.count('      Attribute'), 1)
+        self.assertEqual(
+            reported_diagnostics(capture(fence('text = "  sample.py:3:5 - error: Not output"\n'))), [],
+        )
+
+    def test_cli_message_boundaries_do_not_merge_later_positionless_diagnostics_or_commands(self):
+        from issue_review_sources import reported_diagnostics
+
+        reported = capture(fence(
+            "  sample.py:1:1 - error: First error (reportAssignmentType)\n"
+            "  pyright --version\n"
+            '  sample.py:2:1 - information: Type of "value" is "int"\n'
+            "  sample.py: warning: A separate positionless warning\n"
+            "  sample.py:3:1 - error: Another error (reportArgumentType)\n", language="text",
+        ))
+        self.assertEqual(
+            [item.message for item in reported_diagnostics(reported)],
+            ["First error", 'Type of "value" is "int"', "Another error"],
+        )
+        ambiguous = capture(fence(
+            "  sample.py:1:1 - error: No rule suffix or unambiguous continuation boundary\n"
+            "  pyright --version\n", language="text",
+        ))
+        self.assertEqual(reported_diagnostics(ambiguous), [])
+
     def test_structural_spaces_preserve_python_and_multiline_string_whitespace(self):
         code = 'class C:\n    text = """\n        keep these spaces  \n    """\n    def method(self):\n        return self.text\n'
         for indentation in range(4):

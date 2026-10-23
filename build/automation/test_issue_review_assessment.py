@@ -278,6 +278,199 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.action())
         self.assertIsNone(result.plan.action())
 
+    async def test_cli_rendered_message_is_frozen_before_discovery_and_survives_negative_refinement(self):
+        message = "Unsupported rejection\n  Detail stays indented"
+        report = body(diagnostic=False) + (
+            "```text\n  sample.py:3:1 - error: Unsupported rejection\n"
+            "    Detail stays indented (reportAssignmentType)\n```\n"
+        )
+        controller = self.controller(partial=True, report=report, reported_message=message)
+        scope = controller.freeze_discovery("assignment", self.test_targets[0])
+        self.assertEqual(scope.scope.reported_message, message)
+        receipt = await controller.discover(scope, self.store)
+        data = predicates()
+        data["report_quote"] = controller.claim("assignment").report_quote
+        for field in ("broken", "resolved"):
+            data[field][0]["message"] = message
+        refinement = VerificationRefinement(
+            schema_version=1, claim_id="assignment", discovery_id=receipt.id, readiness="ready",
+            verification=ReproductionClaim.model_validate(data), control_files=[], reasons=[],
+            explanation="Exact controller-derived reported wording, not observed in this synthetic discovery",
+        )
+        controller.validate_refinement("assignment", receipt, refinement)
+        self.assertNotIn(message, report)
+        self.assertIn("    Detail stays indented", report)
+        with self.assertRaisesRegex(ValueError, "exact controller-provided"):
+            self.controller(partial=True, report=report, reported_message=message.replace("\n  ", "\n "))
+        with self.assertRaisesRegex(ValueError, "CLI presentation indentation"):
+            self.controller(partial=True, report=report, reported_message=message.replace("\n  ", "\n    "))
+
+    def test_percent_encoded_checker_version_requires_its_exact_controller_declaration_quote(self):
+        current = issue(
+            "https://pyright-play.net/?pyrightVersion=1%2E1%2E414\n" + body(diagnostic=False)
+        )
+        capture = capture_report(current, [])
+        draft = draft_for(capture, partial=True)
+        draft.reported_version = "1.1.414"
+        draft.version_quote = "pyrightVersion=1%2E1%2E414"
+        prepared = materialize_setup(capture, associations(draft), [])
+        policy = AssessmentPolicy(
+            input_hash=fingerprint({"issue": current.model_dump(mode="json"), "comments": []}),
+            implementation_hash="offline", profile_hash="offline", model="offline",
+        )
+        plan = build_plan(policy, draft, capture, prepared, report_text(current, []))
+        self.assertEqual(plan.claims[0].readiness, "partial")
+        draft.reported_version = "1.1.415"
+        with self.assertRaisesRegex(ValueError, "exact report quote"):
+            build_plan(policy, draft, capture, prepared, report_text(current, []))
+
+    def test_execution_path_factoring_is_reversible_for_mixed_paths_and_preserves_all_other_json(self):
+        cwd = self.root / "workspace"
+        diagnostics = [
+            {"file": str(cwd / "sample.py"), "message": "Keep  two spaces\n  and nested detail"},
+            {"file": str(self.root / "outside.py"), "message": "Outside the workspace"},
+            {"file": "relative.py", "message": "Already relative"},
+            {"file": None, "message": "Malformed, do not reinterpret"},
+            "Unknown diagnostic shape",
+        ]
+        stdout = json.dumps({"generalDiagnostics": diagnostics, "future_field": {"key": [True, None, 3.25]}}, indent=4)
+        receipt = AssessmentReceipt(
+            id="mixed", kind="verification_original", policy_hash="offline", plan_hash="offline",
+            claim_id="assignment", raw={"cwd": str(cwd), "stdout": stdout, "stderr": "Preserve stderr"},
+            problems=["Synthetic malformed output remains blocked"], observation="blocked",
+        )
+        artifact = self.root / "mixed.json"
+        artifact.write_text(receipt.model_dump_json())
+        projected = json.loads(assess_issues.execution_evidence_content(receipt, artifact))
+        raw = projected["raw"]
+        presentation = raw["stdout_representation"]
+        self.assertEqual(list(presentation["diagnostic_file_prefixes"].values()), [[0]])
+        self.assertEqual(raw["stdout_json"]["generalDiagnostics"][1:], diagnostics[1:])
+        for prefix, indices in presentation["diagnostic_file_prefixes"].items():
+            for index in indices:
+                raw["stdout_json"]["generalDiagnostics"][index]["file"] = (
+                    prefix + raw["stdout_json"]["generalDiagnostics"][index]["file"]
+                )
+        self.assertEqual(raw["stdout_json"], json.loads(stdout))
+        self.assertEqual(receipt.raw["stdout"], stdout)
+        self.assertEqual(projected["observation"], "blocked")
+
+    async def test_validity_factoring_preserves_every_claim_and_receipt_under_unchanged_transport_bound(self):
+        from issue_review_validity import MAX_INPUT_BYTES, ValidityInput, content_hash
+
+        original = self.controller(with_controls=True)
+        draft = original.draft.model_copy(deep=True)
+        base = draft.claims[0]
+        draft.claims = []
+        for index in range(6):
+            claim = base.model_copy(deep=True)
+            claim.id = f"concern-{index}"
+            if claim.verification is not None:
+                claim.verification.id = claim.id
+            if index >= 4:
+                claim.readiness, claim.verification, claim.control_files = "blocked", None, []
+                claim.reasons = ["Additional independent concern needs more evidence"]
+            draft.claims.append(claim)
+        plan = build_plan(original.policy, draft, original.capture, original.prepared, report_text(original.issue, []))
+        controller = AssessmentController(
+            self.root / ("long-path-segment-" * 9) / "multi",
+            original.policy, original.issue, [], original.capture, draft, original.prepared, plan,
+        )
+
+        async def detailed_output(command, cwd):
+            target = next(item for item in self.test_targets if item.cli == command[1])
+            extra = [{
+                "file": str(cwd / "sample.py"), "range": {"start": {"line": 0}},
+                "severity": "information", "message": f"Additional captured note {index}",
+            } for index in range(20)]
+            code, stdout, stderr = output(cwd, target.version, broken=target.role == "historical", extra=extra)
+            return code, json.dumps(json.loads(stdout), indent=2), stderr
+
+        self.store.runner = detailed_output
+        receipts, progress = {}, []
+        for claim in controller.plan.claims[:4]:
+            verification = controller.freeze_verification(claim.id, self.test_targets)
+            captured = await controller.verify(verification, self.store)
+            receipts.update({item.id: item for item in captured})
+            progress.append(controller.verification_progress(verification, captured))
+        result = controller.result(progress)
+        sdk, github = SDK(AsyncMock(), "gpt-6.1-sol", 180), GitHub()
+        args = assess_issues.arguments(["--issue", "11037", "--state-dir", str(controller.directory)])
+
+        async def inspect_bridge(agent, prompt, scratch, **kwargs):
+            inputs = ValidityInput.model_validate_json((scratch / "input.json").read_bytes())
+            self.assertEqual(MAX_INPUT_BYTES, 192000)
+            self.assertLessEqual(len(inputs.model_dump_json().encode()), MAX_INPUT_BYTES)
+            self.assertEqual([item.id for item in inputs.claims], [item.id for item in draft.claims])
+            self.assertEqual(sum(item.kind == "source" for item in inputs.evidence), 1)
+            self.assertEqual(sum(item.kind == "setup" for item in inputs.evidence), 4)
+            self.assertEqual(len({item.source_id for item in inputs.claims}), 1)
+            self.assertEqual(len({item.setup_id for item in inputs.claims}), 1)
+            evidence = {item.id: item for item in inputs.evidence}
+            executions = [item for item in inputs.evidence if item.kind == "execution"]
+            self.assertEqual(len(executions), 24)
+            unprojected = inputs.model_dump(mode="json")
+            for item in executions:
+                expected = receipts[item.id]
+                projected = json.loads(item.content)
+                artifact = projected.pop("receipt_artifact")
+                self.assertEqual(hashlib.sha256(Path(artifact["location"]).read_bytes()).hexdigest(), artifact["sha256"])
+                raw = projected["raw"]
+                target_id = raw.pop("target_evidence_id")
+                self.assertIn(expected.claim_id, evidence[target_id].claim_ids)
+                raw["target"] = json.loads(evidence[target_id].content)
+                parsed = raw.pop("stdout_json")
+                presentation = raw.pop("stdout_representation")
+                self.assertEqual(presentation["raw_sha256"], hashlib.sha256(str(expected.raw["stdout"]).encode()).hexdigest())
+                for prefix, indices in presentation["diagnostic_file_prefixes"].items():
+                    for index in indices:
+                        parsed["generalDiagnostics"][index]["file"] = prefix + parsed["generalDiagnostics"][index]["file"]
+                self.assertEqual(parsed, json.loads(str(expected.raw["stdout"])))
+                raw["stdout"] = expected.raw["stdout"]
+                self.assertEqual(projected, expected.model_dump(mode="json"))
+                previous = next(record for record in unprojected["evidence"] if record["id"] == item.id)
+                previous["content"] = expected.model_dump_json()
+                previous["sha256"] = content_hash(previous["content"])
+            with self.assertRaisesRegex(ValueError, "bounded transport"):
+                ValidityInput.model_validate(unprojected)
+            self.assertEqual(kwargs["timeout"], 180)
+            self.assertEqual(kwargs["native_tools"], [])
+            raise ValueError("Offline large-input inspection completed")
+
+        with patch.object(sdk, "run", side_effect=inspect_bridge) as run, patch.object(github, "screen", AsyncMock()):
+            with self.assertRaisesRegex(ValueError, "Offline large-input inspection completed"):
+                await assess_issues.validity_phase(controller, args, sdk, result, github=github)
+            self.assertEqual(run.call_count, 1)
+
+    def test_execution_presentation_preserves_non_json_and_rejects_replaced_artifacts(self):
+        from issue_review_validity import ValidityEvidence, content_hash
+
+        target = self.test_targets[0].model_dump(mode="json")
+        for index, stdout in enumerate(('not JSON', '{"key":1,"key":2}', '{"value":NaN}', '{"value":1e999}')):
+            receipt = AssessmentReceipt(
+                id=f"bad-{index}", kind="verification_original", policy_hash="offline", plan_hash="offline",
+                claim_id="assignment", raw={"stdout": stdout, "target": target}, problems=["Invalid output"],
+                observation="blocked",
+            )
+            artifact = self.root / f"receipt-{index}.json"
+            artifact.write_text(receipt.model_dump_json())
+            projected = json.loads(assess_issues.execution_evidence_content(receipt, artifact))
+            self.assertEqual(projected["raw"]["stdout"], stdout)
+            self.assertEqual(projected["raw"]["stdout_representation"]["format"], "verbatim")
+            self.assertEqual(projected["observation"], "blocked")
+            content = json.dumps({**target, "identity": "changed"})
+            mismatched = ValidityEvidence(
+                id="bad-target", kind="setup", provenance="controller_capture", location="offline", section="setup",
+                content=content, sha256=content_hash(content), claim_ids=["assignment"],
+                source_id=None, setup_id=None, target="not_applicable", observation="not_applicable",
+                version=None, retrieved_at=None,
+            )
+            with self.assertRaisesRegex(ValueError, "Shared checker target differs"):
+                assess_issues.execution_evidence_content(receipt, artifact, target_evidence=mismatched)
+            artifact.write_text(receipt.model_copy(update={"id": "replaced"}).model_dump_json())
+            with self.assertRaisesRegex(ValueError, "saved controller receipt"):
+                assess_issues.execution_evidence_content(receipt, artifact)
+
     async def test_historical_discovery_is_captured_not_reproduction_and_uses_pristine_source(self):
         controller = self.controller(partial=True)
         plan = controller.freeze_discovery("assignment", self.test_targets[0])

@@ -226,6 +226,22 @@ class ValidityContractTests(unittest.TestCase):
         result = validity.finalize_validity_response(controller, raw)
         self.assertEqual(result.claims[1].disposition, "inconclusive")
 
+    def test_rule_catalog_exposes_actual_domains_and_controller_target_without_relabeling_peps(self):
+        controller = language_inputs()
+        prompt = build_validity_prompt(controller)
+        self.assertIn("Rule-domain and language-target catalog", prompt)
+        self.assertIn('"allowed_rule_domain": "python_language"', prompt)
+        self.assertIn('"target_python_version": "3.15"', prompt)
+        self.assertIn("An inconclusive conclusion does not permit a mismatched rule", prompt)
+        self.assertNotIn('"allowed_rule_domain": "static_typing"', prompt)
+
+    def test_language_rule_target_rejection_identifies_claim_reference_and_expected_target(self):
+        controller = language_inputs()
+        result = assessment(controller, [language_claim()])
+        result.claims[0].rules[0].target_python_version = "3.14"
+        with self.assertRaisesRegex(ValueError, "assignment.*rule.*3.14.*3.15"):
+            validity.finalize_validity_response(controller, result)
+
     def test_blocked_execution_does_not_prevent_exact_conditional_normative_research(self):
         controller = inputs()
         result = assessment(controller)

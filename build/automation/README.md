@@ -41,6 +41,14 @@ the unresolved claim is not dropped from the report or treated as resolved. Runt
 stubs and version requirements are distinct capabilities. Unknown compatibility and experimental assumptions
 must not become reported facts or silently trigger installation.
 
+Playground URLs are parsed as bounded reported query declarations, with exact raw spans and explicit URL-decoding
+provenance. Encoded example code is not reconstructed or executed. Unrelated URLs are not configuration evidence;
+malformed values, conflicting declarations and unsupported settings still block. Only `strict=true` establishes
+strict checking; `strict=false` does not invent a basic/standard mode. Invalid literal patch-version settings
+remain invalid. Ordinary static diagnostics/revealed types use the CLI adapter without claiming that the reporter
+invoked it. Genuinely editor/LSP/runtime-only concerns remain separate unsupported claims; supporting diagnostic
+lines, workarounds and precision controls need not become redundant material claims.
+
 Discovery is useful when suitable original source and setup exist but exact diagnostic wording was not supplied.
 The controller freezes the reported claim scope, failure direction and pristine inputs first. Historical discovery captures actual
 output without calling it reproduction, a fix or affirmative non-reproduction. A later verification plan is
@@ -54,6 +62,12 @@ The controller checks the proposed tree during the role's shared correction budg
 runs originals before controls. A failing precision expectation still blocks the observation; no failed or
 unexecuted control is promoted to evidence. Complaint presence/absence does not settle semantic correctness.
 
+For recognized default CLI diagnostic rendering, the controller supplies optional diagnostic candidates with exact
+raw report spans. It removes only the two-space renderer prefix on continuation lines and a separately recorded
+rule suffix; this is not arbitrary whitespace normalization or an observed checker result. Canonical wording is
+frozen before discovery and remains unchanged even when the historical diagnostic is absent. Unrecognized output
+still requires exact reported text or honestly unknown wording.
+
 Validity responses add model qualifications to the frozen claim/language qualifications; the controller preserves
 their union without asking the model to retype it. `rule.section=null` asks the controller to attach the canonical
 section from that exact saved evidence ID. Final records must have matching sections and verbatim excerpts;
@@ -61,6 +75,15 @@ invented non-null sections, altered excerpts, wrong domains and cross-claim refe
 reference catalog makes those scope constraints explicit, including for additional material claims. Controller
 assumptions still prohibit a supported conclusion; attachment never silently downgrades a finding. Readiness-stage
 reasons are labeled as pre-execution context, not substituted for the current controller receipt ledger.
+
+Validity input factors byte-identical source/setup records and exact checker-target metadata across authorized
+claims. Execution content retains all parsed stdout fields and diagnostic text; repeated absolute filename prefixes
+are factored by diagnostic index and reconstruct exactly as prefix+file. Non-JSON, duplicate-key or nonfinite output
+remains verbatim with its parse failure, never a success-shaped replacement. Complete receipts and raw stdout remain
+in their original artifacts with hashes. No claims, diagnostics or normative excerpts are truncated, observations
+are not upgraded, and the 192,000-byte input limit and single 180-second validity-role budget are unchanged.
+The rule catalog states each reference's actual domain and the exact controller Python target. A mismatched rule
+is invalid even in an inconclusive finding; missing applicability needs a precise information request instead.
 
 Calibration uses a small, explicitly named development set before another backlog campaign. Expected judgments
 and solution-bearing resolutions stay outside model input. Candidate references remain provisional until human

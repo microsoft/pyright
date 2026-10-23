@@ -81,7 +81,9 @@ class DiscoveryScope(Record):
     locations: list[ClaimLocation] = Field(min_length=1)
     symptom_kind: Literal["diagnostic", "revealed_type"]
     failure_direction: Literal["unexpected_presence", "unexpected_absence"]
-    reported_message: Text | None
+    reported_message: Text | None = Field(
+        description="Exact reported message or exact controller-derived CLI candidate; preserve whitespace. Null if unknown.",
+    )
     reported_rule: Text | None
 
 
@@ -89,7 +91,9 @@ class AssessmentClaimDraft(Record):
     id: ClaimId
     summary: Text
     report_quote: Text
-    surface: Literal["cli", "editor", "lsp", "other"]
+    surface: Literal["cli", "editor", "lsp", "other"] = Field(
+        description="Static diagnostics/revealed types use cli; editor/LSP/runtime-only concerns are not CLI proxies.",
+    )
     source_ids: list[Text] = Field(description="Only Python/stub IDs present in sources, not captured JSON configuration IDs.")
     readiness: Readiness
     reasons: list[Text]
