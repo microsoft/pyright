@@ -1,4 +1,4 @@
 interface:
-  display_name: "TypeSpec Reviewer"
-  short_description: "Find Pyright regressions with differential tests"
-  default_prompt: "Use $pyright-pr-typespec-review to inspect this Pyright PR, test adversarial cases against its baseline, check relevant Python behavior, and report merge risks."
+  display_name: 'TypeSpec Reviewer'
+  short_description: 'Find Pyright regressions with differential tests'
+  default_prompt: 'Use $pyright-pr-typespec-review to inspect this Pyright PR, test adversarial cases against its baseline, check relevant Python behavior, and report merge risks.'
