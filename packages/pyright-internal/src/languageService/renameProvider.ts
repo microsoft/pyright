@@ -61,7 +61,7 @@ export function assertRenameTargetsAreUserCode(
 // Shared by the sync `RenameProvider` and the async aggregated rename provider to keep both paths
 // identical.
 export function getRenameSymbolRange(nodeAtOffset: ParseNode, lines: TextRangeCollection<TextRange>): Range {
-    const rangeSource = nodeAtOffset.nodeType === ParseNodeType.Name ? nodeAtOffset.d.token : nodeAtOffset;
+    const rangeSource = nodeAtOffset.nodeType === ParseNodeType.Name ? nodeAtOffset.d : nodeAtOffset;
     return convertTextRangeToRange(rangeSource, lines);
 }
 

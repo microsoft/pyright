@@ -98,6 +98,8 @@ export class ParseTreeTokenCursor {
                 this._advanceChild(frame);
                 switch (child.nodeType) {
                     case ParseNodeType.Name:
+                        token = child.d;
+                        break;
                     case ParseNodeType.String:
                         token = child.d.token;
                         break;
@@ -238,6 +240,7 @@ export class ParseTreeTokenCursor {
 function getNodeToken(node: ParseNode, index: number): Token | undefined | null {
     switch (node.nodeType) {
         case ParseNodeType.Name:
+            return index === 0 ? node.d : null;
         case ParseNodeType.String:
             return index === 0 ? node.d.token : null;
         case ParseNodeType.BinaryOperation:
