@@ -13,6 +13,15 @@ For example: "Use pyright-issue-reviewer to analyze <issue URL> and draft a resp
 "Use pyright-issue-fixer to fix <issue URL>; prepare a patch and PR description, but do not publish."
 Posting comments, committing/pushing, or creating a PR requires explicit authorization; reviewer mode never publishes.
 
+## PR Reviews
+
+Select `pyright-pr-review` for the coordinated review workflow described in
+[PR review agents](../docs/pr-review-agents.md). Its five independent specialists include the ordinary
+`pyright-pr-monkey` adversarial reviewer and a dedicated `pyright-pr-safety-reviewer` using the
+[PR type-specification review skill](skills/pyright-pr-typespec-review/SKILL.md) for an additional investigation and example-led feedback.
+The skill also supports standalone assessments and QA callers with their own execution and result contracts.
+Specialists return evidence and drafts; the coordinator owns the final assessment and explicitly authorized publication.
+
 ## Build and Test
 
 ```bash

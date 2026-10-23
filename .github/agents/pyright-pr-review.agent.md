@@ -41,19 +41,22 @@ authorization, as described in the publishing phase; neither a review nor a repa
 ## Obtain independent perspectives
 
 Announce the bounded task before launching each reviewer (a single announcement may cover a parallel batch). Invoke these
-four custom agents, once each, with no further delegation:
+five custom agents, once each, with no further delegation:
 
 | Agent | Assignment |
 | --- | --- |
 | `pyright-pr-skeptic` | Challenge correctness, claimed benefit, and preservation of type information. |
 | `pyright-pr-architect` | Check architectural fit and compare simpler ways to achieve the goal. |
-| `pyright-pr-monkey` | Design and run small adversarial examples that can falsify the implementation. |
+| `pyright-pr-monkey` | Design and run adversarial examples that expose regressions and weak test coverage. |
 | `pyright-pr-perf-professor` | Trace execution cost and run warranted measurements to assess regressions. |
+| `pyright-pr-safety-reviewer` | Independently execute the PR type-specification review skill's investigation and return findings, coverage evidence, and example-led feedback. |
 
 Give each reviewer the repository/worktree location, exact SHAs, intended behavior, changed-file list, bounded relevant
 diffs, feedback ledger, relevant requirements and specification references, and any known validation results or limitations.
 Supply the shared guide path and a specific scope and stopping point. Separate author claims from verified facts. Do not
 give a preferred verdict or share the other reviewers' conclusions before their first reports.
+Keep Monkey's ordinary review and the safety reviewer's skill-driven investigation separate. Neither replaces the other;
+do not restrict the safety reviewer to expanding or confirming cases already selected by Monkey.
 
 Specialists may run focused tests and probes within their scope without per-command approval. Supply a separate scratch
 location for each reviewer, available build/baseline information, and known test ownership or resource conflicts.
@@ -66,11 +69,14 @@ substituting a solo review. Inherit the user's model settings; do not pin models
 
 ## Validate and adjudicate
 
-- Merge duplicate findings by root cause. Distinguish PR-introduced regressions, unresolved goal failures, and unrelated
-  pre-existing behavior. Do not turn a speculative concern into a confirmed bug by repeating it.
+- Reconcile all five reports into a finding inventory. Record which concerns are retained, merged, excluded with a
+  reason, or unresolved, with pointers to the originating evidence. Merge duplicates by root cause while preserving
+  additional supported consequences and variants. Distinguish PR-introduced regressions, unresolved goal failures, and
+  unrelated pre-existing behavior. Do not turn a speculative concern into a confirmed bug by repeating it.
 - Resolve disagreements with code, typing rules, or a discriminating example. Reuse a reviewer only for a bounded
   clarification or targeted validation; do not rerun the whole review. Retain a material unresolved disagreement as
-  uncertainty.
+  uncertainty. Correct or withdraw unsupported claims regardless of which reviewer supplied them; the ordinary
+  reviewers' findings do not take precedence over contradictory evidence from the safety reviewer.
 - Run or delegate the smallest relevant existing checks. For new examples, use an approved scratch location or isolated
   checkout; do not change tracked tests or expected results. Compare baseline and head under equivalent conditions when
   attributing behavior or cost to the PR. If that is unavailable, report the limitation rather than inventing a comparison.
@@ -94,10 +100,44 @@ unaddressed feedback, and recommend the least disruptive sound approach. Include
 Do not approve, request changes, post comments, resolve threads, modify tracked files, commit, or push as part of this
 analysis. Scratch validation artifacts are allowed under the shared protocol.
 
+### Prepare PR feedback
+
+When PR feedback is requested, prepare up to two separate drafts after all five independent investigations and
+adjudication. Keep one overall assessment informed by all five reports; separate feedback styles do not create
+independent verdicts.
+
+1. Prepare the established review feedback from the retained findings of Skeptic, Architect, Monkey, and Perf professor.
+   Lead with the relevant typing or design contract, explain how the implementation meets or violates it, and describe
+   the consequence and focused correction. Cite applicable typing specifications or Python semantics, distinguishing
+   requirements from inference choices. Use small examples and concise execution observations to support that reasoning,
+   not a reproduction-workspace report. Do not replace this feedback with the safety skill's format.
+2. Compare every safety finding with those adjudicated findings by underlying defect, not matching wording, snippets,
+   or source location. Omit already-covered issues from the supplemental feedback. If the safety reviewer supplies a
+   useful verified variant, consequence, or stronger evidence for a shared issue, add that detail concisely to the
+   established finding while preserving its style. Keep distinct problems separate even when they affect the same code.
+3. Prepare separate supplemental feedback only for additional actionable safety findings, following the
+   [skill's feedback guidance](../skills/pyright-pr-typespec-review/SKILL.md#draft-pr-feedback). Put a small executed example
+   beside each claim, with precise baseline/head observations, relevant runtime evidence, consequence, cause, and a
+   focused correction request. Include essential stubs, helpers, or configuration when they establish the trigger;
+   keep full projects, matrices, and raw output in supporting evidence. The skill's feedback format applies to this
+   supplement, not to the established review comment.
+4. Check both drafts against the full finding inventory. Record each concern's originating reviewers, evidence,
+   disposition, and feedback destination, including how useful new evidence for shared findings was incorporated.
+   Filtering duplicate feedback must not delete findings or evidence from the reports. Neither deduplication nor
+   brevity may silently remove a distinct actionable issue.
+
+If no additional actionable safety finding remains, do not generate or publish a supplemental comment. Record that
+result and any coverage limits in the report. If neither group has actionable findings, do not substitute a generic
+passing-results PR comment. Mark inspection-only architectural or performance concerns as such; do not present them
+as reproduced typing regressions.
+
+Drafting is not publication authorization. Only the coordinator publishes either comment when explicitly requested,
+after rechecking the PR head.
+
 ## Discuss and repair on request
 
 Retain the reviewed revisions, findings, feedback ledger, and evidence throughout the conversation. Answer follow-up
-questions directly without restarting the four-reviewer panel. Explain the smallest sound fix, alternatives, tradeoffs,
+questions directly without restarting the reviewer panel. Explain the smallest sound fix, alternatives, tradeoffs,
 and how to demonstrate that the fix works. Recheck changed assumptions instead of treating the initial verdict as final.
 
 When the user explicitly asks to implement a fix:
