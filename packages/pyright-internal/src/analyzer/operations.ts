@@ -923,6 +923,7 @@ function createUnionType(
 
 // Attempts to apply "literal math" for a literal operands.
 function calcLiteralForUnaryOp(operator: OperatorType, operandType: Type): Type | undefined {
+    operandType = getInferredTupleLiteralBase(operandType);
     let type: Type | undefined;
 
     if (getUnionSubtypeCount(operandType) >= maxLiteralMathSubtypeCount) {
@@ -972,6 +973,8 @@ function calcLiteralForUnaryOp(operator: OperatorType, operandType: Type): Type 
 
 // Attempts to apply "literal math" for two literal operands.
 function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightType: Type): Type | undefined {
+    leftType = getInferredTupleLiteralBase(leftType);
+    rightType = getInferredTupleLiteralBase(rightType);
     const leftLiteralClassName = getLiteralTypeClassName(leftType);
     if (
         !leftLiteralClassName ||

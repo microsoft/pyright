@@ -67,7 +67,8 @@ class ReturnsText:
 
 
 def numeric_prefix_result(first: ReturnsText, second: ReturnsText) -> None:
-    assert_type((1.0, first) < (2, 0), bool)
+    # A float type alone does not prove that the custom suffix is unreachable.
+    assert_type((1.0, first) < (2, 0), str | bool)
     assert_type((first, 1.0) < (second, 2), str | bool)
     assert_type(((first, 1.0), object()) < ((second, 2), 3), str | bool)
 

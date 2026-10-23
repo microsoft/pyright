@@ -13,9 +13,11 @@ import {
     ClassType,
     ClassTypeFlags,
     combineTypes,
+    exceedsInferredTupleLiteralProduct,
     getInferredTupleLiteralBase,
     isTypeSame,
     retainInferredTupleLiterals,
+    TypeVarType,
 } from '../analyzer/types';
 import { Uri } from '../common/uri/uri';
 
@@ -95,4 +97,32 @@ test('InferredTupleLiteralGuardViews', () => {
         return { type, isIncomplete: false };
     }, base);
     assert.strictEqual(calls, 1);
+});
+
+test('InferredTupleLiteralProductBudget', () => {
+    const base = ClassType.cloneAsInstance(
+        ClassType.createInstantiable(
+            'int',
+            'builtins.int',
+            'builtins',
+            Uri.empty(),
+            ClassTypeFlags.BuiltIn,
+            0,
+            /* declaredMetaclass */ undefined,
+            /* effectiveMetaclass */ undefined
+        )
+    );
+    const choices = Array.from({ length: 9 }, (_, index) => ClassType.cloneWithLiteral(base, index));
+    const eight = combineTypes(choices.slice(0, 8));
+    const retained = retainInferredTupleLiterals(eight, base);
+    assert.strictEqual(retained.props?.inferredTupleLiteral?.alternatives, 8);
+    assert.strictEqual(exceedsInferredTupleLiteralProduct(retained, eight), false);
+    assert.strictEqual(exceedsInferredTupleLiteralProduct(retained, combineTypes(choices)), true);
+
+    const opaque = TypeVarType.createInstance('T');
+    opaque.shared.boundType = combineTypes(choices);
+    assert.strictEqual(exceedsInferredTupleLiteralProduct(retained, opaque), true);
+    assert.strictEqual(exceedsInferredTupleLiteralProduct(opaque, retained), true);
+    assert.strictEqual(exceedsInferredTupleLiteralProduct(retained, combineTypes([base, opaque])), true);
+    assert.strictEqual(exceedsInferredTupleLiteralProduct(base, opaque), false);
 });

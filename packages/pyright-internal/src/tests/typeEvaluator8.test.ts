@@ -10,8 +10,15 @@
 
 import * as assert from 'assert';
 
+import * as TupleComparison from '../analyzer/tupleComparison';
 import { EvalFlags } from '../analyzer/typeEvaluatorTypes';
-import { ClassType, isClassInstance, isInstantiableClass, UnknownType } from '../analyzer/types';
+import {
+    ClassType,
+    isClassInstance,
+    isInstantiableClass,
+    maxSubtypesForInferredType,
+    UnknownType,
+} from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_8, pythonVersion3_12 } from '../common/pythonVersion';
@@ -1561,6 +1568,29 @@ test('TupleLiteralInference1', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('TupleLiteralInference2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleLiteralInference2.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportArgumentType));
+});
+
+test('TupleLiteralInference3', () => {
+    const comparisonSpy = jest.spyOn(TupleComparison, 'getTupleComparisonResult');
+    try {
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleLiteralInference3.py']);
+        TestUtils.validateResults(analysisResults, 0);
+        assert.ok(comparisonSpy.mock.calls.length > 0);
+        const callsByNode = new Map<number, number>();
+        comparisonSpy.mock.calls.forEach(([, , , , node]) => {
+            const calls = (callsByNode.get(node.id) ?? 0) + 1;
+            callsByNode.set(node.id, calls);
+            assert.ok(calls <= maxSubtypesForInferredType, 'Optional tuple precision exceeded the comparison budget');
+        });
+    } finally {
+        comparisonSpy.mockRestore();
+    }
+});
+
 test('TupleComparisonResults2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults2.py']);
     TestUtils.validateResults(analysisResults, 0);
@@ -1636,4 +1666,17 @@ test('TupleComparisonResults9', () => {
 test('TupleComparisonResults10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults10.py']);
     TestUtils.validateResults(analysisResults, 7);
+});
+
+test('TupleComparisonResults11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults11.py']);
+    TestUtils.validateResults(analysisResults, 7);
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportReturnType).length,
+        4
+    );
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportOperatorIssue).length,
+        3
+    );
 });

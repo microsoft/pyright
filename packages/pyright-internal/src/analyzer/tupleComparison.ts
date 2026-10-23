@@ -114,8 +114,8 @@ function inferTupleComparison(
     const resultTypes: Type[] = [];
     const reflectionOrder = new Map<ClassType['shared'], Map<ClassType['shared'], boolean>>();
     const boolType = evaluator.getBuiltInObject(errorNode, 'bool');
-    const comparedPairs = new Map<Type, Set<Type>>();
-    const pendingPairs: { left: Type; right: Type; depth: number }[] = [];
+    const comparedPairs = new Map<Type, Map<Type, boolean>>();
+    const pendingPairs: { left: Type; right: Type; depth: number; isConditional: boolean }[] = [];
     const hasUnknownShape = [leftType, rightType].some((type) =>
         type.priv.tupleTypeArgs?.some((arg) => arg.isUnbounded && isAnyOrUnknown(arg.type))
     );
@@ -271,22 +271,23 @@ function inferTupleComparison(
 
     // Built-in containers use their declared sequence semantics; explicit
     // subclass types use their declared methods without callee-body analysis.
-    const canOrderResolvedPair = (left: Type, right: Type, recursionCount: number): boolean => {
+    const canOrderResolvedPair = (left: Type, right: Type, recursionCount: number, isConditional: boolean): boolean => {
         if (isAnyOrUnknown(left) || isAnyOrUnknown(right)) {
             resultTypes.push(isAnyOrUnknown(left) ? left : right);
             return true;
         }
         if (isClassInstance(left) && isClassInstance(right)) {
             if (isTupleClass(left) && isTupleClass(right) && left.priv.tupleTypeArgs && right.priv.tupleTypeArgs) {
-                return canOrderArgs(left.priv.tupleTypeArgs, right.priv.tupleTypeArgs, recursionCount);
+                return canOrderArgs(left.priv.tupleTypeArgs, right.priv.tupleTypeArgs, recursionCount, isConditional);
             }
             if (ClassType.isBuiltIn(left, 'list') && ClassType.isBuiltIn(right, 'list')) {
                 resultTypes.push(boolType);
-                return canOrderElements(
-                    left.priv.typeArgs?.[0] ?? UnknownType.create(),
-                    right.priv.typeArgs?.[0] ?? UnknownType.create(),
-                    recursionCount + 1
-                );
+                const leftElement = left.priv.typeArgs?.[0] ?? UnknownType.create();
+                const rightElement = right.priv.typeArgs?.[0] ?? UnknownType.create();
+                if (isAnyOrUnknown(leftElement) && isAnyOrUnknown(rightElement)) {
+                    return true;
+                }
+                return canOrderElements(leftElement, rightElement, recursionCount + 1, isConditional);
             }
         }
         const values = getOrderingResult(left, right);
@@ -309,7 +310,12 @@ function inferTupleComparison(
         return true;
     };
 
-    const canOrderElementsUncached = (left: Type, right: Type, recursionCount: number): boolean => {
+    const canOrderElementsUncached = (
+        left: Type,
+        right: Type,
+        recursionCount: number,
+        isConditional: boolean
+    ): boolean => {
         if (exceedsInferredTupleLiteralProduct(left, right)) {
             left = getInferredTupleLiteralBase(left);
             right = getInferredTupleLiteralBase(right);
@@ -373,10 +379,10 @@ function inferTupleComparison(
                 right,
                 { conditionFilter: getTypeCondition(leftSubtype) },
                 (rightSubtype) => {
-                    if (!valid) {
+                    if (!valid && !isConditional) {
                         return rightSubtype;
                     }
-                    valid = canOrderResolvedPair(leftSubtype, rightSubtype, recursionCount);
+                    valid = canOrderResolvedPair(leftSubtype, rightSubtype, recursionCount, isConditional) && valid;
                     return rightSubtype;
                 }
             );
@@ -392,10 +398,10 @@ function inferTupleComparison(
     // Check the alias skeleton once and queue each substituted parameter pair.
     const aliasPairs = new Map<
         TypeAliasSharedInfo,
-        Map<TypeAliasSharedInfo, { left: TypeVarType; right: TypeVarType }[]>
+        Map<TypeAliasSharedInfo, { left: TypeVarType; right: TypeVarType; isConditional: boolean }[]>
     >();
     const structuralAliases = new Map<TypeVarType['shared'], boolean>();
-    const visitedAliases = new Set<TypeVarType['shared']>();
+    const visitedAliases = new Map<TypeVarType['shared'], boolean>();
     const isStructuralAlias = (alias: TypeVarType): boolean => {
         const cached = structuralAliases.get(alias.shared);
         if (cached !== undefined) return cached;
@@ -444,7 +450,7 @@ function inferTupleComparison(
         return valid;
     };
 
-    const canOrderElements = (left: Type, right: Type, depth: number): boolean => {
+    const canOrderElements = (left: Type, right: Type, depth: number, isConditional: boolean): boolean => {
         if (isTypeVar(left) && isTypeVar(right) && left.shared.recursiveAlias && right.shared.recursiveAlias) {
             // Recursive specialization can clone equivalent placeholder types.
             // Reuse the evaluator's type equivalence, including alias arguments
@@ -459,8 +465,13 @@ function inferTupleComparison(
                 pairs = [];
                 byRight.set(right.shared.recursiveAlias, pairs);
             }
-            if (pairs.some((pair) => isTypeSame(pair.left, left) && isTypeSame(pair.right, right))) return true;
-            pairs.push({ left, right });
+            const pair = pairs.find((pair) => isTypeSame(pair.left, left) && isTypeSame(pair.right, right));
+            if (pair) {
+                if (!pair.isConditional || isConditional) return true;
+                pair.isConditional = false;
+            } else {
+                pairs.push({ left, right, isConditional });
+            }
         }
         if (
             isTypeVar(left) &&
@@ -472,9 +483,10 @@ function inferTupleComparison(
             const leftArgs = left.props?.typeAliasInfo?.typeArgs;
             const rightArgs = right.props?.typeAliasInfo?.typeArgs;
             if (leftArgs?.length === 1 && rightArgs?.length === 1) {
-                canOrderElements(leftArgs[0], rightArgs[0], depth + 1);
-                if (visitedAliases.has(left.shared)) return true;
-                visitedAliases.add(left.shared);
+                canOrderElements(leftArgs[0], rightArgs[0], depth + 1, isConditional);
+                const previous = visitedAliases.get(left.shared);
+                if (previous === false || (previous === true && isConditional)) return true;
+                visitedAliases.set(left.shared, isConditional);
             }
         }
         // Every reachable pair is checked by the worklist before accepting
@@ -482,12 +494,13 @@ function inferTupleComparison(
         // container aliases need no arbitrary depth limit or duplicate results.
         let rights = comparedPairs.get(left);
         if (!rights) {
-            rights = new Set();
+            rights = new Map();
             comparedPairs.set(left, rights);
         }
-        if (rights.has(right)) return true;
-        rights.add(right);
-        pendingPairs.push({ left, right, depth });
+        const previous = rights.get(right);
+        if (previous === false || (previous === true && isConditional)) return true;
+        rights.set(right, isConditional);
+        pendingPairs.push({ left, right, depth, isConditional });
         return true;
     };
 
@@ -591,7 +604,12 @@ function inferTupleComparison(
         return undefined;
     };
 
-    const canOrderArgs = (leftArgs: TupleTypeArg[], rightArgs: TupleTypeArg[], recursionCount: number): boolean => {
+    const canOrderArgs = (
+        leftArgs: TupleTypeArg[],
+        rightArgs: TupleTypeArg[],
+        recursionCount: number,
+        isConditional: boolean
+    ): boolean => {
         // When both tuples begin with an arbitrary run of the same literal,
         // a fixed run of that literal immediately afterward only changes the
         // minimum lengths. Both relative run lengths are still unbounded, so
@@ -634,7 +652,8 @@ function inferTupleComparison(
             const valid = canOrderElementsUncached(
                 combineTypes(leftArgs.map((arg) => arg.type)),
                 combineTypes(rightArgs.map((arg) => arg.type)),
-                recursionCount + 1
+                recursionCount + 1,
+                isConditional
             );
             if (
                 valid &&
@@ -649,13 +668,13 @@ function inferTupleComparison(
         }
         // An unbounded argument can consume zero or more positions.
         // Check every reachable alignment before accepting tuple ordering.
-        const pending: [number, number][] = [[0, 0]];
+        const pending: [number, number, boolean][] = [[0, 0, isConditional]];
         const visited = new Set<string>();
 
         while (pending.length > 0) {
             evaluator.checkForCancellation();
-            const [leftIndex, rightIndex] = pending.pop()!;
-            const position = `${leftIndex},${rightIndex}`;
+            const [leftIndex, rightIndex, conditional] = pending.pop()!;
+            const position = `${leftIndex},${rightIndex},${conditional}`;
             if (visited.has(position)) {
                 continue;
             }
@@ -669,10 +688,10 @@ function inferTupleComparison(
             const leftArg = leftArgs[leftIndex];
             const rightArg = rightArgs[rightIndex];
             if (leftArg.isUnbounded || leftArg.isOptional) {
-                pending.push([leftIndex + 1, rightIndex]);
+                pending.push([leftIndex + 1, rightIndex, conditional]);
             }
             if (rightArg.isUnbounded || rightArg.isOptional) {
-                pending.push([leftIndex, rightIndex + 1]);
+                pending.push([leftIndex, rightIndex + 1, conditional]);
             }
 
             let equality = getEquality(leftArg.type, rightArg.type, recursionCount + 1);
@@ -686,32 +705,40 @@ function inferTupleComparison(
             ) {
                 equality = true;
             }
-            if (equality === 'unrepresented') {
-                requiresDeclaredContract = true;
-                // A nested prefix can contain required contracts before the
-                // unrepresented numeric value. Only its suffix is conditional.
-                if (!getNumericRepresentation(leftArg.type)) {
-                    canOrderElements(leftArg.type, rightArg.type, recursionCount + 1);
-                }
-                continue;
-            }
-            if (equality !== true && !canOrderElements(leftArg.type, rightArg.type, recursionCount + 1)) {
+            const unrepresented = equality === 'unrepresented';
+            if (
+                equality !== true &&
+                !canOrderElements(
+                    leftArg.type,
+                    rightArg.type,
+                    recursionCount + 1,
+                    conditional || (unrepresented && !!getNumericRepresentation(leftArg.type))
+                )
+            ) {
                 return false;
             }
             if (equality === false) continue;
 
-            pending.push([leftIndex + 1, rightIndex + 1]);
+            // Unrepresented numeric equality can still reach a custom suffix.
+            // Preserve its results, using the old contract if a conditional call fails.
+            const nextConditional = conditional || unrepresented;
+            pending.push([leftIndex + 1, rightIndex + 1, nextConditional]);
             if (leftArg.isUnbounded) {
-                pending.push([leftIndex, rightIndex + 1]);
+                pending.push([leftIndex, rightIndex + 1, nextConditional]);
             }
             if (rightArg.isUnbounded) {
-                pending.push([leftIndex + 1, rightIndex]);
+                pending.push([leftIndex + 1, rightIndex, nextConditional]);
             }
         }
         return true;
     };
 
-    const ordered = canOrderArgs(leftType.priv.tupleTypeArgs!, rightType.priv.tupleTypeArgs!, 0);
+    const ordered = canOrderArgs(
+        leftType.priv.tupleTypeArgs!,
+        rightType.priv.tupleTypeArgs!,
+        0,
+        /* isConditional */ false
+    );
     if (!ordered) return undefined;
     if (identityBudgetExceeded) {
         return getDeclaredContractResult();
@@ -719,7 +746,10 @@ function inferTupleComparison(
     while (pendingPairs.length) {
         evaluator.checkForCancellation();
         const pair = pendingPairs.pop()!;
-        if (!canOrderElementsUncached(pair.left, pair.right, pair.depth)) return undefined;
+        if (!canOrderElementsUncached(pair.left, pair.right, pair.depth, pair.isConditional)) {
+            if (!pair.isConditional) return undefined;
+            requiresDeclaredContract = true;
+        }
     }
     if (requiresDeclaredContract) {
         const declaredResult = getDeclaredContractResult();

@@ -4148,9 +4148,9 @@ export function exceedsInferredTupleLiteralProduct(left: Type, right: Type): boo
     if (!leftInfo && !rightInfo) {
         return false;
     }
-    const leftCount = leftInfo?.alternatives ?? (isUnion(left) ? left.priv.subtypes.length : 1);
-    const rightCount = rightInfo?.alternatives ?? (isUnion(right) ? right.priv.subtypes.length : 1);
-    return leftCount * rightCount > maxSubtypesForInferredType;
+    const leftCount = leftInfo?.alternatives ?? getTupleLiteralTypeComplexity([left])?.alternatives;
+    const rightCount = rightInfo?.alternatives ?? getTupleLiteralTypeComplexity([right])?.alternatives;
+    return leftCount === undefined || rightCount === undefined || leftCount * rightCount > maxSubtypesForInferredType;
 }
 
 export interface CombineTypesOptions {
