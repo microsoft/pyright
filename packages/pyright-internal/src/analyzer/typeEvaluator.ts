@@ -177,7 +177,13 @@ import * as ScopeUtils from './scopeUtils';
 import { createSentinelType } from './sentinel';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags, SynthesizedTypeInfo } from './symbol';
-import { isConstantName, isMethodExemptFromLsp, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
+import {
+    isConstantName,
+    isDunderName,
+    isMethodExemptFromLsp,
+    isPrivateName,
+    isPrivateOrProtectedName,
+} from './symbolNameUtils';
 import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
 import { assignTupleTypeArgs, expandTuple, getSlicedTupleType, getTypeOfTuple, makeTupleObject } from './tuples';
 import {
@@ -6378,6 +6384,8 @@ export function createTypeEvaluator(
             return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
         }
 
+        const baseTypeForm = baseType.props?.typeForm;
+
         if (baseType.props?.specialForm && (flags & EvalFlags.TypeExpression) === 0) {
             baseType = baseType.props.specialForm;
         }
@@ -6525,6 +6533,32 @@ export function createTypeEvaluator(
                         (flags & EvalFlags.TypeExpression) === 0 ? undefined : MemberAccessFlags.TypeExpression,
                         baseTypeResult.bindToSelfType
                     );
+
+                    if (
+                        (!typeResult || typeResult.typeErrors) &&
+                        usage.method === 'get' &&
+                        !isDunderName(memberName) &&
+                        ClassType.isBuiltIn(baseType, 'Annotated') &&
+                        baseTypeForm &&
+                        isClassInstance(baseTypeForm) &&
+                        isAnnotatedAliasOfClass(node.d.leftExpr, baseTypeResult.type)
+                    ) {
+                        // At runtime, the Annotated alias delegates attribute reads
+                        // (other than dunder names) to its origin class object, so
+                        // evaluate the access against the instantiable form of the
+                        // annotated class.
+                        const fallbackDiag = new DiagnosticAddendum();
+                        const fallbackResult = getTypeOfMemberAccessWithBaseType(
+                            node,
+                            { type: ClassType.cloneAsInstantiable(baseTypeForm) },
+                            usage,
+                            flags
+                        );
+                        if (fallbackResult && !fallbackResult.typeErrors) {
+                            typeResult = fallbackResult;
+                            diag = fallbackDiag;
+                        }
+                    }
                 }
 
                 if (typeResult) {
@@ -17953,6 +17987,54 @@ export function createTypeEvaluator(
         }
 
         return createSpecialType(classType, typeArgs, /* paramLimit */ undefined, /* allowParamSpec */ true);
+    }
+
+    // Determines whether the expression refers to an implicit type alias of the
+    // form "Annotated[C, ...]" whose runtime origin is the class C itself. This
+    // excludes origins that are forward references, literals, or TypeAliasType
+    // objects, which don't expose the attributes of the class.
+    function isAnnotatedAliasOfClass(node: ExpressionNode, aliasType: Type): boolean {
+        if (node.nodeType !== ParseNodeType.Name) {
+            return false;
+        }
+
+        const aliasInfo = aliasType.props?.typeAliasInfo;
+        if (!aliasInfo || aliasInfo.shared.isTypeAliasType) {
+            return false;
+        }
+
+        const decls = getDeclInfoForNameNode(node)?.decls;
+        if (!decls || decls.length !== 1) {
+            return false;
+        }
+
+        const decl = resolveAliasDeclaration(decls[0], /* resolveLocalNames */ true);
+        if (
+            !decl ||
+            decl.type !== DeclarationType.Variable ||
+            !decl.typeAliasName ||
+            decl.inferredTypeSource?.nodeType !== ParseNodeType.Index
+        ) {
+            return false;
+        }
+
+        const originArg = decl.inferredTypeSource.d.items[0];
+        if (
+            !originArg ||
+            originArg.d.argCategory !== ArgCategory.Simple ||
+            originArg.d.name ||
+            originArg.d.valueExpr.nodeType === ParseNodeType.StringList
+        ) {
+            return false;
+        }
+
+        const originType = readTypeCache(originArg.d.valueExpr, /* flags */ undefined);
+        return (
+            !!originType &&
+            isInstantiableClass(originType) &&
+            originType.priv.literalValue === undefined &&
+            !originType.props?.typeAliasInfo?.shared.isTypeAliasType
+        );
     }
 
     function createAnnotatedType(
