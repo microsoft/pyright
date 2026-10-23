@@ -9,18 +9,30 @@ import time
 import tomllib
 import unittest
 from argparse import Namespace
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 from copilot import ToolInvocation
 from copilot.generated.rpc import PermissionDecisionApproveOnce, PermissionDecisionReject
 from copilot.generated.session_events import (
     AssistantMessageData,
+    AssistantMessageDeltaData,
+    AssistantReasoningDeltaData,
+    AssistantTurnEndData,
+    AssistantTurnStartData,
+    AssistantUsageData,
     PermissionRequestRead,
     PermissionRequestShell,
     PermissionRequestWrite,
+    SessionEvent,
+    SessionEventType,
+    SessionIdleData,
     SessionIndexedSearchData,
+    SessionMode,
+    UserMessageData,
 )
 from copilot.session import CopilotSession
 from pydantic import JsonValue, ValidationError
@@ -1029,10 +1041,15 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         session.abort.assert_awaited_once()
         session.disconnect.assert_awaited_once()
         records = [json.loads(line) for line in (scratch / "sdk-events.jsonl").read_text().splitlines()]
-        failure = records[-1]
+        failure = next(record for record in records if record["type"] == "controller.timeout")
         self.assertEqual(failure["type"], "controller.timeout")
         self.assertEqual(failure["data"]["session_id"], session.session_id)
         self.assertEqual(failure["data"]["exception"], "TimeoutError")
+        self.assertTrue(failure["data"]["deadline_expired"])
+        self.assertEqual(failure["data"]["attempt"], 1)
+        self.assertEqual(failure["data"]["phase"], "response_wait")
+        self.assertEqual(records[-1]["data"]["phase"], "disconnect_finished")
+        self.assertTrue(records[-1]["data"]["completed"])
 
     async def test_independent_rca_budget_does_not_change_the_general_timeout(self):
         session = AsyncMock()
@@ -1078,6 +1095,21 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(calls, 2)
         session.abort.assert_awaited_once()
+        records = [
+            json.loads(line) for line in (Path(self.temporary.name) / "sdk-events.jsonl").read_text().splitlines()
+        ]
+        waits = [record["data"] for record in records if record["type"] == "controller.lifecycle"
+                 and record["data"]["phase"] == "response_wait"]
+        self.assertEqual([record["attempt"] for record in waits], [1, 2])
+        self.assertLess(waits[1]["remaining_active_seconds"], waits[0]["remaining_active_seconds"])
+        failure = next(record["data"] for record in records if record["type"] == "controller.timeout")
+        self.assertEqual(failure["attempt"], 2)
+        self.assertEqual(failure["phase"], "response_wait")
+        self.assertTrue(failure["deadline_expired"])
+        rejected = next(record["data"] for record in records if record["type"] == "controller.validation_rejected")
+        self.assertEqual(rejected["attempt"], 1)
+        self.assertEqual(rejected["phase"], "schema_validation")
+        self.assertTrue(rejected["retry"])
 
     async def test_adjudicator_reads_both_markdown_reports_without_tools(self):
         self.entry.adjudication = None
@@ -1515,6 +1547,210 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(summary["proposals"][0]["validity"], "bug")
         self.assertEqual(summary["proposals"][0]["proposed_action"], "blocked")
         self.assertIsNotNone(self.entry.elapsed_seconds)
+
+
+class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.scratch = Path(self.temporary.name)
+        self.agent = Agent.load(AGENTS / "pyright-issue-reproducer.md", "pyright-issue-reproducer")
+
+    def records(self):
+        return [json.loads(line) for line in (self.scratch / "sdk-events.jsonl").read_text().splitlines()]
+
+    def session(self):
+        session = AsyncMock()
+        session.session_id = "offline-lifecycle"
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.agent.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+        return session
+
+    def event(self, kind, data, *, agent_id=None):
+        return SessionEvent(
+            id=uuid4(), timestamp=datetime.now(timezone.utc), type=SessionEventType(kind), data=data,
+            agent_id=agent_id,
+        )
+
+    async def installed_wait(self, events, *, timeout=0.05):
+        transport = AsyncMock()
+        actual = CopilotSession("offline-lifecycle", transport)
+        session = self.session()
+        session.send_and_wait.side_effect = actual.send_and_wait
+
+        async def send(_method, _params):
+            for event in events:
+                actual._dispatch_event(event)
+            return {"messageId": "request-id"}
+
+        transport.request.side_effect = send
+        client = AsyncMock()
+
+        async def create(**options):
+            actual.on(options["on_event"])
+            return session
+
+        client.create_session.side_effect = create
+        return SDK(client, None, timeout), session, actual
+
+    async def test_final_message_and_usage_without_idle_do_not_bypass_installed_completion_wait(self):
+        content = '{"approved":true,"problems":[]}'
+        events = [
+            self.event("user.message", UserMessageData(content="private prompt", message_id="request-id")),
+            self.event("assistant.usage", AssistantUsageData(model="offline", input_tokens=3, output_tokens=2)),
+            self.event("assistant.message", AssistantMessageData(
+                content=content, message_id="reply-id", originating_message_id="request-id",
+            )),
+        ]
+        events[1:1] = [
+            self.event("assistant.message_delta", AssistantMessageDeltaData(
+                delta_content="private partial content", message_id="reply-id",
+            )) for _ in range(20)
+        ] + [
+            self.event("assistant.reasoning_delta", AssistantReasoningDeltaData(
+                delta_content="private reasoning", reasoning_id="reason-id",
+            )) for _ in range(20)
+        ] + [
+            self.event("assistant.message_delta", AssistantMessageDeltaData(
+                delta_content="private subagent partial content", message_id="child-id",
+            ), agent_id="child") for _ in range(10)
+        ]
+        sdk, session, actual = await self.installed_wait(events)
+        with self.assertRaisesRegex(AutomationError, "timed out"):
+            await sdk.run(self.agent, "private prompt", self.scratch, schema=DraftCheck, native_tools=[])
+        records = self.records()
+        final = next(record["data"] for record in records if record["type"] == "assistant.message")
+        self.assertEqual(final["message_id"], "reply-id")
+        self.assertEqual(final["originating_message_id"], "request-id")
+        self.assertEqual(final["content_bytes"], len(content.encode("utf-8")))
+        self.assertEqual(len(final["content_sha256"]), 64)
+        self.assertEqual(final["tool_request_count"], 0)
+        self.assertEqual(len([record for record in records if record["type"] == "assistant.message_delta"]), 2)
+        self.assertEqual(len([record for record in records if record["type"] == "assistant.reasoning_delta"]), 1)
+        failure = next(record["data"] for record in records if record["type"] == "controller.timeout")
+        self.assertEqual(failure["event_counts"]["root:assistant.message_delta"], 20)
+        self.assertEqual(failure["event_counts"]["subagent:assistant.message_delta"], 10)
+        self.assertEqual(failure["event_counts"]["root:assistant.reasoning_delta"], 20)
+        self.assertEqual(failure["event_counts"]["root:assistant.message"], 1)
+        self.assertEqual(failure["event_counts"]["root:assistant.usage"], 1)
+        self.assertNotIn("root:session.idle", failure["event_counts"])
+        self.assertTrue(failure["deadline_expired"])
+        self.assertEqual(failure["last_event"]["type"], "assistant.message")
+        self.assertEqual(failure["phase"], "response_wait")
+        self.assertFalse((self.scratch / f"{self.agent.name}-response-1.txt").exists())
+        text = (self.scratch / "sdk-events.jsonl").read_text()
+        self.assertNotIn("private prompt", text)
+        self.assertNotIn("private partial content", text)
+        self.assertNotIn("private reasoning", text)
+        self.assertNotIn("private subagent partial content", text)
+        self.assertNotIn(content, text)
+        self.assertFalse(actual._structured_waits)
+        session.abort.assert_awaited_once()
+        session.disconnect.assert_awaited_once()
+
+    async def test_autopilot_idle_is_recorded_but_does_not_complete_structured_output(self):
+        sdk, session, _actual = await self.installed_wait([
+            self.event("assistant.message", AssistantMessageData(
+                content='{"approved":true,"problems":[]}', message_id="reply-id", originating_message_id="request-id",
+            )),
+            self.event("session.idle", SessionIdleData(mode=SessionMode.AUTOPILOT)),
+        ])
+        with self.assertRaisesRegex(AutomationError, "timed out"):
+            await sdk.run(self.agent, "Offline only", self.scratch, schema=DraftCheck, native_tools=[])
+        idle = next(record["data"] for record in self.records() if record["type"] == "session.idle")
+        self.assertEqual(idle["mode"], "autopilot")
+        self.assertIsNone(idle["agent_id"])
+        session.abort.assert_awaited_once()
+
+    async def test_correlated_root_message_and_idle_still_require_and_pass_host_validation(self):
+        content = '{"approved":true,"problems":[]}'
+        sdk, session, _actual = await self.installed_wait([
+            self.event("assistant.turn_start", AssistantTurnStartData(turn_id="turn-id")),
+            self.event("assistant.message", AssistantMessageData(
+                content="unrelated root content", message_id="other", originating_message_id="different-request",
+            )),
+            self.event("assistant.message", AssistantMessageData(
+                content="subagent content", message_id="child-reply", originating_message_id="request-id",
+            ), agent_id="child"),
+            self.event("session.idle", SessionIdleData(mode=SessionMode.INTERACTIVE), agent_id="child"),
+            self.event("assistant.message", AssistantMessageData(
+                content=content, message_id="reply-id", originating_message_id="request-id",
+            )),
+            self.event("assistant.turn_end", AssistantTurnEndData(turn_id="turn-id")),
+            self.event("session.idle", SessionIdleData(mode=SessionMode.INTERACTIVE)),
+        ], timeout=1)
+        seen = []
+        result = await sdk.run(
+            self.agent, "Offline only", self.scratch, schema=DraftCheck, native_tools=[], validate=seen.append,
+        )
+        self.assertEqual(result, content)
+        self.assertEqual(seen, [content])
+        self.assertEqual((self.scratch / f"{self.agent.name}-response-1.txt").read_text(), content)
+        records = self.records()
+        phases = [record["data"]["phase"] for record in records if record["type"] == "controller.lifecycle"]
+        self.assertIn("response_returned", phases)
+        self.assertIn("response_decode", phases)
+        self.assertIn("schema_validation", phases)
+        self.assertIn("host_validation", phases)
+        self.assertIn("validated", phases)
+        messages = [record["data"] for record in records if record["type"] == "assistant.message"]
+        self.assertEqual([item["originating_message_id"] for item in messages], [
+            "different-request", "request-id", "request-id",
+        ])
+        self.assertEqual(messages[1]["agent_id"], "child")
+        turn_events = [record for record in records if record["type"].startswith("assistant.turn_")]
+        self.assertEqual([record["data"]["turn_id"] for record in turn_events], ["turn-id", "turn-id"])
+        session.abort.assert_not_awaited()
+        session.disconnect.assert_awaited_once()
+
+    async def test_nested_timeout_is_distinguished_from_exhausted_controller_deadline(self):
+        session, client = self.session(), AsyncMock()
+        session.send_and_wait.side_effect = TimeoutError("offline nested timeout")
+        client.create_session.return_value = session
+        with self.assertRaisesRegex(AutomationError, "timed out"):
+            await SDK(client, None, 30).run(self.agent, "Offline", self.scratch)
+        failure = next(record["data"] for record in self.records() if record["type"] == "controller.timeout")
+        self.assertFalse(failure["deadline_expired"])
+        self.assertGreater(failure["remaining_active_seconds"], 0)
+        self.assertEqual(failure["phase"], "response_wait")
+        session.abort.assert_awaited_once()
+        session.disconnect.assert_awaited_once()
+
+    async def test_cancellation_propagates_after_logged_abort_and_disconnect(self):
+        session, client = self.session(), AsyncMock()
+        waiting = asyncio.Event()
+
+        async def wait(*_args, **_kwargs):
+            waiting.set()
+            await asyncio.Event().wait()
+
+        session.send_and_wait.side_effect = wait
+        client.create_session.return_value = session
+        task = asyncio.create_task(SDK(client, None, 30).run(self.agent, "Offline", self.scratch))
+        await waiting.wait()
+        task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        records = self.records()
+        self.assertIn("controller.cancelled", [record["type"] for record in records])
+        self.assertNotIn("controller.timeout", [record["type"] for record in records])
+        self.assertEqual(records[-1]["data"]["phase"], "disconnect_finished")
+        self.assertTrue(records[-1]["data"]["completed"])
+        session.abort.assert_awaited_once()
+        session.disconnect.assert_awaited_once()
+
+    async def test_disconnect_failure_remains_explicit_and_is_not_reported_as_success(self):
+        session, client = self.session(), AsyncMock()
+        session.send_and_wait.return_value = SimpleNamespace(data=AssistantMessageData(
+            content="Offline response", message_id="reply-id",
+        ))
+        session.disconnect.side_effect = RuntimeError("offline detach failure")
+        client.create_session.return_value = session
+        with self.assertRaisesRegex(RuntimeError, "offline detach failure"):
+            await SDK(client, None, 30).run(self.agent, "Offline", self.scratch)
+        record = self.records()[-1]
+        self.assertEqual(record["data"]["phase"], "disconnect_finished")
+        self.assertFalse(record["data"]["completed"])
 
 
 class ToolTests(unittest.IsolatedAsyncioTestCase):

@@ -537,7 +537,12 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
         client.create_session.return_value = session
         with self.assertRaisesRegex(AutomationError, "verify assets before run.*Host updater still held"):
             await SDK(client, "gpt-6.1-sol", 900).run(profile, "A fixture", scratch, tools=tools, evidence=self.runtime.directory)
-        event = json.loads((self.runtime.directory / "sdk-events.jsonl").read_text().splitlines()[-1])
+        events = [
+            json.loads(line) for line in (self.runtime.directory / "sdk-events.jsonl").read_text().splitlines()
+        ]
+        timeouts = [event for event in events if event["type"] == "controller.timeout"]
+        self.assertEqual(len(timeouts), 1)
+        event = timeouts[0]
         self.assertEqual(event["data"]["last_editor_error"], tools.last_editor_error)
         self.assertEqual(event["data"]["editor_progress"], self.runtime.last_progress)
         self.assertTrue(event["data"]["editor_events"].endswith("editor-events.jsonl"))

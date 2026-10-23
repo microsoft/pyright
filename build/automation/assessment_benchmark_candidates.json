@@ -1,0 +1,272 @@
+[
+  {
+    "input": {
+      "id": "case-contract-bug",
+      "origin": "synthetic_contract",
+      "report": "An incompatible annotated assignment is accepted without an error.\n\nPython: 3.12\nPyright: 1.1.414\ntypeCheckingMode: standard\n\n`sample.py`:\n```python\nvalue: int = \"wrong\"\n```\n\n`pyrightconfig.json`:\n```json\n{\"pythonVersion\":\"3.12\",\"typeCheckingMode\":\"standard\"}\n```\n\nI ran `pyright --project pyrightconfig.json` and got:\n```text\n0 errors, 0 warnings, 0 informations\n```\n\nI expected an incompatible assignment diagnostic because the variable is annotated as int but its initializer is a string.",
+      "files": [
+        {"path": "sample.py", "content": "value: int = \"wrong\"\n", "sha256": "61be929425c0ed810eda2490bb7b19805b2e92aa185fc6006911f45fe979afcb", "role": "original_source"},
+        {"path": "pyrightconfig.json", "content": "{\"pythonVersion\":\"3.12\",\"typeCheckingMode\":\"standard\"}\n", "sha256": "43c229cc688d39616696f268d8ab451af54c694b3d39c57ee27ea03b38ae9866", "role": "configuration"}
+      ],
+      "settings": [
+        {"name": "pythonVersion", "value": "3.12", "provenance": "reported", "qualification": "Explicit synthetic setting."},
+        {"name": "typeCheckingMode", "value": "standard", "provenance": "reported", "qualification": "Explicit synthetic setting; no diagnostic override."}
+      ],
+      "claims": [{"id": "assignment", "summary": "Reported omission of an incompatible annotated-assignment diagnostic."}],
+      "limitations": ["The report and its claimed output are synthetic, not prior controller observations; no target has been executed for this candidate."]
+    },
+    "family": "annotated-assignment",
+    "split": "development",
+    "judgment": {
+      "claims": [{
+        "claim_id": "assignment",
+        "acceptable_dispositions": ["bug"],
+        "expected_status": "qualified",
+        "alternatives": [{
+          "disposition": "inconclusive",
+          "status": "inconclusive",
+          "condition": "no_verified_reproduction",
+          "rationale": "Human reference decision: fresh non-reproduction or unobserved behavior may leave this synthetic reported omission inconclusive instead of requiring a conditional bug classification."
+        }],
+        "useful_information": ["Fresh original-target diagnostics and executable/effective configuration provenance if the reported omission is not observed."],
+        "rationale": "A string literal is not assignable to an explicitly annotated int variable. If the reporter's claimed omission is independently verified with the given settings, it is a supported typing-rule concern; this fabricated report is not observed product evidence. A non-reproduction can leave the report inconclusive instead.",
+        "sources": [{"url": "https://typing.python.org/en/latest/spec/annotations.html", "section": "Variable annotations and assignability; reviewer must retrieve the exact applicable section before use.", "status": "not_retrieved", "evidence_id": null}],
+        "version_configuration_limits": "The synthetic report explicitly claims Python 3.12, standard checking and Pyright 1.1.414; no actual execution on that release is represented.",
+        "uncertainty": "Provisional semantic expectation; exact normative excerpt and human review are still required."
+      }],
+      "whole_issue_reference": "not_settled",
+      "observation_pattern": "not_executed",
+      "observation_origin": "synthetic_contract",
+      "rationale": "Exercises assessment of a reported omission without revealing or presupposing any target outcome.",
+      "version_configuration_limits": "Reported settings/source are explicit synthetic facts; no historical/main/latest observation exists.",
+      "uncertainty": "Not gold or evidence of real-assessor accuracy."
+    },
+    "reference_status": "provisional",
+    "approval": null,
+    "provenance": "Controller-curated synthetic contract example; not a public issue or live checker result."
+  },
+  {
+    "input": {
+      "id": "case-contract-design",
+      "origin": "synthetic_contract",
+      "report": "I think the assignment diagnostic is a false positive because this Python program runs.\n\nPython: 3.12\nPyright: 1.1.414\ntypeCheckingMode: standard\n\n`sample.py`:\n```python\nvalue: int = \"wrong\"\n```\n\n`pyrightconfig.json`:\n```json\n{\"pythonVersion\":\"3.12\",\"typeCheckingMode\":\"standard\"}\n```\n\nRunning `pyright --project pyrightconfig.json` reports an error at the initializer:\n```text\nType \"Literal['wrong']\" is not assignable to declared type \"int\" (reportAssignmentType)\n```\n\nI expected no error because Python does not enforce variable annotations at runtime.",
+      "files": [
+        {"path": "sample.py", "content": "value: int = \"wrong\"\n", "sha256": "61be929425c0ed810eda2490bb7b19805b2e92aa185fc6006911f45fe979afcb", "role": "original_source"},
+        {"path": "pyrightconfig.json", "content": "{\"pythonVersion\":\"3.12\",\"typeCheckingMode\":\"standard\"}\n", "sha256": "43c229cc688d39616696f268d8ab451af54c694b3d39c57ee27ea03b38ae9866", "role": "configuration"}
+      ],
+      "settings": [
+        {"name": "pythonVersion", "value": "3.12", "provenance": "reported", "qualification": "Explicit synthetic setting."},
+        {"name": "typeCheckingMode", "value": "standard", "provenance": "reported", "qualification": "Explicit synthetic setting; no diagnostic override."}
+      ],
+      "claims": [{"id": "assignment", "summary": "Whether runtime acceptance makes the reported assignment diagnostic incorrect."}],
+      "limitations": ["The report and diagnostic are synthetic reporter claims, not prior controller observations; fresh original-target checks remain necessary."]
+    },
+    "family": "annotated-assignment",
+    "split": "development",
+    "judgment": {
+      "claims": [{
+        "claim_id": "assignment",
+        "acceptable_dispositions": ["as_designed"],
+        "expected_status": "supported",
+        "useful_information": [],
+        "rationale": "For the exact reported assignment diagnostic, rejection follows annotated-variable assignability, not runtime annotation enforcement. A current applicable spec excerpt and applied premises are required; runtime acceptance alone is not static correctness. Product observations must be established independently.",
+        "sources": [{"url": "https://typing.python.org/en/latest/spec/annotations.html", "section": "Variable annotations and assignability; reviewer must retrieve the exact applicable section before use.", "status": "not_retrieved", "evidence_id": null}],
+        "version_configuration_limits": "Conditional synthetic diagnostic only; no product execution or closure reference.",
+        "uncertainty": "Reference remains provisional until exact source application and human review."
+      }],
+      "whole_issue_reference": "settled_single_claim",
+      "observation_pattern": "not_executed",
+      "observation_origin": "synthetic_contract",
+      "rationale": "Checks rule applicability separately from the actual target observations the assessor must discover.",
+      "version_configuration_limits": "No historical, main or latest behavior has been executed or supplied.",
+      "uncertainty": "No action eligibility or trusted gold label."
+    },
+    "reference_status": "provisional",
+    "approval": null,
+    "provenance": "Controller-curated synthetic contract example; related assignment cases share one development family."
+  },
+  {
+    "input": {
+      "id": "case-contract-both-negative",
+      "origin": "synthetic_contract",
+      "report": "Pyright reports an assignment error for an int literal assigned to an int variable.\n\nPython: 3.12\nPyright: 1.1.414\ntypeCheckingMode: standard\n\n`sample.py`:\n```python\nvalue: int = 1\n```\n\n`pyrightconfig.json`:\n```json\n{\"pythonVersion\":\"3.12\",\"typeCheckingMode\":\"standard\"}\n```\n\nRunning `pyright --project pyrightconfig.json` reports at line 1:\n```text\nType \"Literal[1]\" is not assignable to declared type \"int\" (reportAssignmentType)\n```\n\nI expected this assignment to type-check because 1 is an int.",
+      "files": [
+        {"path": "sample.py", "content": "value: int = 1\n", "sha256": "f9321136b93a41e790d124497838275e8741fbf59b43f66713e7e780e918a693", "role": "original_source"},
+        {"path": "pyrightconfig.json", "content": "{\"pythonVersion\":\"3.12\",\"typeCheckingMode\":\"standard\"}\n", "sha256": "43c229cc688d39616696f268d8ab451af54c694b3d39c57ee27ea03b38ae9866", "role": "configuration"}
+      ],
+      "settings": [
+        {"name": "pythonVersion", "value": "3.12", "provenance": "reported", "qualification": "Explicit synthetic setting."},
+        {"name": "typeCheckingMode", "value": "standard", "provenance": "reported", "qualification": "Explicit synthetic setting."}
+      ],
+      "claims": [{"id": "reported-diagnostic", "summary": "Whether the reported assignment diagnostic on value: int = 1 is justified."}],
+      "limitations": ["The exact reported diagnostic is fabricated for a synthetic regression candidate, not a real observed issue.", "No original/control target observations have been supplied or executed for this candidate."]
+    },
+    "family": "negative-observation-versus-validity",
+    "split": "development",
+    "judgment": {
+      "claims": [{
+        "claim_id": "reported-diagnostic",
+        "acceptable_dispositions": ["inconclusive"],
+        "expected_status": "inconclusive",
+        "useful_information": ["Executed executable/version identity and original effective configuration/output if the supplied diagnostic cannot be observed."],
+        "rationale": "The source appears valid under ordinary annotated-variable assignability. If fresh original/control evidence establishes absence on the targets, that is reproduction evidence, not proof of a by-design policy or invalidity of a historical complaint. Preserve the exact synthetic reported diagnostic and ask for environment/executable provenance if needed; no target outcome is stipulated.",
+        "sources": [{"url": "https://typing.python.org/en/latest/spec/annotations.html", "section": "Assignability applies to the code, but does not explain an unobserved diagnostic.", "status": "not_retrieved", "evidence_id": null}],
+        "version_configuration_limits": "Python 3.12/standard and exact source/config/claimed diagnostic are explicit; no original or positive-control receipts exist.",
+        "uncertainty": "Reference is provisional; the intended negative-observation exercise must actually execute and qualify its controls rather than inherit a result."
+      }],
+      "whole_issue_reference": "needs_information",
+      "observation_pattern": "not_executed",
+      "observation_origin": "synthetic_contract",
+      "rationale": "Candidate for a fresh affirmative-negative investigation, not a supplied both-negative observation.",
+      "version_configuration_limits": "No actual checker execution, original result or control result is supplied.",
+      "uncertainty": "Useful information requests need human assessment, not automatic keyword scoring."
+    },
+    "reference_status": "provisional",
+    "approval": null,
+    "provenance": "Controller-curated synthetic negative-observation contract, not evidence of actual both-negative coverage."
+  },
+  {
+    "input": {
+      "id": "case-contract-environment",
+      "origin": "synthetic_contract",
+      "report": "After upgrading the vendor package, Widget().missing() is marked as an error in my editor.\n\nPython: 3.12\ntypeCheckingMode: standard\n\n`sample.py`:\n```python\nfrom vendor import Widget\nvalue = Widget().missing()\n```\n\n`pyrightconfig.json`:\n```json\n{\"pythonVersion\":\"3.12\",\"typeCheckingMode\":\"standard\"}\n```\n\nThis call worked before the package upgrade, and I expected it to keep working. I have not recorded the exact diagnostic, Pyright version, installed vendor or stub versions, or the interpreter selected by the editor. I cannot provide the declaration of Widget yet.",
+      "files": [
+        {"path": "sample.py", "content": "from vendor import Widget\nvalue = Widget().missing()\n", "sha256": "1d8e9ace37f1befc3f7739cf86d670cb79a9116d6d78bcdba96595b1a2276c4c", "role": "original_source"},
+        {"path": "pyrightconfig.json", "content": "{\"pythonVersion\":\"3.12\",\"typeCheckingMode\":\"standard\"}\n", "sha256": "43c229cc688d39616696f268d8ab451af54c694b3d39c57ee27ea03b38ae9866", "role": "configuration"}
+      ],
+      "settings": [
+        {"name": "pythonVersion", "value": "3.12", "provenance": "reported", "qualification": "Explicit report/configuration target; selected editor interpreter remains unknown."},
+        {"name": "typeCheckingMode", "value": "standard", "provenance": "reported", "qualification": "Explicit report/configuration setting."},
+        {"name": "vendorVersion", "value": null, "provenance": "missing", "qualification": "Not supplied; dependency acquisition is unavailable."}
+      ],
+      "claims": [{"id": "vendor-member", "summary": "Whether rejecting Widget().missing() is a Pyright defect or dependency/environment mismatch."}],
+      "limitations": ["No dependency declaration, installed package/stub versions, interpreter selection or exact diagnostic is available.", "Synthetic reporter claims are not actual editor/checker observations."]
+    },
+    "family": "missing-vendor-environment",
+    "split": "development",
+    "judgment": {
+      "claims": [{
+        "claim_id": "vendor-member",
+        "acceptable_dispositions": ["inconclusive"],
+        "expected_status": "inconclusive",
+        "useful_information": ["Exact diagnostic and Widget declaration.", "Installed dependency/stub versions and selected interpreter."],
+        "rationale": "A stub/environment explanation is plausible but unestablished. Missing declarations and effective environment distinguish an absent member, stale stub, import resolution mismatch and checker defect; arbitrary installation is not justified.",
+        "sources": [{"url": "https://github.com/microsoft/pyright/blob/576b8688fa047ec861fa66861c6322c67d7c0789/docs/import-resolution.md", "section": "Import resolution and environment selection; not retrieved for this candidate.", "status": "not_retrieved", "evidence_id": null}],
+        "version_configuration_limits": "Python 3.12/standard are explicit; Pyright, dependency/stub versions and effective interpreter remain missing.",
+        "uncertainty": "Do not elevate a plausible environment hypothesis into a settled environment defect."
+      }],
+      "whole_issue_reference": "needs_information",
+      "observation_pattern": "not_executed",
+      "observation_origin": "synthetic_contract",
+      "rationale": "Exercises useful abstention for a genuinely incomplete report.",
+      "version_configuration_limits": "No dependency acquisition or fabricated setup.",
+      "uncertainty": "Reference and question usefulness need human review."
+    },
+    "reference_status": "provisional",
+    "approval": null,
+    "provenance": "Controller-curated synthetic environment contract."
+  },
+  {
+    "input": {
+      "id": "case-retained-dataclass-callable",
+      "origin": "retained_report",
+      "report": "Code (pyright 1.1.406, Python 3.14):\n\n```py\nfrom collections.abc import Callable\nfrom typing import Protocol, dataclass_transform\nfrom dataclasses import dataclass\n\n\n@dataclass_transform(kw_only_default=True)\ndef rescoped[T: type](*, frozen: bool = False) -> Callable[[T], T]:\n    return dataclass(frozen=frozen)  # pyright: ignore[reportUnknownVariableType]\n\n@rescoped()\nclass Foo:\n    x: str\n    y: int\n\nFOO = Foo(x=\"a\", y=42)  # works\n\n\nclass Decorator(Protocol):\n    def __call__[T: type](self, t: T, /) -> T:\n        ...\n\n@dataclass_transform(kw_only_default=True)\ndef spec(*, frozen: bool = False) -> Decorator:\n    return dataclass(frozen=frozen)  # pyright: ignore[reportUnknownVariableType]\n\n@spec()\nclass Bar:\n    x: str\n    y: int\n\nBAR = Bar(x=\"a\", y=42)\n#         ^^^^^^^^^^^\n# reportCallIssue: no parameter named \"x\", \"y\"\n```\n\nAs I understand, the return types of `spec` and `rescoped` have the same semantics in pyright. However, pyright doesn't seem to recognize that `Bar` is a dataclass in the `spec` version. As far as I know (from [this discourse thread](https://discuss.python.org/t/rescoping-of-type-variables-into-return-types-agreeing-on-a-specification/60534)), `spec` in this sample is the \"official\" way of returning a generic callable (while `rescoped` is an unofficial way that's supported by mypy and pyright)",
+      "files": [
+        {"path": "repro.py", "content": "from collections.abc import Callable\nfrom typing import Protocol, dataclass_transform\nfrom dataclasses import dataclass\n\n\n@dataclass_transform(kw_only_default=True)\ndef rescoped[T: type](*, frozen: bool = False) -> Callable[[T], T]:\n    return dataclass(frozen=frozen)  # pyright: ignore[reportUnknownVariableType]\n\n@rescoped()\nclass Foo:\n    x: str\n    y: int\n\nFOO = Foo(x=\"a\", y=42)  # works\n\n\nclass Decorator(Protocol):\n    def __call__[T: type](self, t: T, /) -> T:\n        ...\n\n@dataclass_transform(kw_only_default=True)\ndef spec(*, frozen: bool = False) -> Decorator:\n    return dataclass(frozen=frozen)  # pyright: ignore[reportUnknownVariableType]\n\n@spec()\nclass Bar:\n    x: str\n    y: int\n\nBAR = Bar(x=\"a\", y=42)\n#         ^^^^^^^^^^^\n# reportCallIssue: no parameter named \"x\", \"y\"\n", "sha256": "9eb22ae77913fc45318a63d086501dd497c3ffaa8bfcd707183ab0be4e4d8d5f", "role": "original_source"},
+        {"path": "pyrightconfig.json", "content": "{\n  \"include\": [\n    \"repro.py\"\n  ],\n  \"pythonVersion\": \"3.14\",\n  \"typeCheckingMode\": \"strict\"\n}\n", "sha256": "3adae16cf3a45b91d850a95c34fa4827e90b15b39fce267fd8744705b63d872a", "role": "configuration"}
+      ],
+      "settings": [
+        {"name": "pythonVersion", "value": "3.14", "provenance": "reported", "qualification": "Report explicitly supplies Python 3.14."},
+        {"name": "pyrightVersion", "value": "1.1.406", "provenance": "reported", "qualification": "Report explicitly supplies Pyright 1.1.406."},
+        {"name": "typeCheckingMode", "value": "strict", "provenance": "assumed", "qualification": "Retained v3 experiment chose strict; this is not a reported setting or strict fidelity ground truth."}
+      ],
+      "claims": [
+        {"id": "protocol-dataclass", "summary": "Callable-protocol decorator return does not synthesize the expected Bar constructor."},
+        {"id": "return-form-equivalence", "summary": "Whether the generic Callable and callable-protocol forms must have equivalent dataclass-transform behavior in this context."}
+      ],
+      "limitations": ["Retained report body and source are verbatim; no answers, labels, outcomes or control sources are supplied.", "Checking mode was assumed in the earlier v3 experiment.", "Source/setup must be recaptured by the integrated controller; retained files are regression fixtures, not new authority.", "Prior issue identity may be memorized; this is previously examined development material, not an independent holdout."]
+    },
+    "family": "dataclass-transform-generic-callable",
+    "split": "development",
+    "judgment": {
+      "claims": [
+        {
+          "claim_id": "protocol-dataclass",
+          "acceptable_dispositions": ["bug", "as_designed", "stub_or_environment", "enhancement", "inconclusive"],
+          "expected_status": "not_settled",
+          "useful_information": ["Effective reported checking mode and applicable dataclass-transform rule."],
+          "rationale": "The earlier v3 experiment exhibited a conditional historical-only pattern under assumed strict mode. That observation does not prove a semantic bug, a fix cause, or current correctness. Re-establish report fidelity and apply the actual dataclass-transform rule to this decorator.",
+          "sources": [
+            {"url": "https://github.com/microsoft/pyright/issues/11015", "section": "Retained report body only; hidden from model identity metadata.", "status": "saved_report", "evidence_id": "v3-report-11015-sha256-78888f4379669f99845fd606918e9de2931dbad3dc5e6a48c2fdc0cc85b07cd2"},
+            {"url": "https://typing.python.org/en/latest/spec/dataclasses.html", "section": "Dataclass semantics and dataclass_transform; exact applicable rule not yet retrieved.", "status": "not_retrieved", "evidence_id": null}
+          ],
+          "version_configuration_limits": "Reported 1.1.406/Python 3.14; v3 strict mode was assumed. No strict current assessment-v1 verification.",
+          "uncertainty": "No approved semantic gold; retained historical-only pattern remains provisional."
+        },
+        {
+          "claim_id": "return-form-equivalence",
+          "acceptable_dispositions": ["bug", "as_designed", "stub_or_environment", "enhancement", "inconclusive"],
+          "expected_status": "not_settled",
+          "useful_information": ["Current callable generic scope and dataclass-transform specifications applied to these exact definitions."],
+          "rationale": "Runtime or apparent callable equivalence does not establish a mandatory typing rule. Preserve this material normative concern separately from disappearance of the constructor diagnostic.",
+          "sources": [{"url": "https://typing.python.org/en/latest/spec/dataclasses.html", "section": "Apply exact decorator and callable premises; not retrieved.", "status": "not_retrieved", "evidence_id": null}],
+          "version_configuration_limits": "Exact report source retained, assumed strict mode disclosed.",
+          "uncertainty": "Reference deliberately withholds a settled disposition pending normative investigation and human review."
+        }
+      ],
+      "whole_issue_reference": "not_settled",
+      "observation_pattern": "historical_only_pattern",
+      "observation_origin": "retained_qualified_pattern",
+      "rationale": "Retains the actual assessor's conditional fixed-pattern failure path without turning reproduction into correctness.",
+      "version_configuration_limits": "Earlier v3 pattern under assumed strict mode; exact original hash 9eb22ae77913fc45318a63d086501dd497c3ffaa8bfcd707183ab0be4e4d8d5f.",
+      "uncertainty": "No new checker execution, current correctness, causality, release fix or human-approved gold is claimed."
+    },
+    "reference_status": "provisional",
+    "approval": null,
+    "provenance": "Verbatim sanitized public report11015 from frozen twenty-reproduction-stage-20261022-v3 reports/11015.json (SHA256 78888f4379669f99845fd606918e9de2931dbad3dc5e6a48c2fdc0cc85b07cd2) and sealed originals. Old gate/outcome/solution artifacts are not model inputs."
+  },
+  {
+    "input": {
+      "id": "case-retained-unpack-comprehension",
+      "origin": "retained_report",
+      "report": "**Describe the bug**\n\nPyright doesn't accept PEP 798 style unpack operations in comprehensions.\n\n**Code or Screenshots**\n\n\n```python\nprint([*range(x) for x in range(5)])\n```\n\n```sh\npyright --version\npyright 1.1.414\n```\n\n```sh\npyright --pythonversion 3.15 test.py\n/private/tmp/test.py\n  /private/tmp/test.py:1:8 - error: Unpack operation not allowed in comprehension\n1 error, 0 warnings, 0 informations\n```\n\n\n",
+      "files": [
+        {"path": "test.py", "content": "print([*range(x) for x in range(5)])\n", "sha256": "67bda77d1aa389459a511f5dae76030ed42a3627668015c0af44b5ce17f4841d", "role": "original_source"},
+        {"path": "pyrightconfig.json", "content": "{\n  \"include\": [\n    \"test.py\"\n  ],\n  \"pythonVersion\": \"3.15\",\n  \"typeCheckingMode\": \"standard\"\n}\n", "sha256": "9ffd506fbe1a26721177c17b6a2d06764c96f72b3a21bf2bd640bf565131cbc7", "role": "configuration"}
+      ],
+      "settings": [
+        {"name": "pythonVersion", "value": "3.15", "provenance": "reported", "qualification": "Exact report invocation supplies --pythonversion 3.15."},
+        {"name": "pyrightVersion", "value": "1.1.414", "provenance": "reported", "qualification": "Exact report supplies the version output."},
+        {"name": "typeCheckingMode", "value": "standard", "provenance": "assumed", "qualification": "Retained v3 experiment chose standard; the report does not specify it."}
+      ],
+      "claims": [{"id": "unpack-comprehension", "summary": "Rejection of iterable unpacking in a comprehension when Python 3.15 is explicitly targeted."}],
+      "limitations": ["Verbatim report/source only; no resolution, gate, outcome or modified controls supplied.", "Standard checking mode was assumed in the prior v3 experiment.", "New controller capture and fresh qualified verification are required.", "Previously examined development report; no holdout independence is claimed."]
+    },
+    "family": "python315-unpack-comprehension",
+    "split": "development",
+    "judgment": {
+      "claims": [{
+        "claim_id": "unpack-comprehension",
+        "acceptable_dispositions": ["bug", "as_designed", "stub_or_environment", "enhancement", "inconclusive"],
+        "expected_status": "not_settled",
+        "useful_information": ["Applicable accepted language-version rule and Pyright feature-support policy."],
+        "rationale": "The prior v3 original main run reproduced the report under assumed standard mode, but reproduction alone does not choose bug versus unsupported-feature enhancement. Retrieve current PEP status/language semantics and relevant project policy, preserving the explicit Python 3.15 target.",
+        "sources": [
+          {"url": "https://github.com/microsoft/pyright/issues/11876", "section": "Verbatim retained report body only.", "status": "saved_report", "evidence_id": "v3-report-11876-sha256-6ecbaad784325f8176a05bf0ca33e73605d69cfe7422d4bb7c8fc0c668ef8a6d"},
+          {"url": "https://peps.python.org/pep-0798/", "section": "Unpacking comprehensions; current status and Python version must be retrieved, not assumed.", "status": "not_retrieved", "evidence_id": null}
+        ],
+        "version_configuration_limits": "Reported1.1.414 and Python3.15; standard mode was an experimental assumption. Prior main observation is not a new run.",
+        "uncertainty": "Semantic disposition remains unapproved; PEP status/current policy not retrieved in this offline curation."
+      }],
+      "whole_issue_reference": "not_settled",
+      "observation_pattern": "main_reproduced",
+      "observation_origin": "retained_qualified_pattern",
+      "rationale": "Retains an actual main-reproduced assessor regression while keeping normative validity separate.",
+      "version_configuration_limits": "Original source hash67bda77d1aa389459a511f5dae76030ed42a3627668015c0af44b5ce17f4841d; prior assumed standard mode.",
+      "uncertainty": "No new execution, trusted gold, accepted PEP status, settled bug or closure label is asserted."
+    },
+    "reference_status": "provisional",
+    "approval": null,
+    "provenance": "Verbatim sanitized report11876 from frozen twenty-reproduction-stage-20261022-v3 reports/11876.json (SHA2566ecbaad784325f8176a05bf0ca33e73605d69cfe7422d4bb7c8fc0c668ef8a6d) and sealed originals. Prior outcomes remain reference-only."
+  }
+]

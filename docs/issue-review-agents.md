@@ -29,6 +29,61 @@ If a tool or source is unavailable, report the limitation rather than inventing 
 No response draft is needed for an audit. A request to investigate is not permission to post, relabel, close, commit,
 or fix. If a GitHub draft is requested, apply the user's required writing pass separately from the technical review.
 
+### Versioned read-only assessment
+
+The assessment workflow separates useful investigation from evidence sufficient for issue-wide action. It is a
+distinct, versioned read-only path, not a relaxation of the console's strict reproduction or publication contracts.
+Its records cannot authorize drafting, labels, comments, closure, pending publication, or automatic RCA.
+Existing strict and exploratory checkpoints keep their original meanings; they are not migrated into qualified
+assessment evidence.
+
+Every material claim remains accounted for. A claim may be ready, partial, or blocked. Ready verification claims
+retain exact symptom and affirmative precision requirements; partial and blocked claims identify missing evidence
+without invented diagnostic text or placeholder executable predicates. An independently executable claim can make
+progress while another remains unresolved, provided the shared source and setup support that observation.
+Unresolved material claims still prevent a settled issue-wide conclusion.
+
+The controller captures original source, source locations, settings evidence and hashes. The model selects
+captured evidence rather than regenerating originals. Setup capability checks distinguish real runtime packages,
+checker-provided stubs, versioned requirements and unknown compatibility. Reported facts, experimental assumptions,
+unsupported surfaces and unavailable dependencies remain separate.
+
+When the report supplies suitable source and setup but no exact diagnostic wording, historical discovery is a
+separate observation stage. Claim scope, failure direction and pristine inputs are frozen first. Discovery does not establish
+reproduction, a fix, or affirmative non-reproduction. A later frozen verification plan requires fresh original
+and separate control executions; a discovery receipt cannot substitute for verification. Main/latest outcomes
+must not be used to select a convenient historical symptom or invert a reported failure to force reproduction.
+Only original verification receipts can establish the original symptom; precision-control receipts remain
+control evidence even when the aggregate target observation is qualified.
+Refinement proposes a frozen plan and separate precision controls; it does not require those future controller
+executions to have already happened. Original symptom wording still needs report/discovery evidence, while
+predicted precision types are explicitly unverified expectations until fresh checks pass.
+
+Validity is assessed separately for each claim using the applicable typing specification, justified documented
+policy and relevant precedent, with explicit premises and counterevidence. Reproduction status, semantic
+disposition, remaining uncertainty and action eligibility are independent fields. Missing specification coverage,
+another checker's agreement, runtime acceptance and old issue labels do not independently establish by-design
+correctness. Applicable Python language rules are separately version-qualified and cannot override mandatory
+static typing requirements. Bounded explicit reference retrieval is not autonomous precedent search.
+The controller attaches immutable claim/language qualifications and canonical reference sections to model
+responses, then validates the complete record. Model qualifications are additions, not replacements; a supplied
+assumption still prevents a supported finding. A null proposed rule section is resolved only from the exact saved
+evidence ID, never by title guessing. Excerpts, rule domains and claim-local reference scopes remain checked.
+Readiness-stage reasons are not current execution facts and cannot negate later controller receipts.
+
+Calibration references remain provisional until a human reviews their rationale and applicability. Model inputs
+must not include hidden expected answers or solution-bearing resolutions. Distinguish actual execution coverage,
+useful information requests, unnecessary abstentions, unsupported settled conclusions and operational failures;
+zero checker executions or zero closure candidates cannot establish decision accuracy. Developmental cases and
+repeated retained reports are not independent holdouts.
+
+The entry points are `build\automation\assess_issues.py` for one complete read-only investigation and
+`build\automation\run_issue_assessment_benchmark.py` for freezing/running the small reviewed development cohort.
+The latter refuses provisional references before starting SDK, screening or checker work. It uses the real
+assessor rather than constructing expected outputs; recorded discovery calls count only as execution coverage,
+not verified observations. See `build\automation\README.md` for commands, immutable input bindings and remaining
+human-reference/utility review requirements.
+
 ### Console-owned injection screening
 
 The SDK console requires Microsoft-Decision-1 screening of the target issue and its discussion before any analysis role,

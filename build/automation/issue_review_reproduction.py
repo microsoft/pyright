@@ -22,7 +22,7 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
 from types import TracebackType
-from typing import Literal
+from typing import Literal, Protocol
 from urllib.parse import urlparse
 from urllib.request import HTTPRedirectHandler, build_opener
 
@@ -169,8 +169,16 @@ def release_target(
     )
 
 
+class ReportedVersion(Protocol):
+    @property
+    def reported_version(self) -> str | None: ...
+
+    @property
+    def version_quote(self) -> str | None: ...
+
+
 def select_targets(
-    catalog: ReleaseCatalog | dict, issue: Issue, scenario: ReproductionScenario, discussion: str, main_sha: str,
+    catalog: ReleaseCatalog | dict, issue: Issue, scenario: ReportedVersion, discussion: str, main_sha: str,
     *, registry: str = NPM_REGISTRY,
 ) -> list[ReproductionTarget]:
     registry = registry_base(registry)
