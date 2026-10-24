@@ -134,6 +134,11 @@ test('Generator15', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('GeneratorAliasSource', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generatorAliasSource.py']);
+    TestUtils.validateResults(analysisResults, 0, 0);
+});
+
 test('Generator16', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator16.py']);
 
