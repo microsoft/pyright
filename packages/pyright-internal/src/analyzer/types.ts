@@ -137,6 +137,8 @@ export interface TypeSameOptions {
     ignoreOverloadOwner?: boolean;
 }
 
+const defaultTypeSameOptions: TypeSameOptions = Object.freeze({});
+
 export interface TypeAliasSharedInfo {
     name: string;
     fullName: string;
@@ -1209,8 +1211,15 @@ export namespace ClassType {
         }
 
         if (className !== undefined) {
-            const classArray = Array.isArray(className) ? className : [className];
-            return classArray.some(
+            if (typeof className === 'string') {
+                return (
+                    className === classType.shared.name ||
+                    className === classType.shared.fullName ||
+                    className === classType.priv.aliasName
+                );
+            }
+
+            return className.some(
                 (name) =>
                     name === classType.shared.name ||
                     name === classType.shared.fullName ||
@@ -2388,8 +2397,11 @@ export namespace FunctionType {
         }
 
         if (name !== undefined) {
-            const functionArray = Array.isArray(name) ? name : [name];
-            return functionArray.some((name) => name === type.shared.name || name === type.shared.fullName);
+            if (typeof name === 'string') {
+                return name === type.shared.name || name === type.shared.fullName;
+            }
+
+            return name.some((name) => name === type.shared.name || name === type.shared.fullName);
         }
 
         return true;
@@ -2564,15 +2576,6 @@ export interface AnyType extends TypeBase<TypeCategory.Any> {
 }
 
 export namespace AnyType {
-    const _anyInstanceSpecialForm: AnyType = {
-        category: TypeCategory.Any,
-        flags: TypeFlags.Instance | TypeFlags.Instantiable,
-        props: undefined,
-        cached: undefined,
-        shared: undefined,
-        priv: { isEllipsis: false },
-    };
-
     const _anyInstance: AnyType = {
         category: TypeCategory.Any,
         flags: TypeFlags.Instance | TypeFlags.Instantiable,
@@ -2595,8 +2598,15 @@ export namespace AnyType {
         return isEllipsis ? _ellipsisInstance : _anyInstance;
     }
 
-    export function createSpecialForm() {
-        return _anyInstanceSpecialForm;
+    export function createSpecialForm(): AnyType {
+        return {
+            category: TypeCategory.Any,
+            flags: TypeFlags.Instance | TypeFlags.Instantiable,
+            props: undefined,
+            cached: undefined,
+            shared: undefined,
+            priv: { isEllipsis: false },
+        };
     }
 }
 
@@ -2801,7 +2811,7 @@ export namespace UnionType {
     export function containsType(
         unionType: UnionType,
         subtype: Type,
-        options: TypeSameOptions = {},
+        options: TypeSameOptions = defaultTypeSameOptions,
         exclusionSet?: Set<number>,
         recursionCount = 0
     ): boolean {
@@ -3441,7 +3451,12 @@ export function getTypeAliasInfo(type: Type) {
 // Determines whether two types are the same. If ignorePseudoGeneric is true,
 // type arguments for "pseudo-generic" classes (non-generic classes whose init
 // methods are not annotated and are therefore treated as generic) are ignored.
-export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = {}, recursionCount = 0): boolean {
+export function isTypeSame(
+    type1: Type,
+    type2: Type,
+    options: TypeSameOptions = defaultTypeSameOptions,
+    recursionCount = 0
+): boolean {
     if (type1 === type2) {
         return true;
     }
