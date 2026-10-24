@@ -17015,8 +17015,77 @@ export function createTypeEvaluator(
                 { type: valueType, isUnbounded: false },
             ]);
         } else if (node.d.expr.nodeType === ParseNodeType.DictionaryExpandEntry) {
-            // The parser should have reported an error in this case because it's not allowed.
-            getTypeOfExpression(node.d.expr.d.expr, flags, makeInferenceContext(expectedValueOrElementType));
+            const supportsKeysAndGetItemClass = prefetched?.supportsKeysAndGetItemClass;
+            let expectedType: Type | undefined;
+            if (expectedKeyType && expectedValueOrElementType && supportsKeysAndGetItemClass) {
+                if (isInstantiableClass(supportsKeysAndGetItemClass)) {
+                    expectedType = ClassType.cloneAsInstance(
+                        ClassType.specialize(supportsKeysAndGetItemClass, [expectedKeyType, expectedValueOrElementType])
+                    );
+                }
+            }
+
+            const mappingTypeResult = getTypeOfExpression(
+                node.d.expr.d.expr,
+                flags,
+                makeInferenceContext(expectedType)
+            );
+            if (mappingTypeResult.isIncomplete) {
+                isIncomplete = true;
+            }
+            if (mappingTypeResult.typeErrors) {
+                typeErrors = true;
+            }
+
+            const mappingType = mappingTypeResult.type;
+            let keyType: Type = UnknownType.create();
+            let valueType: Type = UnknownType.create();
+
+            if (isAnyOrUnknown(mappingType)) {
+                keyType = mappingType;
+                valueType = mappingType;
+            } else if (supportsKeysAndGetItemClass && isInstantiableClass(supportsKeysAndGetItemClass)) {
+                const mappingConstraints = new ConstraintTracker();
+                const selfSpecializedClass = selfSpecializeClass(supportsKeysAndGetItemClass);
+
+                if (
+                    assignType(
+                        ClassType.cloneAsInstance(selfSpecializedClass),
+                        mappingType,
+                        /* diag */ undefined,
+                        mappingConstraints,
+                        AssignTypeFlags.RetainLiteralsForTypeVar
+                    )
+                ) {
+                    const specializedMapping = solveAndApplyConstraints(
+                        selfSpecializedClass,
+                        mappingConstraints
+                    ) as ClassType;
+                    const typeArgs = specializedMapping.priv.typeArgs;
+                    if (typeArgs && typeArgs.length >= 2) {
+                        keyType = typeArgs[0];
+                        valueType = typeArgs[1];
+                    }
+                } else if (!mappingTypeResult.isIncomplete) {
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.dictUnpackIsNotMapping(),
+                        node.d.expr
+                    );
+                }
+            }
+
+            if (!expectedKeyType || !containsLiteralType(expectedKeyType)) {
+                keyType = stripLiteralValue(keyType);
+            }
+            if (!expectedValueOrElementType || !containsLiteralType(expectedValueOrElementType)) {
+                valueType = stripLiteralValue(valueType);
+            }
+
+            type = makeTupleObject(evaluatorInterface, [
+                { type: keyType, isUnbounded: false },
+                { type: valueType, isUnbounded: false },
+            ]);
         } else if (isExpressionNode(node)) {
             const exprTypeResult = getTypeOfExpression(
                 node.d.expr as ExpressionNode,

@@ -1890,7 +1890,9 @@ export class Parser {
             return undefined;
         }
 
-        if (target.nodeType === ParseNodeType.Unpack) {
+        if (PythonVersion.isGreaterOrEqualTo(this._getLanguageVersion(), pythonVersion3_15)) {
+            // Allow unpacking in comprehensions (PEP 798)
+        } else if (target.nodeType === ParseNodeType.Unpack) {
             this._addSyntaxError(LocMessage.unpackIllegalInComprehension(), target);
         } else if (target.nodeType === ParseNodeType.DictionaryExpandEntry) {
             this._addSyntaxError(LocMessage.dictExpandIllegalInComprehension(), target);
@@ -4229,7 +4231,16 @@ export class Parser {
         let valueExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
         let nameIdentifier: IdentifierToken | undefined;
 
-        if (argType === ArgCategory.Simple) {
+        if (argType === ArgCategory.UnpackedList) {
+            // A starred expression followed by a "for" is the element of an
+            // unparenthesized generator expression.
+            const unpackNode = UnpackNode.create(this._getOwnerKey(), firstToken, valueExpr);
+            const comprehension = this._tryParseComprehension(unpackNode, /* isGenerator */ true);
+            if (comprehension) {
+                valueExpr = comprehension;
+                argType = ArgCategory.Simple;
+            }
+        } else if (argType === ArgCategory.Simple) {
             if (this._consumeTokenIfOperator(OperatorType.Assign)) {
                 const nameExpr = valueExpr;
                 valueExpr = this._parseTestExpression(/* allowAssignmentExpression */ false);
