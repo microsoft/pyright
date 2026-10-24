@@ -21243,6 +21243,20 @@ export function createTypeEvaluator(
                 );
                 inferredParamType = stripTypeForm(inferredParamType);
                 inferredParamType = stripLiteralValue(inferredParamType);
+
+                // Keep a final class exact, because it has no subclasses, and a
+                // protocol or abstract class, because it can't be instantiated.
+                if (
+                    isInstantiableClass(inferredParamType) &&
+                    !(
+                        ClassType.isFinal(inferredParamType) ||
+                        ClassType.isProtocolClass(inferredParamType) ||
+                        (ClassType.supportsAbstractMethods(inferredParamType) &&
+                            getAbstractSymbols(inferredParamType).length > 0)
+                    )
+                ) {
+                    inferredParamType = ClassType.cloneIncludeSubclasses(inferredParamType);
+                }
             }
         }
 
