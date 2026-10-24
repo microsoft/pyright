@@ -2259,8 +2259,8 @@ export function createTypeEvaluator(
 
         return mapSubtypes(type, (subtype) => {
             if (isClass(subtype)) {
-                // A sentinel's class has exactly one instance, so the literal type
-                // of a sentinel object is never narrower than its stripped form.
+                // A sentinel literal represents a stable singleton, so stripping
+                // it cannot produce a wider instance type.
                 if (subtype.priv.literalValue !== undefined && !isSentinelLiteral(subtype)) {
                     subtype = ClassType.cloneWithLiteral(subtype, /* value */ undefined);
                 }

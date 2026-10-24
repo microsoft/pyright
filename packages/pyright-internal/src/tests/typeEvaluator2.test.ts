@@ -11,6 +11,7 @@
 import assert from 'assert';
 
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
@@ -1062,4 +1063,29 @@ test('Sentinel3', () => {
 test('Sentinel4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel4.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Sentinel5', () => {
+    for (const pythonVersion of [pythonVersion3_13, pythonVersion3_15]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel5.py'], configOptions);
+        TestUtils.validateResults(analysisResults, 8);
+        assert.deepStrictEqual(
+            analysisResults[0].errors
+                .slice()
+                .sort((left, right) => left.range.start.line - right.range.start.line)
+                .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+            [
+                [27, DiagnosticRule.reportReturnType],
+                [38, DiagnosticRule.reportArgumentType],
+                [50, DiagnosticRule.reportAttributeAccessIssue],
+                [62, DiagnosticRule.reportArgumentType],
+                [70, DiagnosticRule.reportArgumentType],
+                [85, DiagnosticRule.reportArgumentType],
+                [102, DiagnosticRule.reportArgumentType],
+                [135, DiagnosticRule.reportArgumentType],
+            ]
+        );
+    }
 });
