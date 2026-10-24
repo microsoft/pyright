@@ -25,6 +25,7 @@ import { getInfoReader, AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { getEnclosingLambda, isWithinLoop, operatorSupportsChaining, printOperator } from './parseTreeUtils';
 import { getScopeForNode } from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
+import { getTupleComparisonResult, isTupleOrdering } from './tupleComparison';
 import { EvalFlags, MagicMethodDeprecationInfo, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     InferenceContext,
@@ -54,6 +55,8 @@ import {
     TypeBase,
     UnknownType,
     combineTypes,
+    exceedsInferredTupleLiteralProduct,
+    getInferredTupleLiteralBase,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -115,7 +118,10 @@ export function validateBinaryOperation(
     diag: DiagnosticAddendum,
     options: BinaryOperationOptions
 ): TypeResult {
-    const leftType = leftTypeResult.type;
+    const leftType =
+        operator === OperatorType.And || operator === OperatorType.Or
+            ? getInferredTupleLiteralBase(leftTypeResult.type)
+            : leftTypeResult.type;
     const rightType = rightTypeResult.type;
     const isIncomplete = !!leftTypeResult.isIncomplete || !!rightTypeResult.isIncomplete;
     let type: Type | undefined;
@@ -920,6 +926,7 @@ function createUnionType(
 
 // Attempts to apply "literal math" for a literal operands.
 function calcLiteralForUnaryOp(operator: OperatorType, operandType: Type): Type | undefined {
+    operandType = getInferredTupleLiteralBase(operandType);
     let type: Type | undefined;
 
     if (getUnionSubtypeCount(operandType) >= maxLiteralMathSubtypeCount) {
@@ -969,6 +976,8 @@ function calcLiteralForUnaryOp(operator: OperatorType, operandType: Type): Type 
 
 // Attempts to apply "literal math" for two literal operands.
 function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightType: Type): Type | undefined {
+    leftType = getInferredTupleLiteralBase(leftType);
+    rightType = getInferredTupleLiteralBase(rightType);
     const leftLiteralClassName = getLiteralTypeClassName(leftType);
     if (
         !leftLiteralClassName ||
@@ -1258,6 +1267,11 @@ function validateArithmeticOperation(
     let deprecatedInfo: MagicMethodDeprecationInfo | undefined;
     const isIncomplete = !!leftTypeResult.isIncomplete || !!rightTypeResult.isIncomplete;
 
+    if (exceedsInferredTupleLiteralProduct(leftTypeResult.type, rightTypeResult.type)) {
+        leftTypeResult = { ...leftTypeResult, type: getInferredTupleLiteralBase(leftTypeResult.type) };
+        rightTypeResult = { ...rightTypeResult, type: getInferredTupleLiteralBase(rightTypeResult.type) };
+    }
+
     const type = evaluator.mapSubtypesExpandTypeVars(
         leftTypeResult.type,
         /* options */ undefined,
@@ -1271,6 +1285,34 @@ function validateArithmeticOperation(
                     }
 
                     const tupleClassType = evaluator.getTupleClassType();
+
+                    if (
+                        isTupleOrdering(operator) &&
+                        isClassInstance(leftSubtypeExpanded) &&
+                        isTupleClass(leftSubtypeExpanded) &&
+                        leftSubtypeExpanded.priv.tupleTypeArgs &&
+                        isClassInstance(rightSubtypeExpanded) &&
+                        isTupleClass(rightSubtypeExpanded) &&
+                        rightSubtypeExpanded.priv.tupleTypeArgs
+                    ) {
+                        const result = getTupleComparisonResult(
+                            evaluator,
+                            leftSubtypeExpanded,
+                            rightSubtypeExpanded,
+                            operator,
+                            errorNode
+                        );
+                        if (!result) {
+                            diag.addMessage(
+                                LocMessage.typeNotSupportBinaryOperator().format({
+                                    operator: printOperator(operator),
+                                    leftType: evaluator.printType(leftSubtypeExpanded),
+                                    rightType: evaluator.printType(rightSubtypeExpanded),
+                                })
+                            );
+                        }
+                        return result?.type ?? UnknownType.create(isIncomplete);
+                    }
 
                     // Special-case __add__ for tuples when the types for both tuples are known.
                     if (

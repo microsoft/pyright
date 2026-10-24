@@ -10,8 +10,15 @@
 
 import * as assert from 'assert';
 
+import * as TupleComparison from '../analyzer/tupleComparison';
 import { EvalFlags } from '../analyzer/typeEvaluatorTypes';
-import { ClassType, isClassInstance, isInstantiableClass, UnknownType } from '../analyzer/types';
+import {
+    ClassType,
+    isClassInstance,
+    isInstantiableClass,
+    maxSubtypesForInferredType,
+    UnknownType,
+} from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import {
@@ -576,7 +583,7 @@ test('Tuple10', () => {
 test('Tuple11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple11.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Tuple12', () => {
@@ -1626,4 +1633,164 @@ test('TypeForm9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeForm9.py']);
 
     TestUtils.validateResults(analysisResults, 10);
+});
+
+test('TupleComparisonResults1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults1.py']);
+    TestUtils.validateResults(analysisResults, 18);
+});
+
+test('TupleLiteralInference1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleLiteralInference1.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('TupleLiteralInference2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleLiteralInference2.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportArgumentType));
+});
+
+test('TupleLiteralInference3', () => {
+    const comparisonSpy = jest.spyOn(TupleComparison, 'getTupleComparisonResult');
+    try {
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleLiteralInference3.py']);
+        TestUtils.validateResults(analysisResults, 0);
+        assert.ok(comparisonSpy.mock.calls.length > 0);
+        const callsByNode = new Map<number, number>();
+        comparisonSpy.mock.calls.forEach(([, , , , node]) => {
+            const calls = (callsByNode.get(node.id) ?? 0) + 1;
+            callsByNode.set(node.id, calls);
+            assert.ok(calls <= maxSubtypesForInferredType, 'Optional tuple precision exceeded the comparison budget');
+        });
+    } finally {
+        comparisonSpy.mockRestore();
+    }
+});
+
+test('TupleLiteralInference4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleLiteralInference4.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportArgumentType));
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((left, right) => left - right),
+        [114, 123]
+    );
+});
+
+test('TupleLiteralInference5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleLiteralInference5.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportArgumentType));
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((left, right) => left - right),
+        [80, 89]
+    );
+});
+
+test('TupleComparisonResults2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults2.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TupleComparisonResults3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TupleComparisonResults4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults4.py']);
+    TestUtils.validateResults(analysisResults, 16);
+});
+
+test('TupleComparisonResults5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults5.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TupleComparisonResults6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles([
+        'tupleComparisonResource_hierarchy_64.py',
+        'tupleComparisonResource_hierarchy_128.py',
+        'tupleComparisonResource_hierarchy_256.py',
+        'tupleComparisonResource_literal_union.py',
+        'tupleComparisonResource_bool_union.py',
+        'tupleComparisonResource_mixed_union.py',
+        'tupleComparisonResource_mixed_union_consumer.py',
+        'tupleComparisonResource_unsupported_union.py',
+        'tupleComparisonResource_narrow_argument_union.py',
+        'tupleComparisonResource_nested_tuple.py',
+        'tupleComparisonResource_nested_list.py',
+        'tupleComparisonResource_repeated_nested_types.py',
+        'tupleComparisonResource_recursive_container.py',
+        'tupleComparisonResource_recursive_nonbool.py',
+        'tupleComparisonResource_recursive_bad_consumer.py',
+        'tupleComparisonResource_long_alias_chain.py',
+        'tupleComparisonResource_cyclic_source.py',
+        'tupleComparisonResource_growing_alias_lt.py',
+        'tupleComparisonResource_growing_alias_le.py',
+        'tupleComparisonResource_growing_alias_gt.py',
+        'tupleComparisonResource_growing_alias_ge.py',
+        'tupleComparisonResource_growing_custom_bool.py',
+        'tupleComparisonResource_growing_custom_str.py',
+        'tupleComparisonResource_growing_two_parameters.py',
+        'tupleComparisonResource_literal_boolean_result.py',
+        'tupleComparisonResource_large_variadic_suffix.py',
+        'tupleComparisonResource_large_variadic_custom.py',
+        'tupleComparisonResource_large_variadic_nonbool.py',
+        'tupleComparisonResource_one_sided_variadic.py',
+        'tupleComparisonResource_deep_nonbool.py',
+    ]);
+    const expectedErrors = [0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    analysisResults.forEach((result, index) => TestUtils.validateResults([result], expectedErrors[index]));
+});
+
+test('TupleComparisonResults7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults7.py']);
+    TestUtils.validateResults(analysisResults, 28);
+});
+
+test('TupleComparisonResults8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults8.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TupleComparisonResults9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults9.py']);
+    TestUtils.validateResults(analysisResults, 12);
+});
+
+test('TupleComparisonResults10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults10.py']);
+    TestUtils.validateResults(analysisResults, 7);
+});
+
+test('TupleComparisonResults11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults11.py']);
+    TestUtils.validateResults(analysisResults, 7);
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportReturnType).length,
+        4
+    );
+    assert.strictEqual(
+        analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportOperatorIssue).length,
+        3
+    );
+});
+
+test('TupleComparisonResults12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults12.py']);
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportOperatorIssue);
+    assert.strictEqual(analysisResults[0].errors[0].range.start.line + 1, 84);
+});
+
+test('TupleComparisonResults13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults13.py']);
+    TestUtils.validateResults(analysisResults, 10);
+    analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportReturnType));
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((left, right) => left - right),
+        [49, 53, 57, 61, 65, 69, 73, 77, 81, 85]
+    );
 });

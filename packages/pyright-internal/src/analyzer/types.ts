@@ -196,6 +196,9 @@ export interface TypeBaseProps {
 
     // Used only for types that are conditioned on a TypeVar
     condition: TypeCondition[] | undefined;
+
+    // The previous inference result, before retaining bounded nested tuple literals.
+    inferredTupleLiteral?: { baseType: Type; size: number; alternatives: number };
 }
 
 export interface TypeBase<T extends TypeCategory> {
@@ -959,6 +962,18 @@ export namespace ClassType {
             newInstance.priv.includeSubclasses = true;
         }
 
+        const inferred = newInstance.props?.inferredTupleLiteral;
+        if (inferred) {
+            const convert = (base: Type): Type =>
+                isInstantiableClass(base) ? cloneAsInstance(base, includeSubclasses) : base;
+            TypeBase.addProps(newInstance).inferredTupleLiteral = {
+                ...inferred,
+                baseType: isUnion(inferred.baseType)
+                    ? combineTypes(inferred.baseType.priv.subtypes.map(convert))
+                    : convert(inferred.baseType),
+            };
+        }
+
         return newInstance;
     }
 
@@ -970,6 +985,18 @@ export namespace ClassType {
         const newInstance = TypeBase.cloneTypeAsInstantiable(type, includeSubclasses);
         if (includeSubclasses) {
             newInstance.priv.includeSubclasses = true;
+        }
+
+        const inferred = newInstance.props?.inferredTupleLiteral;
+        if (inferred) {
+            const convert = (base: Type): Type =>
+                isClassInstance(base) ? cloneAsInstantiable(base, includeSubclasses) : base;
+            TypeBase.addProps(newInstance).inferredTupleLiteral = {
+                ...inferred,
+                baseType: isUnion(inferred.baseType)
+                    ? combineTypes(inferred.baseType.priv.subtypes.map(convert))
+                    : convert(inferred.baseType),
+            };
         }
 
         return newInstance;
@@ -1005,6 +1032,37 @@ export namespace ClassType {
             newClassType.priv.isEmptyContainer = isEmptyContainer;
         }
 
+        const unchangedTupleArgs =
+            tupleTypeArgs &&
+            tupleTypeArgs.length === classType.priv.tupleTypeArgs?.length &&
+            tupleTypeArgs.every(
+                (arg, index) =>
+                    arg.type === classType.priv.tupleTypeArgs![index].type &&
+                    arg.isUnbounded === classType.priv.tupleTypeArgs![index].isUnbounded &&
+                    arg.isOptional === classType.priv.tupleTypeArgs![index].isOptional
+            );
+        if (classType.props?.inferredTupleLiteral && !unchangedTupleArgs) {
+            TypeBase.addProps(newClassType).inferredTupleLiteral = undefined;
+        }
+
+        const entryTypes = tupleTypeArgs?.map((arg) => arg.type) ?? typeArgs;
+        if (entryTypes?.some((type) => type.props?.inferredTupleLiteral) && !unchangedTupleArgs) {
+            const baseType = TypeBase.cloneType(newClassType);
+            TypeBase.addProps(baseType).inferredTupleLiteral = undefined;
+            baseType.priv.typeArgs = typeArgs?.map(getInferredTupleLiteralBase);
+            baseType.priv.tupleTypeArgs = tupleTypeArgs?.map((arg) => ({
+                ...arg,
+                type: getInferredTupleLiteralBase(arg.type),
+            }));
+            const complexity = ClassType.isBuiltIn(newClassType, 'tuple')
+                ? getTupleLiteralTypeComplexity([newClassType])
+                : undefined;
+            if (!complexity) {
+                return baseType;
+            }
+            TypeBase.addProps(newClassType).inferredTupleLiteral = { baseType, ...complexity };
+        }
+
         return newClassType;
     }
 
@@ -1021,6 +1079,9 @@ export namespace ClassType {
     export function cloneWithLiteral(classType: ClassType, value: LiteralValue | undefined): ClassType {
         const newClassType = TypeBase.cloneType(classType);
         newClassType.priv.literalValue = value;
+        if (value === undefined && newClassType.props?.inferredTupleLiteral) {
+            TypeBase.addProps(newClassType).inferredTupleLiteral = undefined;
+        }
 
         // Remove type alias information because the type will no longer match
         // that of the type alias definition if we change the literal type.
@@ -3977,6 +4038,121 @@ export function findSubtype(type: Type, filter: (type: UnionableType | NeverType
     return filter(type) ? type : undefined;
 }
 
+export const maxSubtypesForInferredType = 64;
+
+export function getInferredTupleLiteralBase(type: Type): Type {
+    return type.props?.inferredTupleLiteral?.baseType ?? type;
+}
+
+// Bound both the representation and its possible combinations before building unions.
+export function getTupleLiteralTypeComplexity(
+    types: Type[],
+    isUnionCombination = false
+): { size: number; alternatives: number } | undefined {
+    let size = 0;
+    const visit = (type: Type, depth: number): number | undefined => {
+        if (++size > maxSubtypesForInferredType || depth > maxTypeRecursionCount) {
+            return undefined;
+        }
+        if (isUnion(type)) {
+            let alternatives = 0;
+            for (const subtype of type.priv.subtypes) {
+                const count = visit(subtype, depth + 1);
+                if (count === undefined || (alternatives += count) > maxSubtypesForInferredType) {
+                    return undefined;
+                }
+            }
+            return alternatives;
+        }
+        if (!isClass(type)) {
+            return undefined;
+        }
+        if (ClassType.isBuiltIn(type, 'tuple') && type.priv.tupleTypeArgs) {
+            let alternatives = 1;
+            for (const arg of type.priv.tupleTypeArgs) {
+                if (arg.isUnbounded || arg.isOptional) {
+                    return undefined;
+                }
+                const count = visit(arg.type, depth + 1);
+                if (count === undefined || (alternatives *= count) > maxSubtypesForInferredType) {
+                    return undefined;
+                }
+            }
+            return alternatives;
+        }
+        return type.priv.typeArgs?.length ? undefined : 1;
+    };
+    let alternatives = isUnionCombination ? 0 : 1;
+    for (const type of types) {
+        const count = visit(type, 0);
+        if (count === undefined) {
+            return undefined;
+        }
+        alternatives = isUnionCombination ? alternatives + count : alternatives * count;
+        if (alternatives > maxSubtypesForInferredType) {
+            return undefined;
+        }
+    }
+    return { size, alternatives };
+}
+
+export function retainInferredTupleLiterals(type: Type, baseType: Type): Type {
+    if (type === baseType || isTypeSame(type, baseType)) {
+        return baseType;
+    }
+    const complexity = getTupleLiteralTypeComplexity([type]);
+    if (!complexity) {
+        return baseType;
+    }
+    const retainedType = TypeBase.cloneType(
+        isUnion(type)
+            ? _combineTypes(
+                  type.priv.subtypes.map((subtype) =>
+                      isClass(subtype) && subtype.priv.literalValue !== undefined
+                          ? retainInferredTupleLiterals(
+                                subtype,
+                                ClassType.cloneWithLiteral(subtype, /* value */ undefined)
+                            )
+                          : subtype
+                  )
+              )
+            : type
+    );
+    TypeBase.addProps(retainedType).inferredTupleLiteral = { baseType, ...complexity };
+    return retainedType;
+}
+
+// A validated annotation opts into its literal precision, independently of inference.
+export function preserveInferredTupleLiterals(type: Type): Type {
+    if (!type.props?.inferredTupleLiteral) {
+        return type;
+    }
+    if (isUnion(type)) {
+        return combineTypes(type.priv.subtypes.map(preserveInferredTupleLiterals));
+    }
+    const result = TypeBase.cloneType(type);
+    TypeBase.addProps(result).inferredTupleLiteral = undefined;
+    if (isClass(result)) {
+        result.priv.typeArgs = result.priv.typeArgs?.map(preserveInferredTupleLiterals);
+        result.priv.tupleTypeArgs = result.priv.tupleTypeArgs?.map((arg) => ({
+            ...arg,
+            type: preserveInferredTupleLiterals(arg.type),
+        }));
+    }
+    return result;
+}
+
+export function exceedsInferredTupleLiteralProduct(left: Type, right: Type): boolean {
+    const leftInfo = left.props?.inferredTupleLiteral;
+    const rightInfo = right.props?.inferredTupleLiteral;
+    if (!leftInfo && !rightInfo) {
+        return false;
+    }
+    const leftCount = leftInfo?.alternatives ?? getTupleLiteralTypeComplexity([left])?.alternatives;
+    const rightCount = rightInfo?.alternatives ?? getTupleLiteralTypeComplexity([right])?.alternatives;
+    return leftCount === undefined || rightCount === undefined || leftCount * rightCount > maxSubtypesForInferredType;
+}
+
 export interface CombineTypesOptions {
     // By default, literals are elided (removed) from a union if the non-literal
     // subtype is present. Should this be skipped?
@@ -3992,6 +4168,32 @@ export interface CombineTypesOptions {
 // are combined into a UnionType. NeverTypes are filtered out.
 // If no types remain in the end, a NeverType is returned.
 export function combineTypes(subtypes: Type[], options?: CombineTypesOptions): Type {
+    if (!subtypes.some((type) => type.props?.inferredTupleLiteral)) {
+        return _combineTypes(subtypes, options);
+    }
+    if (subtypes.every((type) => type === subtypes[0])) {
+        return subtypes[0];
+    }
+    const baseType = _combineTypes(subtypes.map(getInferredTupleLiteralBase), options);
+    const complexity = getTupleLiteralTypeComplexity(subtypes, /* isUnion */ true);
+    if (!complexity) {
+        return baseType;
+    }
+    const structuralCount = subtypes.reduce(
+        (count, type) =>
+            count +
+            (isUnion(type) ? type.priv.subtypes : [type]).filter(
+                (subtype) => isClass(subtype) && !!subtype.priv.tupleTypeArgs
+            ).length,
+        0
+    );
+    if ((structuralCount * (structuralCount - 1)) / 2 > maxSubtypesForInferredType) {
+        return baseType;
+    }
+    return retainInferredTupleLiterals(_combineTypes(subtypes, options), baseType);
+}
+
+function _combineTypes(subtypes: Type[], options?: CombineTypesOptions): Type {
     let neverTypes: NeverType[];
 
     // Filter out any Never or NoReturn types.
@@ -4143,18 +4345,24 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
             typeToAdd.priv.literalValue !== undefined &&
             literalMaps.literalStrMap !== undefined
         ) {
-            if (!literalMaps.literalStrMap.has(typeToAdd.priv.literalValue as string)) {
-                UnionType.addType(unionType, typeToAdd);
-            }
+            _addLiteralTypeIfUnique(
+                unionType,
+                literalMaps.literalStrMap,
+                typeToAdd.priv.literalValue as string,
+                typeToAdd
+            );
             return;
         } else if (
             ClassType.isBuiltIn(typeToAdd, 'int') &&
             typeToAdd.priv.literalValue !== undefined &&
             literalMaps.literalIntMap !== undefined
         ) {
-            if (!literalMaps.literalIntMap.has(typeToAdd.priv.literalValue as number | bigint)) {
-                UnionType.addType(unionType, typeToAdd);
-            }
+            _addLiteralTypeIfUnique(
+                unionType,
+                literalMaps.literalIntMap,
+                typeToAdd.priv.literalValue as number | bigint,
+                typeToAdd
+            );
             return;
         } else if (
             ClassType.isEnumClass(typeToAdd) &&
@@ -4162,9 +4370,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
             literalMaps.literalEnumMap !== undefined
         ) {
             const enumLiteral = typeToAdd.priv.literalValue as EnumLiteral;
-            if (!literalMaps.literalEnumMap.has(enumLiteral.getName())) {
-                UnionType.addType(unionType, typeToAdd);
-            }
+            _addLiteralTypeIfUnique(unionType, literalMaps.literalEnumMap, enumLiteral.getName(), typeToAdd);
             return;
         }
     }
@@ -4186,6 +4392,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
 
         // Does this type already exist in the types array?
         if (isTypeSame(type, typeToAdd, { honorTypeForm: true })) {
+            unionType.priv.subtypes[i] = _mergeInferredTupleLiterals(type, typeToAdd);
             return;
         }
 
@@ -4262,4 +4469,46 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
     }
 
     UnionType.addType(unionType, typeToAdd);
+}
+
+function _addLiteralTypeIfUnique<T extends string | number | bigint>(
+    unionType: UnionType,
+    literalMap: Map<T, UnionableType>,
+    key: T,
+    typeToAdd: UnionableType
+) {
+    const previous = literalMap.get(key);
+    if (!previous) {
+        UnionType.addType(unionType, typeToAdd);
+    } else if (previous.props?.inferredTupleLiteral || typeToAdd.props?.inferredTupleLiteral) {
+        const merged = _mergeInferredTupleLiterals(previous, typeToAdd);
+        unionType.priv.subtypes[unionType.priv.subtypes.indexOf(previous)] = merged;
+        literalMap.set(key, merged);
+    }
+}
+
+function _mergeInferredTupleLiterals(type: UnionableType, other: UnionableType): UnionableType {
+    if (
+        type === other ||
+        (!type.props?.inferredTupleLiteral && !other.props?.inferredTupleLiteral) ||
+        !isClass(type) ||
+        !isClass(other)
+    ) {
+        return type;
+    }
+    const result = TypeBase.cloneType(type);
+    result.priv.typeArgs = type.priv.typeArgs?.map((arg, index) =>
+        combineTypes([arg, other.priv.typeArgs?.[index] ?? arg])
+    );
+    result.priv.tupleTypeArgs = type.priv.tupleTypeArgs?.map((arg, index) => ({
+        ...arg,
+        type: combineTypes([arg.type, other.priv.tupleTypeArgs?.[index].type ?? arg.type]),
+    }));
+    const complexity = getTupleLiteralTypeComplexity([result]);
+    assert(complexity !== undefined);
+    TypeBase.addProps(result).inferredTupleLiteral = {
+        baseType: combineTypes([getInferredTupleLiteralBase(type), getInferredTupleLiteralBase(other)]),
+        ...complexity,
+    };
+    return result;
 }

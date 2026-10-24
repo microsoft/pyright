@@ -274,11 +274,25 @@ def func1(a: int):
     var3: tuple[int, ...] = (a, a)
 ```
 
-Because tuples are typed as specifically as possible, literal types are normally retained. However, as an exception to this inference rule, if the tuple expression is nested within another tuple, set, list or dictionary expression, literal types are not retained. This is done to avoid the inference of complex types (e.g. unions with many subtypes) when evaluating tuple statements with many entries.
+Because tuples are immutable, small nested tuple expressions can also retain literal types. Pyright bounds the retained structure and possible alternatives using a budget of 64. If the extra precision requires unsupported structure or would exceed the budget, it uses the type that would otherwise have been inferred. It does not introduce additional `Any` or `Unknown` types or reconstruct discarded initializer values. The budget limits the additional work associated with the retained precision.
+
+Newly retained nested literals do not tighten inference for mutable collections. Their broader inference types are used when constructing a set, list or dictionary, including through aliases and indexing. Literal precision that was already available from annotations, ordinary non-nested tuples, or independent type guards is preserved.
+
+Literal arithmetic uses the broader inference view before transforming a newly retained value. Logical `and` and `or` use this view when deciding which operand can be returned. Patterns with alternatives likewise use this view rather than evaluating another pattern tree to preserve optional precision.
+
+Operations also drop optional precision if counting its combinations would require expanding a type variable or another unsupported shape.
 
 ```python
 # The inferred type is list[tuple[int, str, bool]].
 var4 = [(1, "a", True), (2, "b", False), (3, "c", False)]
+
+# Small immutable nesting retains literals.
+var5 = ((1, "a"),)
+# The inferred type is tuple[Literal[1], Literal["a"]].
+row = var5[0]
+# The inferred type is list[tuple[int, str]], so appending another row is valid.
+rows = [row]
+rows.append((2, "b"))
 ```
 
 #### List Expressions

@@ -54,6 +54,7 @@ import {
     TypedDictEntry,
     UnknownType,
     combineTypes,
+    getInferredTupleLiteralBase,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -460,7 +461,9 @@ function narrowTypeBasedOnAsPattern(
     isPositiveTest: boolean,
     nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
-    let remainingType = type;
+    // Alternatives use the previous inference view rather than evaluating
+    // another pattern tree to preserve optional literal provenance.
+    let remainingType = pattern.d.orPatterns.length > 1 ? getInferredTupleLiteralBase(type) : type;
 
     if (!isPositiveTest) {
         pattern.d.orPatterns.forEach((subpattern) => {
