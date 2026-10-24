@@ -11,7 +11,13 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
 import { ArgCategory, ExpressionNode, ParseNodeType } from '../parser/parseNodes';
 import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
-import { getClassFullName, getTypeSourceId } from './parseTreeUtils';
+import {
+    getClassFullName,
+    getEvaluationScopeNode,
+    getExecutionScopeNode,
+    getTypeSourceId,
+    isWithinLoop,
+} from './parseTreeUtils';
 import { Arg, TypeEvaluator } from './typeEvaluatorTypes';
 import { ClassType, ClassTypeFlags, SentinelLiteral, Type, TypeBase } from './types';
 import { computeMroLinearization } from './typeUtils';
@@ -76,7 +82,16 @@ export function createSentinelType(
 
     classType.shared.baseClasses.push(sentinelBaseClass);
     computeMroLinearization(classType);
-    classType = ClassType.cloneWithLiteral(classType, new SentinelLiteral(fullClassName, className));
+
+    // A repeatable allocation site can produce multiple distinct sentinel objects.
+    const scopeNode = getEvaluationScopeNode(errorNode, nodeInfo).node;
+    if (
+        (scopeNode.nodeType === ParseNodeType.Module || scopeNode.nodeType === ParseNodeType.Class) &&
+        getExecutionScopeNode(errorNode, nodeInfo).nodeType === ParseNodeType.Module &&
+        !isWithinLoop(errorNode)
+    ) {
+        classType = ClassType.cloneWithLiteral(classType, new SentinelLiteral(fullClassName, className));
+    }
 
     let instanceType = ClassType.cloneAsInstance(classType);
 
