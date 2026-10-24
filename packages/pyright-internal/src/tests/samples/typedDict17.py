@@ -3,6 +3,8 @@
 
 from typing import NotRequired, ReadOnly, TypedDict
 
+from typing_extensions import TypedDict as TETypedDict  # pyright: ignore[reportMissingModuleSource]
+
 
 class Person(TypedDict, total=False):
     name: str
@@ -85,3 +87,23 @@ def func5(movie: Movie):
 
         movie |= {"year": 2000}
         reveal_type(movie["rating"], expected_text="float")
+
+
+class MovieExtraRO(TETypedDict, extra_items=ReadOnly[int]):
+    title: str
+
+
+class MovieExtra(TETypedDict, extra_items=int):
+    title: str
+
+
+def func6(movie: MovieExtraRO, other: MovieExtra):
+    # This should generate an error because extra items are read-only.
+    movie |= {"year": 1999}
+
+    # This should generate two errors because extra items are read-only.
+    movie.update({"year": 1999})
+
+    reveal_type(other | {"year": 1999}, expected_text="MovieExtra")
+    other |= {"year": 1999}
+    other.update({"year": 1999})

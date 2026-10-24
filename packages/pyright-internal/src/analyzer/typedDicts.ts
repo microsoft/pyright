@@ -958,6 +958,15 @@ export function getTypedDictMembersForClass(
             ...extraItems,
             valueType: applySolvedTypeVars(extraItems.valueType, solution),
         };
+
+        // Apply the same "Partial" conversion to the extra items.
+        if (classType.priv.isTypedDictPartial) {
+            if (extraItems.isReadOnly) {
+                extraItems.valueType = NeverType.createNever();
+            } else {
+                extraItems.isReadOnly = true;
+            }
+        }
     }
 
     return { knownItems: entries, extraItems };
