@@ -457,3 +457,41 @@ class Child10_3(Parent10[str]):
     # This should generate an error because the override does not
     # handle all overloads of the base method.
     def m1(self, x: int, default: object = None, /) -> object: ...
+
+
+class Parent11(Generic[_T]):
+    @overload
+    def m1(self: "Parent11[_S]", x: int) -> _S: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    def m1(self, x: object) -> Any: ...
+
+
+class Child11_1(Parent11[int]):
+    @overload
+    def m1(self, x: bool) -> int: ...
+
+    @overload
+    def m1(self, x: int) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    def m1(self, x: object) -> Any: ...
+
+
+class Child11_2(Parent11[int]):
+    @overload
+    def m1(self, x: bool) -> str: ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def m1(self, x: int) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
+    def m1(self, x: object) -> Any: ...
