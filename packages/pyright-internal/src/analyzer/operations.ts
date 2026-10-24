@@ -118,7 +118,10 @@ export function validateBinaryOperation(
     diag: DiagnosticAddendum,
     options: BinaryOperationOptions
 ): TypeResult {
-    const leftType = leftTypeResult.type;
+    const leftType =
+        operator === OperatorType.And || operator === OperatorType.Or
+            ? getInferredTupleLiteralBase(leftTypeResult.type)
+            : leftTypeResult.type;
     const rightType = rightTypeResult.type;
     const isIncomplete = !!leftTypeResult.isIncomplete || !!rightTypeResult.isIncomplete;
     let type: Type | undefined;

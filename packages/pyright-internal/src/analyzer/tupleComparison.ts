@@ -36,6 +36,7 @@ import {
     isTypeSame,
     isUnion,
     isTypeVar,
+    isUnknown,
     TypeVarType,
     TypeAliasSharedInfo,
     maxTypeRecursionCount,
@@ -273,7 +274,10 @@ function inferTupleComparison(
     // subclass types use their declared methods without callee-body analysis.
     const canOrderResolvedPair = (left: Type, right: Type, recursionCount: number, isConditional: boolean): boolean => {
         if (isAnyOrUnknown(left) || isAnyOrUnknown(right)) {
-            resultTypes.push(isAnyOrUnknown(left) ? left : right);
+            // Opaque shape facts use the old contract, not an additional Unknown result.
+            if (!hasUnknownShape) {
+                resultTypes.push(isAnyOrUnknown(left) ? left : right);
+            }
             return true;
         }
         if (isClassInstance(left) && isClassInstance(right)) {
@@ -284,7 +288,12 @@ function inferTupleComparison(
                 resultTypes.push(boolType);
                 const leftElement = left.priv.typeArgs?.[0] ?? UnknownType.create();
                 const rightElement = right.priv.typeArgs?.[0] ?? UnknownType.create();
-                if (isAnyOrUnknown(leftElement) && isAnyOrUnknown(rightElement)) {
+                // An empty list's inferred Unknown is not an element-ordering result.
+                if (
+                    (left.priv.isEmptyContainer && isUnknown(leftElement)) ||
+                    (right.priv.isEmptyContainer && isUnknown(rightElement)) ||
+                    (isAnyOrUnknown(leftElement) && isAnyOrUnknown(rightElement))
+                ) {
                     return true;
                 }
                 return canOrderElements(leftElement, rightElement, recursionCount + 1, isConditional);
@@ -753,11 +762,7 @@ function inferTupleComparison(
     }
     if (requiresDeclaredContract) {
         const declaredResult = getDeclaredContractResult();
-        return declaredResult
-            ? hasUnknownShape
-                ? declaredResult
-                : combineTypes([...resultTypes, declaredResult])
-            : undefined;
+        return declaredResult ? combineTypes([...resultTypes, declaredResult]) : undefined;
     }
     // A length comparison contributes an unconditional bool. It also covers
     // conditional bool results from constrained receiver types.

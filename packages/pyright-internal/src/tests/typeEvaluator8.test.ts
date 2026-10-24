@@ -1591,6 +1591,26 @@ test('TupleLiteralInference3', () => {
     }
 });
 
+test('TupleLiteralInference4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleLiteralInference4.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportArgumentType));
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((left, right) => left - right),
+        [114, 123]
+    );
+});
+
+test('TupleLiteralInference5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleLiteralInference5.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportArgumentType));
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((left, right) => left - right),
+        [80, 89]
+    );
+});
+
 test('TupleComparisonResults2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults2.py']);
     TestUtils.validateResults(analysisResults, 0);
@@ -1678,5 +1698,22 @@ test('TupleComparisonResults11', () => {
     assert.strictEqual(
         analysisResults[0].errors.filter((diag) => diag.getRule() === DiagnosticRule.reportOperatorIssue).length,
         3
+    );
+});
+
+test('TupleComparisonResults12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults12.py']);
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportOperatorIssue);
+    assert.strictEqual(analysisResults[0].errors[0].range.start.line + 1, 84);
+});
+
+test('TupleComparisonResults13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults13.py']);
+    TestUtils.validateResults(analysisResults, 10);
+    analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportReturnType));
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((left, right) => left - right),
+        [49, 53, 57, 61, 65, 69, 73, 77, 81, 85]
     );
 });

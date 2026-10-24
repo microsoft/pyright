@@ -278,7 +278,9 @@ Because tuples are immutable, small nested tuple expressions can also retain lit
 
 Newly retained nested literals do not tighten inference for mutable collections. Their broader inference types are used when constructing a set, list or dictionary, including through aliases and indexing. Literal precision that was already available from annotations, ordinary non-nested tuples, or independent type guards is preserved.
 
-Literal arithmetic uses the broader inference view before transforming a newly retained value. Operations also drop optional precision if counting its combinations would require expanding a type variable or another unsupported shape.
+Literal arithmetic uses the broader inference view before transforming a newly retained value. Logical `and` and `or` use this view when deciding which operand can be returned. Patterns with alternatives likewise use this view rather than evaluating another pattern tree to preserve optional precision.
+
+Operations also drop optional precision if counting its combinations would require expanding a type variable or another unsupported shape.
 
 ```python
 # The inferred type is list[tuple[int, str, bool]].
