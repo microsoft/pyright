@@ -6582,6 +6582,9 @@ export function createTypeEvaluator(
                         /* useLastDecl */ true
                     );
                     type = typeResult.type;
+                    if (typeResult.isIncomplete) {
+                        isIncomplete = true;
+                    }
 
                     if ((flags & EvalFlags.TypeExpression) !== 0) {
                         type = validateSymbolIsTypeExpression(node, type, !!typeResult.includesVariableDecl);
