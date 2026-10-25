@@ -261,3 +261,10 @@ def func27(value: Literal[b"a"] | int, a: list[bytearray], b: list[memoryview]):
 
     if value in b:
         reveal_type(value, expected_text='Literal[b"a"]')
+
+
+def func28(x: object):
+    y = None
+    if x in (int, str):
+        y = x
+    reveal_type(y, expected_text="type[int] | type[str] | None")

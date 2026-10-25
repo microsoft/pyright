@@ -28064,10 +28064,7 @@ export function createTypeEvaluator(
         }
 
         if (isInstantiableClass(leftType) || (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'type'))) {
-            if (
-                isInstantiableClass(rightType) ||
-                (isClassInstance(rightType) && ClassType.isBuiltIn(rightType, 'type'))
-            ) {
+            if (isClass(rightType)) {
                 const genericLeftType = ClassType.specialize(leftType, /* typeArgs */ undefined);
                 const genericRightType = ClassType.specialize(rightType, /* typeArgs */ undefined);
 

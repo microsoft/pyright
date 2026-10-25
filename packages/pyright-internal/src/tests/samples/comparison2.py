@@ -3,7 +3,7 @@
 
 
 from enum import Enum
-from typing import Any, Callable, Coroutine, Protocol
+from typing import Any, Callable, Coroutine, Hashable, Protocol
 from dataclasses import dataclass
 
 
@@ -155,4 +155,16 @@ def func13(x: IntVal):
 
     # This should generate an error if reportUnnecessaryComparison is enabled.
     if x == 4:
+        pass
+
+
+def func14(a: A, b: Hashable, c: object):
+    if int == b:
+        pass
+
+    if int is c:
+        pass
+
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if int == a:
         pass
