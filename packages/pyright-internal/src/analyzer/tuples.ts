@@ -636,7 +636,7 @@ function getTupleSliceParam(
             return undefined;
         }
         const unboundedIndex = tupleTypeArgs.findIndex(
-            (typeArg) => typeArg.isUnbounded || isTypeVarTuple(typeArg.type)
+            (typeArg) => typeArg.isUnbounded || isTypeVarTuple(typeArg.type) || isUnpackedTypeVar(typeArg.type)
         );
 
         if (value < 0) {

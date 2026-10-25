@@ -72,6 +72,7 @@ import {
     containsAnyOrUnknown,
     convertToInstance,
     doForEachSubtype,
+    expandUnpackedTypeVarsInTupleArgs,
     getTypeCondition,
     getTypeVarScopeIds,
     getUnknownForTypeVar,
@@ -1709,9 +1710,9 @@ function getSequencePatternInfo(
                 ) as ClassType;
 
                 if (isTupleClass(specializedSequence)) {
-                    const typeArgs = specializedSequence.priv.tupleTypeArgs ?? [
-                        { type: UnknownType.create(), isUnbounded: true },
-                    ];
+                    const typeArgs = specializedSequence.priv.tupleTypeArgs
+                        ? expandUnpackedTypeVarsInTupleArgs(specializedSequence.priv.tupleTypeArgs)
+                        : [{ type: UnknownType.create(), isUnbounded: true }];
 
                     let tupleIndeterminateIndex = typeArgs.findIndex(
                         (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)

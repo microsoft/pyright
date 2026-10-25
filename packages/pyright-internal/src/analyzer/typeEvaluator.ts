@@ -324,6 +324,7 @@ import {
     derivesFromStdlibClass,
     doForEachSubtype,
     ensureSignaturesAreUnique,
+    expandUnpackedTypeVarsInTupleArgs,
     explodeGenericClass,
     getContainerDepth,
     getDeclaredGeneratorReturnType,
@@ -4595,11 +4596,12 @@ export function createTypeEvaluator(
             // Is this subtype a tuple?
             const tupleType = getSpecializedTupleType(subtype);
             if (tupleType && tupleType.priv.tupleTypeArgs) {
-                const sourceEntryTypes = tupleType.priv.tupleTypeArgs.map((t) =>
+                const tupleTypeArgs = expandUnpackedTypeVarsInTupleArgs(tupleType.priv.tupleTypeArgs);
+                const sourceEntryTypes = tupleTypeArgs.map((t) =>
                     addConditionToType(t.type, getTypeCondition(subtype), { skipSelfCondition: true })
                 );
 
-                const unboundedIndex = tupleType.priv.tupleTypeArgs.findIndex((t) => t.isUnbounded);
+                const unboundedIndex = tupleTypeArgs.findIndex((t) => t.isUnbounded);
 
                 if (unboundedIndex >= 0) {
                     if (sourceEntryTypes.length < targetTypes.length) {
@@ -8915,14 +8917,13 @@ export function createTypeEvaluator(
                 const tupleType = getSpecializedTupleType(baseType);
 
                 if (tupleType && tupleType.priv.tupleTypeArgs) {
-                    if (isTupleIndexUnambiguous(tupleType, indexValue)) {
-                        if (indexValue >= 0 && indexValue < tupleType.priv.tupleTypeArgs.length) {
-                            return { type: tupleType.priv.tupleTypeArgs[indexValue].type };
-                        } else if (indexValue < 0 && tupleType.priv.tupleTypeArgs.length + indexValue >= 0) {
-                            return {
-                                type: tupleType.priv.tupleTypeArgs[tupleType.priv.tupleTypeArgs.length + indexValue]
-                                    .type,
-                            };
+                    const tupleTypeArgs = expandUnpackedTypeVarsInTupleArgs(tupleType.priv.tupleTypeArgs);
+
+                    if (isTupleIndexUnambiguous(specializeTupleClass(tupleType, tupleTypeArgs), indexValue)) {
+                        if (indexValue >= 0 && indexValue < tupleTypeArgs.length) {
+                            return { type: tupleTypeArgs[indexValue].type };
+                        } else if (indexValue < 0 && tupleTypeArgs.length + indexValue >= 0) {
+                            return { type: tupleTypeArgs[tupleTypeArgs.length + indexValue].type };
                         }
                     }
                 }

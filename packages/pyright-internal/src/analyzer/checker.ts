@@ -179,6 +179,7 @@ import {
     convertToInstance,
     derivesFromClassRecursive,
     doForEachSubtype,
+    expandUnpackedTypeVarsInTupleArgs,
     getClassFieldsRecursive,
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
@@ -199,6 +200,7 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     selfSpecializeClass,
+    specializeTupleClass,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 
@@ -1263,11 +1265,16 @@ export class Checker extends ParseTreeWalker {
             doForEachSubtype(baseType, (subtype) => {
                 const tupleType = getSpecializedTupleType(subtype);
 
-                if (!isClassInstance(subtype) || !tupleType?.priv.tupleTypeArgs || isUnboundedTupleClass(tupleType)) {
+                if (!isClassInstance(subtype) || !tupleType?.priv.tupleTypeArgs) {
                     return;
                 }
 
-                const tupleLength = tupleType.priv.tupleTypeArgs.length;
+                const tupleTypeArgs = expandUnpackedTypeVarsInTupleArgs(tupleType.priv.tupleTypeArgs);
+                if (isUnboundedTupleClass(specializeTupleClass(tupleType, tupleTypeArgs))) {
+                    return;
+                }
+
+                const tupleLength = tupleTypeArgs.length;
 
                 if (
                     node.d.items.length !== 1 ||
