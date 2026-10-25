@@ -22,6 +22,15 @@ import {
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
+const _mirroredComparisonOperators: Map<OperatorType, OperatorType> = new Map([
+    [OperatorType.GreaterThan, OperatorType.LessThan],
+    [OperatorType.LessThan, OperatorType.GreaterThan],
+    [OperatorType.GreaterThanOrEqual, OperatorType.LessThanOrEqual],
+    [OperatorType.LessThanOrEqual, OperatorType.GreaterThanOrEqual],
+    [OperatorType.Equals, OperatorType.Equals],
+    [OperatorType.NotEquals, OperatorType.NotEquals],
+]);
+
 // Returns undefined if the expression cannot be evaluated
 // statically as a bool value or true/false if it can.
 export function evaluateStaticBoolExpression(
@@ -129,68 +138,79 @@ function _evaluateStaticBoolOrBoolLikeExpression(
             }
         }
 
+        let leftExpr = node.d.leftExpr;
+        let rightExpr = node.d.rightExpr;
+        let operator: OperatorType = node.d.operator;
+
+        const mirroredOperator = _mirroredComparisonOperators.get(operator);
         if (
-            _isSysVersionInfoExpression(node.d.leftExpr, sysImportAliases) &&
-            node.d.rightExpr.nodeType === ParseNodeType.Tuple
+            mirroredOperator !== undefined &&
+            _isStaticComparisonLiteral(leftExpr) &&
+            !_isStaticComparisonLiteral(rightExpr)
         ) {
+            [leftExpr, rightExpr] = [rightExpr, leftExpr];
+            operator = mirroredOperator;
+        }
+
+        if (_isSysVersionInfoExpression(leftExpr, sysImportAliases) && rightExpr.nodeType === ParseNodeType.Tuple) {
             // Handle the special case of "sys.version_info >= (3, x)"
-            const comparisonVersion = _convertTupleToVersion(node.d.rightExpr);
-            return _evaluateVersionBinaryOperation(node.d.operator, execEnv.pythonVersion, comparisonVersion);
+            const comparisonVersion = _convertTupleToVersion(rightExpr);
+            return _evaluateVersionBinaryOperation(operator, execEnv.pythonVersion, comparisonVersion);
         }
 
         if (
-            node.d.leftExpr.nodeType === ParseNodeType.Index &&
-            _isSysVersionInfoExpression(node.d.leftExpr.d.leftExpr, sysImportAliases) &&
-            node.d.leftExpr.d.items.length === 1 &&
-            !node.d.leftExpr.d.trailingComma &&
-            !node.d.leftExpr.d.items[0].d.name &&
-            node.d.leftExpr.d.items[0].d.argCategory === ArgCategory.Simple &&
-            node.d.leftExpr.d.items[0].d.valueExpr.nodeType === ParseNodeType.Number &&
-            !node.d.leftExpr.d.items[0].d.valueExpr.d.isImaginary &&
-            node.d.leftExpr.d.items[0].d.valueExpr.d.value === 0 &&
-            node.d.rightExpr.nodeType === ParseNodeType.Number &&
-            node.d.rightExpr.d.isInteger &&
-            typeof node.d.rightExpr.d.value === 'number'
+            leftExpr.nodeType === ParseNodeType.Index &&
+            _isSysVersionInfoExpression(leftExpr.d.leftExpr, sysImportAliases) &&
+            leftExpr.d.items.length === 1 &&
+            !leftExpr.d.trailingComma &&
+            !leftExpr.d.items[0].d.name &&
+            leftExpr.d.items[0].d.argCategory === ArgCategory.Simple &&
+            leftExpr.d.items[0].d.valueExpr.nodeType === ParseNodeType.Number &&
+            !leftExpr.d.items[0].d.valueExpr.d.isImaginary &&
+            leftExpr.d.items[0].d.valueExpr.d.value === 0 &&
+            rightExpr.nodeType === ParseNodeType.Number &&
+            rightExpr.d.isInteger &&
+            typeof rightExpr.d.value === 'number'
         ) {
             // Handle the special case of "sys.version_info[0] >= X"
             return _evaluateVersionBinaryOperation(
-                node.d.operator,
+                operator,
                 PythonVersion.create(execEnv.pythonVersion.major, 0),
-                PythonVersion.create(node.d.rightExpr.d.value, 0)
+                PythonVersion.create(rightExpr.d.value, 0)
             );
         }
 
         if (
-            _isSysPlatformInfoExpression(node.d.leftExpr, sysImportAliases) &&
-            node.d.rightExpr.nodeType === ParseNodeType.StringList
+            _isSysPlatformInfoExpression(leftExpr, sysImportAliases) &&
+            rightExpr.nodeType === ParseNodeType.StringList
         ) {
             // Handle the special case of "sys.platform != 'X'"
-            const comparisonPlatform = node.d.rightExpr.d.strings.map((s) => s.d.value).join('');
+            const comparisonPlatform = rightExpr.d.strings.map((s) => s.d.value).join('');
             const expectedPlatformName = _getExpectedPlatformNameFromPlatform(execEnv);
-            return _evaluateStringBinaryOperation(node.d.operator, expectedPlatformName, comparisonPlatform);
+            return _evaluateStringBinaryOperation(operator, expectedPlatformName, comparisonPlatform);
         }
 
-        if (_isOsNameInfoExpression(node.d.leftExpr) && node.d.rightExpr.nodeType === ParseNodeType.StringList) {
+        if (_isOsNameInfoExpression(leftExpr) && rightExpr.nodeType === ParseNodeType.StringList) {
             // Handle the special case of "os.name == 'X'"
-            const comparisonOsName = node.d.rightExpr.d.strings.map((s) => s.d.value).join('');
+            const comparisonOsName = rightExpr.d.strings.map((s) => s.d.value).join('');
             const expectedOsName = _getExpectedOsNameFromPlatform(execEnv);
             if (expectedOsName !== undefined) {
-                return _evaluateStringBinaryOperation(node.d.operator, expectedOsName, comparisonOsName);
+                return _evaluateStringBinaryOperation(operator, expectedOsName, comparisonOsName);
             }
         } else {
             // Handle the special case of <definedConstant> == 'X' or <definedConstant> != 'X'.
-            if (node.d.rightExpr.nodeType === ParseNodeType.StringList) {
+            if (rightExpr.nodeType === ParseNodeType.StringList) {
                 let constantValue: string | number | boolean | undefined;
 
-                if (node.d.leftExpr.nodeType === ParseNodeType.Name) {
-                    constantValue = definedConstants.get(node.d.leftExpr.d.value);
-                } else if (node.d.leftExpr.nodeType === ParseNodeType.MemberAccess) {
-                    constantValue = definedConstants.get(node.d.leftExpr.d.member.d.value);
+                if (leftExpr.nodeType === ParseNodeType.Name) {
+                    constantValue = definedConstants.get(leftExpr.d.value);
+                } else if (leftExpr.nodeType === ParseNodeType.MemberAccess) {
+                    constantValue = definedConstants.get(leftExpr.d.member.d.value);
                 }
 
                 if (constantValue !== undefined && typeof constantValue === 'string') {
-                    const comparisonStringName = node.d.rightExpr.d.strings.map((s) => s.d.value).join('');
-                    return _evaluateStringBinaryOperation(node.d.operator, constantValue, comparisonStringName);
+                    const comparisonStringName = rightExpr.d.strings.map((s) => s.d.value).join('');
+                    return _evaluateStringBinaryOperation(operator, constantValue, comparisonStringName);
                 }
             }
         }
@@ -423,6 +443,14 @@ function _evaluateStringBinaryOperation(
     }
 
     return undefined;
+}
+
+function _isStaticComparisonLiteral(node: ExpressionNode): boolean {
+    return (
+        node.nodeType === ParseNodeType.Tuple ||
+        node.nodeType === ParseNodeType.Number ||
+        node.nodeType === ParseNodeType.StringList
+    );
 }
 
 function _isSysVersionInfoExpression(node: ExpressionNode, sysImportAliases: string[] = ['sys']): boolean {
