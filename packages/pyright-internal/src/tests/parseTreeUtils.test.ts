@@ -409,6 +409,35 @@ test('printExpression set', () => {
     }
 });
 
+test('printExpression format string', () => {
+    const code = `
+//// x = 1
+//// [|/*marker1*/f"{x}"|]
+//// [|/*marker2*/t"{x}"|]
+//// [|/*marker3*/rf"\\d{x}"|]
+//// [|/*marker4*/f"{x!r:>10}"|]
+//// [|/*marker5*/f"{x+1 = }"|]
+//// [|/*marker6*/f"{x:{x}}"|]
+//// [|/*marker7*/f"{{x}} {x}"|]
+//// [|/*marker8*/f'''{x:>{x}d}'''|]
+    `;
+    const state = parseAndGetTestState(code).state;
+    checkExpression('marker1', 'f"{x}"');
+    checkExpression('marker2', 't"{x}"');
+    checkExpression('marker3', 'rf"\\d{x}"');
+    checkExpression('marker4', 'f"{x!r:>10}"');
+    checkExpression('marker5', 'f"{x+1 = }"');
+    checkExpression('marker6', 'f"{x:{x}}"');
+    checkExpression('marker7', 'f"{{x}} {x}"');
+    checkExpression('marker8', "f'''{x:>{x}d}'''");
+
+    function checkExpression(marker: string, expected: string) {
+        const node = getNodeForRange(state, marker);
+        assert(isExpressionNode(node));
+        assert.strictEqual(printExpression(node), expected);
+    }
+});
+
 test('printExpression forward declarations use parser annotations but not owner annotations', () => {
     const code = `
 //// from typing import cast

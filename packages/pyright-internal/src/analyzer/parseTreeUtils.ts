@@ -340,20 +340,20 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.FormatString: {
-            let exprString = 'f';
-
-            let escapedString = '';
-            const itemsToPrint = [...node.d.middleTokens, ...node.d.fieldExprs].sort((a, b) => a.start - b.start);
-
-            while (itemsToPrint.length > 0) {
-                const itemToPrint = itemsToPrint.shift()!;
-
-                if ('nodeType' in itemToPrint) {
-                    escapedString += `{${printExpression(itemToPrint)}}`;
-                } else {
-                    escapedString += itemToPrint.escapedValue;
-                }
+            let exprString = '';
+            if (node.d.token.flags & StringTokenFlags.Raw) {
+                exprString += 'r';
             }
+
+            if (node.d.token.flags & StringTokenFlags.Format) {
+                exprString += 'f';
+            }
+
+            if (node.d.token.flags & StringTokenFlags.Template) {
+                exprString += 't';
+            }
+
+            const escapedString = node.d.escapedValue;
 
             if (node.d.token.flags & StringTokenFlags.Triplicate) {
                 if (node.d.token.flags & StringTokenFlags.SingleQuote) {

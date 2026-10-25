@@ -13,6 +13,7 @@
 
 import { Char } from '../common/charCodes';
 import { appendArray } from '../common/collectionUtils';
+import { cloneStr } from '../common/core';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
@@ -5299,13 +5300,22 @@ export class Parser {
 
         this._reportStringTokenErrors(startToken);
 
+        const lastToken = endToken ?? this._tokenizerOutput!.tokens.getItemAt(this._tokenIndex - 1);
+        const escapedValue = cloneStr(
+            this._fileContents!.slice(
+                TextRange.getEnd(startToken),
+                lastToken.type === TokenType.FStringEnd ? lastToken.start : TextRange.getEnd(lastToken)
+            )
+        );
+
         return FormatStringNode.create(
             this._getOwnerKey(),
             startToken,
             endToken,
             middleTokens,
             fieldExpressions,
-            formatExpressions
+            formatExpressions,
+            escapedValue
         );
     }
 
