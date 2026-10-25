@@ -17,6 +17,8 @@ import {
     pythonVersion3_10,
     pythonVersion3_11,
     pythonVersion3_13,
+    pythonVersion3_14,
+    pythonVersion3_15,
     pythonVersion3_7,
     pythonVersion3_8,
     pythonVersion3_9,
@@ -1168,6 +1170,17 @@ test('Annotations6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations6.py']);
 
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('Annotations7', () => {
+    for (const pythonVersion of [pythonVersion3_13, pythonVersion3_14, pythonVersion3_15]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations7.py'], configOptions);
+        TestUtils.validateResults(analysisResults, 1);
+        assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportUndefinedVariable);
+    }
 });
 
 test('AnnotatedVar1', () => {

@@ -5365,6 +5365,28 @@ export function createTypeEvaluator(
         }
     }
 
+    function lookUpSymbolOrAlias(
+        node: NameNode,
+        honorCodeFlow: boolean,
+        preferGlobalScope: boolean
+    ): SymbolWithScope | undefined {
+        // Look for the scope that contains the value definition and see if it
+        // has a declared type.
+        let symbolWithScope = lookUpSymbolRecursive(node, node.d.value, honorCodeFlow, preferGlobalScope);
+
+        if (!symbolWithScope) {
+            // If the node is part of a "from X import Y as Z" statement and the node
+            // is the "Y" (non-aliased) name, we need to look up the alias symbol
+            // since the non-aliased name is not in the symbol table.
+            const alias = getAliasFromImport(node);
+            if (alias) {
+                symbolWithScope = lookUpSymbolRecursive(alias, alias.d.value, honorCodeFlow, preferGlobalScope);
+            }
+        }
+
+        return symbolWithScope;
+    }
+
     function getTypeOfName(node: NameNode, flags: EvalFlags): TypeResult {
         const fileInfo = nodeInfo.getFileInfo(node);
         const name = node.d.value;
@@ -5373,31 +5395,35 @@ export function createTypeEvaluator(
         let isIncomplete = false;
         const allowForwardReferences = (flags & EvalFlags.ForwardRefs) !== 0 || fileInfo.isStubFile;
 
-        // Look for the scope that contains the value definition and
-        // see if it has a declared type.
-        let symbolWithScope = lookUpSymbolRecursive(
-            node,
-            name,
-            !allowForwardReferences,
-            allowForwardReferences && (flags & EvalFlags.TypeExpression) !== 0
-        );
-
-        if (!symbolWithScope) {
-            // If the node is part of a "from X import Y as Z" statement and the node
-            // is the "Y" (non-aliased) name, we need to look up the alias symbol
-            // since the non-aliased name is not in the symbol table.
-            const alias = getAliasFromImport(node);
-            if (alias) {
-                symbolWithScope = lookUpSymbolRecursive(
-                    alias,
-                    alias.d.value,
-                    !allowForwardReferences,
-                    allowForwardReferences && (flags & EvalFlags.TypeExpression) !== 0
-                );
-            }
-        }
+        const preferGlobalScope = allowForwardReferences && (flags & EvalFlags.TypeExpression) !== 0;
+        const symbolWithScope = lookUpSymbolOrAlias(node, !allowForwardReferences, preferGlobalScope);
 
         if (symbolWithScope) {
+            // PEP 649 defers annotation evaluation in Python 3.14 and later, but it
+            // doesn't make an unquoted forward reference safe to evaluate at every
+            // point in the program. Retain the deferred lookup so the type is
+            // available, but report an undefined name if a normal, flow-sensitive
+            // lookup cannot resolve it. Explicitly postponed annotations, stubs,
+            // quoted annotations, and type comments continue to allow forward
+            // references.
+            if (
+                allowForwardReferences &&
+                (flags & EvalFlags.TypeExpression) !== 0 &&
+                isAnnotationEvaluationPostponed(fileInfo) &&
+                !fileInfo.isStubFile &&
+                !fileInfo.futureImports.has('annotations') &&
+                !ParseTreeUtils.isWithinAnnotationComment(node) &&
+                ParseTreeUtils.isWithinTypeAnnotation(node, /* requireQuotedAnnotation */ false, nodeInfo) &&
+                !ParseTreeUtils.isWithinTypeAnnotation(node, /* requireQuotedAnnotation */ true, nodeInfo) &&
+                !lookUpSymbolOrAlias(node, /* honorCodeFlow */ true, /* preferGlobalScope */ false)
+            ) {
+                addDiagnostic(
+                    DiagnosticRule.reportUndefinedVariable,
+                    LocMessage.symbolIsUndefined().format({ name }),
+                    node
+                );
+            }
+
             let useCodeFlowAnalysis = !allowForwardReferences;
 
             // If the symbol is implicitly imported from the builtin
