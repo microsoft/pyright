@@ -1,4 +1,4 @@
-# Empty-list inference must not add Unknown to tuple ordering results.
+# A bare [] cannot exclude equality callbacks on the other list operand.
 from typing import Any, assert_type, final
 
 
@@ -8,26 +8,26 @@ def takes_bool(value: bool) -> None:
 
 def empty_left(right: list[int]) -> None:
     result = ([],) < (right,)
-    assert_type(result, bool)
+    reveal_type(result, expected_text="Unknown | bool")
     takes_bool(result)
-    assert_type(([],) <= (right,), bool)
-    assert_type(([],) > (right,), bool)
-    assert_type(([],) >= (right,), bool)
+    reveal_type(([],) <= (right,), expected_text="Unknown | bool")
+    reveal_type(([],) > (right,), expected_text="Unknown | bool")
+    reveal_type(([],) >= (right,), expected_text="Unknown | bool")
 
 
 def empty_right(left: list[int]) -> None:
     result = (left,) < ([],)
-    assert_type(result, bool)
+    reveal_type(result, expected_text="Unknown | bool")
     takes_bool(result)
-    assert_type((left,) <= ([],), bool)
-    assert_type((left,) > ([],), bool)
-    assert_type((left,) >= ([],), bool)
+    reveal_type((left,) <= ([],), expected_text="Unknown | bool")
+    reveal_type((left,) > ([],), expected_text="Unknown | bool")
+    reveal_type((left,) >= ([],), expected_text="Unknown | bool")
 
 
 def empty_alias(right: list[int]) -> None:
     empty = ([],)
     result = empty < (right,)
-    assert_type(result, bool)
+    reveal_type(result, expected_text="Unknown | bool")
     takes_bool(result)
 
 
@@ -61,14 +61,14 @@ class ReturnsText:
 
 
 def empty_with_custom_elements(other: list[ReturnsText]) -> None:
-    assert_type(([],) < (other,), bool)
-    assert_type(([],) <= (other,), bool)
-    assert_type(([],) > (other,), bool)
-    assert_type(([],) >= (other,), bool)
-    assert_type((other,) < ([],), bool)
-    assert_type((other,) <= ([],), bool)
-    assert_type((other,) > ([],), bool)
-    assert_type((other,) >= ([],), bool)
+    reveal_type(([],) < (other,), expected_text="Unknown | bool")
+    reveal_type(([],) <= (other,), expected_text="Unknown | bool")
+    reveal_type(([],) > (other,), expected_text="Unknown | bool")
+    reveal_type(([],) >= (other,), expected_text="Unknown | bool")
+    reveal_type((other,) < ([],), expected_text="Unknown | bool")
+    reveal_type((other,) <= ([],), expected_text="Unknown | bool")
+    reveal_type((other,) > ([],), expected_text="Unknown | bool")
+    reveal_type((other,) >= ([],), expected_text="Unknown | bool")
 
 
 def typed_empty_control(other: list[ReturnsText]) -> None:

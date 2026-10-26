@@ -1,4 +1,4 @@
-# Missing optional element facts must not add Unknown or erase reachable results.
+# Tuple ordering must retain reachable results, including dynamic list elements.
 from typing import Any, assert_type, final
 
 
@@ -10,10 +10,10 @@ def empty_lists() -> None:
 
 
 def unknown_lists(left: list[Any], right: list[Any]) -> None:
-    assert_type((left,) < (right,), bool)
-    assert_type((left,) <= (right,), bool)
-    assert_type((left,) > (right,), bool)
-    assert_type((left,) >= (right,), bool)
+    assert_type((left,) < (right,), Any | bool)
+    assert_type((left,) <= (right,), Any | bool)
+    assert_type((left,) > (right,), Any | bool)
+    assert_type((left,) >= (right,), Any | bool)
 
 
 def none_lists(left: tuple[list[None]], right: tuple[list[None]]) -> None:

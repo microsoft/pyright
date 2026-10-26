@@ -4950,9 +4950,12 @@ export function createTypeEvaluator(
 
                         // This code path can often produce many duplicate subtypes. We can
                         // reduce the cost of the combineTypes call below by filtering out these
-                        // duplicates proactively.
+                        // duplicates proactively. Equal retained tuple literals can carry
+                        // different inference fallbacks, which combineTypes must reconcile.
                         if (
                             newSubtypes.length === 0 ||
+                            transformedType.props?.inferredTupleLiteral ||
+                            newSubtypes[newSubtypes.length - 1].props?.inferredTupleLiteral ||
                             !isTypeSame(transformedType, newSubtypes[newSubtypes.length - 1])
                         ) {
                             newSubtypes.push(transformedType);
@@ -8891,25 +8894,39 @@ export function createTypeEvaluator(
         }
 
         const magicMethodName = getIndexAccessMagicMethodName(usage);
-        const itemMethodType = getBoundMagicMethod(baseType, magicMethodName, selfType, node.d.leftExpr);
-
-        if (!itemMethodType) {
-            addDiagnostic(
-                DiagnosticRule.reportIndexIssue,
-                LocMessage.methodNotDefinedOnType().format({
-                    name: magicMethodName,
-                    type: printType(baseType),
-                }),
-                node.d.leftExpr
+        // A full member lookup specializes tuple arguments even if a constant
+        // index can select its answer directly.
+        const nativeItemSymbol =
+            usage.method === 'get' && !selfType && isClassInstance(baseType) && ClassType.isBuiltIn(baseType, 'tuple')
+                ? ClassType.getSymbolTable(baseType).get(magicMethodName)
+                : undefined;
+        const nativeItemType = nativeItemSymbol?.isClassMember()
+            ? getEffectiveTypeOfSymbol(nativeItemSymbol)
+            : undefined;
+        const nativeItemMethods =
+            nativeItemType && isFunctionOrOverloaded(nativeItemType)
+                ? isOverloaded(nativeItemType)
+                    ? OverloadedType.getOverloads(nativeItemType)
+                    : [nativeItemType]
+                : [];
+        const canDeferBinding =
+            nativeItemMethods.length > 0 &&
+            nativeItemMethods.every(
+                (method) =>
+                    FunctionType.isInstanceMethod(method) &&
+                    method.shared.parameters.length > 0 &&
+                    !FunctionParam.isTypeDeclared(method.shared.parameters[0])
             );
-            return { type: UnknownType.create() };
-        }
+        let itemMethodType = canDeferBinding
+            ? undefined
+            : getBoundMagicMethod(baseType, magicMethodName, selfType, node.d.leftExpr);
 
         // Handle the special case where the object is a tuple and
         // the index is a constant number (integer) or a slice with integer
         // start and end values. In these cases, we can determine
         // the exact type by indexing into the tuple type array.
         if (
+            (canDeferBinding || itemMethodType) &&
             node.d.items.length === 1 &&
             !node.d.trailingComma &&
             !node.d.items[0].d.name &&
@@ -8968,6 +8985,36 @@ export function createTypeEvaluator(
                     }
                 }
             }
+        }
+
+        if (canDeferBinding) {
+            const inferredBase = getInferredTupleLiteralBase(baseType);
+            const tupleArgs = baseType.priv.tupleTypeArgs;
+            if (
+                inferredBase !== baseType &&
+                isClassInstance(inferredBase) &&
+                ClassType.isBuiltIn(inferredBase, 'tuple') &&
+                tupleArgs &&
+                tupleArgs.length > 1 &&
+                tupleArgs.some(
+                    (arg) => isUnion(arg.type) || (isClassInstance(arg.type) && ClassType.isBuiltIn(arg.type, 'tuple'))
+                )
+            ) {
+                // Avoid structural union work for optional literals before native method binding.
+                baseType = inferredBase;
+            }
+            itemMethodType = getBoundMagicMethod(baseType, magicMethodName, selfType, node.d.leftExpr);
+        }
+        if (!itemMethodType) {
+            addDiagnostic(
+                DiagnosticRule.reportIndexIssue,
+                LocMessage.methodNotDefinedOnType().format({
+                    name: magicMethodName,
+                    type: printType(baseType),
+                }),
+                node.d.leftExpr
+            );
+            return { type: UnknownType.create() };
         }
 
         const positionalArgs = node.d.items.filter((item) => item.d.argCategory === ArgCategory.Simple);

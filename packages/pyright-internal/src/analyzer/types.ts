@@ -1032,7 +1032,12 @@ export namespace ClassType {
             newClassType.priv.isEmptyContainer = isEmptyContainer;
         }
 
+        const inferredTupleLiteral = classType.props?.inferredTupleLiteral;
+        const hasInferredEntries = tupleTypeArgs
+            ? tupleTypeArgs.some((arg) => arg.type.props?.inferredTupleLiteral)
+            : typeArgs?.some((type) => type.props?.inferredTupleLiteral);
         const unchangedTupleArgs =
+            (inferredTupleLiteral || hasInferredEntries) &&
             tupleTypeArgs &&
             tupleTypeArgs.length === classType.priv.tupleTypeArgs?.length &&
             tupleTypeArgs.every(
@@ -1041,12 +1046,11 @@ export namespace ClassType {
                     arg.isUnbounded === classType.priv.tupleTypeArgs![index].isUnbounded &&
                     arg.isOptional === classType.priv.tupleTypeArgs![index].isOptional
             );
-        if (classType.props?.inferredTupleLiteral && !unchangedTupleArgs) {
+        if (inferredTupleLiteral && !unchangedTupleArgs) {
             TypeBase.addProps(newClassType).inferredTupleLiteral = undefined;
         }
 
-        const entryTypes = tupleTypeArgs?.map((arg) => arg.type) ?? typeArgs;
-        if (entryTypes?.some((type) => type.props?.inferredTupleLiteral) && !unchangedTupleArgs) {
+        if (hasInferredEntries && !unchangedTupleArgs) {
             const baseType = TypeBase.cloneType(newClassType);
             TypeBase.addProps(baseType).inferredTupleLiteral = undefined;
             baseType.priv.typeArgs = typeArgs?.map(getInferredTupleLiteralBase);
@@ -4046,7 +4050,7 @@ export function getInferredTupleLiteralBase(type: Type): Type {
 
 // Bound both the representation and its possible combinations before building unions.
 export function getTupleLiteralTypeComplexity(
-    types: Type[],
+    types: readonly Type[],
     isUnionCombination = false
 ): { size: number; alternatives: number } | undefined {
     let size = 0;
@@ -4097,27 +4101,26 @@ export function getTupleLiteralTypeComplexity(
 }
 
 export function retainInferredTupleLiterals(type: Type, baseType: Type): Type {
-    if (type === baseType || isTypeSame(type, baseType)) {
+    if (type === baseType) {
         return baseType;
     }
     const complexity = getTupleLiteralTypeComplexity([type]);
-    if (!complexity) {
+    if (!complexity || isTypeSame(type, baseType)) {
         return baseType;
     }
-    const retainedType = TypeBase.cloneType(
-        isUnion(type)
-            ? _combineTypes(
-                  type.priv.subtypes.map((subtype) =>
-                      isClass(subtype) && subtype.priv.literalValue !== undefined
-                          ? retainInferredTupleLiterals(
-                                subtype,
-                                ClassType.cloneWithLiteral(subtype, /* value */ undefined)
-                            )
-                          : subtype
-                  )
-              )
-            : type
-    );
+    if (
+        isUnion(type) &&
+        type.priv.subtypes.some((subtype) => isClass(subtype) && subtype.priv.literalValue !== undefined)
+    ) {
+        type = _combineTypes(
+            type.priv.subtypes.map((subtype) =>
+                isClass(subtype) && subtype.priv.literalValue !== undefined
+                    ? retainInferredTupleLiterals(subtype, ClassType.cloneWithLiteral(subtype, /* value */ undefined))
+                    : subtype
+            )
+        );
+    }
+    const retainedType = TypeBase.cloneType(type);
     TypeBase.addProps(retainedType).inferredTupleLiteral = { baseType, ...complexity };
     return retainedType;
 }
@@ -4168,6 +4171,9 @@ export interface CombineTypesOptions {
 // are combined into a UnionType. NeverTypes are filtered out.
 // If no types remain in the end, a NeverType is returned.
 export function combineTypes(subtypes: Type[], options?: CombineTypesOptions): Type {
+    if (subtypes.length === 1) {
+        return subtypes[0];
+    }
     if (!subtypes.some((type) => type.props?.inferredTupleLiteral)) {
         return _combineTypes(subtypes, options);
     }

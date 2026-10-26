@@ -1272,6 +1272,32 @@ function validateArithmeticOperation(
         rightTypeResult = { ...rightTypeResult, type: getInferredTupleLiteralBase(rightTypeResult.type) };
     }
 
+    if (
+        isTupleOrdering(operator) &&
+        (leftTypeResult.type.props?.inferredTupleLiteral || rightTypeResult.type.props?.inferredTupleLiteral)
+    ) {
+        const plainInts = (type: Type): boolean =>
+            (isUnion(type) ? type.priv.subtypes : [type]).every(
+                (subtype) =>
+                    isClassInstance(subtype) &&
+                    ClassType.isBuiltIn(subtype, 'int') &&
+                    !getTypeCondition(subtype)?.length
+            );
+        const leftBase = getInferredTupleLiteralBase(leftTypeResult.type);
+        const rightBase = getInferredTupleLiteralBase(rightTypeResult.type);
+        if (
+            plainInts(leftTypeResult.type) &&
+            plainInts(rightTypeResult.type) &&
+            plainInts(leftBase) &&
+            plainInts(rightBase)
+        ) {
+            // Int ordering cannot observe optional literal alternatives. Keep
+            // them on the operands, but avoid their Cartesian product here.
+            leftTypeResult = { ...leftTypeResult, type: leftBase };
+            rightTypeResult = { ...rightTypeResult, type: rightBase };
+        }
+    }
+
     const type = evaluator.mapSubtypesExpandTypeVars(
         leftTypeResult.type,
         /* options */ undefined,

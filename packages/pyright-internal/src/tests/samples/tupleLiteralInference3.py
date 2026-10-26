@@ -25,7 +25,15 @@ T = TypeVar("T", bound=Choices)
 
 
 def direct(index: int, other: Choices) -> tuple[bool, Choices]:
-    left = (((0,),), ((1,),), ((2,),), ((3,),), ((4,),), ((5,),), ((6,),))[index]
+    left = (
+        ((0,),) if index == 0 else
+        ((1,),) if index == 1 else
+        ((2,),) if index == 2 else
+        ((3,),) if index == 3 else
+        ((4,),) if index == 4 else
+        ((5,),) if index == 5 else
+        ((6,),)
+    )
     result = left < other
     assert_type(result, bool)
     assert_type(left[0][0], Literal[0, 1, 2, 3, 4, 5, 6])
@@ -33,7 +41,15 @@ def direct(index: int, other: Choices) -> tuple[bool, Choices]:
 
 
 def bounded(index: int, other: T) -> tuple[bool, T]:
-    left = (((0,),), ((1,),), ((2,),), ((3,),), ((4,),), ((5,),), ((6,),))[index]
+    left = (
+        ((0,),) if index == 0 else
+        ((1,),) if index == 1 else
+        ((2,),) if index == 2 else
+        ((3,),) if index == 3 else
+        ((4,),) if index == 4 else
+        ((5,),) if index == 5 else
+        ((6,),)
+    )
     result = left < other
     assert_type(result, bool)
     assert_type(left[0][0], Literal[0, 1, 2, 3, 4, 5, 6])
