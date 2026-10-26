@@ -4314,7 +4314,10 @@ export class Parser {
             if (
                 possibleTupleNode.nodeType === ParseNodeType.StringList ||
                 possibleTupleNode.nodeType === ParseNodeType.Comprehension ||
-                possibleTupleNode.nodeType === ParseNodeType.AssignmentExpression
+                possibleTupleNode.nodeType === ParseNodeType.AssignmentExpression ||
+                possibleTupleNode.nodeType === ParseNodeType.Ternary ||
+                possibleTupleNode.nodeType === ParseNodeType.Lambda ||
+                possibleTupleNode.nodeType === ParseNodeType.Number
             ) {
                 possibleTupleNode.d.hasParens = true;
             }

@@ -438,6 +438,62 @@ test('printExpression format string', () => {
     }
 });
 
+test('printExpression parentheses', () => {
+    const code = `
+//// [|/*marker1*/(a if b else 2) + 1|]
+//// [|/*marker2*/(lambda: 1) or 2|]
+//// [|/*marker3*/(y := 1) + 1|]
+//// [|/*marker4*/("a" "b").upper()|]
+//// [|/*marker5*/(1 if c else 2) if d else 3|]
+//// [|/*marker6*/(1).real|]
+//// [|/*marker7*/x if (1 if c else 2) else 3|]
+//// [|/*marker8*/-(1 if c else 2)|]
+//// [|/*marker9*/a if b else 2|]
+    `;
+    const state = parseAndGetTestState(code).state;
+    checkExpression('marker1', '(a if b else 2) + 1');
+    checkExpression('marker2', '(lambda : 1) or 2');
+    checkExpression('marker3', '(y := 1) + 1');
+    checkExpression('marker4', '("a" "b").upper()');
+    checkExpression('marker5', '(1 if c else 2) if d else 3');
+    checkExpression('marker6', '(1).real');
+    checkExpression('marker7', 'x if (1 if c else 2) else 3');
+    checkExpression('marker8', '-(1 if c else 2)');
+    checkExpression('marker9', 'a if b else 2');
+
+    function checkExpression(marker: string, expected: string) {
+        const node = getNodeForRange(state, marker);
+        assert(isExpressionNode(node));
+        assert.strictEqual(printExpression(node), expected);
+    }
+});
+
+test('printExpression number', () => {
+    const code = `
+//// [|/*marker1*/1.0|]
+//// [|/*marker2*/2.5|]
+//// [|/*marker3*/1e16|]
+//// [|/*marker4*/1e21|]
+//// [|/*marker5*/1e999|]
+//// [|/*marker6*/1.0j|]
+//// [|/*marker7*/3|]
+    `;
+    const state = parseAndGetTestState(code).state;
+    checkExpression('marker1', '1.0');
+    checkExpression('marker2', '2.5');
+    checkExpression('marker3', '10000000000000000.0');
+    checkExpression('marker4', '1e+21');
+    checkExpression('marker5', '1e999');
+    checkExpression('marker6', '1.0j');
+    checkExpression('marker7', '3');
+
+    function checkExpression(marker: string, expected: string) {
+        const node = getNodeForRange(state, marker);
+        assert(isExpressionNode(node));
+        assert.strictEqual(printExpression(node), expected);
+    }
+});
+
 test('printExpression forward declarations use parser annotations but not owner annotations', () => {
     const code = `
 //// from typing import cast
