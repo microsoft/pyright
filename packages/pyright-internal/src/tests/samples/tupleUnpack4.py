@@ -1,7 +1,7 @@
 # This sample tests the handling of a TypeVar whose upper bound is
 # a tuple when used for an *args parameter or unpacked in a tuple.
 
-from typing import TypeVar, Unpack
+from typing import Callable, TypeVar, Unpack
 
 
 T = TypeVar("T", bound="tuple[int, ...]")
@@ -83,3 +83,29 @@ def func5(t: tuple[int, *V, int]):
 def func6(t: tuple[int, *V, int]):
     # This should generate an error.
     [a] = t
+
+
+def func7(t: tuple[bytes, *U], u: tuple[int, *V, int]):
+    r1 = None
+    if len(t) == 3:
+        r1 = t
+    reveal_type(r1, expected_text="tuple[bytes, *U@func7] | None")
+
+    r2 = None
+    if len(t) != 3:
+        r2 = t
+    reveal_type(r2, expected_text="None")
+
+    r3 = None
+    if len(u) == 2:
+        r3 = u
+    reveal_type(r3, expected_text="tuple[int, *V@func7, int] | None")
+
+
+def func8(t: tuple[*V], f: Callable[[], None]):
+    f(*t)
+
+
+def func9(t: tuple[bytes, *U], f: Callable[[bytes, int], None]):
+    # This should generate an error.
+    f(*t)

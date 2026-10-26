@@ -59,6 +59,7 @@ import {
     isParamSpec,
     isTypeSame,
     isTypeVar,
+    isUnpackedTypeVar,
     isUnpackedTypeVarTuple,
     isUnion,
     maxTypeRecursionCount,
@@ -81,6 +82,7 @@ import {
     derivesFromAnyOrUnknown,
     derivesFromStdlibClass,
     doForEachSubtype,
+    expandUnpackedTypeVarsInTupleArgs,
     getSpecializedTupleType,
     getTypeCondition,
     getTypeVarScopeIds,
@@ -2379,13 +2381,24 @@ function narrowTypeForTupleLength(
             return subtype;
         }
 
+        // An unpacked TypeVar stands for the entries of its bound, so use those
+        // to determine the length. The narrowed type keeps the TypeVar.
+        const hasUnpackedTypeVar = concreteSubtype.priv.tupleTypeArgs.some((typeArg) =>
+            isUnpackedTypeVar(typeArg.type)
+        );
+        const expandedTypeArgs = expandUnpackedTypeVarsInTupleArgs(concreteSubtype.priv.tupleTypeArgs);
+
         // If the tuple contains no unbounded elements, then we know its length exactly.
-        if (!concreteSubtype.priv.tupleTypeArgs.some((typeArg) => typeArg.isUnbounded)) {
+        if (!expandedTypeArgs.some((typeArg) => typeArg.isUnbounded)) {
             const tupleLengthMatches = isLessThanCheck
-                ? concreteSubtype.priv.tupleTypeArgs.length < lengthValue
-                : concreteSubtype.priv.tupleTypeArgs.length === lengthValue;
+                ? expandedTypeArgs.length < lengthValue
+                : expandedTypeArgs.length === lengthValue;
 
             return tupleLengthMatches === isPositiveTest ? subtype : undefined;
+        }
+
+        if (hasUnpackedTypeVar) {
+            return subtype;
         }
 
         // The tuple contains a "...". We'll expand this into as many elements as

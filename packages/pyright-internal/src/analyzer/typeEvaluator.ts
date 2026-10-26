@@ -12364,7 +12364,7 @@ export function createTypeEvaluator(
                 );
 
                 if (isClassInstance(combinedArgType) && isTupleClass(combinedArgType)) {
-                    const tupleTypeArgs = combinedArgType.priv.tupleTypeArgs ?? [];
+                    const tupleTypeArgs = expandUnpackedTypeVarsInTupleArgs(combinedArgType.priv.tupleTypeArgs ?? []);
 
                     if (tupleTypeArgs.length !== 1 || !tupleTypeArgs[0].isUnbounded) {
                         for (const tupleTypeArg of tupleTypeArgs) {
