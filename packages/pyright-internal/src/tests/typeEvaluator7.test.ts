@@ -1489,6 +1489,18 @@ test('Circular3', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Circular4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circular4.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Circular5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circular5.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TryExcept1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept1.py']);
 

@@ -443,6 +443,7 @@ export interface MemberAccessTypeResult {
     isAsymmetricAccessor?: boolean;
     memberAccessDeprecationInfo?: MemberAccessDeprecationInfo;
     typeErrors?: boolean;
+    isIncomplete?: boolean;
 }
 
 interface ScopedTypeVarResult {
@@ -4422,7 +4423,7 @@ export function createTypeEvaluator(
 
         const resultToCache: TypeResult = {
             type: setTypeResult.narrowedTypeForSet ?? typeResult.type,
-            isIncomplete: typeResult.isIncomplete,
+            isIncomplete: typeResult.isIncomplete || setTypeResult.isIncomplete,
             memberAccessDeprecationInfo: setTypeResult.memberAccessDeprecationInfo,
         };
         writeTypeCache(target, resultToCache, EvalFlags.None);
@@ -6283,7 +6284,7 @@ export function createTypeEvaluator(
 
                 if (classMemberInfo) {
                     typeAtStart = getTypeOfMember(classMemberInfo);
-                    isTypeAtStartIncomplete = false;
+                    isTypeAtStartIncomplete = !!getEffectiveTypeOfSymbolForUsage(classMemberInfo.symbol).isIncomplete;
                 }
             }
 
@@ -6901,7 +6902,7 @@ export function createTypeEvaluator(
                     return {
                         symbol: undefined,
                         type: generalAttrType.type,
-                        isTypeIncomplete: false,
+                        isTypeIncomplete: !!generalAttrType.isIncomplete,
                         isDescriptorError: false,
                         isClassMember: false,
                         isClassVar: false,
@@ -7059,6 +7060,10 @@ export function createTypeEvaluator(
 
                     if (descResult.isAsymmetricAccessor) {
                         isAsymmetricAccessor = true;
+                    }
+
+                    if (descResult.isIncomplete) {
+                        isTypeIncomplete = true;
                     }
 
                     if (descResult.memberAccessDeprecationInfo) {
@@ -7274,6 +7279,10 @@ export function createTypeEvaluator(
         if (!isFunctionOrOverloaded(methodType)) {
             if (isAnyOrUnknown(methodType)) {
                 return { type: methodType };
+            }
+
+            if (methodTypeResult?.isIncomplete) {
+                return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
             }
 
             // TODO - emit an error for this condition.
@@ -7632,6 +7641,12 @@ export function createTypeEvaluator(
                 );
             }
 
+            // If either accessor is still being evaluated, don't cache a result.
+            // Assume asymmetric so an assignment doesn't narrow the member.
+            if (isUnbound(getterType) || isUnbound(setterType)) {
+                return true;
+            }
+
             // If this is an overload, find the appropriate overload.
             if (isOverloaded(getterType)) {
                 const getOverloads = OverloadedType.getOverloads(getterType).filter((overload) => {
@@ -7691,6 +7706,12 @@ export function createTypeEvaluator(
             const getterType = getEffectiveTypeOfSymbol(getterSymbolResult.symbol);
             const setterType = getEffectiveTypeOfSymbol(setterSymbolResult.symbol);
 
+            // If either accessor is still being evaluated, don't cache a result.
+            // Assume asymmetric so an assignment doesn't narrow the member.
+            if (isUnbound(getterType) || isUnbound(setterType)) {
+                return true;
+            }
+
             // If either the setter or getter is an overload (or some other non-function type),
             // conservatively assume that it's not asymmetric.
             if (isFunction(getterType) && isFunction(setterType)) {
@@ -7721,7 +7742,7 @@ export function createTypeEvaluator(
         selfType?: ClassType | TypeVarType
     ): MemberAccessTypeResult | undefined {
         const getAttributeAccessMember = (name: string) => {
-            return getTypeOfBoundMember(
+            const memberResult = getTypeOfBoundMember(
                 errorNode,
                 classType,
                 name,
@@ -7732,9 +7753,16 @@ export function createTypeEvaluator(
                     MemberAccessFlags.SkipTypeBaseClass |
                     MemberAccessFlags.SkipAttributeAccessOverride,
                 selfType
-            )?.type;
+            );
+
+            if (memberResult?.isIncomplete) {
+                isAccessMemberIncomplete = true;
+            }
+
+            return memberResult?.type;
         };
 
+        let isAccessMemberIncomplete = false;
         let accessMemberType: Type | undefined;
         if (usage.method === 'get') {
             accessMemberType = getAttributeAccessMember('__getattribute__') ?? getAttributeAccessMember('__getattr__');
@@ -7778,6 +7806,10 @@ export function createTypeEvaluator(
                 return { type: accessMemberType };
             }
 
+            if (isAccessMemberIncomplete) {
+                return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
+            }
+
             // TODO - emit an error for this condition.
             return undefined;
         }
@@ -7800,6 +7832,7 @@ export function createTypeEvaluator(
             type: callResult.returnType ?? UnknownType.create(),
             typeErrors: callResult.argumentErrors,
             isAsymmetricAccessor,
+            isIncomplete: isAccessMemberIncomplete || callResult.isTypeIncomplete,
         };
     }
 
