@@ -11,6 +11,7 @@
 import assert from 'assert';
 
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
@@ -297,6 +298,15 @@ test('MemberAccess28', () => {
 test('MemberAccess29', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess29.py']);
     TestUtils.validateResults(analysisResults, 3);
+});
+
+test('MemberAccess30', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess30.py']);
+    TestUtils.validateResults(analysisResults, 7);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [19, 54, 70, 82, 84, 94, 106].map((line) => [line, DiagnosticRule.reportAttributeAccessIssue])
+    );
 });
 
 test('DataClassNamedTuple1', () => {

@@ -4208,6 +4208,7 @@ export function createTypeEvaluator(
 
         const declarations = symbolWithScope.symbol.getDeclarations();
         let declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol)?.type;
+        let preserveAssignedMethod = false;
         const fileInfo = nodeInfo.getFileInfo(nameNode);
 
         // If this is a class scope and there is no type declared for this class variable,
@@ -4224,12 +4225,15 @@ export function createTypeEvaluator(
                     );
                     if (memberInfo?.isTypeDeclared) {
                         declaredType = getTypeOfMember(memberInfo);
-                        if (
-                            isMethodExemptFromLsp(nameValue) &&
+                        preserveAssignedMethod =
                             memberInfo.symbol
                                 .getTypedDeclarations()
                                 .some((decl) => decl.type === DeclarationType.Function) &&
                             isFunctionOrOverloaded(typeResult.type) &&
+                            isFunctionOrOverloaded(declaredType);
+                        if (
+                            isMethodExemptFromLsp(nameValue) &&
+                            preserveAssignedMethod &&
                             isFunctionOrOverloaded(declaredType) &&
                             !isFinalVariable(memberInfo.symbol)
                         ) {
@@ -4285,8 +4289,10 @@ export function createTypeEvaluator(
                 // Replace the assigned type with the (unnarrowed) declared type.
                 destType = declaredType;
             } else {
-                // Constrain the resulting type to match the declared type.
-                destType = narrowTypeBasedOnAssignment(declaredType, typeResult).type;
+                // Keep class method aliases' implementation identity after validating their signatures.
+                destType = preserveAssignedMethod
+                    ? typeResult.type
+                    : narrowTypeBasedOnAssignment(declaredType, typeResult).type;
             }
         } else {
             // If this is a member name (within a class scope) and the member name
@@ -6853,12 +6859,6 @@ export function createTypeEvaluator(
         };
     }
 
-    // Determines whether all of the symbol's typed declarations are methods.
-    function isDeclaredAsMethod(symbol: Symbol): boolean {
-        const decls = symbol.getTypedDeclarations();
-        return decls.length > 0 && decls.every((decl) => decl.type === DeclarationType.Function);
-    }
-
     function getTypeOfClassMemberName(
         errorNode: ExpressionNode | undefined,
         classType: ClassType,
@@ -6894,13 +6894,6 @@ export function createTypeEvaluator(
         // a symbol with an inferred type.
         if (!memberInfo) {
             memberInfo = lookUpClassMember(classType, memberName, flags);
-        } else if (memberInfo.skippedUndeclaredType && isDeclaredAsMethod(memberInfo.symbol)) {
-            // A symbol without a declared type was skipped in a class that appears
-            // earlier in the MRO, and the declared symbol we found is a method.
-            // A class-scoped assignment that aliases a method (a common idiom for
-            // defining reflected dunder methods) overrides the base class method,
-            // so use the overriding symbol instead.
-            memberInfo = lookUpClassMember(classType, memberName, flags) ?? memberInfo;
         }
 
         if (!memberInfo) {

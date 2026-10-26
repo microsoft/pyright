@@ -22,7 +22,14 @@ import {
 } from '../parser/parseNodes';
 import { OperatorType } from '../parser/tokenizerTypes';
 import { getInfoReader, AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
-import { getEnclosingLambda, isWithinLoop, operatorSupportsChaining, printOperator } from './parseTreeUtils';
+import { DeclarationType } from './declaration';
+import {
+    getEnclosingFunction,
+    getEnclosingLambda,
+    isWithinLoop,
+    operatorSupportsChaining,
+    printOperator,
+} from './parseTreeUtils';
 import { getScopeForNode } from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { EvalFlags, MagicMethodDeprecationInfo, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
@@ -30,7 +37,6 @@ import {
     InferenceContext,
     MemberAccessFlags,
     convertToInstantiable,
-    derivesFromClassRecursive,
     getLiteralTypeClassName,
     getTypeCondition,
     getUnionSubtypeCount,
@@ -53,6 +59,7 @@ import {
 import {
     ClassType,
     NeverType,
+    OverloadedType,
     Type,
     TypeBase,
     UnknownType,
@@ -60,9 +67,11 @@ import {
     isAnyOrUnknown,
     isClass,
     isClassInstance,
+    isFunction,
     isFunctionOrOverloaded,
     isInstantiableClass,
     isNever,
+    isOverloaded,
     isUnion,
 } from './types';
 
@@ -1253,10 +1262,10 @@ function validateContainmentOperation(
 // type is a proper subclass of the left operand's type and it overrides the
 // reflected magic method, the reflected method is called first.
 function isReflectedOperatorPrioritized(
+    evaluator: TypeEvaluator,
     leftType: Type,
     rightType: Type,
-    magicMethodName: string,
-    altMagicMethodName: string
+    operator: OperatorType
 ): boolean {
     if (!isClassInstance(leftType) || !isClassInstance(rightType)) {
         return false;
@@ -1267,15 +1276,14 @@ function isReflectedOperatorPrioritized(
         return false;
     }
 
+    const leftClass = ClassType.cloneAsInstantiable(leftType);
     if (
-        !derivesFromClassRecursive(
-            ClassType.cloneAsInstantiable(rightType),
-            ClassType.cloneAsInstantiable(leftType),
-            /* ignoreUnknown */ true
-        )
+        !rightType.shared.mro.some((base) => isInstantiableClass(base) && ClassType.isSameGenericClass(base, leftClass))
     ) {
         return false;
     }
+
+    const [magicMethodName, altMagicMethodName] = binaryOperatorMap[operator];
 
     // The right operand's class must override the reflected magic method.
     const rightAltMember = lookUpObjectMember(rightType, altMagicMethodName, MemberAccessFlags.SkipInstanceMembers);
@@ -1293,6 +1301,44 @@ function isReflectedOperatorPrioritized(
         return false;
     }
 
+    if (leftAltMember && !operatorSupportsChaining(operator)) {
+        const leftAltType = evaluator.getTypeOfMember(leftAltMember);
+        const rightAltType = evaluator.getTypeOfMember(rightAltMember);
+        const leftFunction = isOverloaded(leftAltType) ? OverloadedType.getOverloads(leftAltType)[0] : leftAltType;
+        const rightFunction = isOverloaded(rightAltType) ? OverloadedType.getOverloads(rightAltType)[0] : rightAltType;
+
+        // Rebinding the same function does not provide a different implementation.
+        // Nested declarations can produce distinct functions on separate calls.
+        if (
+            isFunction(leftFunction) &&
+            isFunction(rightFunction) &&
+            leftFunction.shared.declaration &&
+            leftFunction.shared.declaration === rightFunction.shared.declaration
+        ) {
+            if (!getEnclosingFunction(leftFunction.shared.declaration.node)) {
+                return false;
+            }
+
+            const rightDecls = rightAltMember.symbol.getDeclarations();
+            if (rightDecls.length === 1 && rightDecls[0].type === DeclarationType.Variable) {
+                const aliasSource = rightDecls[0].inferredTypeSource;
+                if (
+                    aliasSource?.nodeType === ParseNodeType.MemberAccess &&
+                    aliasSource.d.member.d.value === altMagicMethodName
+                ) {
+                    const aliasClass = evaluator.getTypeOfExpression(aliasSource.d.leftExpr).type;
+                    if (
+                        isInstantiableClass(aliasClass) &&
+                        lookUpClassMember(aliasClass, altMagicMethodName, MemberAccessFlags.SkipInstanceMembers)
+                            ?.symbol === leftAltMember.symbol
+                    ) {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
     // If the left operand's class doesn't implement the normal form of the
     // operator, there's nothing to prioritize over.
     if (!lookUpObjectMember(leftType, magicMethodName, MemberAccessFlags.SkipInstanceMembers)) {
@@ -1300,6 +1346,12 @@ function isReflectedOperatorPrioritized(
     }
 
     return true;
+}
+
+function removeNotImplemented(type: Type): Type {
+    return mapSubtypes(type, (subtype) =>
+        isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'types.NotImplementedType') ? undefined : subtype
+    );
 }
 
 function validateArithmeticOperation(
@@ -1362,17 +1414,13 @@ function validateArithmeticOperation(
 
                     const magicMethodName = binaryOperatorMap[operator][0];
                     let resultTypeResult: TypeResult | undefined;
+                    let decliningReflectedResult: TypeResult | undefined;
 
                     // If the right operand's type is a proper subclass of the left
                     // operand's type and overrides the reflected magic method, Python
                     // gives the reflected form of the operator priority.
                     if (
-                        isReflectedOperatorPrioritized(
-                            leftSubtypeExpanded,
-                            rightSubtypeExpanded,
-                            magicMethodName,
-                            binaryOperatorMap[operator][1]
-                        )
+                        isReflectedOperatorPrioritized(evaluator, leftSubtypeExpanded, rightSubtypeExpanded, operator)
                     ) {
                         resultTypeResult = evaluator.getTypeOfMagicMethodCall(
                             convertFunctionToObject(evaluator, rightSubtypeUnexpanded),
@@ -1381,6 +1429,14 @@ function validateArithmeticOperation(
                             errorNode,
                             inferenceContext
                         );
+
+                        if (resultTypeResult && !operatorSupportsChaining(operator)) {
+                            const resultType = removeNotImplemented(resultTypeResult.type);
+                            if (resultType !== resultTypeResult.type) {
+                                decliningReflectedResult = { ...resultTypeResult, type: resultType };
+                                resultTypeResult = undefined;
+                            }
+                        }
                     }
 
                     resultTypeResult ??= evaluator.getTypeOfMagicMethodCall(
@@ -1413,7 +1469,32 @@ function validateArithmeticOperation(
                         );
                     }
 
-                    if (!resultTypeResult) {
+                    if (decliningReflectedResult) {
+                        if (resultTypeResult) {
+                            const resultType = removeNotImplemented(resultTypeResult.type);
+                            if (resultType !== resultTypeResult.type) {
+                                resultTypeResult = isNever(resultType)
+                                    ? undefined
+                                    : { ...resultTypeResult, type: resultType };
+                            }
+                        }
+
+                        if (!isNever(decliningReflectedResult.type)) {
+                            resultTypeResult = {
+                                ...decliningReflectedResult,
+                                type: combineTypes([
+                                    decliningReflectedResult.type,
+                                    resultTypeResult?.type ?? NeverType.createNever(),
+                                ]),
+                                isIncomplete: decliningReflectedResult.isIncomplete || resultTypeResult?.isIncomplete,
+                                magicMethodDeprecationInfo:
+                                    decliningReflectedResult.magicMethodDeprecationInfo ??
+                                    resultTypeResult?.magicMethodDeprecationInfo,
+                            };
+                        }
+                    }
+
+                    if (!resultTypeResult && !decliningReflectedResult) {
                         // Try the alternate form (swapping right and left).
                         const altMagicMethodName = binaryOperatorMap[operator][1];
                         resultTypeResult = evaluator.getTypeOfMagicMethodCall(

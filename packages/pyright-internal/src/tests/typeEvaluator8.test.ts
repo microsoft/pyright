@@ -468,7 +468,11 @@ test('Operator12', () => {
 test('Operator13', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator13.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [[206, DiagnosticRule.reportOperatorIssue]]
+    );
 });
 
 test('Optional1', () => {
