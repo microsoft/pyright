@@ -67,6 +67,15 @@ def scenario_with_controls() -> ReproductionScenario:
     return probe
 
 
+def missing_diagnostic_scenario() -> ReproductionScenario:
+    probe = scenario_with_controls()
+    predicate = {**probe.claims[0].broken[0].model_dump(), "message": None, "present": False}
+    data = probe.model_dump()
+    data["claims"][0]["broken"] = [predicate]
+    data["claims"][0]["resolved"] = [{**predicate, "present": True}]
+    return ReproductionScenario.model_validate(data)
+
+
 def exploratory_scenario() -> ExploratoryReproductionScenario:
     probe = scenario_with_controls()
     return ExploratoryReproductionScenario.model_validate({
@@ -550,6 +559,77 @@ class TransportTests(unittest.TestCase):
 
 
 class OutcomeTests(unittest.TestCase):
+    def test_reported_context_is_optional_but_its_message_and_rule_must_match_exactly(self):
+        probe = missing_diagnostic_scenario()
+        data = probe.model_dump()
+        data["claims"][0]["context_diagnostics"] = [{
+            "file": "sample.py", "line": 1, "severity": "error", "message": "Existing reported context",
+            "rule": None, "present": True,
+        }]
+        probe = ReproductionScenario.model_validate(data)
+        with tempfile.TemporaryDirectory() as temporary:
+            cwd = Path(temporary)
+            original = {**record(cwd, broken=False, separate_controls=True), "scenario_hash": "frozen"}
+            control = {**record(cwd, broken=False, separate_controls=True, phase="control"), "scenario_hash": "frozen"}
+            self.assertEqual(
+                classify(probe, original, control, allow_rule_location_predicates=True), "reproduced",
+            )
+            base = json.loads(original["stdout"])
+            for changes, expected in (({}, "reproduced"), ({"rule": "reportOther"}, "blocked"), ({"message": "New error"}, "blocked")):
+                with self.subTest(changes=changes):
+                    parsed = {
+                        **base, "generalDiagnostics": [*base["generalDiagnostics"], {
+                            "file": str(cwd / "sample.py"), "range": {"start": {"line": 0}},
+                            "severity": "error", "message": "Existing reported context", **changes,
+                        }],
+                    }
+                    original["stdout"] = json.dumps(parsed)
+                    self.assertEqual(
+                        classify(probe, original, control, allow_rule_location_predicates=True), expected,
+                    )
+
+    def test_rule_location_missing_diagnostic_requires_explicit_opt_in_and_fresh_precision(self):
+        probe = missing_diagnostic_scenario()
+        with tempfile.TemporaryDirectory() as temporary:
+            cwd = Path(temporary)
+            original = record(cwd, broken=False, separate_controls=True)
+            control = record(cwd, broken=False, separate_controls=True, phase="control")
+            original["scenario_hash"] = control["scenario_hash"] = "frozen"
+            self.assertEqual(classify(probe, original, control), "blocked")
+            self.assertEqual(classify(probe, original, allow_rule_location_predicates=True), "blocked")
+            self.assertEqual(
+                classify(probe, original, control, allow_rule_location_predicates=True), "reproduced",
+            )
+            original = {**record(cwd, broken=True, separate_controls=True), "scenario_hash": "frozen"}
+            parsed = json.loads(original["stdout"])
+            parsed["generalDiagnostics"][0]["message"] = "Different wording for the same frozen rule and location"
+            original["stdout"] = json.dumps(parsed)
+            self.assertEqual(
+                classify(probe, original, control, allow_rule_location_predicates=True), "not_reproduced",
+            )
+
+    def test_rule_location_matching_never_accepts_an_unrelated_error_or_imprecise_control(self):
+        probe = missing_diagnostic_scenario()
+        with tempfile.TemporaryDirectory() as temporary:
+            cwd = Path(temporary)
+            control = {**record(cwd, broken=False, separate_controls=True, phase="control"), "scenario_hash": "frozen"}
+            for mutation in ({"rule": "reportUnknownVariableType"}, {"severity": "warning"}, {"file": str(cwd / "other.py")}):
+                with self.subTest(mutation=mutation):
+                    original = {**record(cwd, broken=True, separate_controls=True), "scenario_hash": "frozen"}
+                    parsed = json.loads(original["stdout"])
+                    parsed["generalDiagnostics"][0].update(mutation)
+                    original["stdout"] = json.dumps(parsed)
+                    self.assertEqual(
+                        classify(probe, original, control, allow_rule_location_predicates=True), "blocked",
+                    )
+            original = {**record(cwd, broken=False, separate_controls=True), "scenario_hash": "frozen"}
+            parsed = json.loads(control["stdout"])
+            parsed["generalDiagnostics"][0]["message"] = 'Type of "value" is "Unknown"'
+            control["stdout"] = json.dumps(parsed)
+            self.assertEqual(
+                classify(probe, original, control, allow_rule_location_predicates=True), "blocked",
+            )
+
     def test_actual_unrecognized_configuration_stderr_blocks_even_with_exact_positive_control(self):
         with tempfile.TemporaryDirectory() as temporary:
             probe = scenario()

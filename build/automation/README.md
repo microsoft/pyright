@@ -64,6 +64,26 @@ An abbreviated report excerpt or CLI presentation suffix is not a complete JSON 
 complete message is available, preserve the raw quote, known rule and narrow question/locations with unknown
 wording; only then may historical discovery supply exact wording at those locations. Known wording is immutable.
 An unobserved diagnostic rule must also have been frozen from the report; otherwise its predicate uses null.
+The read-only assessor's explicit `--allow-rule-location-predicates` opt-in additionally handles missing
+diagnostics whose complete wording is unavailable. It still starts with historical discovery: freeze every
+single-line symptom location and any reported rule first. An explicitly reported comparison may be frozen in
+`DiscoveryScope.reported_context` with its source ID, line, exact report quote, and
+`relation="same_rule_comparison"`. Only an actual error rule at that exact historical comparison may supply
+an otherwise unknown rule. `relation="supporting_diagnostic"` retains other report-grounded diagnostic context,
+but never supplies a missing rule. Quotes, selected sources, bounds and context/symptom separation are checked
+before discovery; a convenient neighboring diagnostic cannot become a comparison after seeing the output.
+
+Refinement may then use `message=null`, an explicit error rule and the identical frozen line in both
+broken/absent and resolved/present predicates. Known wording cannot be discarded, missing locations cannot be
+dropped, and guessed rules, broad ranges and line-only/any-error matching remain forbidden. Exact historical
+messages at the frozen context locations can be retained in `context_diagnostics`: these permit only that
+saved error/warning when present, without making its presence a reproduction or precision condition. Other
+errors/warnings still block. Separate precision trees preserve original whole lines and append instrumentation;
+the original execution remains pristine and affirmative exact type checks must pass. A different diagnostic
+rule does not count as the intended diagnostic or a fix. Receipts and validity input disclose when rule/location
+rather than exact-message matching was used. The policy is frozen per run and cannot upgrade an existing
+checkpoint. Default assessment and all publication callers retain exact-message-only classification.
+
 Refinement is a planning stage: it proposes justified predicates and, when needed, a complete separate precision
 tree before those checks have executed. Predicted precision types are expectations to test, never observed output.
 The controller checks the proposed tree during the role's shared correction budget, freezes both variants, and

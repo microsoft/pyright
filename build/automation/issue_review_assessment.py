@@ -236,6 +236,14 @@ def build_plan(
         for location in claim.discovery.locations if claim.discovery is not None else []:
             if location.end_line > len(source_by_id[location.source_id].content.splitlines()):
                 raise ValueError("Discovery location lies outside the captured pristine source")
+        for context in claim.discovery.reported_context if claim.discovery is not None else []:
+            if not policy.allow_rule_location_predicates:
+                raise ValueError("Reported diagnostic context requires the explicit rule/location policy")
+            if (
+                context.report_quote not in report
+                or context.line > len(source_by_id[context.source_id].content.splitlines())
+            ):
+                raise ValueError("Diagnostic context requires an exact report quote and captured source location")
         if claim.discovery is not None and (
             not reported_message(claim.discovery.reported_message)
             or claim.discovery.reported_rule is not None and claim.discovery.reported_rule not in report
@@ -256,6 +264,11 @@ def build_plan(
                     for symptom in [*claim.verification.broken, *claim.verification.resolved]
                 ):
                     raise ValueError("Exact original diagnostic wording is unavailable; use historical discovery, not guesses")
+                if claim.verification is not None and (
+                    claim.verification.context_diagnostics
+                    or any(item.message is None for item in [*claim.verification.broken, *claim.verification.resolved])
+                ):
+                    raise ValueError("Rule/location predicates require opted-in historical discovery/refinement")
                 scenario = strict_scenario(draft, claim, selected)
                 original_inputs(selected)
             except ValueError as error:
@@ -572,6 +585,55 @@ class AssessmentController:
         output = json.loads(str(receipt.raw["stdout"]))
         scope = discovery.scope.locations
         paths = {source.source_id: source.path for source in self.draft.sources}
+        rule_predicates = [
+            item for item in [*verification.broken, *verification.resolved] if item.message is None
+        ]
+        if rule_predicates or verification.context_diagnostics:
+            if not self.policy.allow_rule_location_predicates:
+                raise ValueError("Rule/location predicates require explicit read-only policy approval")
+            if not rule_predicates or (
+                discovery.scope.symptom_kind != "diagnostic"
+                or discovery.scope.failure_direction != "unexpected_absence"
+                or discovery.scope.reported_message is not None
+            ):
+                raise ValueError("Rule/location predicates are limited to missing diagnostics with unknown wording")
+            for symptom in rule_predicates:
+                if not any(
+                    symptom.file == paths[location.source_id]
+                    and location.start_line == location.end_line == symptom.line
+                    for location in scope
+                ):
+                    raise ValueError("Rule/location predicates require an exact frozen single-line location")
+                counterpart = verification.resolved if symptom in verification.broken else verification.broken
+                if symptom.model_copy(update={"present": not symptom.present}) not in counterpart:
+                    raise ValueError("Rule/location predicates must retain the same rule/location in both directions")
+                if symptom.rule != discovery.scope.reported_rule and not any(
+                    context.relation == "same_rule_comparison"
+                    and Path(item["file"]).resolve()
+                    == (Path(str(receipt.raw["cwd"])) / relative_path(paths[context.source_id])).resolve()
+                    and item["range"]["start"]["line"] == context.line - 1
+                    and item["severity"] == "error" and item.get("rule") == symptom.rule
+                    for context in discovery.scope.reported_context for item in output["generalDiagnostics"]
+                ):
+                    raise ValueError("Missing diagnostic rule lacks frozen report or explicit comparison evidence")
+            for expected in verification.context_diagnostics:
+                if not any(
+                    expected.file == paths[context.source_id] and expected.line == context.line
+                    and Path(item["file"]).resolve()
+                    == (Path(str(receipt.raw["cwd"])) / relative_path(expected.file)).resolve()
+                    and item["range"]["start"]["line"] == expected.line - 1
+                    and item["message"] == expected.message and item["severity"] == expected.severity
+                    and item.get("rule") == expected.rule
+                    for context in discovery.scope.reported_context for item in output["generalDiagnostics"]
+                ):
+                    raise ValueError("Context diagnostics require exact discovery at pre-declared report locations")
+            for name, source in controls(refinement).items():
+                original = self.claim_setup(claim_id).files.get(name)
+                if original is None or not source.startswith(original) or (
+                    original and not original.endswith(("\n", "\r"))
+                    and source[len(original):] and not source[len(original):].startswith(("\n", "\r"))
+                ):
+                    raise ValueError("Rule/location precision controls must preserve pristine originals as whole lines")
         for symptom in [*verification.broken, *verification.resolved]:
             if not any(
                 symptom.file == paths[location.source_id] and location.start_line <= symptom.line <= location.end_line
@@ -598,6 +660,8 @@ class AssessmentController:
             )
             if reported and not matches_reported:
                 raise ValueError("Refinement changed a scoped frozen reported symptom")
+            if symptom.message is None:
+                continue
             found = any(
                 Path(item["file"]).resolve() == (Path(str(receipt.raw["cwd"])) / relative_path(symptom.file)).resolve()
                 and item["range"]["start"]["line"] == symptom.line - 1
@@ -628,9 +692,11 @@ class AssessmentController:
         known_messages = {item["message"] for item in output["generalDiagnostics"]}
         report = report_text(self.issue, self.comments)
         if any(
-            symptom.message not in known_messages and symptom.message not in report
-            and symptom.message != discovery.scope.reported_message
-            and symptom.message not in {item.message for item in discovery.scope.reported_symptoms}
+            symptom.message is not None and (
+                symptom.message not in known_messages and symptom.message not in report
+                and symptom.message != discovery.scope.reported_message
+                and symptom.message not in {item.message for item in discovery.scope.reported_symptoms}
+            )
             for symptom in [*verification.broken, *verification.resolved]
         ):
             raise ValueError("Refinement cannot invent unobserved diagnostic wording")
@@ -713,13 +779,30 @@ class AssessmentController:
                         "error": f"{type(error).__name__}: {error}",
                     }
                 problems: list[str] = []
+                rule_predicates = [
+                    item for claim in plan.scenario.claims for item in claim.broken if item.message is None
+                ]
+                if rule_predicates:
+                    predicate_records: list[JsonValue] = [item.model_dump(mode="json") for item in rule_predicates]
+                    context_records: list[JsonValue] = [
+                        item.model_dump(mode="json") for claim in plan.scenario.claims
+                        for item in claim.context_diagnostics
+                    ]
+                    raw["rule_location_predicates"] = predicate_records
+                    raw["context_diagnostics"] = context_records
+                    raw["predicate_qualification"] = (
+                        "Approved frozen diagnostic rule/location only, not exact wording or semantic proof of a fix"
+                    )
                 support = {} if raw.get("error") else self.static_stub_support(plan.claim_id, target)
                 if support:
                     qualification: dict[str, JsonValue] = {
                         module: [digest for digest in digests] for module, digests in support.items()
                     }
                     raw["static_stub_support"] = qualification
-                observed = observe_claims(plan.scenario, raw, problems, static_stub_modules=support)
+                observed = observe_claims(
+                    plan.scenario, raw, problems, static_stub_modules=support,
+                    allow_rule_location_predicates=self.policy.allow_rule_location_predicates,
+                )
                 observation = observed.get(plan.claim_id, "blocked")
                 receipt = AssessmentReceipt(
                     id="verification-" + str(raw["id"]),
@@ -769,6 +852,7 @@ class AssessmentController:
                     self.static_stub_support(plan.claim_id, target)
                     if not originals[target.role].get("error") and not control.get(target.role, {}).get("error") else ()
                 ),
+                allow_rule_location_predicates=self.policy.allow_rule_location_predicates,
             ) if target.role in originals else "unobserved"
             if observed == "reproduced":
                 observations[target.role] = "reproduced"

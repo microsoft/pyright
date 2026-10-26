@@ -131,6 +131,34 @@ def output(cwd: Path, version: str, *, broken: bool, stderr: str = "", extra: li
 
 
 class ModelTests(unittest.TestCase):
+    def test_nullable_messages_require_error_rules_and_cannot_replace_exact_precision_or_context(self):
+        data = predicates()
+        missing = {**data["broken"][0], "message": None, "present": False}
+        accepted = {**data, "broken": [missing], "resolved": [{**missing, "present": True}]}
+        ReproductionClaim.model_validate(accepted)
+        for changes in (
+            {"broken": [{**missing, "rule": None}]},
+            {"broken": [{**missing, "rule": "arbitraryRule"}]},
+            {"broken": [{**missing, "severity": "warning"}]},
+            {"precision": [{**missing, "present": True}]},
+            {"context_diagnostics": [{**missing, "present": True}]},
+            {"context_diagnostics": [{**data["broken"][0], "present": False}]},
+        ):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                ReproductionClaim.model_validate({**accepted, **changes})
+
+    def test_rule_location_cli_and_readiness_prompt_require_explicit_opt_in(self):
+        argv = ["--issue", "11037", "--state-dir", "test-state"]
+        self.assertFalse(assess_issues.arguments(argv).allow_rule_location_predicates)
+        self.assertTrue(assess_issues.arguments([*argv, "--allow-rule-location-predicates"]).allow_rule_location_predicates)
+        current = issue(body(diagnostic=False))
+        capture = capture_report(current, [])
+        self.assertIn("disabled; exact-message verification only", assess_issues.readiness_prompt(current, [], capture, False))
+        self.assertIn(
+            assess_issues.RULE_LOCATION_GUIDANCE,
+            assess_issues.readiness_prompt(current, [], capture, False, rule_location_predicates=True),
+        )
+
     def test_scoped_messages_require_unique_in_scope_and_consistent_reported_predicates(self):
         capture = capture_report(issue(body(diagnostic=False)), [])
         draft = draft_for(capture, partial=True)
@@ -262,6 +290,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self, *, partial=False, unsupported=False, report=None, reported_message=None, reported_rule=None,
         direction: Literal["unexpected_presence", "unexpected_absence"] = "unexpected_presence",
         report_quote=None, with_controls=False, scoped=False,
+        allow_rule_location_predicates=False, reported_context=(), discovery_lines=None,
     ):
         current = issue(report or body(diagnostic=not partial))
         capture = capture_report(current, [])
@@ -270,6 +299,11 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             draft.claims[0].discovery.failure_direction = direction
             draft.claims[0].discovery.reported_message = reported_message
             draft.claims[0].discovery.reported_rule = reported_rule
+            if discovery_lines is not None:
+                draft.claims[0].discovery.locations = [
+                    ClaimLocation(source_id=capture.blocks[0].id, start_line=line, end_line=line)
+                    for line in discovery_lines
+                ]
             if report_quote is not None:
                 draft.claims[0].report_quote = report_quote
                 draft.claims[0].summary = report_quote
@@ -283,6 +317,13 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
                         source_id=capture.blocks[0].id, line=line, message=message, rule="reportAssignmentType",
                     ) for line, message in ((1, "First rejection"), (3, "Unsupported rejection"))
                 ]
+            if reported_context:
+                draft.claims[0].discovery = DiscoveryScope.model_validate({
+                    **draft.claims[0].discovery.model_dump(),
+                    "reported_context": [
+                        {"source_id": capture.blocks[0].id, **item} for item in reported_context
+                    ],
+                })
         if with_controls:
             draft.claims[0].control_files = [
                 ControlSource(path="sample.py", content=capture.blocks[0].content + "reveal_type(value)\n"),
@@ -291,9 +332,233 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         policy = AssessmentPolicy(
             input_hash=fingerprint({"issue": current.model_dump(mode="json"), "comments": []}),
             implementation_hash="implementation", profile_hash="profile", model="gpt-6.1-sol",
+            allow_rule_location_predicates=allow_rule_location_predicates,
         )
         plan = build_plan(policy, draft, capture, prepared, report_text(current, []))
         return AssessmentController(self.root / "run", policy, current, [], capture, draft, prepared, plan)
+
+    async def missing_diagnostic_case(self, *, enabled=True, reported_rule=False, comparison=True, known_wording=None):
+        quote = "The assignments at lines 3 and 4 should be rejected, like the comparison at line 1."
+        support_quote = "Line 5 has a separate supporting diagnostic."
+        source = "comparison: str = 1\nvalue = 1\nresult: str = value\nother: str = value\nsupport: int = 'x'\n"
+        report = (
+            'pythonVersion="3.13"\ntypeCheckingMode="standard"\n```python\n' + source + "```\n"
+            + quote + "\n" + support_quote
+            + ("\nThe missing diagnostic rule is reportAssignmentType." if reported_rule else "")
+            + ("\n" + known_wording if known_wording else "")
+        )
+        controller = self.controller(
+            partial=True, report=report, report_quote=quote, direction="unexpected_absence",
+            reported_rule="reportAssignmentType" if reported_rule else None,
+            reported_message=known_wording, discovery_lines=(3, 4),
+            allow_rule_location_predicates=enabled,
+            reported_context=[
+                {
+                    "line": 1, "report_quote": quote,
+                    "relation": "same_rule_comparison" if comparison and not reported_rule else "supporting_diagnostic",
+                },
+                {"line": 5, "report_quote": support_quote, "relation": "supporting_diagnostic"},
+            ] if enabled else (),
+        )
+
+        async def runner(command, cwd):
+            self.calls.append((command, cwd))
+            target = next(target for target in self.test_targets if target.cli == command[1])
+            diagnostics = [{
+                "file": str(cwd / "sample.py"), "range": {"start": {"line": line - 1}},
+                "severity": "error", "message": message, "rule": "reportAssignmentType",
+            } for line, message in ((1, "Comparison rejection"), (5, "Supporting rejection"))]
+            if target.role != "historical":
+                diagnostics.extend({
+                    "file": str(cwd / "sample.py"), "range": {"start": {"line": line - 1}},
+                    "severity": "error", "message": "Different target-specific assignment wording",
+                    "rule": "reportAssignmentType",
+                } for line in (3, 4))
+            if cwd.parent.name == "control":
+                diagnostics.append({
+                    "file": str(cwd / "sample.py"), "range": {"start": {"line": 5}},
+                    "severity": "information", "message": 'Type of "value" is "Literal[1]"',
+                })
+            return 1, json.dumps({
+                "version": target.version, "generalDiagnostics": diagnostics, "summary": {"filesAnalyzed": 1},
+            }), ""
+
+        self.store.runner = runner
+        discovery = await controller.discover(controller.freeze_discovery("assignment", self.test_targets[0]), self.store)
+        data = predicates()
+        data["report_quote"] = quote
+        data["broken"] = [
+            {**data["broken"][0], "line": line, "message": None, "present": False} for line in (3, 4)
+        ]
+        data["resolved"] = [{**item, "present": True} for item in data["broken"]]
+        data["precision"] = [{**data["precision"][0], "line": 6}]
+        data["context_diagnostics"] = [{
+            "file": "sample.py", "line": line, "severity": "error", "message": message,
+            "rule": "reportAssignmentType", "present": True,
+        } for line, message in ((1, "Comparison rejection"), (5, "Supporting rejection"))]
+        refinement = VerificationRefinement(
+            schema_version=1, claim_id="assignment", discovery_id=discovery.id, readiness="ready",
+            verification=ReproductionClaim.model_validate(data),
+            control_files=[ControlSource(path="sample.py", content=source + "reveal_type(value)\n")],
+            reasons=[], explanation="Frozen missing assignment and reported comparison; precision remains to be checked",
+        )
+        return controller, discovery, refinement
+
+    async def test_missing_diagnostic_comparison_enables_fresh_verification_without_guessing_messages(self):
+        controller, discovery, refinement = await self.missing_diagnostic_case()
+        controller.validate_refinement("assignment", discovery, refinement)
+        plan = controller.freeze_verification("assignment", self.test_targets, discovery=discovery, refinement=refinement)
+        self.assertEqual(len(self.calls), 1)
+        receipts = await controller.verify(plan, self.store)
+        self.assertEqual(len(self.calls), 7)
+        progress = controller.verification_progress(plan, receipts)
+        self.assertEqual(progress.status, "complete")
+        self.assertEqual(progress.target_observations, {
+            "historical": "reproduced", "main": "not_reproduced", "latest": "not_reproduced",
+        })
+        self.assertTrue(all(receipt.raw["rule_location_predicates"] for receipt in receipts))
+        self.assertIsNone(plan.scenario.claims[0].broken[0].message)
+        self.assertNotIn("reveal_type", plan.scenario.files["sample.py"])
+
+    async def test_missing_diagnostic_explicit_reported_rule_does_not_require_a_same_rule_comparison(self):
+        controller, discovery, refinement = await self.missing_diagnostic_case(reported_rule=True)
+        controller.validate_refinement("assignment", discovery, refinement)
+
+    async def test_supporting_diagnostics_cannot_supply_a_missing_rule(self):
+        controller, discovery, refinement = await self.missing_diagnostic_case(comparison=False)
+        with self.assertRaisesRegex(ValueError, "explicit comparison evidence"):
+            controller.validate_refinement("assignment", discovery, refinement)
+
+    async def test_rule_location_matching_cannot_erase_known_reported_wording(self):
+        controller, discovery, refinement = await self.missing_diagnostic_case(known_wording="Unsupported rejection")
+        with self.assertRaisesRegex(ValueError, "unknown wording"):
+            controller.validate_refinement("assignment", discovery, refinement)
+
+    def test_reported_context_requires_pre_discovery_quote_location_and_policy(self):
+        for context, enabled in (
+            ({"line": 1, "report_quote": "Not actually reported", "relation": "same_rule_comparison"}, True),
+            ({"line": 99, "report_quote": "The assignment is incorrectly rejected.", "relation": "same_rule_comparison"}, True),
+            ({"line": 1, "report_quote": "The assignment is incorrectly rejected.", "relation": "same_rule_comparison"}, False),
+            ({"line": 3, "report_quote": "The assignment is incorrectly rejected.", "relation": "same_rule_comparison"}, True),
+        ):
+            with self.subTest(context=context, enabled=enabled), self.assertRaises(ValueError):
+                self.controller(
+                    partial=True, direction="unexpected_absence", reported_context=[context],
+                    allow_rule_location_predicates=enabled,
+                )
+
+    async def test_rule_location_matching_retains_every_frozen_missing_location(self):
+        controller, discovery, refinement = await self.missing_diagnostic_case()
+        assert refinement.verification is not None
+        refinement.verification.broken.pop()
+        refinement.verification.resolved.pop()
+        with self.assertRaisesRegex(ValueError, "omitted a frozen"):
+            controller.validate_refinement("assignment", discovery, refinement)
+
+    async def test_rule_location_refinement_requires_frozen_opt_in(self):
+        controller, discovery, refinement = await self.missing_diagnostic_case(enabled=False)
+        with self.assertRaisesRegex(ValueError, "explicit read-only policy"):
+            controller.validate_refinement("assignment", discovery, refinement)
+
+    async def test_missing_diagnostic_cannot_borrow_a_rule_from_unreported_or_supporting_context(self):
+        controller, discovery, refinement = await self.missing_diagnostic_case()
+        assert refinement.verification is not None
+        guessed = refinement.model_copy(deep=True)
+        assert guessed.verification is not None
+        for item in [*guessed.verification.broken, *guessed.verification.resolved]:
+            item.rule = "reportUnknownVariableType"
+        with self.assertRaisesRegex(ValueError, "explicit comparison evidence"):
+            controller.validate_refinement("assignment", discovery, guessed)
+        unscoped = refinement.model_copy(deep=True)
+        assert unscoped.verification is not None
+        unscoped.verification.context_diagnostics.append(
+            unscoped.verification.context_diagnostics[0].model_copy(update={"line": 2}),
+        )
+        with self.assertRaisesRegex(ValueError, "pre-declared report locations"):
+            controller.validate_refinement("assignment", discovery, unscoped)
+
+    async def test_rule_location_predicates_cannot_change_direction_location_or_original_control_code(self):
+        controller, discovery, refinement = await self.missing_diagnostic_case()
+        assert refinement.verification is not None
+        for mutation in ("direction", "line", "counterpart", "control"):
+            with self.subTest(mutation=mutation):
+                changed = refinement.model_copy(deep=True)
+                assert changed.verification is not None
+                if mutation == "direction":
+                    changed.verification.broken[0].present = True
+                    changed.verification.resolved[0].present = False
+                elif mutation == "line":
+                    changed.verification.broken[0].line = 4
+                    changed.verification.resolved[0].line = 4
+                elif mutation == "counterpart":
+                    changed.verification.resolved[0].rule = "reportArgumentType"
+                else:
+                    changed.control_files[0].content = changed.control_files[0].content.replace("value = 1", "value = None")
+                with self.assertRaises(ValueError):
+                    controller.validate_refinement("assignment", discovery, changed)
+
+    async def test_rule_location_verification_still_blocks_unrelated_diagnostics_and_failed_precision(self):
+        controller, discovery, refinement = await self.missing_diagnostic_case()
+        plan = controller.freeze_verification("assignment", self.test_targets, discovery=discovery, refinement=refinement)
+        runner = self.store.runner
+
+        async def untrusted_output(command, cwd):
+            code, stdout, stderr = await runner(command, cwd)
+            parsed = json.loads(stdout)
+            if cwd.parent.name == "control":
+                parsed["generalDiagnostics"][-1]["message"] = 'Type of "value" is "Unknown"'
+            else:
+                parsed["generalDiagnostics"].append({
+                    "file": str(cwd / "sample.py"), "range": {"start": {"line": 2}},
+                    "severity": "error", "message": "Unrelated failure", "rule": "reportUnknownVariableType",
+                })
+            return code, json.dumps(parsed), stderr
+
+        self.store.runner = untrusted_output
+        receipts = await controller.verify(plan, self.store)
+        self.assertEqual(set(controller.verification_progress(plan, receipts).target_observations.values()), {"blocked"})
+
+    async def test_rule_location_validity_bridge_discloses_mechanical_limits_and_never_promotes_controls_or_discovery(self):
+        from issue_review_validity import ValidityInput
+
+        controller, discovery, refinement = await self.missing_diagnostic_case()
+        plan = controller.freeze_verification("assignment", self.test_targets, discovery=discovery, refinement=refinement)
+        receipts = await controller.verify(plan, self.store)
+        progress = controller.verification_progress(plan, receipts)
+        progress.receipt_ids.insert(0, discovery.id)
+        result = controller.result([progress])
+        args = assess_issues.arguments(["--issue", "11037", "--state-dir", str(controller.directory)])
+        sdk, github = SDK(AsyncMock(), "gpt-6.1-sol", 180), GitHub()
+
+        async def inspect_bridge(agent, prompt, scratch, **kwargs):
+            inputs = ValidityInput.model_validate_json((scratch / "input.json").read_bytes())
+            self.assertTrue(any("frozen diagnostic rule/location, not exact" in text for text in inputs.claims[0].limitations))
+            executions = [item for item in inputs.evidence if item.kind == "execution"]
+            self.assertEqual(len(executions), 7)
+            self.assertEqual(sum(item.observation == "discovery_only" for item in executions), 1)
+            self.assertEqual(sum(item.observation == "unobserved" for item in executions), 3)
+            self.assertEqual(sum(item.observation == "verified_reproduced" for item in executions), 1)
+            self.assertEqual(sum(item.observation == "verified_absent" for item in executions), 2)
+            for item in executions:
+                if item.observation != "discovery_only":
+                    self.assertTrue(json.loads(item.content)["raw"]["rule_location_predicates"])
+            raise ValueError("Offline rule/location bridge inspection completed")
+
+        with patch.object(sdk, "run", side_effect=inspect_bridge), patch.object(github, "screen", AsyncMock()):
+            with self.assertRaisesRegex(ValueError, "bridge inspection completed"):
+                await assess_issues.validity_phase(controller, args, sdk, result, github=github)
+
+    async def test_saved_exact_message_policy_cannot_be_upgraded_during_resume(self):
+        controller = self.controller()
+        args = assess_issues.arguments([
+            "--issue", "11037", "--state-dir", str(controller.directory), "--phase", "verify",
+            "--allow-rule-location-predicates",
+        ])
+        sdk, github = SDK(AsyncMock(), "gpt-6.1-sol", 180), GitHub()
+        with patch.object(assess_issues, "load_controller", return_value=controller):
+            with self.assertRaisesRegex(ValueError, "policy cannot be upgraded"):
+                await assess_issues.assess(args, github, sdk, store=self.store)
+        self.assertEqual(self.calls, [])
 
     async def test_unsupported_claim_does_not_suppress_independent_ready_claim(self):
         controller = self.controller(unsupported=True)

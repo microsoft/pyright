@@ -100,6 +100,13 @@ class ReportedSymptom(Record):
     rule: Text | None
 
 
+class ReportedDiagnosticContext(Record):
+    source_id: Text
+    line: int = Field(ge=1)
+    report_quote: Text
+    relation: Literal["same_rule_comparison", "supporting_diagnostic"]
+
+
 class DiscoveryScope(Record):
     question: Text
     locations: list[ClaimLocation] = Field(min_length=1)
@@ -113,9 +120,25 @@ class DiscoveryScope(Record):
         default_factory=list, max_length=64,
         description="Exact pre-discovery wording for distinct reported diagnostics at their source locations. Never predicted or discovery-derived.",
     )
+    reported_context: list[ReportedDiagnosticContext] = Field(
+        default_factory=list, max_length=32,
+        description="Opt-in only: freeze report-quoted diagnostic context before discovery. Only an explicit same-rule comparison can supply a missing rule.",
+    )
 
     @model_validator(mode="after")
     def scoped_symptoms(self) -> Self:
+        context_keys = [(item.source_id, item.line) for item in self.reported_context]
+        if len(context_keys) != len(set(context_keys)):
+            raise ValueError("Repeated reported diagnostic context")
+        if self.reported_context and (
+            self.symptom_kind != "diagnostic" or self.failure_direction != "unexpected_absence"
+        ):
+            raise ValueError("Reported diagnostic context is limited to missing-diagnostic discovery")
+        if any(
+            item.source_id == location.source_id and location.start_line <= item.line <= location.end_line
+            for item in self.reported_context for location in self.locations
+        ):
+            raise ValueError("A reported diagnostic comparison/context cannot replace the frozen symptom location")
         keys = [(item.source_id, item.line, item.message, item.rule) for item in self.reported_symptoms]
         if len(set(keys)) != len(keys):
             raise ValueError("Repeated scoped reported symptom")
@@ -166,6 +189,8 @@ class AssessmentClaimDraft(Record):
                 raise ValueError("Only partial CLI claims with captured originals may request historical discovery")
             if any(location.source_id not in self.source_ids for location in self.discovery.locations):
                 raise ValueError("Discovery locations must belong to the preserved claim source scope")
+            if any(item.source_id not in self.source_ids for item in self.discovery.reported_context):
+                raise ValueError("Diagnostic context must belong to the preserved claim source scope")
         return self
 
 
@@ -231,6 +256,7 @@ class AssessmentPolicy(Record):
     model: Text
     role_budget_seconds: Literal[180] = 180
     allow_assumed_settings: bool = False
+    allow_rule_location_predicates: bool = False
     setup_capabilities_hash: Text = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     setup_selections_hash: Text = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     assessment_input_hash: str | None = None

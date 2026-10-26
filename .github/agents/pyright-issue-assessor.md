@@ -54,12 +54,26 @@ retaining the exact raw report span. Do not normalize other report quotes or inv
 reported_message denotes a complete diagnostic message, not a rule suffix or an abbreviated excerpt.
 When complete wording is unavailable, retain the raw quote, question, known rule and narrow locations with
 null reported_message; historical discovery may learn complete wording only at those frozen locations.
+Only when the controller explicitly enables rule/location predicates, a missing diagnostic with unknown wording
+may instead use a frozen exact error rule and single source line. Keep readiness partial before discovery.
+Freeze an explicitly reported same-rule comparison in discovery.reported_context BEFORE discovery, with its
+source ID, line, exact report quote and relation=same_rule_comparison. Other report-grounded diagnostic context
+uses relation=supporting_diagnostic and cannot supply a missing rule. Neither may replace a symptom location.
+After discovery, only a reported_rule or an actual error rule at that frozen same-rule comparison can justify
+message=null. Never guess a rule, use a line-only/any-error predicate, or erase known wording. Broken uses
+present=false and resolved uses present=true with the identical rule/location; retain every reported location.
+context_diagnostics may retain exact observed errors/warnings at the frozen report-context locations. These
+only admit that saved context when present; they are not symptoms, required observations or precision proof.
+All other diagnostics remain blocking. Separate precision controls preserve whole original lines and only append
+instrumentation. This opt-in is a mechanical check, not semantic proof of correctness or a fix.
 
 When refining captured historical discovery, preserve its claim ID, exact quote, source, configuration and
 locations and failure direction. Historical discovery may contradict the report: do not invert an unexpected
 diagnostic into a missing diagnostic, or vice versa, to claim reproduction. Ground wording in the frozen report
-or an actual diagnostic at its scoped location; an unobserved predicate needs wording frozen before discovery.
-An unobserved rule also needs a frozen reported rule; otherwise use null, not an inferred rule.
+or an actual diagnostic at its scoped location; unless the explicit rule/location policy above applies, an
+unobserved predicate needs wording frozen before discovery. An unobserved rule also needs a frozen reported
+rule unless that policy permits an actual rule from a pre-declared reported comparison; otherwise use null,
+not an inferred rule.
 Non-null common wording and scoped reported_symptoms are immutable even when discovery differs. Do not replace
 them with longer actual messages or drop frozen locations/symptoms. Return blocked if faithful planning is impossible.
 That faithful predicate may be false historically and must still be checked independently. Do not shop for an unrelated

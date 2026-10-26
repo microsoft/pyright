@@ -55,6 +55,22 @@ from review_issues import (
 PHASES = ("assess", "readiness", "discover", "refine", "verify", "validity")
 MODEL = "gpt-6.1-sol"
 BUDGET = 180
+RULE_LOCATION_GUIDANCE = (
+    "For missing diagnostics without complete reported wording, remain partial and freeze exact single-line "
+    "symptom locations before discovery. Freeze reported_rule only if supplied by the report. An explicitly "
+    "reported same-rule comparison may instead be frozen in reported_context with source_id, line, exact "
+    "report_quote and relation=same_rule_comparison; unrelated nearby diagnostics cannot supply a rule. "
+    "Use relation=supporting_diagnostic for other explicitly reported diagnostic context, never as a rule source. "
+    "All context must be captured, selected and outside symptom locations. After historical discovery, a rule "
+    "actually observed as an error at that pre-declared comparison may ground a message=null error predicate "
+    "at each frozen symptom line. Broken uses present=false and resolved uses present=true with the SAME rule "
+    "and location. Never erase known wording, guess a rule, use line-only/any-error matches or change direction. "
+    "context_diagnostics may retain exact historical error/warning messages at those pre-declared context "
+    "locations; they only allow that saved context when present, never establish reproduction or precision. "
+    "Unrelated diagnostics still block. Keep pristine originals and affirmative exact precision controls; "
+    "separate controls may only append instrumentation after whole original lines. A mechanical rule/location "
+    "result is not semantic correctness or proof of a fix."
+)
 
 
 def arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -67,6 +83,7 @@ def arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--claim", help="Exact frozen claim ID for an individual discover/refine/verify phase")
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--allow-assumed-settings", action="store_true", help="Disclose bounded missing Python/checking choices; never reporter facts")
+    parser.add_argument("--allow-rule-location-predicates", action="store_true", help="Read-only opt-in for missing diagnostics with frozen report/comparison rule and exact line; no guessed rules")
     parser.add_argument("--target-cache", type=Path, help="Existing integrity-verified production TargetStore cache; no implicit acquisition")
     parser.add_argument("--registry", choices=REGISTRIES, default=REGISTRIES[0])
     parser.add_argument("--catalog", type=Path, help="Saved production publication catalog; target selection still checked")
@@ -176,7 +193,10 @@ def load_controller(directory: Path) -> AssessmentController:
     return controller
 
 
-def readiness_prompt(issue: Issue, comments: list[dict[str, JsonValue]], capture: SourceCapture, assumed: bool) -> str:
+def readiness_prompt(
+    issue: Issue, comments: list[dict[str, JsonValue]], capture: SourceCapture, assumed: bool,
+    *, rule_location_predicates: bool = False,
+) -> str:
     return (
         "Return AssessmentDraft version1. This is permanently read-only, not reproduction or semantic validity. "
         "Preserve every material claim including unsupported broader claims; never discard one to obtain a disposition. "
@@ -232,6 +252,8 @@ def readiness_prompt(issue: Issue, comments: list[dict[str, JsonValue]], capture
         } for item in capture.blocks if item.source_kind in {"python", "unclassified"}])
         + "\nOptional controller-derived CLI diagnostic candidates (not observations or a complete inventory):\n"
         + json.dumps([item.model_dump(mode="json") for item in reported_diagnostics(capture)])
+        + "\nRule/location predicate policy: "
+        + (RULE_LOCATION_GUIDANCE if rule_location_predicates else "disabled; exact-message verification only.")
     )
 
 
@@ -269,6 +291,7 @@ async def readiness(
         implementation_hash=implementation_hash(),
         profile_hash=hashlib.sha256(agent.path.read_bytes()).hexdigest(), model=args.model,
         allow_assumed_settings=args.allow_assumed_settings,
+        allow_rule_location_predicates=getattr(args, "allow_rule_location_predicates", False),
         setup_capabilities_hash=fingerprint([item.model_dump(mode="json") for item in capabilities]),
         setup_selections_hash=fingerprint([item.model_dump(mode="json") for item in setup_selections]),
         assessment_input_hash=None if assessment_input is None else fingerprint(assessment_input.model_dump(mode="json")),
@@ -293,7 +316,10 @@ async def readiness(
     })
     scratch = directory / "roles" / "readiness"
     scratch.mkdir(parents=True)
-    prompt = readiness_prompt(issue, comments, capture, args.allow_assumed_settings)
+    prompt = readiness_prompt(
+        issue, comments, capture, args.allow_assumed_settings,
+        rule_location_predicates=policy.allow_rule_location_predicates,
+    )
     if capabilities:
         prompt += "\nController-only approved setup receipts (not model capability prose):\n" + json.dumps([
             item.model_dump(mode="json") for item in capabilities
@@ -457,9 +483,11 @@ async def refinement(
         "No main/latest outcomes are available or permitted. Keep its exact claim ID, quote, surface, originals "
         "and configuration. Broken predicates must preserve the frozen failure direction/symptom meaning. "
         "Discovery may affirmatively contradict a reported predicate; that is not a reason to invert it. "
-        "Use exact wording frozen from the report or actually observed at the frozen location; an unobserved "
+        "Except for the explicitly enabled rule/location policy below, use exact wording frozen from the report "
+        "or actually observed at the frozen location; an unobserved "
         "predicate requires wording frozen before discovery. "
-        "An unobserved diagnostic rule must likewise have been frozen as reported; otherwise use null, not a guess. "
+        "Outside that explicit policy, an unobserved diagnostic rule must have been frozen as reported; "
+        "otherwise use null, not a guess. "
         "A non-null common reported_message and each reported_symptoms entry are immutable: do not replace them "
         "with a longer, shorter, reformatted or more plausible observed message. Preserve every frozen location "
         "and scoped reported symptom in broken/resolved predicates. If known wording cannot describe the observed "
@@ -481,6 +509,8 @@ async def refinement(
         "If exact distinguishing predicates and affirmative controls cannot be justified, return readiness=blocked, "
         "verification=null, control_files=[], honest reasons. No commands/research/publication. "
         "\nFrozen claim:\n" + claim.model_dump_json()
+        + "\nRule/location predicate policy: "
+        + (RULE_LOCATION_GUIDANCE if controller.policy.allow_rule_location_predicates else "disabled; exact-message verification only.")
         + "\nCaptured setup:\n" + controller.claim_setup(claim_id).model_dump_json()
         + "\nHistorical discovery ONLY:\n" + receipt.model_dump_json()
     )
@@ -607,6 +637,7 @@ async def validity_phase(
         source_id, setup_id = evidence_ids[:2]
         progress = next(item for item in result.progress if item.claim_id == claim.id)
         static_stub_supported = False
+        rule_location_supported = False
         for identifier in progress.receipt_ids:
             candidates = [
                 *controller.directory.glob(f"discovery-{claim.id}/receipt.json"),
@@ -619,6 +650,7 @@ async def validity_phase(
                 raise ValueError("Validity cannot invent an execution fact without its saved controller receipt")
             receipt = AssessmentReceipt.model_validate_json(receipt_path.read_text(encoding="utf-8"))
             static_stub_supported |= bool(receipt.raw.get("static_stub_support"))
+            rule_location_supported |= bool(receipt.raw.get("rule_location_predicates"))
             target = ReproductionTarget.model_validate(receipt.raw["target"])
             observed = progress.target_observations.get(target.role, "unobserved")
             observation = (
@@ -675,6 +707,11 @@ async def validity_phase(
                     "Static-only stub support establishes typing with the captured checker-bundled stubs, "
                     "not Python execution, runtime package availability or an unreported dependency version."
                 ] if static_stub_supported else []),
+                *([
+                    "Original predicates match an explicitly approved frozen diagnostic rule/location, not exact "
+                    "wording. Context diagnostics only admit exact saved report-grounded context; these mechanical "
+                    "observations do not prove semantic correctness, the intended error or a fix."
+                ] if rule_location_supported else []),
             ],
             evidence_ids=evidence_ids,
             language_context=language_context,
@@ -841,6 +878,8 @@ async def assess(
         if setup_capabilities:
             raise ValueError("Saved assessment setup receipts cannot be upgraded; start a new assessment")
         controller = load_controller(args.state_dir)
+        if getattr(args, "allow_rule_location_predicates", False) and not controller.policy.allow_rule_location_predicates:
+            raise ValueError("Saved rule/location policy cannot be upgraded; start a new assessment")
         if controller.issue.number != args.issue or controller.policy.model != args.model:
             raise ValueError("Individual phases must retain the frozen issue/model identity")
         if assessment_input is not None and assessment_input != controller.assessment_input:

@@ -3,6 +3,7 @@
 
 """Validated records shared by the console, SDK prompts, and checkpoints."""
 
+import re
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
@@ -321,9 +322,19 @@ class Symptom(Record):
     file: Text
     line: int = Field(ge=1)
     severity: Literal["error", "warning", "information"]
-    message: Text
+    message: Text | None = Field(
+        description="Exact wording, or null only for an explicitly approved read-only error rule/location predicate.",
+    )
     rule: str | None
     present: bool
+
+    @model_validator(mode="after")
+    def bounded_rule_predicate(self) -> Self:
+        if self.message is None and (
+            self.severity != "error" or re.fullmatch(r"report[A-Z][A-Za-z0-9]*", self.rule or "") is None
+        ):
+            raise ValueError("A rule/location predicate requires an error and an explicit diagnostic rule")
+        return self
 
 
 class ReproductionClaim(Record):
@@ -333,9 +344,20 @@ class ReproductionClaim(Record):
     broken: list[Symptom] = Field(min_length=1)
     resolved: list[Symptom] = Field(min_length=1)
     precision: list[Symptom] = Field(min_length=1)
+    context_diagnostics: list[Symptom] = Field(
+        default_factory=list, max_length=32,
+        description="Read-only opt-in only: exact report-grounded historical context diagnostics, not reported symptoms or precision.",
+    )
 
     @model_validator(mode="after")
     def affirmative(self) -> Self:
+        if any(item.message is None for item in self.precision):
+            raise ValueError("Precision requires exact diagnostic/type wording")
+        if any(
+            item.message is None or not item.present or item.severity == "information"
+            for item in self.context_diagnostics
+        ):
+            raise ValueError("Context diagnostics require exact affirmative error/warning expectations")
         if not all(item.present for item in self.precision):
             raise ValueError("Precision requires affirmative diagnostic/type observations")
         if not any(item.present for item in [*self.broken, *self.resolved]):

@@ -306,7 +306,7 @@ def scenario_inputs(scenario: ReproductionScenario, *, phase: Phase = "original"
     for claim in scenario.claims:
         if claim.surface != "cli":
             raise ValueError(f"Claim {claim.id} requires unsupported {claim.surface} surface; no CLI substitution")
-        for symptom in [*claim.broken, *claim.resolved]:
+        for symptom in [*claim.broken, *claim.resolved, *claim.context_diagnostics]:
             if symptom.file not in scenario.files or symptom.line > len(scenario.files[symptom.file].splitlines()):
                 raise ValueError("Symptom must refer to an actual unmodified original source location")
         precision_files = scenario.control_files or scenario.files
@@ -385,13 +385,19 @@ def static_stub_source_warning(
 
 def observe_claims(
     scenario: ReproductionScenario, record: dict, problems: list[str] | None = None,
-    *, static_stub_modules: Collection[str] = (),
+    *, static_stub_modules: Collection[str] = (), allow_rule_location_predicates: bool = False,
 ) -> dict[str, Observation]:
     blocked: dict[str, Observation] = {claim.id: "blocked" for claim in scenario.claims}
     def block(reason: str) -> dict[str, Observation]:
         if problems is not None:
             problems.append(reason)
         return blocked
+
+    if not allow_rule_location_predicates and any(
+        claim.context_diagnostics or any(item.message is None for item in [*claim.broken, *claim.resolved])
+        for claim in scenario.claims
+    ):
+        return block("Rule/location predicates and context diagnostics require explicit read-only controller approval")
     if record.get("error") or record.get("exit_code") not in (0, 1):
         return block("Checker execution failed or was unavailable; inspect the original error/exit status")
     if not isinstance(record.get("stderr"), str):
@@ -433,7 +439,7 @@ def observe_claims(
                 Path(item["file"]).resolve() == (Path(record["cwd"]) / relative_path(expected.file)).resolve()
                 and item["range"]["start"]["line"] == expected.line - 1
                 and item["severity"] == expected.severity
-                and item["message"] == expected.message
+                and (expected.message is None or item["message"] == expected.message)
                 and (expected.rule is None or item.get("rule") == expected.rule)
                 for item in diagnostics
             )
@@ -455,20 +461,26 @@ def observe_claims(
             )
             if outcomes[claim.id] == "blocked" and problems is not None:
                 problems.append(f"Claim {claim.id}: broken/resolved predicates do not distinguish the actual symptom")
+        context_diagnostics = [item for claim in scenario.claims for item in claim.context_diagnostics]
         allowed = [
             item for claim in scenario.claims
             for item in [
                 *([*claim.broken, *claim.resolved] if control else
                   claim.broken if outcomes[claim.id] == "reproduced" else claim.resolved),
                 *(claim.precision if precision else []),
+                *claim.context_diagnostics,
             ] if item.present and item.severity in {"error", "warning"}
         ]
         if any(
             item not in source_warnings and item["severity"] in {"error", "warning"} and not any(
                 Path(item["file"]).resolve() == (Path(record["cwd"]) / relative_path(expected.file)).resolve()
                 and item["range"]["start"]["line"] == expected.line - 1
-                and item["message"] == expected.message and item["severity"] == expected.severity
-                and (expected.rule is None or item.get("rule") == expected.rule)
+                and (expected.message is None or item["message"] == expected.message)
+                and item["severity"] == expected.severity
+                and (
+                    item.get("rule") == expected.rule
+                    or expected.rule is None and expected not in context_diagnostics
+                )
                 for expected in allowed
             ) for item in diagnostics
         ):
@@ -480,18 +492,24 @@ def observe_claims(
 
 def classify(
     scenario: ReproductionScenario, record: dict, control: dict | None = None,
-    *, static_stub_modules: Collection[str] = (),
+    *, static_stub_modules: Collection[str] = (), allow_rule_location_predicates: bool = False,
 ) -> Outcome:
     if record.get("phase") != "original":
         return "blocked"
-    outcomes = observe_claims(scenario, record, static_stub_modules=static_stub_modules).values()
+    outcomes = observe_claims(
+        scenario, record, static_stub_modules=static_stub_modules,
+        allow_rule_location_predicates=allow_rule_location_predicates,
+    ).values()
     if not outcomes or "blocked" in outcomes:
         return "blocked"
     if scenario.control_files and (
         control is None or control.get("phase") != "control"
         or control.get("target") != record.get("target")
         or control.get("scenario_hash") != record.get("scenario_hash")
-        or not (observations := observe_claims(scenario, control, static_stub_modules=static_stub_modules))
+        or not (observations := observe_claims(
+            scenario, control, static_stub_modules=static_stub_modules,
+            allow_rule_location_predicates=allow_rule_location_predicates,
+        ))
         or any(value != "verified" for value in observations.values())
     ):
         return "blocked"
