@@ -309,6 +309,15 @@ test('MemberAccess30', () => {
     );
 });
 
+test('MemberAccess31', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess31.py']);
+    TestUtils.validateResults(analysisResults, 4);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [42, 43, 44, 45].map((line) => [line, DiagnosticRule.reportArgumentType])
+    );
+});
+
 test('DataClassNamedTuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassNamedTuple1.py']);
 

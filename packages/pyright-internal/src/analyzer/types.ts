@@ -720,6 +720,9 @@ export const enum ClassTypeFlags {
 
     // An explicit metaclass expression could not be resolved to a class type.
     HasUnresolvedMetaclass = 1 << 27,
+
+    // Synthesized by narrowing two unrelated classes with isinstance or issubclass.
+    IntersectionClass = 1 << 28,
 }
 
 export interface DataClassBehaviors {

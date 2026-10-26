@@ -277,3 +277,27 @@ class FactoryAlias(FactoryBase):
 def func11(base: FactoryBase, derived: FactoryDerived, alias: FactoryAlias):
     reveal_type(base + derived, expected_text="str")
     reveal_type(base + alias, expected_text="int")
+
+
+class ChainedImplementation(RebindingBase):
+    __radd__ = DifferentImplementation.__radd__
+
+
+class ChainedSameImplementation(RebindingBase):
+    __radd__ = ChainedImplementation.__radd__
+
+
+class ChainedFactoryAlias(FactoryBase):
+    __radd__ = FactoryAlias.__radd__
+
+
+def func12(
+    base: RebindingBase,
+    chained: ChainedImplementation,
+    same: ChainedSameImplementation,
+    factory: FactoryBase,
+    alias: ChainedFactoryAlias,
+):
+    reveal_type(base + chained, expected_text="str")
+    reveal_type(base + same, expected_text="str")
+    reveal_type(factory + alias, expected_text="int")

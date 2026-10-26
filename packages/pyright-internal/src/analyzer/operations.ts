@@ -19,6 +19,7 @@ import {
     ParseNodeType,
     TernaryNode,
     UnaryOperationNode,
+    isExpressionNode,
 } from '../parser/parseNodes';
 import { OperatorType } from '../parser/tokenizerTypes';
 import { getInfoReader, AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
@@ -32,10 +33,12 @@ import {
 } from './parseTreeUtils';
 import { getScopeForNode } from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
+import { Symbol } from './symbol';
 import { EvalFlags, MagicMethodDeprecationInfo, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     InferenceContext,
     MemberAccessFlags,
+    ClassMember,
     convertToInstantiable,
     getLiteralTypeClassName,
     getTypeCondition,
@@ -58,6 +61,7 @@ import {
 } from './typeUtils';
 import {
     ClassType,
+    ClassTypeFlags,
     NeverType,
     OverloadedType,
     Type,
@@ -1267,6 +1271,16 @@ function isReflectedOperatorPrioritized(
     rightType: Type,
     operator: OperatorType
 ): boolean {
+    // Class objects dispatch through their metaclasses.
+    const leftMetaclass = isInstantiableClass(leftType) ? leftType.shared.effectiveMetaclass : undefined;
+    const rightMetaclass = isInstantiableClass(rightType) ? rightType.shared.effectiveMetaclass : undefined;
+    if (leftMetaclass && isInstantiableClass(leftMetaclass)) {
+        leftType = ClassType.cloneAsInstance(leftMetaclass);
+    }
+    if (rightMetaclass && isInstantiableClass(rightMetaclass)) {
+        rightType = ClassType.cloneAsInstance(rightMetaclass);
+    }
+
     if (!isClassInstance(leftType) || !isClassInstance(rightType)) {
         return false;
     }
@@ -1291,6 +1305,25 @@ function isReflectedOperatorPrioritized(
         return false;
     }
 
+    // An intersection's MRO is hypothetical. Require a known subclass to
+    // provide the reflected implementation rather than an unrelated mix-in.
+    if (
+        rightType.shared.flags & ClassTypeFlags.IntersectionClass &&
+        !rightType.shared.mro.some(
+            (base) =>
+                isInstantiableClass(base) &&
+                !(base.shared.flags & ClassTypeFlags.IntersectionClass) &&
+                !ClassType.isSameGenericClass(base, leftClass) &&
+                base.shared.mro.some(
+                    (ancestor) => isInstantiableClass(ancestor) && ClassType.isSameGenericClass(ancestor, leftClass)
+                ) &&
+                lookUpClassMember(base, altMagicMethodName, MemberAccessFlags.SkipInstanceMembers)?.symbol ===
+                    rightAltMember.symbol
+        )
+    ) {
+        return false;
+    }
+
     const leftAltMember = lookUpObjectMember(leftType, altMagicMethodName, MemberAccessFlags.SkipInstanceMembers);
     if (
         leftAltMember &&
@@ -1302,8 +1335,10 @@ function isReflectedOperatorPrioritized(
     }
 
     if (leftAltMember && !operatorSupportsChaining(operator)) {
-        const leftAltType = evaluator.getTypeOfMember(leftAltMember);
-        const rightAltType = evaluator.getTypeOfMember(rightAltMember);
+        const leftImplementation = getOperatorImplementation(evaluator, leftAltMember);
+        const rightImplementation = getOperatorImplementation(evaluator, rightAltMember);
+        const leftAltType = leftImplementation.type;
+        const rightAltType = rightImplementation.type;
         const leftFunction = isOverloaded(leftAltType) ? OverloadedType.getOverloads(leftAltType)[0] : leftAltType;
         const rightFunction = isOverloaded(rightAltType) ? OverloadedType.getOverloads(rightAltType)[0] : rightAltType;
 
@@ -1313,29 +1348,11 @@ function isReflectedOperatorPrioritized(
             isFunction(leftFunction) &&
             isFunction(rightFunction) &&
             leftFunction.shared.declaration &&
-            leftFunction.shared.declaration === rightFunction.shared.declaration
+            leftFunction.shared.declaration === rightFunction.shared.declaration &&
+            (!getEnclosingFunction(leftFunction.shared.declaration.node) ||
+                leftImplementation.symbol === rightImplementation.symbol)
         ) {
-            if (!getEnclosingFunction(leftFunction.shared.declaration.node)) {
-                return false;
-            }
-
-            const rightDecls = rightAltMember.symbol.getDeclarations();
-            if (rightDecls.length === 1 && rightDecls[0].type === DeclarationType.Variable) {
-                const aliasSource = rightDecls[0].inferredTypeSource;
-                if (
-                    aliasSource?.nodeType === ParseNodeType.MemberAccess &&
-                    aliasSource.d.member.d.value === altMagicMethodName
-                ) {
-                    const aliasClass = evaluator.getTypeOfExpression(aliasSource.d.leftExpr).type;
-                    if (
-                        isInstantiableClass(aliasClass) &&
-                        lookUpClassMember(aliasClass, altMagicMethodName, MemberAccessFlags.SkipInstanceMembers)
-                            ?.symbol === leftAltMember.symbol
-                    ) {
-                        return false;
-                    }
-                }
-            }
+            return false;
         }
     }
 
@@ -1346,6 +1363,48 @@ function isReflectedOperatorPrioritized(
     }
 
     return true;
+}
+
+function getOperatorImplementation(evaluator: TypeEvaluator, member: ClassMember): { type: Type; symbol: Symbol } {
+    let symbol = member.symbol;
+    const visited = new Set<Symbol>();
+
+    while (!visited.has(symbol)) {
+        visited.add(symbol);
+        const declarations = symbol.getDeclarations();
+        if (declarations.length !== 1 || declarations[0].type !== DeclarationType.Variable) {
+            return { type: evaluator.getTypeOfMember({ ...member, symbol }), symbol };
+        }
+
+        const source = declarations[0].inferredTypeSource;
+        if (!source || !isExpressionNode(source)) {
+            break;
+        }
+
+        // Inspect alias sources only for dispatch identity. The callable exposed
+        // to callers must retain its validated, narrowed signature.
+        const sourceType = evaluator.getTypeOfExpression(source).type;
+        let sourceSymbol: Symbol | undefined;
+        if (source.nodeType === ParseNodeType.Name) {
+            sourceSymbol = evaluator.lookUpSymbolRecursive(source, source.d.value, /* honorCodeFlow */ false)?.symbol;
+        } else if (source.nodeType === ParseNodeType.MemberAccess) {
+            const receiverType = evaluator.getTypeOfExpression(source.d.leftExpr).type;
+            if (isInstantiableClass(receiverType)) {
+                sourceSymbol = lookUpClassMember(
+                    receiverType,
+                    source.d.member.d.value,
+                    MemberAccessFlags.SkipInstanceMembers
+                )?.symbol;
+            }
+        }
+
+        if (!sourceSymbol) {
+            return { type: sourceType, symbol };
+        }
+        symbol = sourceSymbol;
+    }
+
+    return { type: evaluator.getTypeOfMember(member), symbol: member.symbol };
 }
 
 function removeNotImplemented(type: Type): Type {

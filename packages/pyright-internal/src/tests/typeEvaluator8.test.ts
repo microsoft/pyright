@@ -475,6 +475,22 @@ test('Operator13', () => {
     );
 });
 
+test('Operator14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator14.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [111, 116].map((line) => [line, DiagnosticRule.reportAttributeAccessIssue])
+    );
+});
+
+test('Operator15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator15.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

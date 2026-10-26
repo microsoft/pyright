@@ -4208,7 +4208,6 @@ export function createTypeEvaluator(
 
         const declarations = symbolWithScope.symbol.getDeclarations();
         let declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol)?.type;
-        let preserveAssignedMethod = false;
         const fileInfo = nodeInfo.getFileInfo(nameNode);
 
         // If this is a class scope and there is no type declared for this class variable,
@@ -4225,7 +4224,7 @@ export function createTypeEvaluator(
                     );
                     if (memberInfo?.isTypeDeclared) {
                         declaredType = getTypeOfMember(memberInfo);
-                        preserveAssignedMethod =
+                        const isMethodAlias =
                             memberInfo.symbol
                                 .getTypedDeclarations()
                                 .some((decl) => decl.type === DeclarationType.Function) &&
@@ -4233,7 +4232,7 @@ export function createTypeEvaluator(
                             isFunctionOrOverloaded(declaredType);
                         if (
                             isMethodExemptFromLsp(nameValue) &&
-                            preserveAssignedMethod &&
+                            isMethodAlias &&
                             isFunctionOrOverloaded(declaredType) &&
                             !isFinalVariable(memberInfo.symbol)
                         ) {
@@ -4289,10 +4288,7 @@ export function createTypeEvaluator(
                 // Replace the assigned type with the (unnarrowed) declared type.
                 destType = declaredType;
             } else {
-                // Keep class method aliases' implementation identity after validating their signatures.
-                destType = preserveAssignedMethod
-                    ? typeResult.type
-                    : narrowTypeBasedOnAssignment(declaredType, typeResult).type;
+                destType = narrowTypeBasedOnAssignment(declaredType, typeResult).type;
             }
         } else {
             // If this is a member name (within a class scope) and the member name
@@ -19086,7 +19082,7 @@ export function createTypeEvaluator(
             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             fileInfo.fileUri,
-            ClassTypeFlags.None,
+            ClassTypeFlags.IntersectionClass,
             ParseTreeUtils.getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
             effectiveMetaclass,
