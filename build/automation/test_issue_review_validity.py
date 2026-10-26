@@ -129,6 +129,65 @@ def language_claim(**updates):
 
 
 class ValidityContractTests(unittest.TestCase):
+    def test_experimental_receipts_retain_only_conditional_observations(self):
+        for observation in ("discovery_only", "unobserved"):
+            with self.subTest(observation=observation):
+                experiment = evidence(
+                    "experiment", "execution", "Conditional saved checker receipt",
+                    provenance="controller_execution", source_id="source", setup_id="setup",
+                    target="experimental", observation=observation, version="1.1.414",
+                )
+                controller = inputs(evidence=[*inputs().evidence, experiment])
+                finding = claim(
+                    status="qualified", assumptions=["Deliberately chosen release/target"],
+                    evidence_ids=["source", "setup", "rule", "experiment"],
+                )
+                validate_validity_response(controller, assessment(controller, [finding]))
+                self.assertIn("target=experimental", build_validity_prompt(controller))
+
+    def test_experimental_receipts_cannot_be_promoted_to_verified_facts(self):
+        for observation in ("verified_reproduced", "verified_absent"):
+            with self.subTest(observation=observation), self.assertRaisesRegex(
+                ValueError, "Experimental targets cannot",
+            ):
+                evidence(
+                    "experiment", "execution", "Conditional saved checker receipt",
+                    provenance="controller_execution", source_id="source", setup_id="setup",
+                    target="experimental", observation=observation, version="1.1.414",
+                )
+        with self.assertRaisesRegex(ValueError, "Only execution evidence"):
+            evidence(target="experimental")
+
+    def test_experimental_receipt_cannot_support_a_settled_product_defect(self):
+        experiment = evidence(
+            "experiment", "execution", "Conditional saved checker receipt",
+            provenance="controller_execution", source_id="source", setup_id="setup",
+            target="experimental", observation="discovery_only", version="1.1.414",
+        )
+        controller = inputs(evidence=[*inputs().evidence, experiment])
+        finding = claim(disposition="bug", evidence_ids=["source", "setup", "rule", "experiment"])
+        with self.assertRaisesRegex(ValueError, "independently verified observation"):
+            validate_validity_response(controller, assessment(controller, [finding]))
+
+    def test_experimental_receipt_does_not_overturn_verified_negative_originals(self):
+        absent = evidence(
+            "absent", "execution", "Independently verified original absence",
+            provenance="controller_execution", source_id="source", setup_id="setup",
+            target="historical", observation="verified_absent", version="1.1.414",
+        )
+        experiment = evidence(
+            "experiment", "execution", "Conditional saved checker receipt",
+            provenance="controller_execution", source_id="source", setup_id="setup",
+            target="experimental", observation="discovery_only", version="1.1.414",
+        )
+        controller = inputs(evidence=[*inputs().evidence, absent, experiment])
+        finding = claim(
+            disposition="bug", status="qualified", assumptions=["Deliberately chosen configuration"],
+            evidence_ids=["source", "setup", "rule", "absent", "experiment"],
+        )
+        with self.assertRaisesRegex(ValueError, "all independently qualified original observations are absent"):
+            validate_validity_response(controller, assessment(controller, [finding]))
+
     def test_controller_attaches_qualifications_and_captured_section_without_model_retyping(self):
         controller = language_inputs()
         raw = assessment(controller, [language_claim()]).model_dump()
@@ -234,6 +293,22 @@ class ValidityContractTests(unittest.TestCase):
         self.assertIn('"target_python_version": "3.15"', prompt)
         self.assertIn("An inconclusive conclusion does not permit a mismatched rule", prompt)
         self.assertNotIn('"allowed_rule_domain": "static_typing"', prompt)
+
+    def test_prompt_distinguishes_conditional_scope_absence_and_actual_reference_capability(self):
+        controller = inputs()
+        frozen = record_hash(controller)
+        for exposed in (False, True):
+            prompt = build_validity_prompt(controller, reference_reads=exposed)
+            self.assertIn(
+                "Reference capability: " + (
+                    "bounded read_reference is exposed." if exposed else "unavailable; use only saved input evidence."
+                ), prompt,
+            )
+            self.assertIn("a nonempty set of independently qualified original observations", prompt)
+            self.assertIn("No verified original observations is not the same as verified-negative originals", prompt)
+            self.assertIn("Rules may be composed when their actual premises cover the example", prompt)
+            self.assertIn("Retain every variant obligation", prompt)
+        self.assertEqual(record_hash(controller), frozen)
 
     def test_language_rule_target_rejection_identifies_claim_reference_and_expected_target(self):
         controller = language_inputs()
@@ -395,6 +470,86 @@ class ValidityContractTests(unittest.TestCase):
         )
         validate_validity_response(inputs(), assessment(claims=[finding]))
 
+    def test_all_negative_originals_require_inconclusive_not_a_conditional_bug(self):
+        controller = inputs()
+        executions = [
+            evidence(
+                f"original-{target}", "execution", "Original symptom independently absent",
+                provenance="controller_execution", source_id="source", setup_id="setup",
+                target=target, observation="verified_absent", version="1.1.414",
+            ) for target in ("historical", "main", "latest")
+        ]
+        controller = inputs(evidence=[*controller.evidence, *executions])
+        conditional = claim(disposition="bug", status="qualified")
+        with self.assertRaisesRegex(ValueError, "all independently qualified original observations are absent"):
+            validate_validity_response(controller, assessment(controller, [conditional]))
+        unresolved = claim(
+            disposition="inconclusive", status="inconclusive",
+            reasoning="The hypothetical diagnostic would violate the rule, but its occurrence is unestablished.",
+            information_requests=[{
+                "requested": "Original receipt exhibiting the reported symptom",
+                "reason": "Every qualified original contradicts the allegation",
+                "distinguishes": "An actual defect from a hypothetical rule violation",
+            }],
+        )
+        validate_validity_response(controller, assessment(controller, [unresolved]))
+
+    def test_zero_verified_originals_allow_only_a_conditional_not_supported_bug_finding(self):
+        controller = inputs(
+            report_text="The valid assignment value: int = 1 is reportedly rejected.",
+            evidence=[evidence(content="value: int = 1\n"), *inputs().evidence[1:]],
+        )
+        conditional = claim(
+            disposition="bug", status="qualified",
+            scope="If the reported rejection of this valid assignment occurs, it contradicts assignability.",
+            reasoning="The literal integer 1 satisfies int; no original execution confirms the alleged rejection.",
+        )
+        conditional.rules[0].premises[0].code_context = "value: int = 1"
+        conditional.rules[0].premises[0].application = "An integer literal is assignable to int."
+        validate_validity_response(controller, assessment(controller, [conditional]))
+        conditional.status = "supported"
+        with self.assertRaisesRegex(ValueError, "independently verified observation"):
+            validate_validity_response(controller, assessment(controller, [conditional]))
+
+    def test_historical_reproduction_and_discovery_only_remain_distinct_from_all_negative_originals(self):
+        controller = inputs()
+        conditional = claim(disposition="bug", status="qualified")
+        for observation in ("discovery_only", "unobserved", "verified_reproduced"):
+            observed = evidence(
+                "historical", "execution", "Offline qualified observation fixture",
+                provenance="controller_execution", source_id="source", setup_id="setup",
+                target="historical", observation=observation, version="1.1.414",
+            )
+            current = inputs(evidence=[*controller.evidence, observed])
+            validate_validity_response(current, assessment(current, [conditional]))
+        reproduced = observed
+        absent = reproduced.model_copy(update={"id": "main", "target": "main", "observation": "verified_absent"})
+        current = inputs(evidence=[*controller.evidence, reproduced, absent])
+        validate_validity_response(current, assessment(current, [conditional]))
+        discovery = reproduced.model_copy(update={"observation": "discovery_only"})
+        current = inputs(evidence=[*controller.evidence, discovery, absent])
+        with self.assertRaisesRegex(ValueError, "all independently qualified"):
+            validate_validity_response(current, assessment(current, [conditional]))
+
+    def test_negative_original_does_not_borrow_another_claims_reproduction(self):
+        controller = inputs()
+        second = controller.claims[0].model_copy(update={"id": "independent"})
+        records = [item.model_copy(update={"claim_ids": ["assignment", "independent"]}) for item in controller.evidence]
+        for identifier, ids, observation in (
+            ("first-original", ["assignment"], "verified_absent"),
+            ("other-original", ["independent"], "verified_reproduced"),
+        ):
+            records.append(evidence(
+                identifier, "execution", "Offline original fixture", claim_ids=ids,
+                provenance="controller_execution", source_id="source", setup_id="setup",
+                target="historical", observation=observation, version="1.1.414",
+            ))
+        controller = inputs(claims=[controller.claims[0], second], evidence=records)
+        with self.assertRaisesRegex(ValueError, "all independently qualified"):
+            validate_validity_response(controller, assessment(controller, [
+                claim(disposition="bug", status="qualified"), claim(claim_id="independent"),
+            ]))
+
     def test_json_decoder_rejects_duplicates_nonfinite_and_open_wire_fields(self):
         raw = assessment().model_dump_json()
         self.assertEqual(parse_validity_response(raw), assessment())
@@ -517,7 +672,7 @@ class ValidityExecutionTests(unittest.IsolatedAsyncioTestCase):
         self.reader = AsyncMock()
         self.reader.read_reference.return_value = RetrievedReference(
             location=SPEC_URL, section="Variable annotations", content="Actual retrieved normative content.",
-            offset=0, total_chars=35, retrieved_at="2026-10-22T22:00:00Z",
+            offset=0, anchor_offset=0, total_chars=35, retrieved_at="2026-10-22T22:00:00Z",
         )
         self.research = ValidityResearch(self.reader, self.directory, ["assignment"])
 
@@ -532,6 +687,7 @@ class ValidityExecutionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(capability.run.await_count, 1)
         self.assertIsNone(capability.run.call_args.kwargs["research"])
         self.assertEqual(capability.run.call_args.kwargs["budget_seconds"], 180)
+        self.assertIn("Reference capability: unavailable", capability.run.call_args.args[0])
 
     async def test_no_retry_or_new_budget_on_failed_response(self):
         capability = AsyncMock()
@@ -591,7 +747,7 @@ class ValidityExecutionTests(unittest.IsolatedAsyncioTestCase):
                 content = "Second requested source, completed first"
             return RetrievedReference(
                 location=request.location, section="Exact requested section", content=content,
-                offset=0, total_chars=len(content), retrieved_at="2026-10-22T22:00:00Z",
+                offset=0, anchor_offset=0, total_chars=len(content), retrieved_at="2026-10-22T22:00:00Z",
             )
 
         self.reader.read_reference.side_effect = out_of_order
@@ -641,7 +797,7 @@ class ValidityExecutionTests(unittest.IsolatedAsyncioTestCase):
         connection = MagicMock()
         connection.getresponse.return_value.status = 200
         connection.getresponse.return_value.read.return_value = (
-            b"<html><script>not normative text</script><h1>Variable annotations</h1>"
+            b'<html><script>not normative text</script><h1 id="variable-annotations">Variable annotations</h1>'
             b"<p>An annotated variable is checked against its declared type.</p></html>"
         )
         with patch("issue_review_validity.http.client.HTTPSConnection", return_value=connection):
@@ -652,15 +808,113 @@ class ValidityExecutionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(page.location, SPEC_URL)
         self.assertEqual(page.section, "variable-annotations")
 
+    async def test_default_reader_follows_the_actual_anchor_beyond_a_long_introduction(self):
+        reader = AuthorityReferenceReader()
+        connection = MagicMock()
+        connection.getresponse.return_value.status = 200
+        connection.getresponse.return_value.read.return_value = (
+            '<html><nav><a href="#variable-annotations">Variable annotations</a></nav>'
+            "<p>" + "Unrelated introductory text. " * 200 + "</p>"
+            '<section id="variable-annotations"><h2>Variable annotations</h2>'
+            "<p>The specifically requested assignability rule.</p></section></html>"
+        ).encode()
+        with patch("issue_review_validity.http.client.HTTPSConnection", return_value=connection):
+            page = await reader.read_reference(ReferenceRead(location=SPEC_URL, max_chars=150))
+        self.assertIn("specifically requested assignability rule", page.content)
+        self.assertNotIn("Unrelated introductory text", page.content)
+        self.assertGreater(page.offset, 4000)
+        self.assertEqual(page.anchor_offset, page.offset)
+        self.assertLessEqual(len(page.content), 150)
+
+    async def test_percent_encoded_named_anchor_and_unicode_find_keep_actual_visible_offsets(self):
+        reader = AuthorityReferenceReader()
+        connection = MagicMock()
+        connection.getresponse.return_value.status = 200
+        html = (
+            '<html><p>Stra&#223;e &#304; in the introduction.</p>'
+            '<a id="variable-annotations" name="variable-annotations"></a><p>'
+            + "Context. " * 30 + "A specific NEEDLE appears here.</p></html>"
+        )
+        connection.getresponse.return_value.read.return_value = html.encode()
+        with patch("issue_review_validity.http.client.HTTPSConnection", return_value=connection):
+            page = await reader.read_reference(ReferenceRead(
+                location=SPEC_URL.replace("#variable-annotations", "#variable%2Dannotations"),
+                find="needle", max_chars=10,
+            ))
+            with self.assertRaisesRegex(ValueError, "excerpt size"):
+                await reader.read_reference(ReferenceRead(location=SPEC_URL, find="needle", max_chars=5))
+        from evaluate_issue_design import VisibleText
+
+        parser = VisibleText()
+        parser.feed(html)
+        content = "".join(parser.text)
+        self.assertIn("NEEDLE", page.content)
+        self.assertEqual(page.content, content[page.offset:page.offset + 10])
+        self.assertEqual(page.anchor_offset, parser.anchors["variable-annotations"][0])
+        self.assertEqual(len(parser.anchors["variable-annotations"]), 1)
+
+    async def test_missing_ambiguous_or_hidden_anchor_is_an_error_not_unrelated_page_content(self):
+        reader = AuthorityReferenceReader()
+        for html in (
+            '<html><h1 id="different">Unrelated content</h1></html>',
+            '<html><p id="variable-annotations">First</p><p id="variable-annotations">Second</p></html>',
+            '<html><script id="variable-annotations">Not visible authority</script><p>Unrelated</p></html>',
+        ):
+            connection = MagicMock()
+            connection.getresponse.return_value.status = 200
+            connection.getresponse.return_value.read.return_value = html.encode()
+            with self.subTest(html=html), patch(
+                "issue_review_validity.http.client.HTTPSConnection", return_value=connection,
+            ), self.assertRaisesRegex(ValueError, "anchor"):
+                await reader.read_reference(ReferenceRead(location=SPEC_URL))
+
+    async def test_explicit_paging_and_find_respect_the_anchored_document(self):
+        reader = AuthorityReferenceReader()
+        connection = MagicMock()
+        connection.getresponse.return_value.status = 200
+        connection.getresponse.return_value.read.return_value = (
+            '<html><p>Needle in the navigation</p><section id="variable-annotations">'
+            "<p>Needle in the requested section.</p></section></html>"
+        ).encode()
+        with patch("issue_review_validity.http.client.HTTPSConnection", return_value=connection):
+            first = await reader.read_reference(ReferenceRead(location=SPEC_URL, find="Needle"))
+            page = await reader.read_reference(ReferenceRead(location=SPEC_URL, offset=5, max_chars=10))
+            with self.assertRaisesRegex(ValueError, "find"):
+                await reader.read_reference(ReferenceRead(location=SPEC_URL, find="Missing phrase"))
+        self.assertNotIn("navigation", first.content)
+        self.assertIn("requested section", first.content)
+        self.assertEqual(page.offset, 5)
+        self.assertEqual(len(page.content), 10)
+        self.assertIsNone(page.anchor_offset)
+
+    async def test_research_preserves_actual_anchor_offset_without_allowing_arbitrary_offset_changes(self):
+        self.reader.read_reference.return_value = RetrievedReference(
+            location=SPEC_URL, section="variable-annotations", content="Actual scoped rule.",
+            offset=50, anchor_offset=50, total_chars=100, retrieved_at="2026-10-22T22:00:00Z",
+        )
+        saved = await self.research.read_reference(ReferenceRead(location=SPEC_URL))
+        assert saved.reference_span is not None
+        self.assertEqual(saved.reference_span.offset, 50)
+        self.assertEqual(saved.reference_span.total_chars, 100)
+        original = self.reader.read_reference.return_value
+        for updates in (
+            {"offset": 51}, {"anchor_offset": None},
+            {"anchor_offset": 49}, {"anchor_offset": 101},
+        ):
+            self.reader.read_reference.return_value = original.model_copy(update=updates)
+            with self.subTest(updates=updates), self.assertRaises(ValueError):
+                await self.research.read_reference(ReferenceRead(location=SPEC_URL))
+
     async def test_research_result_must_be_saved_before_it_can_support_a_claim(self):
         controller = inputs()
         self.reader.read_reference.return_value = RetrievedReference(
             location=SPEC_URL, section="Variable annotations", content="checked against its declared type",
-            offset=0, total_chars=33, retrieved_at="2026-10-22T22:00:00Z",
+            offset=0, anchor_offset=0, total_chars=33, retrieved_at="2026-10-22T22:00:00Z",
         )
         capability = AsyncMock()
 
         async def read_and_assess(*args, **kwargs):
+            self.assertIn("Reference capability: bounded read_reference is exposed.", args[0])
             retrieved = await kwargs["research"].read_reference(ReferenceRead(location=SPEC_URL))
             result = assessment(controller).model_dump()
             result["claims"][0]["rules"][0]["evidence_id"] = retrieved.id

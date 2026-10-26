@@ -10,7 +10,7 @@ from pydantic import Field, JsonValue, model_validator
 from issue_review_models import (
     ConfigurationAssumption, Issue, Record, ReproductionClaim, ReproductionScenario, ReproductionTarget, Text,
 )
-from issue_review_sources import SettingChoice, SetupCapability
+from issue_review_sources import Digest, SettingChoice, SetupCapability, SourceAssociation
 
 Readiness = Literal["ready", "partial", "blocked"]
 ClaimId = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")]
@@ -19,6 +19,20 @@ ClaimId = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")]
 class DeclaredClaim(Record):
     id: ClaimId
     summary: Text
+
+
+class AssessmentSetupSelection(Record):
+    setup_hash: Digest
+    associations: list[SourceAssociation] = Field(min_length=1, max_length=30)
+    setting_choices: list[SettingChoice] = Field(max_length=2)
+
+
+class AssessmentSetupEvidence(Record):
+    schema_version: Literal[1] = 1
+    capture_hash: Digest
+    targets_hash: Digest
+    capabilities: list[SetupCapability] = Field(max_length=64)
+    selections: list[AssessmentSetupSelection] = Field(default_factory=list, max_length=16)
 
 
 class AssessmentInput(Record):
@@ -56,7 +70,10 @@ class AssessmentInput(Record):
 class SourceReference(Record):
     source_id: Text
     path: Text = Field(description="Safe relative Python/stub path ending in .py or .pyi, never pyrightconfig.json.")
-    filename_quote: str | None = None
+    filename_quote: str | None = Field(
+        default=None,
+        description="Copy this source's captured filename_evidence.quote exactly, or null when absent. Not a CLI command or an inferred path.",
+    )
 
 
 class ControlSource(Record):
@@ -76,6 +93,13 @@ class ClaimLocation(Record):
         return self
 
 
+class ReportedSymptom(Record):
+    source_id: Text
+    line: int = Field(ge=1)
+    message: Text
+    rule: Text | None
+
+
 class DiscoveryScope(Record):
     question: Text
     locations: list[ClaimLocation] = Field(min_length=1)
@@ -85,6 +109,28 @@ class DiscoveryScope(Record):
         description="Exact reported message or exact controller-derived CLI candidate; preserve whitespace. Null if unknown.",
     )
     reported_rule: Text | None
+    reported_symptoms: list[ReportedSymptom] = Field(
+        default_factory=list, max_length=64,
+        description="Exact pre-discovery wording for distinct reported diagnostics at their source locations. Never predicted or discovery-derived.",
+    )
+
+    @model_validator(mode="after")
+    def scoped_symptoms(self) -> Self:
+        keys = [(item.source_id, item.line, item.message, item.rule) for item in self.reported_symptoms]
+        if len(set(keys)) != len(keys):
+            raise ValueError("Repeated scoped reported symptom")
+        for item in self.reported_symptoms:
+            if not any(
+                location.source_id == item.source_id and location.start_line <= item.line <= location.end_line
+                for location in self.locations
+            ):
+                raise ValueError("Reported symptoms must lie within frozen discovery locations")
+            if (
+                self.reported_message is not None and item.message != self.reported_message
+                or self.reported_rule is not None and item.rule is not None and item.rule != self.reported_rule
+            ):
+                raise ValueError("Scoped reported symptoms contradict the frozen common wording/rule")
+        return self
 
 
 class AssessmentClaimDraft(Record):
@@ -186,6 +232,7 @@ class AssessmentPolicy(Record):
     role_budget_seconds: Literal[180] = 180
     allow_assumed_settings: bool = False
     setup_capabilities_hash: Text = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    setup_selections_hash: Text = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     assessment_input_hash: str | None = None
 
 
@@ -226,6 +273,7 @@ class AssessmentPlan(Record):
     limitations: list[Text]
     assumptions: list[Text]
     capabilities: list[SetupCapability] = Field(default_factory=list, max_length=64)
+    setup_selections: list[AssessmentSetupSelection] = Field(default_factory=list, max_length=16)
 
     @property
     def readiness(self) -> Readiness:

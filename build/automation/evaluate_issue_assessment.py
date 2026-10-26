@@ -503,6 +503,32 @@ def score_candidates(
     ), 0)
     latencies: list[float] = []
     rows: list[dict[str, object]] = []
+    quality_groups = ("all_references", "human_reviewed", "human_reviewed_retained_holdout")
+    quality = {group: dict.fromkeys((
+        "planned_scored_claims", "completed_reference_claims", "scored_claims",
+        "primary_agreements", "alternative_only_agreements",
+        "inconclusive_predictions", "non_abstaining_predictions",
+        "scored_non_abstaining_predictions", "non_abstaining_agreements",
+        "inconclusive_agreements", "always_inconclusive_agreements",
+        "singleton_reference_claims", "multiple_disposition_reference_claims",
+    ), 0) for group in quality_groups}
+    confusion: dict[str, dict[str, dict[str, int]]] = {group: {} for group in quality_groups}
+
+    def groups(case: AssessmentCandidate) -> tuple[str, ...]:
+        return (
+            "all_references",
+            *(("human_reviewed",) if case.reference_status == "human_reviewed" else ()),
+            *(("human_reviewed_retained_holdout",) if (
+                case.reference_status == "human_reviewed" and case.split == "holdout"
+                and case.input.origin == "retained_report"
+            ) else ()),
+        )
+
+    for case in candidates:
+        for group in groups(case):
+            quality[group]["planned_scored_claims"] += sum(
+                reference.expected_status != "not_settled" for reference in case.judgment.claims
+            )
     for row in results:
         row = CandidateExecution.model_validate_json(row.model_dump_json())
         case = by_id[row.id]
@@ -555,7 +581,7 @@ def score_candidates(
                 if reference is None:
                     continue
                 settled = reference.expected_status != "not_settled"
-                agreement = (
+                primary_agreement = (
                     claim.disposition in reference.acceptable_dispositions
                     and claim.status == reference.expected_status
                 )
@@ -564,11 +590,39 @@ def score_candidates(
                     and item.qualification in {"verified", "assumed_settings"}
                     for item in row.observations
                 )
-                if not reproduced:
-                    agreement |= any(
-                        claim.disposition == alternative.disposition and claim.status == alternative.status
+                alternative_agreement = not reproduced and any(
+                    claim.disposition == alternative.disposition and claim.status == alternative.status
+                    for alternative in reference.alternatives
+                )
+                agreement = primary_agreement or alternative_agreement
+                for group in groups(case):
+                    metric = quality[group]
+                    abstaining = claim.disposition == "inconclusive"
+                    metric["completed_reference_claims"] += 1
+                    metric["inconclusive_predictions" if abstaining else "non_abstaining_predictions"] += 1
+                    if not settled:
+                        continue
+                    metric["scored_claims"] += 1
+                    metric["primary_agreements"] += int(primary_agreement)
+                    metric["alternative_only_agreements"] += int(alternative_agreement and not primary_agreement)
+                    metric["scored_non_abstaining_predictions"] += int(not abstaining)
+                    metric["non_abstaining_agreements"] += int(not abstaining and agreement)
+                    metric["inconclusive_agreements"] += int(abstaining and agreement)
+                    baseline_agreement = (
+                        "inconclusive" in reference.acceptable_dispositions
+                        and reference.expected_status == "inconclusive"
+                    ) or not reproduced and any(
+                        alternative.disposition == "inconclusive" and alternative.status == "inconclusive"
                         for alternative in reference.alternatives
                     )
+                    metric["always_inconclusive_agreements"] += int(baseline_agreement)
+                    expected = set(reference.acceptable_dispositions)
+                    if len(expected) == 1:
+                        metric["singleton_reference_claims"] += 1
+                        predictions = confusion[group].setdefault(next(iter(expected)), {})
+                        predictions[claim.disposition] = predictions.get(claim.disposition, 0) + 1
+                    else:
+                        metric["multiple_disposition_reference_claims"] += 1
                 if settled:
                     counts["scored_claims"] += 1
                     counts["reference_agreements"] += int(agreement)
@@ -620,6 +674,43 @@ def score_candidates(
         "checker_counts_are_confirmed_lower_bounds": bool(counts["unknown_checker_execution_cases"]),
         "utility_reviews": [review.model_dump(mode="json") for review in utility_reviews or []],
         "passing_score": None, "interpretation": INTERPRETATION, "results": rows,
+        "judgment_quality": {
+            "groups": {
+                group: {
+                    **metric, "singleton_disposition_confusion": confusion[group],
+                    "observed_decision_coverage": (
+                        metric["scored_non_abstaining_predictions"] / metric["scored_claims"]
+                        if metric["scored_claims"] else None
+                    ),
+                    "non_abstaining_reference_agreement_rate": (
+                        metric["non_abstaining_agreements"] / metric["scored_non_abstaining_predictions"]
+                        if metric["scored_non_abstaining_predictions"] else None
+                    ),
+                    "same_evidence_always_inconclusive_agreement_rate": (
+                        metric["always_inconclusive_agreements"] / metric["scored_claims"]
+                        if metric["scored_claims"] else None
+                    ),
+                    "agreement_gain_over_always_inconclusive": (
+                        (metric["primary_agreements"] + metric["alternative_only_agreements"]
+                         - metric["always_inconclusive_agreements"]) / metric["scored_claims"]
+                        if metric["scored_claims"] else None
+                    ),
+                    "non_abstaining_reference_agreement_yield": (
+                        metric["non_abstaining_agreements"] / metric["planned_scored_claims"]
+                        if metric["planned_scored_claims"] else None
+                    ),
+                } for group, metric in quality.items()
+            },
+            "interpretation": (
+                "Reference agreement can reward an evidence-limited inconclusive alternative; it is not judgment "
+                "accuracy. The always-inconclusive baseline uses the same saved observations, not a new SDK run. "
+                "Decision coverage and agreement gain expose blanket abstention. Confusion counts compare "
+                "dispositions only, not qualification status, and do not declare an allowed abstention wrong. "
+                "Unsettled and multiple-disposition references are not unique gold labels. Provisional, synthetic "
+                "and previously exposed development results cannot establish independent real-report accuracy. "
+                "Missing/failed cases remain in the planned-yield denominator; no rate authorizes rollout."
+            ),
+        },
     }
 
 

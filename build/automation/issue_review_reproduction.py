@@ -17,8 +17,9 @@ import stat
 import subprocess
 import tarfile
 import tempfile
+import tokenize
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
 from types import TracebackType
@@ -323,8 +324,68 @@ Outcome = Literal["reproduced", "not_reproduced", "blocked"]
 Observation = Literal["reproduced", "not_reproduced", "verified", "blocked"]
 
 
+def static_stub_source_warning(
+    diagnostic: dict, cwd: str, originals: Mapping[str, str], executed: Mapping[str, str],
+    modules: Collection[str],
+) -> bool:
+    """Recognize only a proved module's source warning on an unchanged original import token."""
+    if (
+        not modules or diagnostic.get("rule") != "reportMissingModuleSource"
+        or diagnostic.get("severity") != "warning"
+    ):
+        return False
+    module = next((
+        module for module in modules
+        if diagnostic.get("message") == f'Import "{module}" could not be resolved from source'
+    ), None)
+    location = diagnostic.get("range")
+    start = location.get("start") if isinstance(location, dict) else None
+    if not isinstance(start, dict):
+        return False
+    line, character = start.get("line"), start.get("character")
+    if (
+        module is None or not isinstance(diagnostic.get("file"), str)
+        or type(line) is not int or line < 0 or type(character) is not int or character < 0
+    ):
+        return False
+    for name, original in originals.items():
+        if Path(diagnostic["file"]).resolve() != (Path(cwd) / relative_path(name)).resolve():
+            continue
+        source = executed.get(name)
+        if source is None or not source.startswith(original):
+            return False
+        original_lines, actual_lines = original.splitlines(), source.splitlines()
+        if line >= len(original_lines) or actual_lines[line] != original_lines[line]:
+            return False
+        try:
+            tokens = list(tokenize.generate_tokens(io.StringIO(original).readline))
+            names = [token for token in tokens if token.type not in {
+                tokenize.COMMENT, tokenize.NL, tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT, tokenize.ENDMARKER,
+            }]
+            module_bindings = {module} | {
+                names[index + 2].string for index, token in enumerate(names[:-2])
+                if token.string == module and names[index + 1].string == "as"
+                and names[index + 2].type == tokenize.NAME
+            }
+            # Import warnings may be deduplicated; an unchanged first warning cannot approve new control imports.
+            if any(
+                token.type == tokenize.NAME
+                and token.string in {"import", "__import__", "import_module", *module_bindings}
+                for token in tokenize.generate_tokens(io.StringIO(source[len(original):]).readline)
+            ):
+                return False
+            return any(
+                token.type == tokenize.NAME and token.string == module and token.start == (line + 1, character)
+                for token in tokens
+            )
+        except (tokenize.TokenError, SyntaxError):
+            return False
+    return False
+
+
 def observe_claims(
     scenario: ReproductionScenario, record: dict, problems: list[str] | None = None,
+    *, static_stub_modules: Collection[str] = (),
 ) -> dict[str, Observation]:
     blocked: dict[str, Observation] = {claim.id: "blocked" for claim in scenario.claims}
     def block(reason: str) -> dict[str, Observation]:
@@ -353,9 +414,17 @@ def observe_claims(
             or output["version"] != record["target"]["version"]
         ):
             return block("Invalid CLI JSON, too few/zero analyzed files, or output version differs from the pinned target")
+        source_warnings = [
+            item for item in diagnostics if static_stub_source_warning(
+                item, record["cwd"], scenario.files,
+                scenario.control_files if control else scenario.files, static_stub_modules,
+            )
+        ]
         if any(
-            item.get("rule") in {"reportMissingImports", "reportMissingModuleSource"}
-            or "could not be resolved" in str(item.get("message"))
+            item not in source_warnings and (
+                item.get("rule") in {"reportMissingImports", "reportMissingModuleSource"}
+                or "could not be resolved" in str(item.get("message"))
+            )
             for item in diagnostics
         ):
             return block("Missing imports/module sources prevent a faithful comparison")
@@ -395,7 +464,7 @@ def observe_claims(
             ] if item.present and item.severity in {"error", "warning"}
         ]
         if any(
-            item["severity"] in {"error", "warning"} and not any(
+            item not in source_warnings and item["severity"] in {"error", "warning"} and not any(
                 Path(item["file"]).resolve() == (Path(record["cwd"]) / relative_path(expected.file)).resolve()
                 and item["range"]["start"]["line"] == expected.line - 1
                 and item["message"] == expected.message and item["severity"] == expected.severity
@@ -409,17 +478,20 @@ def observe_claims(
         return block(f"Unsupported or malformed checker output: {type(error).__name__}: {error}")
 
 
-def classify(scenario: ReproductionScenario, record: dict, control: dict | None = None) -> Outcome:
+def classify(
+    scenario: ReproductionScenario, record: dict, control: dict | None = None,
+    *, static_stub_modules: Collection[str] = (),
+) -> Outcome:
     if record.get("phase") != "original":
         return "blocked"
-    outcomes = observe_claims(scenario, record).values()
+    outcomes = observe_claims(scenario, record, static_stub_modules=static_stub_modules).values()
     if not outcomes or "blocked" in outcomes:
         return "blocked"
     if scenario.control_files and (
         control is None or control.get("phase") != "control"
         or control.get("target") != record.get("target")
         or control.get("scenario_hash") != record.get("scenario_hash")
-        or not (observations := observe_claims(scenario, control))
+        or not (observations := observe_claims(scenario, control, static_stub_modules=static_stub_modules))
         or any(value != "verified" for value in observations.values())
     ):
         return "blocked"

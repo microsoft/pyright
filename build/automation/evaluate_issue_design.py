@@ -191,12 +191,19 @@ class VisibleText(HTMLParser):
         super().__init__()
         self.text: list[str] = []
         self.hidden = 0
+        self.anchors: dict[str, list[int]] = {}
+        self._length = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in {"script", "style"}:
             self.hidden += 1
         if tag in {"p", "div", "pre", "li", "h1", "h2", "h3", "br"}:
             self.text.append("\n")
+            self._length += 1
+        if not self.hidden:
+            identifiers = {value for key, value in attrs if value and (key == "id" or tag == "a" and key == "name")}
+            for identifier in identifiers:
+                self.anchors.setdefault(identifier, []).append(self._length)
 
     def handle_endtag(self, tag: str) -> None:
         if tag in {"script", "style"}:
@@ -205,6 +212,7 @@ class VisibleText(HTMLParser):
     def handle_data(self, data: str) -> None:
         if not self.hidden:
             self.text.append(data)
+            self._length += len(data)
 
 
 class BenchmarkTools(InvestigationTools):

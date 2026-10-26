@@ -27,7 +27,6 @@ import re
 import shutil
 import sys
 from collections.abc import Sequence
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
@@ -37,10 +36,11 @@ from copilot.session import CopilotSession
 from pydantic import JsonValue
 
 from issue_review_assessment import (
-    AssessmentController, associations, build_plan, capture_report, choices, report_text,
+    AssessmentController, associations, build_plan, capture_report, choices, report_text, validate_setup_selections,
 )
 from issue_review_assessment_models import (
-    AssessmentDraft, AssessmentInput, AssessmentPlan, AssessmentPolicy, AssessmentReceipt, AssessmentRun, ClaimProgress,
+    AssessmentDraft, AssessmentInput, AssessmentPlan, AssessmentPolicy, AssessmentReceipt, AssessmentRun,
+    AssessmentSetupEvidence, AssessmentSetupSelection, ClaimProgress,
     DiscoveryPlan, VerificationPlan, VerificationRefinement,
 )
 from issue_review_models import Issue, ReproductionTarget
@@ -73,6 +73,7 @@ def arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--main-sha", help="Pinned actual upstream main; rechecked through GitHub metadata")
     parser.add_argument("--frozen-targets", type=Path, help="Controller-frozen exact target assignments; integrity reverified, no reselection")
     parser.add_argument("--normative-evidence", type=Path, help="Typed controller-frozen authority list; snapshot must bind its exact hash")
+    parser.add_argument("--setup-evidence", type=Path, help="Approved AssessmentSetupEvidence bound to this snapshot capture and frozen targets; never inferred or installed")
     parser.add_argument("--prepare-targets", action="store_true", help="Explicitly permit production trusted acquisition/builds; disabled by default")
     parser.add_argument("--validity-input", type=Path, help="Frozen controller-provenance normative evidence; no model-created citations")
     parser.add_argument("--reference", action="append", default=[], help="Explicit bounded authoritative spec/policy/precedent URL for validity (maximum12)")
@@ -110,6 +111,46 @@ def schema_rejected(error: Exception) -> bool:
     )
 
 
+def validate_setup_evidence(
+    evidence: AssessmentSetupEvidence, capture: SourceCapture, targets: Sequence[ReproductionTarget],
+    *, assessment_input: AssessmentInput | None = None,
+) -> tuple[SetupCapability, ...]:
+    evidence = AssessmentSetupEvidence.model_validate_json(evidence.model_dump_json())
+    if (
+        evidence.capture_hash != capture.digest
+        or evidence.targets_hash != fingerprint([item.model_dump(mode="json") for item in targets])
+        or len(targets) != 3 or {item.role for item in targets} != {"historical", "main", "latest"}
+    ):
+        raise ValueError("Approved setup evidence differs from the exact capture or frozen targets")
+    if len({item.requirement_hash for item in evidence.capabilities}) != len(evidence.capabilities):
+        raise ValueError("Approved setup evidence repeats a requirement")
+    target_hashes: dict[str, set[str]] = {}
+    for target in targets:
+        target_hashes.setdefault(target.identity, set()).add(fingerprint(target.model_dump(mode="json")))
+    for capability in evidence.capabilities:
+        if capability.digest != fingerprint(capability.model_dump(mode="json", exclude={"digest"})):
+            raise ValueError("Approved setup capability changed after verification")
+        for artifact in capability.evidence:
+            if artifact.locator in target_hashes:
+                if artifact.sha256 not in target_hashes[artifact.locator]:
+                    raise ValueError("Setup evidence refers to different checker target metadata")
+                continue
+            path = Path(artifact.locator)
+            if not path.is_absolute() or path.is_symlink() or path.stat().st_size > 1048576:
+                raise ValueError("Setup evidence requires bounded ordinary local proof files")
+            data = path.read_bytes()
+            if len(data) > 1048576 or hashlib.sha256(data).hexdigest() != artifact.sha256:
+                raise ValueError("Approved setup proof bytes changed")
+    validate_setup_selections(evidence.selections, capture, evidence.capabilities)
+    if assessment_input is not None and any(
+        {item.setting: item for item in selection.setting_choices}
+        != {item.setting: item for item in assessment_input.setting_choices}
+        for selection in evidence.selections
+    ):
+        raise ValueError("Approved setup selection differs from the frozen controller setting choices")
+    return tuple(evidence.capabilities)
+
+
 def load_controller(directory: Path) -> AssessmentController:
     path = directory / "assessment.json"
     if not path.is_file():
@@ -141,6 +182,9 @@ def readiness_prompt(issue: Issue, comments: list[dict[str, JsonValue]], capture
         "Preserve every material claim including unsupported broader claims; never discard one to obtain a disposition. "
         "Keep distinct user concerns, not a separate claim for every diagnostic line, premise, workaround or "
         "supporting control of the same concern. Never merge or rename externally declared IDs/summaries. "
+        "A single concern can contain several reported symptoms: retain ALL affected locations and reported "
+        "comparisons/workarounds in its scope/context, even when they do not need separate claim IDs. "
+        "A report saying 'both' editor and CLI does not by itself allege an independent editor-only symptom. "
         "Ordinary static diagnostics or revealed types on supplied Python code use surface=cli, even without a "
         "reported CLI command. This adapter does not establish editor/LSP/runtime behavior: keep genuinely "
         "editor-only completion, hover, navigation, staleness or runtime concerns separately unsupported. "
@@ -152,6 +196,11 @@ def readiness_prompt(issue: Issue, comments: list[dict[str, JsonValue]], capture
         "and narrow source locations; verification=null, no controls. Freeze symptom_kind, failure_direction "
         "(unexpected_presence versus unexpected_absence), and exact reported_message/reported_rule when available "
         "(otherwise null) BEFORE any discovery. A historical observation must never change the complaint's polarity. "
+        "Use reported_symptoms for different exact reported messages at distinct source locations; use null common "
+        "reported_message when they differ. Do not reduce a multi-location concern to one convenient diagnostic. "
+        "reported_message means the complete diagnostic message, not a CLI rule suffix or an abbreviated excerpt. "
+        "If complete message text is unavailable, use null, preserve the raw report quote/question and known rule, "
+        "and let historical discovery learn wording only at the frozen locations. Never treat a guess as complete text. "
         "Only partial CLI claims with associated originals can have discovery. Ready or blocked claims must use "
         "discovery=null. Every entry in claim.source_ids must name an entry in sources; use [] if no original is available. "
         "Missing original/unsupported surface/genuine unavailable setup requires blocked with honest reasons, "
@@ -161,6 +210,8 @@ def readiness_prompt(issue: Issue, comments: list[dict[str, JsonValue]], capture
         "Controller duties (target acquisition, originals-before-controls, precision checks) are workflow, not "
         "missing reporter prerequisites. Report quotes must be single contiguous exact spans. "
         "Source filenames without evidence are disclosed controller conventions. "
+        "For filename_quote, copy ONLY that source's captured filename_evidence.quote; use null when it is absent. "
+        "A command mentioning a filename or a filename chosen as a convention is not captured association evidence. "
         "Preserve exact diagnostic whitespace. For recognized CLI-rendered candidates below, copy message "
         "verbatim: the controller removes only the known renderer indentation and rule suffix, retaining an "
         "exact raw evidence span. Candidate.output_block_id identifies an output fence, NOT a Python source "
@@ -174,6 +225,11 @@ def readiness_prompt(issue: Issue, comments: list[dict[str, JsonValue]], capture
         + "\nUntrusted issue:\n" + issue.model_dump_json()
         + "\nUntrusted complete discussion:\n" + json.dumps(comments)
         + "\nController-captured source/configuration evidence:\n" + capture.model_dump_json()
+        + "\nSource filename association catalog (null means no captured filename quote):\n"
+        + json.dumps([{
+            "source_id": item.id, "filename_hint": item.filename_hint,
+            "filename_quote": None if item.filename_evidence is None else item.filename_evidence.quote,
+        } for item in capture.blocks if item.source_kind in {"python", "unclassified"}])
         + "\nOptional controller-derived CLI diagnostic candidates (not observations or a complete inventory):\n"
         + json.dumps([item.model_dump(mode="json") for item in reported_diagnostics(capture)])
     )
@@ -182,9 +238,13 @@ def readiness_prompt(issue: Issue, comments: list[dict[str, JsonValue]], capture
 async def readiness(
     args: argparse.Namespace, github: GitHub, sdk: SDK, agent: Agent,
     *, capabilities: Sequence[SetupCapability] = (),
+    setup_selections: Sequence[AssessmentSetupSelection] = (),
     assessment_input: AssessmentInput | None = None,
 ) -> AssessmentController:
     capabilities = tuple(SetupCapability.model_validate_json(item.model_dump_json()) for item in capabilities)
+    setup_selections = tuple(
+        AssessmentSetupSelection.model_validate_json(item.model_dump_json()) for item in setup_selections
+    )
     directory = args.state_dir
     if directory.exists():
         raise ValueError("A new assessor run requires a NEW state directory; no ledger fallback or implicit rerun")
@@ -210,6 +270,7 @@ async def readiness(
         profile_hash=hashlib.sha256(agent.path.read_bytes()).hexdigest(), model=args.model,
         allow_assumed_settings=args.allow_assumed_settings,
         setup_capabilities_hash=fingerprint([item.model_dump(mode="json") for item in capabilities]),
+        setup_selections_hash=fingerprint([item.model_dump(mode="json") for item in setup_selections]),
         assessment_input_hash=None if assessment_input is None else fingerprint(assessment_input.model_dump(mode="json")),
     )
     save(directory / "input.json", {"issue": issue.model_dump(mode="json"), "comments": comments})
@@ -237,6 +298,16 @@ async def readiness(
         prompt += "\nController-only approved setup receipts (not model capability prose):\n" + json.dumps([
             item.model_dump(mode="json") for item in capabilities
         ])
+    if setup_selections:
+        prompt += (
+            "\nController-approved exact setup selections:\n"
+            + json.dumps([item.model_dump(mode="json") for item in setup_selections])
+            + "\nWhen using one of these source IDs, copy its exact path/filename_quote association and the "
+            "exact frozen setting_choices, including reason text. These are controller reconstruction conventions "
+            "and disclosed assumptions, not newly reported facts. Do not combine separate example groups to "
+            "borrow a setup proof. Other source groups and unsupported concerns remain explicit; their setup "
+            "may still be blocked. The hashes approve only these exact setups, not reproduction or semantics."
+        )
     if assessment_input is not None:
         prompt += (
             "\nFrozen controller scope: retain EXACT declared IDs AND summaries even when blocked. "
@@ -257,7 +328,7 @@ async def readiness(
         draft = AssessmentDraft.model_validate_json(content)
         prepared = materialize_setup(capture, associations(draft), choices(draft))
         build_plan(policy, draft, capture, prepared, report_text(issue, comments), capabilities=capabilities,
-                   assessment_input=assessment_input)
+                   setup_selections=setup_selections, assessment_input=assessment_input)
 
     try:
         content = await sdk.run(
@@ -275,7 +346,7 @@ async def readiness(
     draft = AssessmentDraft.model_validate_json(content)
     prepared = materialize_setup(capture, associations(draft), choices(draft))
     plan = build_plan(policy, draft, capture, prepared, report_text(issue, comments), capabilities=capabilities,
-                      assessment_input=assessment_input)
+                      setup_selections=setup_selections, assessment_input=assessment_input)
     return AssessmentController(
         directory, policy, issue, comments, capture, draft, prepared, plan, implementation=implementation_hash,
         assessment_input=assessment_input,
@@ -388,6 +459,12 @@ async def refinement(
         "Discovery may affirmatively contradict a reported predicate; that is not a reason to invert it. "
         "Use exact wording frozen from the report or actually observed at the frozen location; an unobserved "
         "predicate requires wording frozen before discovery. "
+        "An unobserved diagnostic rule must likewise have been frozen as reported; otherwise use null, not a guess. "
+        "A non-null common reported_message and each reported_symptoms entry are immutable: do not replace them "
+        "with a longer, shorter, reformatted or more plausible observed message. Preserve every frozen location "
+        "and scoped reported symptom in broken/resolved predicates. If known wording cannot describe the observed "
+        "complaint faithfully, return an honest blocked refinement rather than changing it. Only unknown wording "
+        "may be learned from the historical diagnostic at its frozen location. "
         "Do not invent diagnostic wording, shop for another symptom, or treat discovery as verification. "
         "This is a planning stage, not an execution gate: propose exact predicates and separate controls now; "
         "the controller freezes them and executes fresh originals and controls AFTER your response. "
@@ -529,6 +606,7 @@ async def validity_phase(
         ]
         source_id, setup_id = evidence_ids[:2]
         progress = next(item for item in result.progress if item.claim_id == claim.id)
+        static_stub_supported = False
         for identifier in progress.receipt_ids:
             candidates = [
                 *controller.directory.glob(f"discovery-{claim.id}/receipt.json"),
@@ -540,6 +618,7 @@ async def validity_phase(
             if receipt_path is None:
                 raise ValueError("Validity cannot invent an execution fact without its saved controller receipt")
             receipt = AssessmentReceipt.model_validate_json(receipt_path.read_text(encoding="utf-8"))
+            static_stub_supported |= bool(receipt.raw.get("static_stub_support"))
             target = ReproductionTarget.model_validate(receipt.raw["target"])
             observed = progress.target_observations.get(target.role, "unobserved")
             observation = (
@@ -592,6 +671,10 @@ async def validity_phase(
                 f"Current controller progress: phase={progress.phase}, status={progress.status}",
                 *progress.reasons,
                 "No whole-issue disposition or publication eligibility",
+                *([
+                    "Static-only stub support establishes typing with the captured checker-bundled stubs, "
+                    "not Python execution, runtime package availability or an unreported dependency version."
+                ] if static_stub_supported else []),
             ],
             evidence_ids=evidence_ids,
             language_context=language_context,
@@ -663,7 +746,7 @@ class AssessmentReferenceReader:
         self.github = github
 
     async def read_reference(self, request):
-        from issue_review_validity import AuthorityReferenceReader, RetrievedReference, reference_kind
+        from issue_review_validity import AuthorityReferenceReader, reference_kind, reference_page
 
         kind = reference_kind(request.location)
         if kind in {"typing_spec", "python_docs"}:
@@ -692,23 +775,13 @@ class AssessmentReferenceReader:
             }, ensure_ascii=True)
         if len(content) > 512000:
             raise ValueError("Reference exceeds the bounded transport; no silent truncation")
-        offset = request.offset
-        if request.find and not offset:
-            found = content.casefold().find(request.find.casefold())
-            if found >= 0:
-                offset = max(0, found - 150)
-        if offset >= len(content):
-            raise ValueError("Reference offset exceeds content")
-        return RetrievedReference(
-            location=request.location, section=urlparse(request.location).fragment or kind,
-            content=content[offset:offset + request.max_chars], offset=offset, total_chars=len(content),
-            retrieved_at=datetime.now(timezone.utc).isoformat(),
-        )
+        return reference_page(request, content, section=urlparse(request.location).fragment or kind)
 
 
 async def assess(
     args: argparse.Namespace, github: GitHub, sdk: SDK, *, store: TargetStore | None = None,
     setup_capabilities: Sequence[SetupCapability] = (),
+    setup_evidence: AssessmentSetupEvidence | None = None,
     assessment_input: AssessmentInput | None = None,
     frozen_targets: Sequence[ReproductionTarget] | None = None,
     normative_evidence: Sequence[ValidityEvidence] = (),
@@ -723,6 +796,20 @@ async def assess(
         if args.issue is not None and args.issue != assessment_input.issue.number:
             raise ValueError("Requested issue identity differs from the frozen assessment input")
         args.issue = assessment_input.issue.number
+    setup_selections: Sequence[AssessmentSetupSelection] = ()
+    if setup_evidence is not None:
+        if (
+            assessment_input is None or frozen_targets is None or args.phase not in {"assess", "readiness"}
+            or setup_capabilities
+        ):
+            raise ValueError("Setup evidence requires a fresh frozen snapshot/targets and no separate capability override")
+        setup_evidence = AssessmentSetupEvidence.model_validate_json(setup_evidence.model_dump_json())
+        setup_capabilities = validate_setup_evidence(
+            setup_evidence, capture_report(
+                assessment_input.issue, assessment_input.comments, report_id=assessment_input.report_id,
+            ), frozen_targets, assessment_input=assessment_input,
+        )
+        setup_selections = setup_evidence.selections
     agent = Agent.load(AGENTS / "pyright-issue-assessor.md", "pyright-issue-assessor")
     if args.phase in {"assess", "readiness"}:
         if assessment_input is not None:
@@ -745,6 +832,7 @@ async def assess(
             raise ValueError("Frozen authority/target overrides require a typed controller AssessmentInput")
         controller = await readiness(
             args, github, sdk, agent, capabilities=setup_capabilities, assessment_input=assessment_input,
+            setup_selections=setup_selections,
         )
         save(controller.directory / "frozen-normative-evidence.json", [
             item.model_dump(mode="json") for item in normative_evidence
@@ -918,6 +1006,21 @@ async def main(args: argparse.Namespace) -> None:
         args.issue = snapshot.issue.number
     if (snapshot is None and args.issue <= 0) or not args.cli_path:
         raise ValueError("An issue number and existing authenticated Copilot runtime are required")
+    frozen_targets = None if args.frozen_targets is None else [
+        ReproductionTarget.model_validate(item) for item in json.loads(args.frozen_targets.read_text(encoding="utf-8"))
+    ]
+    setup_evidence = None
+    if args.setup_evidence is not None:
+        if snapshot is None or frozen_targets is None or args.phase not in {"assess", "readiness"}:
+            raise ValueError("Setup evidence requires a fresh controller snapshot and exact frozen target assignments")
+        if args.setup_evidence.stat().st_size > 1048576:
+            raise ValueError("Approved setup evidence exceeds its transport bound")
+        setup_evidence = AssessmentSetupEvidence.model_validate_json(args.setup_evidence.read_bytes())
+        validate_setup_evidence(
+            setup_evidence,
+            capture_report(snapshot.issue, snapshot.comments, report_id=snapshot.report_id), frozen_targets,
+            assessment_input=snapshot,
+        )
     scorer = InjectionScreening.from_environment()
     github = GitHub(scorer=scorer)
     store = None if args.target_cache is None else TargetStore(args.target_cache, target_process, registry=args.registry)
@@ -925,15 +1028,12 @@ async def main(args: argparse.Namespace) -> None:
         connection=RuntimeConnection.for_stdio(path=args.cli_path), working_directory=str(ROOT),
         env={**child_environment(), "USE_TGREP": "false"},
     ) as client:
-        frozen_targets = None if args.frozen_targets is None else [
-            ReproductionTarget.model_validate(item) for item in json.loads(args.frozen_targets.read_text(encoding="utf-8"))
-        ]
         normative = [] if args.normative_evidence is None else [
             ValidityEvidence.model_validate(item) for item in json.loads(args.normative_evidence.read_text(encoding="utf-8"))
         ]
         result = await assess(
             args, github, SDK(client, args.model, BUDGET), store=store, assessment_input=snapshot,
-            frozen_targets=frozen_targets, normative_evidence=normative,
+            frozen_targets=frozen_targets, normative_evidence=normative, setup_evidence=setup_evidence,
         )
     readiness_counts = ", ".join(
         f"{state}={sum(claim.readiness == state for claim in result.plan.claims)}"

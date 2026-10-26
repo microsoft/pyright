@@ -6,6 +6,7 @@ import re
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Literal
 from unittest.mock import AsyncMock
 
 from pydantic import TypeAdapter
@@ -57,6 +58,10 @@ def approved_test_copy(case):
             judgment_sha256=record_hash(case.judgment), input_sha256=record_hash(case.input),
         ),
     })
+
+
+def judgment_quality(summary, group="all_references"):
+    return summary["judgment_quality"]["groups"][group]
 
 
 def checker_receipt(case, frozen, *, identifier="controller-original", provenance="controller_execution", role="original"):
@@ -214,6 +219,122 @@ class CandidateReferenceTests(unittest.TestCase):
 
 
 class CandidateMetricTests(unittest.TestCase):
+    def test_allowed_abstention_cannot_outperform_the_always_inconclusive_baseline(self):
+        case = approved_test_copy(load_candidates()[0])
+        frozen = protocol([case])
+        row = execution(case, frozen)
+        row.claims[0].disposition = "inconclusive"
+        row.claims[0].status = "inconclusive"
+        summary = score_candidates([case], [row], frozen)
+        metric = judgment_quality(summary, "human_reviewed")
+        self.assertEqual(summary["reference_agreement_rate"], 1.0)
+        self.assertEqual(metric["primary_agreements"], 0)
+        self.assertEqual(metric["alternative_only_agreements"], 1)
+        self.assertEqual(metric["inconclusive_agreements"], 1)
+        self.assertEqual(metric["always_inconclusive_agreements"], 1)
+        self.assertEqual(metric["observed_decision_coverage"], 0.0)
+        self.assertEqual(metric["agreement_gain_over_always_inconclusive"], 0.0)
+        self.assertEqual(metric["non_abstaining_reference_agreement_yield"], 0.0)
+        self.assertIsNone(metric["non_abstaining_reference_agreement_rate"])
+        self.assertEqual(metric["singleton_disposition_confusion"], {"bug": {"inconclusive": 1}})
+
+    def test_primary_inconclusive_match_is_not_a_non_abstaining_judgment(self):
+        case = load_candidates()[3]
+        frozen = protocol([case])
+        metric = judgment_quality(score_candidates([case], [execution(case, frozen)], frozen))
+        self.assertEqual(metric["primary_agreements"], 1)
+        self.assertEqual(metric["alternative_only_agreements"], 0)
+        self.assertEqual(metric["inconclusive_predictions"], 1)
+        self.assertEqual(metric["non_abstaining_predictions"], 0)
+        self.assertEqual(metric["same_evidence_always_inconclusive_agreement_rate"], 1.0)
+        self.assertEqual(metric["agreement_gain_over_always_inconclusive"], 0.0)
+
+    def test_decisive_correct_wrong_and_wrong_status_predictions_remain_distinct(self):
+        predictions: list[tuple[int, Literal["supported", "qualified"], int, float]] = [
+            (1, "supported", 1, 1.0),
+            (0, "supported", 0, -1.0),
+            (1, "qualified", 0, 0.0),
+        ]
+        for index, status, agreements, gain in predictions:
+            with self.subTest(index=index, status=status):
+                case = load_candidates()[index]
+                frozen = protocol([case])
+                row = execution(case, frozen)
+                row.claims[0].disposition = "as_designed"
+                row.claims[0].status = status
+                metric = judgment_quality(score_candidates([case], [row], frozen))
+                self.assertEqual(metric["non_abstaining_predictions"], 1)
+                self.assertEqual(metric["inconclusive_predictions"], 0)
+                self.assertEqual(metric["observed_decision_coverage"], 1.0)
+                self.assertEqual(metric["non_abstaining_reference_agreement_rate"], agreements)
+                self.assertEqual(metric["agreement_gain_over_always_inconclusive"], gain)
+
+    def test_same_evidence_baseline_respects_the_original_alternative_condition(self):
+        case = load_candidates()[0]
+        frozen = protocol([case])
+        receipt = checker_receipt(case, frozen)
+        for qualification in ("verified", "assumed_settings"):
+            with self.subTest(qualification=qualification):
+                row = execution(
+                    case, frozen, checker_receipts=[receipt], actual_checker_executions=1,
+                    artifact_ids=[receipt.artifact_id], observations=[{
+                        "claim_id": case.input.claims[0].id, "target": "main", "status": "reproduced",
+                        "qualification": qualification, "original_receipt_ids": [receipt.id],
+                        "affirmative_control_receipt_ids": [],
+                        "limitations": ["Offline fixture: assumed settings are disclosed, not verified"],
+                    }],
+                )
+                row.claims[0].disposition = "inconclusive"
+                row.claims[0].status = "inconclusive"
+                metric = judgment_quality(score_candidates([case], [row], frozen))
+                self.assertEqual(metric["always_inconclusive_agreements"], 0)
+                self.assertEqual(metric["alternative_only_agreements"], 0)
+                self.assertEqual(metric["inconclusive_agreements"], 0)
+
+    def test_missing_and_failed_cases_cannot_inflate_planned_decision_yield(self):
+        cases = load_candidates()[:2]
+        frozen = protocol(cases)
+        completed = execution(cases[1], frozen)
+        failed = execution(
+            cases[0], frozen, status="operational_failure", claims=[],
+            error="Explicit offline failure",
+        )
+        for rows in ([completed], [completed, failed]):
+            with self.subTest(results=len(rows)):
+                metric = judgment_quality(score_candidates(cases, rows, frozen))
+                self.assertEqual(metric["planned_scored_claims"], 2)
+                self.assertEqual(metric["scored_claims"], 1)
+                self.assertEqual(metric["observed_decision_coverage"], 1.0)
+                self.assertEqual(metric["non_abstaining_reference_agreement_yield"], 0.5)
+
+    def test_reviewed_development_provisional_and_real_holdout_metrics_are_not_pooled(self):
+        provisional = load_candidates()[0]
+        reviewed = approved_test_copy(load_candidates()[1])
+        holdout = approved_test_copy(load_candidates()[-1].model_copy(update={"split": "holdout"}))
+        cases = [provisional, reviewed, holdout]
+        frozen = protocol(cases)
+        summary = score_candidates(cases, [execution(case, frozen) for case in cases], frozen)
+        self.assertEqual(judgment_quality(summary)["scored_claims"], 2)
+        self.assertEqual(judgment_quality(summary, "human_reviewed")["scored_claims"], 1)
+        real = judgment_quality(summary, "human_reviewed_retained_holdout")
+        self.assertEqual(real["completed_reference_claims"], 1)
+        self.assertEqual(real["planned_scored_claims"], 0)
+        self.assertEqual(real["scored_claims"], 0)
+        self.assertIsNone(real["non_abstaining_reference_agreement_rate"])
+        self.assertIsNone(real["same_evidence_always_inconclusive_agreement_rate"])
+        self.assertEqual(real["singleton_disposition_confusion"], {})
+
+    def test_multiple_acceptable_dispositions_do_not_invent_a_unique_confusion_label(self):
+        raw = load_candidates()[1].model_dump()
+        raw["judgment"]["claims"][0]["acceptable_dispositions"] = ["as_designed", "enhancement"]
+        case = AssessmentCandidate.model_validate(raw)
+        frozen = protocol([case])
+        metric = judgment_quality(score_candidates([case], [execution(case, frozen)], frozen))
+        self.assertEqual(metric["primary_agreements"], 1)
+        self.assertEqual(metric["multiple_disposition_reference_claims"], 1)
+        self.assertEqual(metric["singleton_reference_claims"], 0)
+        self.assertEqual(metric["singleton_disposition_confusion"], {})
+
     def test_inconclusive_reference_alternative_is_conditioned_on_no_verified_reproduction(self):
         case = load_candidates()[0]
         frozen = protocol([case])
@@ -313,6 +434,14 @@ class CandidateMetricTests(unittest.TestCase):
         self.assertIsNone(summary["false_by_design_rate"])
         self.assertIsNone(summary["passing_score"])
         self.assertFalse(summary["execution_complete"])
+        for group in ("all_references", "human_reviewed", "human_reviewed_retained_holdout"):
+            metric = judgment_quality(summary, group)
+            self.assertIsNone(metric["observed_decision_coverage"])
+            self.assertIsNone(metric["non_abstaining_reference_agreement_rate"])
+            self.assertIsNone(metric["same_evidence_always_inconclusive_agreement_rate"])
+            self.assertIsNone(metric["agreement_gain_over_always_inconclusive"])
+            self.assertEqual(metric["completed_reference_claims"], 0)
+        self.assertEqual(judgment_quality(summary)["non_abstaining_reference_agreement_yield"], 0.0)
         missing = summary["missing_cases"]
         assert isinstance(missing, list)
         self.assertEqual(len(missing), 6)
@@ -517,6 +646,8 @@ class CandidateMetricTests(unittest.TestCase):
         summary = score_candidates([case], [row], frozen)
         self.assertEqual(summary["scored_claims"], 1)
         self.assertEqual(summary["unreferenced_additional_claims"], 1)
+        self.assertEqual(judgment_quality(summary)["completed_reference_claims"], 1)
+        self.assertEqual(judgment_quality(summary)["scored_non_abstaining_predictions"], 1)
         self.assertTrue(summary["additional_claim_review_required"])
         self.assertTrue(summary["execution_complete"])
         self.assertFalse(summary["reference_scope_complete"])

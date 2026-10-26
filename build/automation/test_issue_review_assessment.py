@@ -17,14 +17,19 @@ from pydantic import ValidationError
 import assess_issues
 from issue_review_assessment import (
     AssessmentController, associations, build_plan, capture_report, choices, original_inputs, report_text,
+    validate_discovery_output,
 )
 from issue_review_assessment_models import (
-    AssessmentClaimDraft, AssessmentDraft, AssessmentInput, AssessmentPolicy, AssessmentReceipt,
-    ClaimProgress, ControlSource, DeclaredClaim, VerificationRefinement,
+    AssessmentClaimDraft,     AssessmentDraft, AssessmentInput, AssessmentPolicy, AssessmentReceipt, AssessmentSetupEvidence,
+    AssessmentSetupSelection,
+    ClaimLocation, ClaimProgress, ControlSource, DeclaredClaim, DiscoveryScope, ReportedSymptom, VerificationRefinement,
 )
 from issue_review_models import Issue, ReproductionClaim, ReproductionTarget
-from issue_review_reproduction import TargetStore, fingerprint
-from issue_review_sources import SettingChoice, check_bundled_stub_capability, inspect_requirements, materialize_setup
+from issue_review_reproduction import TargetStore, classify, fingerprint, observe_claims, static_stub_source_warning
+from issue_review_sources import (
+    ArtifactEvidence, FeatureProbeResult, SettingChoice, SourceAssociation, check_bundled_stub_capability,
+    check_feature_capability, inspect_requirements, materialize_setup,
+)
 from review_issues import AGENTS, SDK, Agent, AutomationError, GitHub, reproduction_response, response_schema
 
 
@@ -126,6 +131,22 @@ def output(cwd: Path, version: str, *, broken: bool, stderr: str = "", extra: li
 
 
 class ModelTests(unittest.TestCase):
+    def test_scoped_messages_require_unique_in_scope_and_consistent_reported_predicates(self):
+        capture = capture_report(issue(body(diagnostic=False)), [])
+        draft = draft_for(capture, partial=True)
+        assert draft.claims[0].discovery is not None
+        scope = draft.claims[0].discovery.model_dump()
+        symptom = {"source_id": capture.blocks[0].id, "line": 3, "message": "Reported text", "rule": None}
+        DiscoveryScope.model_validate({**scope, "reported_symptoms": [symptom]})
+        for changes in (
+            {"reported_symptoms": [symptom, symptom]},
+            {"reported_symptoms": [{**symptom, "line": 1}]},
+            {"reported_symptoms": [symptom], "reported_message": "Different shared message"},
+            {"reported_symptoms": [{**symptom, "rule": "reportAssignmentType"}], "reported_rule": "reportOther"},
+        ):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                DiscoveryScope.model_validate({**scope, **changes})
+
     def test_systemic_schema_rejection_recognizes_provider_status_formats_not_ordinary_failures(self):
         for message in (
             "HTTP 400 invalid response_format",
@@ -238,9 +259,9 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.store.verify = lambda target: None  # Explicit offline fixture; no checker process exists.
 
     def controller(
-        self, *, partial=False, unsupported=False, report=None, reported_message=None,
+        self, *, partial=False, unsupported=False, report=None, reported_message=None, reported_rule=None,
         direction: Literal["unexpected_presence", "unexpected_absence"] = "unexpected_presence",
-        report_quote=None, with_controls=False,
+        report_quote=None, with_controls=False, scoped=False,
     ):
         current = issue(report or body(diagnostic=not partial))
         capture = capture_report(current, [])
@@ -248,10 +269,20 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         if draft.claims[0].discovery is not None:
             draft.claims[0].discovery.failure_direction = direction
             draft.claims[0].discovery.reported_message = reported_message
+            draft.claims[0].discovery.reported_rule = reported_rule
             if report_quote is not None:
                 draft.claims[0].report_quote = report_quote
                 draft.claims[0].summary = report_quote
                 draft.claims[0].discovery.question = report_quote
+            if scoped:
+                draft.claims[0].discovery.locations = [
+                    ClaimLocation(source_id=capture.blocks[0].id, start_line=line, end_line=line) for line in (1, 3)
+                ]
+                draft.claims[0].discovery.reported_symptoms = [
+                    ReportedSymptom(
+                        source_id=capture.blocks[0].id, line=line, message=message, rule="reportAssignmentType",
+                    ) for line, message in ((1, "First rejection"), (3, "Unsupported rejection"))
+                ]
         if with_controls:
             draft.claims[0].control_files = [
                 ControlSource(path="sample.py", content=capture.blocks[0].content + "reveal_type(value)\n"),
@@ -284,7 +315,9 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             "```text\n  sample.py:3:1 - error: Unsupported rejection\n"
             "    Detail stays indented (reportAssignmentType)\n```\n"
         )
-        controller = self.controller(partial=True, report=report, reported_message=message)
+        controller = self.controller(
+            partial=True, report=report, reported_message=message, reported_rule="reportAssignmentType",
+        )
         scope = controller.freeze_discovery("assignment", self.test_targets[0])
         self.assertEqual(scope.scope.reported_message, message)
         receipt = await controller.discover(scope, self.store)
@@ -304,6 +337,82 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             self.controller(partial=True, report=report, reported_message=message.replace("\n  ", "\n "))
         with self.assertRaisesRegex(ValueError, "CLI presentation indentation"):
             self.controller(partial=True, report=report, reported_message=message.replace("\n  ", "\n    "))
+
+    async def test_multi_location_report_freezes_every_known_symptom_even_when_absent(self):
+        controller = self.controller(
+            partial=True, scoped=True,
+            report=body(diagnostic=False) + "First rejection. Unsupported rejection. (reportAssignmentType)",
+        )
+        scope = controller.freeze_discovery("assignment", self.test_targets[0])
+        receipt = await controller.discover(scope, self.store)
+        data = predicates()
+        data["report_quote"] = controller.claim("assignment").report_quote
+        second = data["broken"][0]
+        first = {**second, "line": 1, "message": "First rejection"}
+        data["broken"] = [first, second]
+        data["resolved"] = [{**item, "present": False} for item in data["broken"]]
+        refinement = VerificationRefinement(
+            schema_version=1, claim_id="assignment", discovery_id=receipt.id, readiness="ready",
+            verification=ReproductionClaim.model_validate(data), control_files=[], reasons=[],
+            explanation="All scoped reported wording was frozen before observation, including an absent predicate.",
+        )
+        controller.validate_refinement("assignment", receipt, refinement)
+        for omitted in (0, 1):
+            changed = refinement.model_copy(deep=True)
+            assert changed.verification is not None
+            changed.verification.broken.pop(omitted)
+            changed.verification.resolved.pop(omitted)
+            with self.subTest(omitted=omitted), self.assertRaisesRegex(ValueError, "omitted a frozen"):
+                controller.validate_refinement("assignment", receipt, changed)
+        changed = refinement.model_copy(deep=True)
+        assert changed.verification is not None
+        changed.verification.broken[0].message = "A different reported question"
+        changed.verification.resolved[0].message = "A different reported question"
+        with self.assertRaisesRegex(ValueError, "scoped frozen"):
+            controller.validate_refinement("assignment", receipt, changed)
+        changed = refinement.model_copy(deep=True)
+        assert changed.verification is not None
+        changed.verification.broken[0].rule = "reportInvented"
+        changed.verification.resolved[0].rule = "reportInvented"
+        with self.assertRaisesRegex(ValueError, "scoped frozen"):
+            controller.validate_refinement("assignment", receipt, changed)
+        self.assertEqual(scope.scope.reported_message, None)
+        self.assertEqual(len(scope.scope.reported_symptoms), 2)
+        async def multi_runner(command, cwd):
+            self.calls.append((command, cwd))
+            target = next(target for target in self.test_targets if target.cli == command[1])
+            return output(cwd, target.version, broken=target.role == "historical", extra=[{
+                "file": str(cwd / "sample.py"), "range": {"start": {"line": 0}},
+                "severity": "error", "message": "First rejection", "rule": "reportAssignmentType",
+            }] if target.role == "historical" else [])
+
+        self.store.runner = multi_runner
+        plan = controller.freeze_verification("assignment", self.test_targets, discovery=receipt, refinement=refinement)
+        receipts = await controller.verify(plan, self.store)
+        self.assertEqual(len(self.calls), 4)
+        self.assertTrue(all(item.kind == "verification_original" and item.raw["cwd"] != receipt.raw["cwd"] for item in receipts))
+        self.assertEqual(controller.verification_progress(plan, receipts).target_observations, {
+            "historical": "reproduced", "main": "not_reproduced", "latest": "not_reproduced",
+        })
+
+    def test_scoped_reported_wording_must_be_report_evidence_before_discovery(self):
+        with self.assertRaisesRegex(ValueError, "frozen reported wording"):
+            self.controller(partial=True, scoped=True, report=body(diagnostic=False))
+
+    def test_readiness_filename_catalog_never_promotes_a_command_to_source_evidence(self):
+        current = issue(body(diagnostic=False) + "$ npx pyright qr.py\n")
+        capture = capture_report(current, [])
+        prompt = assess_issues.readiness_prompt(current, [], capture, False)
+        catalog = json.loads(prompt.split("Source filename association catalog (null means no captured filename quote):\n")[1].split("\nOptional")[0])
+        self.assertEqual(catalog, [{
+            "source_id": capture.blocks[0].id, "filename_hint": None, "filename_quote": None,
+        }])
+        draft = draft_for(capture, partial=True)
+        draft.sources[0].path = "qr.py"
+        self.assertIn("qr.py", materialize_setup(capture, associations(draft), []).inferred_paths)
+        draft.sources[0].filename_quote = "$ npx pyright qr.py"
+        with self.assertRaisesRegex(ValueError, "Filename quote"):
+            materialize_setup(capture, associations(draft), [])
 
     def test_percent_encoded_checker_version_requires_its_exact_controller_declaration_quote(self):
         current = issue(
@@ -525,6 +634,8 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         original = dict(controller.claim_setup("assignment").files)
         self.assertNotIn("reveal_type", original["sample.py"])
         data = {**predicates(), "report_quote": controller.claim("assignment").report_quote}
+        for field in ("broken", "resolved"):
+            data[field][0]["rule"] = None
         data["precision"] = [{**data["precision"][0], "line": 4}]
         proposed = VerificationRefinement(
             schema_version=1, claim_id="assignment", discovery_id=discovery.id, readiness="ready",
@@ -616,12 +727,20 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.store.runner = negative_runner
         discovery = await controller.discover(controller.freeze_discovery("assignment", self.test_targets[0]), self.store)
         data = {**predicates(), "report_quote": quote}
+        for field in ("broken", "resolved"):
+            data[field][0]["rule"] = None
         refinement = VerificationRefinement(
             schema_version=1, claim_id="assignment", discovery_id=discovery.id, readiness="ready",
             verification=ReproductionClaim.model_validate(data), control_files=[], reasons=[],
             explanation="The exact complaint was frozen from the report; discovery contradicts it",
         )
         controller.validate_refinement("assignment", discovery, refinement)
+        guessed = refinement.model_copy(deep=True)
+        assert guessed.verification is not None
+        for symptom in [*guessed.verification.broken, *guessed.verification.resolved]:
+            symptom.rule = "reportInvented"
+        with self.assertRaisesRegex(ValueError, "unobserved diagnostic rule"):
+            controller.validate_refinement("assignment", discovery, guessed)
         inverted = refinement.model_copy(update={
             "verification": ReproductionClaim.model_validate({
                 **data, "broken": data["resolved"], "resolved": data["broken"],
@@ -910,6 +1029,553 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
                        report_text(controller.issue, []), capabilities=[capability])
         with self.assertRaises(ValidationError):
             AssessmentDraft.model_validate({**controller.draft.model_dump(), "capabilities": [capability.model_dump()]})
+
+    async def test_approved_setup_snapshot_checks_exact_capture_targets_and_actual_proof_bytes(self):
+        controller = self.controller(report=body().replace("value = 1", "import typing_extensions\nvalue = 1"))
+        requirement = inspect_requirements(controller.capture, controller.prepared)[0]
+        stub = Path(self.test_targets[0].directory or "") / "dist" / "typeshed-fallback" / "stdlib" / "typing_extensions.pyi"
+        stub.parent.mkdir(parents=True)
+        stub.write_text("# Offline stub proof\n", encoding="utf-8")
+        capability = check_bundled_stub_capability(requirement, self.test_targets[0], self.store.verify)
+        snapshot = AssessmentSetupEvidence(
+            capture_hash=controller.capture.digest,
+            targets_hash=fingerprint([item.model_dump(mode="json") for item in self.test_targets]),
+            capabilities=[capability],
+        )
+        self.assertEqual(
+            assess_issues.validate_setup_evidence(snapshot, controller.capture, self.test_targets), (capability,),
+        )
+        for change in ({"capture_hash": "0" * 64}, {"targets_hash": "0" * 64}):
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError, "exact capture or frozen targets"):
+                assess_issues.validate_setup_evidence(snapshot.model_copy(update=change), controller.capture, self.test_targets)
+        repeated = snapshot.model_copy(update={"capabilities": [capability, capability]})
+        with self.assertRaisesRegex(ValueError, "repeats"):
+            assess_issues.validate_setup_evidence(repeated, controller.capture, self.test_targets)
+        damaged = capability.model_copy(update={"detail": "Changed after approval"})
+        with self.assertRaisesRegex(ValueError, "changed after verification"):
+            assess_issues.validate_setup_evidence(
+                snapshot.model_copy(update={"capabilities": [damaged]}), controller.capture, self.test_targets,
+            )
+        stub.write_text("# Changed offline proof\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "proof bytes changed"):
+            assess_issues.validate_setup_evidence(snapshot, controller.capture, self.test_targets)
+
+    async def test_cli_setup_evidence_requires_frozen_scope_before_starting_any_client(self):
+        args = assess_issues.arguments([
+            "--issue", "11037", "--state-dir", str(self.root / "never"),
+            "--setup-evidence", str(self.root / "not-read.json"),
+        ])
+        args.cli_path = "OFFLINE: must not launch"
+        with patch.object(assess_issues, "CopilotClient") as client:
+            with self.assertRaisesRegex(ValueError, "fresh controller snapshot"):
+                await assess_issues.main(args)
+            client.assert_not_called()
+
+    def setup_selection_fixture(
+        self, *, assumed=False, extra_source=False, partial=False, with_controls=False, runtime=False, feature=False,
+    ):
+        statement = "from typing_extensions import ReadOnly" if feature else "import typing_extensions"
+        report = body(diagnostic=not partial).replace("result: int = value", "result: int = value\n" + statement)
+        if runtime:
+            report += "\nRuntime code fails.\n"
+        if extra_source:
+            report += "\n```python\nother = 0\n```\n"
+        if assumed:
+            report = report.replace('typeCheckingMode="standard"\n', "")
+        controller = self.controller(report=report, partial=partial, with_controls=with_controls)
+        setting_choices = [SettingChoice(
+            setting="typeCheckingMode", value="standard", reason="Approved conditional experiment; not a reporter fact",
+        )] if assumed else []
+        prepared = materialize_setup(controller.capture, associations(controller.draft), setting_choices)
+        requirement = next(
+            item for item in inspect_requirements(controller.capture, prepared) if item.kind == "static_stubs"
+        )
+        stub = Path(self.test_targets[0].directory or "") / "dist" / "typeshed-fallback" / "stdlib" / "typing_extensions.pyi"
+        stub.parent.mkdir(parents=True)
+        stub.write_text("# Explicit offline stub fixture\n", encoding="utf-8")
+        capability = check_bundled_stub_capability(requirement, self.test_targets[0], self.store.verify)
+        selection = AssessmentSetupSelection(
+            setup_hash=prepared.digest, associations=list(prepared.associations), setting_choices=setting_choices,
+        )
+        evidence = AssessmentSetupEvidence(
+            capture_hash=controller.capture.digest,
+            targets_hash=fingerprint([item.model_dump(mode="json") for item in self.test_targets]),
+            capabilities=[capability], selections=[selection],
+        )
+        return controller, evidence
+
+    def static_stub_controller(self, *, partial=False, runtime=False, feature_target=None):
+        original, evidence = self.setup_selection_fixture(
+            partial=partial, with_controls=not partial, runtime=runtime, feature=feature_target is not None,
+        )
+        if feature_target is not None:
+            probe_path = self.root / "offline-feature.json"
+            probe_path.write_text('{"fixture": "not an actual checker execution"}', encoding="utf-8")
+
+            def offline_probe(requirement, target):
+                return FeatureProbeResult(
+                    requirement_hash=fingerprint(requirement.model_dump(mode="json")),
+                    target_hash=fingerprint(target.model_dump(mode="json")), status="available",
+                    evidence=ArtifactEvidence(
+                        locator=str(probe_path), sha256=hashlib.sha256(probe_path.read_bytes()).hexdigest(),
+                    ), detail="Explicit offline feature fixture, not executed checker evidence",
+                )
+
+            requirement = next(
+                item for item in inspect_requirements(original.capture, original.prepared) if item.kind == "static_feature"
+            )
+            evidence.capabilities.append(check_feature_capability(
+                requirement, feature_target, self.store.verify, offline_probe,
+            ))
+        draft = original.draft.model_copy(deep=True)
+        if runtime:
+            draft.claims.append(AssessmentClaimDraft(
+                id="runtime", summary="Runtime code fails", report_quote="Runtime code fails.",
+                surface="other", source_ids=[], readiness="blocked", reasons=["No runtime execution capability"],
+                verification=None, discovery=None, control_files=[],
+            ))
+        policy = original.policy.model_copy(update={
+            "setup_capabilities_hash": fingerprint([item.model_dump(mode="json") for item in evidence.capabilities]),
+            "setup_selections_hash": fingerprint([item.model_dump(mode="json") for item in evidence.selections]),
+        })
+        plan = build_plan(
+            policy, draft, original.capture, original.prepared, report_text(original.issue, []),
+            capabilities=evidence.capabilities, setup_selections=evidence.selections,
+        )
+        controller = AssessmentController(
+            self.root / "static-stub-run", policy, original.issue, [], original.capture, draft, original.prepared, plan,
+        )
+
+        async def runner(command, cwd):
+            self.calls.append((command, cwd))
+            target = next(target for target in self.test_targets if target.cli == command[1])
+            warning = {
+                "file": str(cwd / "sample.py"),
+                "range": {"start": {"line": 3, "character": 5 if feature_target is not None else 7}},
+                "severity": "warning", "rule": "reportMissingModuleSource",
+                "message": 'Import "typing_extensions" could not be resolved from source',
+            }
+            return output(cwd, target.version, broken=target.role == "historical", extra=[warning])
+
+        self.store.runner = runner
+        return controller
+
+    async def test_proved_stub_warning_keeps_original_control_and_runtime_boundaries(self):
+        controller = self.static_stub_controller(runtime=True)
+        plan = controller.freeze_verification("assignment", self.test_targets)
+        receipts = await controller.verify(plan, self.store)
+        progress = controller.verification_progress(plan, receipts)
+        self.assertEqual(progress.target_observations, {
+            "historical": "reproduced", "main": "blocked", "latest": "blocked",
+        })
+        self.assertEqual(progress.status, "partial")
+        self.assertEqual(receipts[0].observation, "reproduced")
+        self.assertEqual(receipts[3].observation, "verified")
+        self.assertEqual(controller.result([progress]).progress[1].status, "blocked")
+        for receipt in receipts:
+            self.assertEqual(json.loads(str(receipt.raw["stdout"]))["generalDiagnostics"][-1]["rule"], "reportMissingModuleSource")
+        self.assertEqual(receipts[0].raw["static_stub_support"], {
+            "typing_extensions": [controller.plan.capabilities[0].digest],
+        })
+        self.assertNotIn("static_stub_support", receipts[1].raw)
+        self.assertEqual(classify(plan.scenario, receipts[0].raw, receipts[3].raw), "blocked")
+        self.assertEqual(classify(
+            plan.scenario, receipts[0].raw, receipts[3].raw,
+            static_stub_modules=controller.static_stub_support("assignment", self.test_targets[0]),
+        ), "reproduced")
+        self.assertEqual(classify(
+            plan.scenario, receipts[0].raw, static_stub_modules=("typing_extensions",),
+        ), "blocked")
+
+    async def test_proved_source_warning_discovery_is_captured_not_reproduction(self):
+        controller = self.static_stub_controller(partial=True)
+        target = self.test_targets[0]
+        receipt = await controller.discover(controller.freeze_discovery("assignment", target), self.store)
+        self.assertEqual(receipt.observation, "captured")
+        self.assertEqual(receipt.problems, [])
+        self.assertIn("static_stub_support", receipt.raw)
+        self.assertTrue(validate_discovery_output(receipt.raw, target, controller.prepared.files))
+        self.assertEqual(validate_discovery_output(
+            receipt.raw, target, controller.prepared.files,
+            static_stub_modules=controller.static_stub_support("assignment", target),
+        ), [])
+
+    def test_stub_support_requires_the_same_target_for_all_feature_proofs(self):
+        controller = self.static_stub_controller(feature_target=self.test_targets[1])
+        self.assertEqual(controller.plan.readiness, "ready")
+        self.assertTrue(all(
+            not controller.static_stub_support("assignment", target) for target in self.test_targets
+        ))
+
+    def test_static_support_does_not_cross_target_metadata_and_rechecks_stub_bytes(self):
+        controller = self.static_stub_controller(feature_target=self.test_targets[0])
+        target = self.test_targets[0]
+        self.assertEqual(len(controller.static_stub_support("assignment", target)["typing_extensions"]), 2)
+        self.assertEqual(controller.static_stub_support("assignment", target.model_copy(update={
+            "selection_reason": "Different exact target metadata",
+        })), {})
+        stub = Path(target.directory or "") / "dist" / "typeshed-fallback" / "stdlib" / "typing_extensions.pyi"
+        stub.write_text("# Changed after approval\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "differs from its captured capability"):
+            controller.static_stub_support("assignment", target)
+
+    def test_unproved_imported_feature_cannot_borrow_module_availability(self):
+        original, evidence = self.setup_selection_fixture(feature=True)
+        policy = original.policy.model_copy(update={
+            "setup_capabilities_hash": fingerprint([item.model_dump(mode="json") for item in evidence.capabilities]),
+        })
+        plan = build_plan(
+            policy, original.draft, original.capture, original.prepared, report_text(original.issue, []),
+            capabilities=evidence.capabilities,
+        )
+        controller = AssessmentController(
+            self.root / "missing-feature", policy, original.issue, [], original.capture,
+            original.draft, original.prepared, plan,
+        )
+        self.assertEqual(plan.readiness, "blocked")
+        self.assertEqual(controller.static_stub_support("assignment", self.test_targets[0]), {})
+        with self.assertRaises(ValueError):
+            controller.freeze_verification("assignment", self.test_targets)
+
+    def test_report_local_shadow_stub_cannot_borrow_bundled_stub_proof(self):
+        original, _ = self.setup_selection_fixture(extra_source=True)
+        draft = original.draft.model_copy(deep=True)
+        extra = original.capture.blocks[1]
+        draft.sources.append(draft.sources[0].model_copy(update={
+            "source_id": extra.id, "path": "typing_extensions.pyi", "filename_quote": None,
+        }))
+        draft.claims[0].source_ids.append(extra.id)
+        prepared = materialize_setup(original.capture, associations(draft), [])
+        requirement = next(
+            item for item in inspect_requirements(original.capture, prepared) if item.kind == "static_stubs"
+        )
+        capability = check_bundled_stub_capability(requirement, self.test_targets[0], self.store.verify)
+        policy = original.policy.model_copy(update={
+            "setup_capabilities_hash": fingerprint([capability.model_dump(mode="json")]),
+        })
+        plan = build_plan(
+            policy, draft, original.capture, prepared, report_text(original.issue, []), capabilities=[capability],
+        )
+        controller = AssessmentController(
+            self.root / "local-shadow", policy, original.issue, [], original.capture, draft, prepared, plan,
+        )
+        self.assertEqual(plan.readiness, "ready")
+        self.assertEqual(controller.static_stub_support("assignment", self.test_targets[0]), {})
+
+    async def test_stub_warning_exception_does_not_hide_bad_imports_precision_or_other_diagnostics(self):
+        controller = self.static_stub_controller()
+        plan = controller.freeze_verification("assignment", self.test_targets)
+        receipts = await controller.verify(plan, self.store)
+        base = receipts[0].raw
+        for mode in (
+            "missing_import", "error", "wrong_module", "wrong_path", "wrong_position",
+            "malformed_position", "precision", "stderr", "extra_warning",
+        ):
+            with self.subTest(mode=mode):
+                raw = json.loads(json.dumps(receipts[3].raw if mode == "precision" else base))
+                parsed = json.loads(raw["stdout"])
+                warning = parsed["generalDiagnostics"][-1]
+                if mode == "missing_import":
+                    warning["rule"] = "reportMissingImports"
+                elif mode == "error":
+                    warning["severity"] = "error"
+                elif mode == "wrong_module":
+                    warning["message"] = 'Import "unapproved_dependency" could not be resolved from source'
+                elif mode == "wrong_path":
+                    warning["file"] = str(self.root / "outside.py")
+                elif mode == "wrong_position":
+                    warning["range"]["start"]["character"] = 0
+                elif mode == "malformed_position":
+                    warning["range"] = None
+                elif mode == "precision":
+                    parsed["generalDiagnostics"][0]["message"] = 'Type of "value" is "Unknown"'
+                elif mode == "stderr":
+                    raw["stderr"] = "Unverified environment configuration"
+                else:
+                    parsed["generalDiagnostics"].append({
+                        **warning, "rule": "reportUnusedImport", "message": "An unrelated warning",
+                    })
+                raw["stdout"] = json.dumps(parsed)
+                problems = []
+                self.assertEqual(observe_claims(
+                    plan.scenario, raw, problems,
+                    static_stub_modules=controller.static_stub_support("assignment", self.test_targets[0]),
+                ), {"assignment": "blocked"})
+                self.assertTrue(problems)
+
+    async def test_new_or_changed_control_imports_cannot_borrow_original_stub_approval(self):
+        controller = self.static_stub_controller()
+        plan = controller.freeze_verification("assignment", self.test_targets)
+        receipts = await controller.verify(plan, self.store)
+        original = plan.scenario.files["sample.py"]
+        for source, warning_line in (
+            (original.replace("value = 1", "value = 2") + "reveal_type(value)\n", 3),
+            (original + "import typing_extensions\n", 4),
+            (original + "import typing_extensions\n", 3),
+            (original + "reveal_type(typing_extensions.ReadOnly)\n", 3),
+        ):
+            with self.subTest(warning_line=warning_line):
+                scenario = plan.scenario.model_copy(update={"control_files": {"sample.py": source}})
+                raw = json.loads(json.dumps(receipts[3].raw))
+                parsed = json.loads(raw["stdout"])
+                parsed["generalDiagnostics"][-1]["range"]["start"]["line"] = warning_line
+                raw["stdout"] = json.dumps(parsed)
+                self.assertEqual(observe_claims(
+                    scenario, raw, static_stub_modules=("typing_extensions",),
+                ), {"assignment": "blocked"})
+        for statement in ("import typing_extensions as te", "import os, typing_extensions as te"):
+            original = statement + "\nvalue = 1\n"
+            cwd = str(receipts[3].raw["cwd"])
+            warning = {
+                "file": str(Path(cwd) / "sample.py"), "severity": "warning", "rule": "reportMissingModuleSource",
+                "message": 'Import "typing_extensions" could not be resolved from source',
+                "range": {"start": {"line": 0, "character": statement.index("typing_extensions")}},
+            }
+            for addition, permitted in (("reveal_type(value)\n", True), ("reveal_type(te.ReadOnly)\n", False)):
+                self.assertEqual(static_stub_source_warning(
+                    warning, cwd, {"sample.py": original}, {"sample.py": original + addition}, ("typing_extensions",),
+                ), permitted)
+
+    async def test_validity_receives_source_warning_proofs_and_static_only_limitations(self):
+        from issue_review_validity import ValidityInput
+
+        controller = self.static_stub_controller(runtime=True)
+        plan = controller.freeze_verification("assignment", self.test_targets)
+        receipts = await controller.verify(plan, self.store)
+        result = controller.result([controller.verification_progress(plan, receipts)])
+        args = assess_issues.arguments(["--issue", "11037", "--state-dir", str(controller.directory)])
+        sdk, github = SDK(AsyncMock(), "gpt-6.1-sol", 180), GitHub()
+
+        async def inspect(_agent, _prompt, scratch, **_kwargs):
+            inputs = ValidityInput.model_validate_json((scratch / "input.json").read_bytes())
+            self.assertEqual([claim.id for claim in inputs.claims], ["assignment", "runtime"])
+            self.assertTrue(any("Static-only stub support" in text for text in inputs.claims[0].limitations))
+            self.assertEqual(inputs.claims[1].readiness, "blocked")
+            originals = [
+                item for item in inputs.evidence
+                if item.kind == "execution" and json.loads(item.content)["kind"] == "verification_original"
+            ]
+            self.assertEqual([item.observation for item in originals], ["verified_reproduced", "unobserved", "unobserved"])
+            content = json.loads(originals[0].content)
+            self.assertIn("static_stub_support", content["raw"])
+            self.assertEqual(content["raw"]["stdout_json"]["generalDiagnostics"][-1]["rule"], "reportMissingModuleSource")
+            raise ValueError("Offline static-only bridge inspection complete")
+
+        with patch.object(sdk, "run", side_effect=inspect), patch.object(github, "screen", AsyncMock()):
+            with self.assertRaisesRegex(ValueError, "Offline static-only bridge inspection complete"):
+                await assess_issues.validity_phase(controller, args, sdk, result, github=github)
+
+    def setup_selection_input(self, controller, evidence):
+        return AssessmentInput(
+            report_id=controller.capture.report_id, origin="captured_report", provenance="Explicit offline fixture",
+            issue=controller.issue, comments=[],
+            declared_claims=[DeclaredClaim(id=claim.id, summary=claim.summary) for claim in controller.draft.claims],
+            setting_choices=evidence.selections[0].setting_choices, limitations=[], blind=True,
+            target_selection_provenance="Explicit offline target assignments", frozen_targets_hash=evidence.targets_hash,
+        )
+
+    async def test_approved_setup_selection_rejects_guessing_instead_of_losing_valid_proofs(self):
+        controller, evidence = self.setup_selection_fixture()
+        capabilities = assess_issues.validate_setup_evidence(evidence, controller.capture, self.test_targets)
+        policy = controller.policy.model_copy(update={
+            "setup_capabilities_hash": fingerprint([item.model_dump(mode="json") for item in capabilities]),
+            "setup_selections_hash": fingerprint([item.model_dump(mode="json") for item in evidence.selections]),
+        })
+        plan = build_plan(
+            policy, controller.draft, controller.capture, controller.prepared, report_text(controller.issue, []),
+            capabilities=capabilities, setup_selections=evidence.selections,
+        )
+        self.assertEqual(plan.readiness, "ready")
+        self.assertEqual(plan.setup_selections, evidence.selections)
+        guessed = controller.draft.model_copy(update={
+            "sources": [controller.draft.sources[0].model_copy(update={"path": "guessed.py"})],
+        })
+        guessed_setup = materialize_setup(controller.capture, associations(guessed), [])
+        with self.assertRaisesRegex(ValueError, "exact controller-approved source association"):
+            build_plan(
+                policy, guessed, controller.capture, guessed_setup, report_text(controller.issue, []),
+                capabilities=capabilities, setup_selections=evidence.selections,
+            )
+        saved = AssessmentController(
+            self.root / "selection-resume", policy, controller.issue, [], controller.capture,
+            controller.draft, controller.prepared, plan,
+        )
+        with patch.object(assess_issues, "implementation_hash", return_value="implementation"):
+            self.assertEqual(assess_issues.load_controller(saved.directory).plan.setup_selections, evidence.selections)
+        saved.plan.setup_selections.clear()
+        with self.assertRaisesRegex(ValueError, "identity changed"):
+            saved.require_identity()
+        self.assertEqual(self.calls, [])
+
+    async def test_setup_selection_cannot_rebind_layout_assumptions_grouping_or_capabilities(self):
+        controller, evidence = self.setup_selection_fixture()
+        selection = evidence.selections[0]
+        for changed in (
+            selection.model_copy(update={"setup_hash": "0" * 64}),
+            selection.model_copy(update={
+                "associations": [selection.associations[0].model_copy(update={"path": "different.py"})],
+            }),
+            selection.model_copy(update={"associations": [*selection.associations, *selection.associations]}),
+            selection.model_copy(update={
+                "setting_choices": [SettingChoice(setting="pythonVersion", value="3.14", reason="Not approved")],
+            }),
+        ):
+            with self.subTest(selection=changed), self.assertRaises(ValueError):
+                assess_issues.validate_setup_evidence(
+                    evidence.model_copy(update={"selections": [changed]}), controller.capture, self.test_targets,
+                )
+        for changed in (
+            evidence.model_copy(update={"capabilities": []}),
+            evidence.model_copy(update={"selections": [selection, selection]}),
+        ):
+            with self.subTest(evidence=changed), self.assertRaises(ValueError):
+                assess_issues.validate_setup_evidence(changed, controller.capture, self.test_targets)
+        self.assertEqual(self.calls, [])
+
+    async def test_approved_selection_preserves_assumption_provenance_not_just_effective_settings(self):
+        controller, evidence = self.setup_selection_fixture(assumed=True)
+        snapshot = self.setup_selection_input(controller, evidence)
+        assess_issues.validate_setup_evidence(
+            evidence, controller.capture, self.test_targets, assessment_input=snapshot,
+        )
+        changed_choice = snapshot.setting_choices[0].model_copy(update={"reason": "Different provenance"})
+        for changed in (
+            evidence.model_copy(update={"selections": [
+                evidence.selections[0].model_copy(update={"setting_choices": [changed_choice]}),
+            ]}),
+        ):
+            with self.assertRaisesRegex(ValueError, "exact source/layout/settings/assumptions"):
+                assess_issues.validate_setup_evidence(changed, controller.capture, self.test_targets)
+        with self.assertRaisesRegex(ValueError, "frozen controller setting choices"):
+            assess_issues.validate_setup_evidence(
+                evidence, controller.capture, self.test_targets,
+                assessment_input=snapshot.model_copy(update={"setting_choices": [changed_choice]}),
+            )
+        self.assertEqual(self.calls, [])
+
+    async def test_valid_different_group_or_layout_cannot_borrow_an_existing_capability(self):
+        controller, evidence = self.setup_selection_fixture(extra_source=True)
+        selected = evidence.selections[0]
+        for source_associations in (
+            [selected.associations[0].model_copy(update={"path": "different.py"})],
+            [*selected.associations, SourceAssociation(source_id=controller.capture.blocks[1].id, path="other.py")],
+        ):
+            prepared = materialize_setup(controller.capture, source_associations, [])
+            changed = AssessmentSetupSelection(
+                setup_hash=prepared.digest, associations=source_associations, setting_choices=[],
+            )
+            with self.subTest(associations=source_associations), self.assertRaisesRegex(ValueError, "lacks exact capability"):
+                assess_issues.validate_setup_evidence(
+                    evidence.model_copy(update={"selections": [changed]}), controller.capture, self.test_targets,
+                )
+        self.assertEqual(self.calls, [])
+
+    async def test_setup_selection_reaches_toolless_readiness_and_saved_identity_via_api(self):
+        controller, evidence = self.setup_selection_fixture()
+        snapshot = self.setup_selection_input(controller, evidence)
+        args = assess_issues.arguments([
+            "--issue", str(snapshot.issue.number), "--state-dir", str(self.root / "selection-api"),
+            "--phase", "readiness",
+        ])
+        github = GitHub()
+        sdk = SDK(AsyncMock(), "gpt-6.1-sol", 180)
+
+        async def run(agent, prompt, scratch, *, schema, validate, **kwargs):
+            self.assertIs(schema, AssessmentDraft)
+            self.assertEqual(kwargs["native_tools"], [])
+            self.assertEqual(kwargs["timeout"], 180)
+            self.assertIn("Controller-approved exact setup selections", prompt)
+            self.assertIn(evidence.selections[0].setup_hash, prompt)
+            content = controller.draft.model_dump_json()
+            validate(content)
+            return content
+
+        with (
+            patch.object(github, "issue", AsyncMock(side_effect=AssertionError("No live lookup"))),
+            patch.object(github, "comments", AsyncMock(side_effect=AssertionError("No live lookup"))),
+            patch.object(github, "screen", AsyncMock()),
+            patch.object(sdk, "run", side_effect=run),
+            patch.object(assess_issues, "implementation_hash", return_value="offline-implementation"),
+        ):
+            result = await assess_issues.assess(
+                args, github, sdk, assessment_input=snapshot, frozen_targets=self.test_targets,
+                setup_evidence=evidence,
+            )
+        self.assertEqual(result.plan.readiness, "ready")
+        self.assertEqual(result.plan.setup_selections, evidence.selections)
+        self.assertIsNone(result.action())
+        self.assertEqual(self.calls, [])
+
+    async def test_invalid_selection_stops_cli_before_client_and_api_before_sdk(self):
+        controller, evidence = self.setup_selection_fixture()
+        invalid = evidence.model_copy(update={"selections": [
+            evidence.selections[0].model_copy(update={"setup_hash": "0" * 64}),
+        ]})
+        snapshot = self.setup_selection_input(controller, evidence)
+        for name, value in (
+            ("snapshot.json", snapshot.model_dump(mode="json")),
+            ("setup.json", invalid.model_dump(mode="json")),
+            ("targets.json", [item.model_dump(mode="json") for item in self.test_targets]),
+        ):
+            (self.root / name).write_text(json.dumps(value), encoding="utf-8")
+        args = assess_issues.arguments([
+            "--snapshot", str(self.root / "snapshot.json"), "--state-dir", str(self.root / "selection-invalid"),
+            "--frozen-targets", str(self.root / "targets.json"), "--setup-evidence", str(self.root / "setup.json"),
+        ])
+        args.cli_path = "OFFLINE: must not launch"
+        with patch.object(assess_issues, "CopilotClient") as client:
+            with self.assertRaisesRegex(ValueError, "exact source/layout/settings/assumptions"):
+                await assess_issues.main(args)
+            client.assert_not_called()
+        github, sdk = GitHub(), SDK(AsyncMock(), "gpt-6.1-sol", 180)
+        with patch.object(sdk, "run") as model:
+            with self.assertRaisesRegex(ValueError, "exact source/layout/settings/assumptions"):
+                await assess_issues.assess(
+                    args, github, sdk, assessment_input=snapshot, frozen_targets=self.test_targets,
+                    setup_evidence=invalid,
+                )
+            model.assert_not_called()
+        self.assertFalse(args.state_dir.exists())
+
+    async def test_cli_preserves_approved_selection_through_real_readiness_adapter(self):
+        controller, evidence = self.setup_selection_fixture()
+        snapshot = self.setup_selection_input(controller, evidence)
+        for name, value in (
+            ("snapshot.json", snapshot.model_dump(mode="json")),
+            ("setup.json", evidence.model_dump(mode="json")),
+            ("targets.json", [item.model_dump(mode="json") for item in self.test_targets]),
+        ):
+            (self.root / name).write_text(json.dumps(value), encoding="utf-8")
+        args = assess_issues.arguments([
+            "--snapshot", str(self.root / "snapshot.json"), "--state-dir", str(self.root / "selection-cli"),
+            "--frozen-targets", str(self.root / "targets.json"), "--setup-evidence", str(self.root / "setup.json"),
+            "--phase", "readiness",
+        ])
+        args.cli_path = "OFFLINE: mock runtime only"
+        sdk = SDK(AsyncMock(), "gpt-6.1-sol", 180)
+
+        async def run(agent, prompt, scratch, *, schema, validate, **kwargs):
+            self.assertIn(evidence.selections[0].setup_hash, prompt)
+            self.assertEqual(kwargs["native_tools"], [])
+            content = controller.draft.model_dump_json()
+            validate(content)
+            return content
+
+        with (
+            patch.object(assess_issues, "CopilotClient", return_value=AsyncMock()),
+            patch.object(assess_issues, "SDK", return_value=sdk),
+            patch.object(assess_issues.InjectionScreening, "from_environment", return_value=None),
+            patch.object(GitHub, "screen", AsyncMock()),
+            patch.object(sdk, "run", side_effect=run) as model,
+            patch.object(assess_issues, "implementation_hash", return_value="offline-implementation"),
+            patch.object(assess_issues, "show"),
+        ):
+            await assess_issues.main(args)
+        self.assertEqual(model.call_count, 1)
+        saved = json.loads((args.state_dir / "assessment.json").read_text())
+        self.assertEqual(saved["plan"]["setup_selections"], [item.model_dump(mode="json") for item in evidence.selections])
+        self.assertEqual(saved["plan"]["claims"][0]["readiness"], "ready")
+        self.assertEqual(self.calls, [])
 
     async def test_every_action_surface_is_host_disallowed_even_for_complete_observations(self):
         controller = self.controller()
@@ -1432,6 +2098,24 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(method == "GET" for method, _ in requests))
         self.assertEqual(requests[0][1], "repos/microsoft/pyright/contents/docs/type-concepts.md?ref=" + "a" * 40)
         self.assertEqual(len(requests), 3)
+
+    async def test_pinned_policy_reader_rejects_failed_find_and_unresolved_html_anchor(self):
+        from issue_review_validity import ReferenceRead
+
+        github = GitHub()
+        location = "https://github.com/microsoft/pyright/blob/" + "a" * 40 + "/docs/type-concepts.md"
+        with patch.object(github, "api", AsyncMock(return_value={
+            "encoding": "base64", "content": base64.b64encode(b"Actual pinned policy.").decode(),
+        })):
+            reader = assess_issues.AssessmentReferenceReader(github)
+            for request in (
+                ReferenceRead(location=location, find="Absent policy"),
+                ReferenceRead(location=location + "#unknown-section"),
+            ):
+                with self.subTest(request=request), self.assertRaises(ValueError):
+                    await reader.read_reference(request)
+            page = await reader.read_reference(ReferenceRead(location=location, find="pinned", max_chars=6))
+            self.assertIn("pinned", page.content)
 
 
 class SDKTests(unittest.IsolatedAsyncioTestCase):

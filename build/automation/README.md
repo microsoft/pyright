@@ -56,6 +56,14 @@ frozen separately and needs fresh original/control executions. Main/latest outco
 convenient historical symptom, and discovery receipts cannot substitute for verification. An unexpected diagnostic
 that is absent historically must not become a missing-diagnostic claim to force reproduction. Exact reported
 wording can support honest all-negative verification; unknown wording that was not observed remains unresolved.
+One material concern may have several reported diagnostics. `DiscoveryScope.reported_symptoms` freezes their
+exact messages/rules at individual captured source locations before discovery, without splitting them into
+redundant claims. Different messages use a null common `reported_message`. Refinement must retain every frozen
+location and scoped symptom; a single convenient diagnostic cannot establish the whole concern.
+An abbreviated report excerpt or CLI presentation suffix is not a complete JSON diagnostic message. When no
+complete message is available, preserve the raw quote, known rule and narrow question/locations with unknown
+wording; only then may historical discovery supply exact wording at those locations. Known wording is immutable.
+An unobserved diagnostic rule must also have been frozen from the report; otherwise its predicate uses null.
 Refinement is a planning stage: it proposes justified predicates and, when needed, a complete separate precision
 tree before those checks have executed. Predicted precision types are expectations to test, never observed output.
 The controller checks the proposed tree during the role's shared correction budget, freezes both variants, and
@@ -75,6 +83,12 @@ invented non-null sections, altered excerpts, wrong domains and cross-claim refe
 reference catalog makes those scope constraints explicit, including for additional material claims. Controller
 assumptions still prohibit a supported conclusion; attachment never silently downgrades a finding. Readiness-stage
 reasons are labeled as pre-execution context, not substituted for the current controller receipt ledger.
+If all independently qualified original observations are absent and none is reproduced, the alleged product
+bug remains inconclusive. Conditional specification analysis belongs in its explanation, not a `bug/qualified`
+disposition. Unobserved/discovery/control records do not override original observations; a genuinely reproduced
+historical symptom still counts when main/latest are absent. A supplied stub/configuration/dependency cause
+uses `stub_or_environment`, even when the specification correctly explains that behavior. Without qualified
+original reproduction, that causal finding remains qualified or inconclusive rather than supported.
 
 Validity input factors byte-identical source/setup records and exact checker-target metadata across authorized
 claims. Execution content retains all parsed stdout fields and diagnostic text; repeated absolute filename prefixes
@@ -117,6 +131,42 @@ must match its hashes. Frozen blind inputs prohibit identity/resolution research
 including on resume. Sources are always recaptured from exact report/discussion bytes, not reconstructed from
 candidate files or prior checker receipts. Synthetic inputs have no fabricated GitHub identity or creation date.
 Individual `--phase` operations use only this workflow's version-one checkpoints, not publication ledgers.
+`--setup-evidence` accepts an operator-approved `AssessmentSetupEvidence` JSON record containing `schema_version=1`,
+`capture_hash`, `targets_hash` and `capabilities`. It requires a fresh `--snapshot` and `--frozen-targets`;
+the hashes bind the exact controller source capture and full ordered target records. Capability digests and
+bounded local proof-file bytes are rechecked before an SDK client starts. These are existing setup proofs,
+not installation permission, fresh issue observations or general feature equivalence. Different source grouping,
+configuration, capture identity or target records need separately approved evidence. The API exposes the same
+check through `validate_setup_evidence`; normal requirement resolution still rejects incompatible capabilities.
+Optional `selections` preserve the exact reconstruction behind those proofs. Each selection contains
+`setup_hash`, captured-source `associations` (source ID, path and optional exact filename quote), and
+`setting_choices`, including their original assumption-reason text. The controller rematerializes every selection
+and resolves its exact requirements against the supplied capabilities before any model call. A changed path,
+source grouping, setting, or assumption provenance cannot reuse a proof merely because the effective settings
+look equivalent. Selections must agree with the snapshot's frozen choices; a disagreement requires a separately
+reviewed new input/selection, not editing or upgrading previous evidence.
+The readiness prompt exposes this validated catalog, and its validator rejects renaming selected source IDs or
+relabeling assumptions rather than silently losing applicable proofs. Selection identities are frozen with the
+policy and checkpoint. Separate examples remain separate groups; a proof for one group does not approve another,
+and unsupported concerns stay explicit. These associations are controller conventions, not newly reported filenames.
+For the API, pass the complete record through `setup_evidence=` to `assess`; capability-only
+`setup_capabilities=` remains supported but does not supply a reconstruction catalog. The two overrides cannot
+be combined. Frozen benchmark runners do not implicitly acquire this new input; their contracts remain unchanged.
+The controller filename catalog distinguishes captured filename quotes from inferred path conventions. A command
+mentioning a filename cannot substitute for that source's captured `filename_evidence`.
+
+Static-only assessment can accept a `reportMissingModuleSource` warning for `typing_extensions` when the exact
+source group has complete approved stub/feature proofs for that exact checker target, and the bundled stub still
+matches its captured hash. The warning must identify the unchanged original module token with the exact rule,
+severity, wording, path and position. Controls must preserve the original source as a prefix and add only
+instrumentation over existing values, not new imports or uses of the module object/alias. This prevents a
+deduplicated import warning from approving additional unproved features. The warning remains verbatim in discovery and verification receipts, with
+`raw.static_stub_support` naming capability digests retained in setup evidence. Discovery remains discovery, and
+independent originals and affirmative precision controls remain necessary. Missing static imports, unproved
+features, other warnings/errors, stderr and Any/Unknown precision loss still block. Proofs do not carry across
+targets, source groups or versions. The default reproduction/publication classifier remains strict unless the
+assessment controller explicitly supplies the proved module context. Static evidence does not establish runtime
+installation, execute Python, supply a missing reporter dependency version or relax historical-fidelity gates.
 
 ### Small calibration, not an accuracy claim
 
@@ -158,6 +208,38 @@ units are not converted to dollars, and token capacity is not labeled consumed t
 claims remain visible and require reference review; they are never mapped to a convenient expected claim.
 Useful information requests and unnecessary abstention still require explicit human utility judgments. Reference
 agreement does not prove semantic correctness or authorize closure.
+
+Summaries also report `judgment_quality`: primary reference matches, matches accepted only through a conditional
+alternative, non-abstaining decisions, and inconclusive results. An always-inconclusive baseline uses the same
+saved observations and reference conditions, without another model call. Matching that baseline is not evidence
+that the assessor distinguishes bugs from correct behavior. Decision coverage measures non-abstaining predictions
+among completed scored claims; non-abstaining reference-agreement yield retains all planned scored claims in its
+denominator, including missing and failed cases. Empty denominators produce `null`, not a passing percentage.
+Metrics separate all references, human-reviewed references, and human-reviewed retained-report holdouts. Synthetic
+and previously exposed development results are not independent real-issue accuracy. The disposition confusion
+counts use only singleton settled references, exclude additional unreferenced claims, and do not consider
+qualification status; exact status matching remains required for agreement. A reference permitting multiple
+dispositions does not supply a unique gold label. An allowed abstention is not declared incorrect, useful, or
+unnecessary by these metrics. No rate establishes semantic accuracy or authorizes unattended rollout.
+
+For an explicitly approved semantic-only development check, `ValidityEvidence.target="experimental"` identifies
+a deliberately chosen conditional checker setup rather than a historical, main or latest observation.
+Experimental execution evidence can be `discovery_only` or `unobserved`, never `verified_reproduced` or
+`verified_absent`. It cannot support a settled product defect or overturn verified-negative originals.
+Using saved experimental evidence to assess conditional reasoning does not exercise the full assessor, prove
+historical fidelity, change an independent-holdout gate, or authorize an unattended run.
+
+Validity prompts identify whether reference retrieval is actually exposed; the production prefetch-only
+path uses saved evidence, not model-initiated lookups. Default reads of authoritative HTML section URLs locate
+the actual visible anchor, not a table-of-contents link or the page introduction. Missing, hidden or ambiguous
+anchors and unsuccessful text searches fail explicitly. Explicit nonzero offsets still page the document's
+visible text; each saved excerpt records its actual absolute offset. Pinned Markdown/precedent readers do not
+resolve HTML anchors: use an unfragmented URL with explicit text search or paging instead.
+
+Conditional rule application is assessed separately from missing historical settings, untested variants and
+an unknown implementation cause, while retaining those obligations and qualifications. Having no verified
+originals is not a verified-negative result. The nonempty all-negative-original rule remains unchanged, and
+neither these distinctions nor correct reference delivery establishes improved model judgment accuracy.
 
 ## Historical reproduction before RCA
 

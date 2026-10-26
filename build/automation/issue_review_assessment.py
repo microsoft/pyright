@@ -10,7 +10,7 @@ import json
 import re
 import subprocess
 import uuid
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Collection, Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -18,11 +18,11 @@ from pydantic import JsonValue
 
 from issue_review_assessment_models import (
     AssessmentClaimDraft, AssessmentDraft, AssessmentInput, AssessmentPlan, AssessmentPolicy, AssessmentReceipt, AssessmentRun,
-    ClaimAssessment, ClaimProgress, DiscoveryPlan, VerificationPlan, VerificationRefinement,
+    AssessmentSetupSelection, ClaimAssessment, ClaimProgress, DiscoveryPlan, VerificationPlan, VerificationRefinement,
 )
 from issue_review_models import Issue, ReproductionScenario, ReproductionTarget
 from issue_review_reproduction import (
-    TargetStore, classify, fingerprint, observe_claims, relative_path, scenario_inputs, tree_hash,
+    TargetStore, classify, fingerprint, observe_claims, relative_path, scenario_inputs, static_stub_source_warning, tree_hash,
 )
 from issue_review_sources import (
     MaterializedSetup, ReportDocument, SettingChoice, SetupCapability, SourceAssociation, SourceCapture,
@@ -67,6 +67,34 @@ def associations(draft: AssessmentDraft) -> list[SourceAssociation]:
 def choices(draft: AssessmentDraft) -> list[SettingChoice]:
     return [SettingChoice(setting=choice.setting, value=choice.value, reason=choice.reason)
             for choice in draft.setting_choices]
+
+
+def validate_setup_selections(
+    selections: Sequence[AssessmentSetupSelection], capture: SourceCapture,
+    capabilities: Sequence[SetupCapability],
+) -> None:
+    if len(selections) > 16 or len({item.setup_hash for item in selections}) != len(selections):
+        raise ValueError("Approved setup selections must be bounded and unique")
+    known: dict[str, SourceAssociation] = {}
+    covered: set[str] = set()
+    for selection in selections:
+        prepared = materialize_setup(capture, selection.associations, selection.setting_choices)
+        if prepared.digest != selection.setup_hash:
+            raise ValueError("Approved setup selection differs from its exact source/layout/settings/assumptions")
+        original_inputs(prepared)
+        for association in selection.associations:
+            if association.source_id in known and known[association.source_id] != association:
+                raise ValueError("Approved setup selections have conflicting source associations")
+            known[association.source_id] = association
+        requirements = inspect_requirements(capture, prepared)
+        required = {fingerprint(item.model_dump(mode="json")) for item in requirements}
+        matching = [item for item in capabilities if item.requirement_hash in required]
+        resolution = resolve_setup(requirements, matching)
+        if resolution.status != "ready":
+            raise ValueError("Approved setup selection lacks exact capability evidence: " + "; ".join(resolution.blockers))
+        covered.update(required)
+    if selections and any(item.requirement_hash not in covered for item in capabilities):
+        raise ValueError("Approved capability does not belong to any supplied setup selection")
 
 
 def controls(claim: AssessmentClaimDraft | VerificationRefinement) -> dict[str, str]:
@@ -121,6 +149,7 @@ def build_plan(
     prepared: MaterializedSetup, report: str,
     *, claim_blockers: dict[str, list[str]] | None = None,
     capabilities: Sequence[SetupCapability] = (),
+    setup_selections: Sequence[AssessmentSetupSelection] = (),
     assessment_input: AssessmentInput | None = None,
 ) -> AssessmentPlan:
     verify_capture(capture)
@@ -129,6 +158,18 @@ def build_plan(
         raise ValueError("This controller policy does not permit assumed settings")
     if policy.setup_capabilities_hash != fingerprint([item.model_dump(mode="json") for item in capabilities]):
         raise ValueError("Controller setup capabilities differ from the frozen readiness policy")
+    if policy.setup_selections_hash != fingerprint([item.model_dump(mode="json") for item in setup_selections]):
+        raise ValueError("Controller setup selections differ from the frozen readiness policy")
+    validate_setup_selections(setup_selections, capture, capabilities)
+    chosen = {item.source_id: item for item in associations(draft)}
+    for selection in setup_selections:
+        if {item.setting: item for item in selection.setting_choices} != {
+            item.setting: item for item in choices(draft)
+        }:
+            raise ValueError("Use the exact controller-approved setup setting choices, including assumption provenance")
+        for association in selection.associations:
+            if association.source_id in chosen and chosen[association.source_id] != association:
+                raise ValueError("Use the exact controller-approved source association; do not rename or relabel it")
     if assessment_input is not None:
         if policy.assessment_input_hash != fingerprint(assessment_input.model_dump(mode="json")):
             raise ValueError("Frozen assessment input identity changed")
@@ -198,6 +239,10 @@ def build_plan(
         if claim.discovery is not None and (
             not reported_message(claim.discovery.reported_message)
             or claim.discovery.reported_rule is not None and claim.discovery.reported_rule not in report
+            or any(
+                not reported_message(item.message) or item.rule is not None and item.rule not in report
+                for item in claim.discovery.reported_symptoms
+            )
         ):
             raise ValueError(
                 f"Claim {claim.id}: frozen reported wording/rule must be exact report evidence or an exact "
@@ -241,10 +286,14 @@ def build_plan(
         ])),
         assumptions=[f"{choice.setting}={choice.value}: {choice.reason}" for choice in draft.setting_choices],
         capabilities=list(capabilities),
+        setup_selections=list(setup_selections),
     )
 
 
-def validate_discovery_output(record: dict[str, JsonValue], target: ReproductionTarget, files: dict[str, str]) -> list[str]:
+def validate_discovery_output(
+    record: dict[str, JsonValue], target: ReproductionTarget, files: dict[str, str],
+    *, static_stub_modules: Collection[str] = (),
+) -> list[str]:
     problems = []
     if record.get("error") or record.get("exit_code") not in (0, 1):
         problems.append("Historical discovery did not complete successfully")
@@ -268,8 +317,10 @@ def validate_discovery_output(record: dict[str, JsonValue], target: Reproduction
         ):
             problems.append("Historical discovery contains malformed or unsupported diagnostic records")
         elif any(
-            item.get("rule") in {"reportMissingImports", "reportMissingModuleSource"}
-            or "could not be resolved" in str(item.get("message"))
+            (
+                item.get("rule") in {"reportMissingImports", "reportMissingModuleSource"}
+                or "could not be resolved" in str(item.get("message"))
+            ) and not static_stub_source_warning(item, str(record.get("cwd", "")), files, files, static_stub_modules)
             for item in diagnostics
         ):
             problems.append("Unresolved imports invalidate historical discovery")
@@ -320,6 +371,9 @@ class AssessmentController:
             or self.policy.setup_capabilities_hash != fingerprint([
                 item.model_dump(mode="json") for item in self.plan.capabilities
             ])
+            or self.policy.setup_selections_hash != fingerprint([
+                item.model_dump(mode="json") for item in self.plan.setup_selections
+            ])
             or snapshot["plan"] != self.plan.model_dump(mode="json")
             or snapshot["policy"] != self.policy.model_dump(mode="json")
             or self.policy.assessment_input_hash != (None if incoming is None else fingerprint(incoming))
@@ -352,6 +406,57 @@ class AssessmentController:
             self.capture, [item for item in associations(self.draft) if item.source_id in claim.source_ids],
             choices(self.draft),
         )
+
+    def static_stub_support(self, claim_id: str, target: ReproductionTarget) -> dict[str, list[str]]:
+        self.require_identity()
+        prepared = self.claim_setup(claim_id)
+        requirements = inspect_requirements(self.capture, prepared)
+        required = {fingerprint(item.model_dump(mode="json")) for item in requirements}
+        capabilities = [item for item in self.plan.capabilities if item.requirement_hash in required]
+        if (
+            resolve_setup(requirements, capabilities).status != "ready"
+            or target.status != "ready" or not target.directory or not target.tree_hash
+        ):
+            return {}
+        support = {}
+        for requirement in requirements:
+            if requirement.kind != "static_stubs" or requirement.name != "typing_extensions":
+                continue
+            if any(
+                Path(name).stem.casefold() == requirement.name
+                or requirement.name in {part.casefold() for part in Path(name).parts[:-1]}
+                for name in prepared.files
+            ):
+                continue
+            module_keys = {
+                fingerprint(item.model_dump(mode="json")) for item in requirements
+                if item.name == requirement.name
+            }
+            proofs = [item for item in capabilities if item.requirement_hash in module_keys]
+            target_hash = fingerprint(target.model_dump(mode="json"))
+            if not proofs or not all(
+                any(item.locator == target.identity and item.sha256 == target_hash for item in proof.evidence)
+                for proof in proofs
+            ):
+                continue
+            stub = Path(target.directory) / "dist" / "typeshed-fallback" / "stdlib" / "typing_extensions.pyi"
+            if stub.is_symlink() or not stub.resolve().is_relative_to(Path(target.directory).resolve()):
+                raise ValueError("Approved static stub escapes the checker target")
+            if not stub.is_file():
+                raise ValueError("Approved static stub is missing, empty or exceeds the inspection bound")
+            with stub.open("rb") as stream:
+                data = stream.read(1048577)
+            if not 0 < len(data) <= 1048576:
+                raise ValueError("Approved static stub is missing, empty or exceeds the inspection bound")
+            stub_hash = hashlib.sha256(data).hexdigest()
+            if not any(
+                proof.requirement_hash == fingerprint(requirement.model_dump(mode="json"))
+                and any(item.locator == str(stub) and item.sha256 == stub_hash for item in proof.evidence)
+                for proof in proofs
+            ):
+                raise ValueError("Approved static stub differs from its captured capability evidence")
+            support[requirement.name] = [proof.digest for proof in proofs]
+        return support
 
     def require_read_only(self, operation: str = "publication") -> None:
         raise ValueError(f"Assessment-v1 is permanently read-only: {operation} is forbidden")
@@ -422,7 +527,15 @@ class AssessmentController:
                 raise ValueError("Historical discovery inputs changed during execution")
         except (OSError, ValueError, TimeoutError) as error:
             raw["error"] = str(error)
-        problems = validate_discovery_output(raw, target, self.claim_setup(plan.claim_id).files)
+        support = {} if raw.get("error") else self.static_stub_support(plan.claim_id, target)
+        if support:
+            qualification: dict[str, JsonValue] = {
+                module: [digest for digest in digests] for module, digests in support.items()
+            }
+            raw["static_stub_support"] = qualification
+        problems = validate_discovery_output(
+            raw, target, self.claim_setup(plan.claim_id).files, static_stub_modules=support,
+        )
         receipt = AssessmentReceipt(
             id="discovery-" + str(raw["id"]), kind="discovery", policy_hash=plan.policy_hash,
             plan_hash=fingerprint(plan.model_dump()), claim_id=plan.claim_id, raw=raw,
@@ -475,6 +588,16 @@ class AssessmentController:
                 raise ValueError("Refinement changed the frozen reported symptom wording")
             if discovery.scope.reported_rule is not None and symptom.rule != discovery.scope.reported_rule:
                 raise ValueError("Refinement changed the frozen reported diagnostic rule")
+            reported = [
+                item for item in discovery.scope.reported_symptoms
+                if paths[item.source_id] == symptom.file and item.line == symptom.line
+            ]
+            matches_reported = any(
+                item.message == symptom.message and (item.rule is None or item.rule == symptom.rule)
+                for item in reported
+            )
+            if reported and not matches_reported:
+                raise ValueError("Refinement changed a scoped frozen reported symptom")
             found = any(
                 Path(item["file"]).resolve() == (Path(str(receipt.raw["cwd"])) / relative_path(symptom.file)).resolve()
                 and item["range"]["start"]["line"] == symptom.line - 1
@@ -482,13 +605,32 @@ class AssessmentController:
                 and (symptom.rule is None or item.get("rule") == symptom.rule)
                 for item in output["generalDiagnostics"]
             )
-            if not found and discovery.scope.reported_message is None:
+            if not found and discovery.scope.reported_message is None and not matches_reported:
                 raise ValueError("An unobserved predicate needs exact reported wording frozen before discovery")
+            if not found and symptom.rule is not None and (
+                symptom.rule != discovery.scope.reported_rule
+                and not any(item.message == symptom.message and item.rule == symptom.rule for item in reported)
+            ):
+                raise ValueError("An unobserved diagnostic rule must be reported and frozen, or null")
+        for location in scope:
+            if not any(
+                symptom.file == paths[location.source_id] and location.start_line <= symptom.line <= location.end_line
+                for symptom in verification.broken
+            ):
+                raise ValueError("Refinement omitted a frozen reported source location")
+        for reported in discovery.scope.reported_symptoms:
+            if not any(
+                symptom.file == paths[reported.source_id] and symptom.line == reported.line
+                and symptom.message == reported.message and (reported.rule is None or symptom.rule == reported.rule)
+                for symptom in verification.broken
+            ):
+                raise ValueError("Refinement omitted a scoped frozen reported symptom")
         known_messages = {item["message"] for item in output["generalDiagnostics"]}
         report = report_text(self.issue, self.comments)
         if any(
             symptom.message not in known_messages and symptom.message not in report
             and symptom.message != discovery.scope.reported_message
+            and symptom.message not in {item.message for item in discovery.scope.reported_symptoms}
             for symptom in [*verification.broken, *verification.resolved]
         ):
             raise ValueError("Refinement cannot invent unobserved diagnostic wording")
@@ -571,7 +713,13 @@ class AssessmentController:
                         "error": f"{type(error).__name__}: {error}",
                     }
                 problems: list[str] = []
-                observed = observe_claims(plan.scenario, raw, problems)
+                support = {} if raw.get("error") else self.static_stub_support(plan.claim_id, target)
+                if support:
+                    qualification: dict[str, JsonValue] = {
+                        module: [digest for digest in digests] for module, digests in support.items()
+                    }
+                    raw["static_stub_support"] = qualification
+                observed = observe_claims(plan.scenario, raw, problems, static_stub_modules=support)
                 observation = observed.get(plan.claim_id, "blocked")
                 receipt = AssessmentReceipt(
                     id="verification-" + str(raw["id"]),
@@ -615,7 +763,13 @@ class AssessmentController:
             bucket[target.role] = receipt.raw
         observations: dict[str, Literal["reproduced", "not_reproduced", "blocked", "unobserved"]] = {}
         for target in plan.targets:
-            observed = classify(plan.scenario, originals[target.role], control.get(target.role)) if target.role in originals else "unobserved"
+            observed = classify(
+                plan.scenario, originals[target.role], control.get(target.role),
+                static_stub_modules=(
+                    self.static_stub_support(plan.claim_id, target)
+                    if not originals[target.role].get("error") and not control.get(target.role, {}).get("error") else ()
+                ),
+            ) if target.role in originals else "unobserved"
             if observed == "reproduced":
                 observations[target.role] = "reproduced"
             elif observed == "not_reproduced":
