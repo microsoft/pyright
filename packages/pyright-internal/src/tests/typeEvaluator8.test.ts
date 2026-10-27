@@ -491,6 +491,25 @@ test('Operator15', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Operator16', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator16.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .slice()
+            .sort((left, right) => left.range.start.line - right.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [31, DiagnosticRule.reportReturnType],
+            [36, DiagnosticRule.reportAssignmentType],
+            [41, DiagnosticRule.reportReturnType],
+            [46, DiagnosticRule.reportReturnType],
+            ...[97, 131, 148, 167].map((line) => [line, DiagnosticRule.reportOperatorIssue]),
+        ]
+    );
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

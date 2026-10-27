@@ -1261,6 +1261,12 @@ function validateContainmentOperation(
     return { type, magicMethodDeprecationInfo: deprecatedInfo };
 }
 
+function getOperatorType(type: Type): Type {
+    // Class objects dispatch through their metaclasses.
+    const metaclass = isInstantiableClass(type) ? type.shared.effectiveMetaclass : undefined;
+    return metaclass && isInstantiableClass(metaclass) ? ClassType.cloneAsInstance(metaclass) : type;
+}
+
 // Python evaluates a binary operation by calling the left operand's magic
 // method first, but there is an exception to this rule: if the right operand's
 // type is a proper subclass of the left operand's type and it overrides the
@@ -1271,15 +1277,8 @@ function isReflectedOperatorPrioritized(
     rightType: Type,
     operator: OperatorType
 ): boolean {
-    // Class objects dispatch through their metaclasses.
-    const leftMetaclass = isInstantiableClass(leftType) ? leftType.shared.effectiveMetaclass : undefined;
-    const rightMetaclass = isInstantiableClass(rightType) ? rightType.shared.effectiveMetaclass : undefined;
-    if (leftMetaclass && isInstantiableClass(leftMetaclass)) {
-        leftType = ClassType.cloneAsInstance(leftMetaclass);
-    }
-    if (rightMetaclass && isInstantiableClass(rightMetaclass)) {
-        rightType = ClassType.cloneAsInstance(rightMetaclass);
-    }
+    leftType = getOperatorType(leftType);
+    rightType = getOperatorType(rightType);
 
     if (!isClassInstance(leftType) || !isClassInstance(rightType)) {
         return false;
@@ -1425,6 +1424,7 @@ function validateArithmeticOperation(
 ): TypeResult {
     let deprecatedInfo: MagicMethodDeprecationInfo | undefined;
     const isIncomplete = !!leftTypeResult.isIncomplete || !!rightTypeResult.isIncomplete;
+    const isArithmetic = !operatorSupportsChaining(operator);
 
     const type = evaluator.mapSubtypesExpandTypeVars(
         leftTypeResult.type,
@@ -1473,7 +1473,8 @@ function validateArithmeticOperation(
 
                     const magicMethodName = binaryOperatorMap[operator][0];
                     let resultTypeResult: TypeResult | undefined;
-                    let decliningReflectedResult: TypeResult | undefined;
+                    let decliningResult: TypeResult | undefined;
+                    let skipReflectedFallback = false;
 
                     // If the right operand's type is a proper subclass of the left
                     // operand's type and overrides the reflected magic method, Python
@@ -1489,11 +1490,12 @@ function validateArithmeticOperation(
                             inferenceContext
                         );
 
-                        if (resultTypeResult && !operatorSupportsChaining(operator)) {
+                        if (resultTypeResult && isArithmetic) {
                             const resultType = removeNotImplemented(resultTypeResult.type);
                             if (resultType !== resultTypeResult.type) {
-                                decliningReflectedResult = { ...resultTypeResult, type: resultType };
+                                decliningResult = { ...resultTypeResult, type: resultType };
                                 resultTypeResult = undefined;
+                                skipReflectedFallback = true;
                             }
                         }
                     }
@@ -1528,32 +1530,30 @@ function validateArithmeticOperation(
                         );
                     }
 
-                    if (decliningReflectedResult) {
-                        if (resultTypeResult) {
-                            const resultType = removeNotImplemented(resultTypeResult.type);
-                            if (resultType !== resultTypeResult.type) {
-                                resultTypeResult = isNever(resultType)
-                                    ? undefined
-                                    : { ...resultTypeResult, type: resultType };
-                            }
-                        }
-
-                        if (!isNever(decliningReflectedResult.type)) {
-                            resultTypeResult = {
-                                ...decliningReflectedResult,
-                                type: combineTypes([
-                                    decliningReflectedResult.type,
-                                    resultTypeResult?.type ?? NeverType.createNever(),
-                                ]),
-                                isIncomplete: decliningReflectedResult.isIncomplete || resultTypeResult?.isIncomplete,
+                    if (resultTypeResult && isArithmetic) {
+                        const resultType = removeNotImplemented(resultTypeResult.type);
+                        if (resultType !== resultTypeResult.type) {
+                            decliningResult = {
+                                ...(decliningResult ?? resultTypeResult),
+                                type: combineTypes([decliningResult?.type ?? NeverType.createNever(), resultType]),
+                                isIncomplete: decliningResult?.isIncomplete || resultTypeResult.isIncomplete,
                                 magicMethodDeprecationInfo:
-                                    decliningReflectedResult.magicMethodDeprecationInfo ??
-                                    resultTypeResult?.magicMethodDeprecationInfo,
+                                    decliningResult?.magicMethodDeprecationInfo ??
+                                    resultTypeResult.magicMethodDeprecationInfo,
                             };
+                            resultTypeResult = undefined;
+
+                            // Python does not retry the reflected method for operands of the same runtime class.
+                            const leftOperatorType = getOperatorType(leftSubtypeExpanded);
+                            const rightOperatorType = getOperatorType(rightSubtypeExpanded);
+                            skipReflectedFallback ||=
+                                isClassInstance(leftOperatorType) &&
+                                isClassInstance(rightOperatorType) &&
+                                ClassType.isSameGenericClass(leftOperatorType, rightOperatorType);
                         }
                     }
 
-                    if (!resultTypeResult && !decliningReflectedResult) {
+                    if (!resultTypeResult && !skipReflectedFallback) {
                         // Try the alternate form (swapping right and left).
                         const altMagicMethodName = binaryOperatorMap[operator][1];
                         resultTypeResult = evaluator.getTypeOfMagicMethodCall(
@@ -1590,6 +1590,28 @@ function validateArithmeticOperation(
                                 inferenceContext
                             );
                         }
+                        if (resultTypeResult && isArithmetic) {
+                            const resultType = removeNotImplemented(resultTypeResult.type);
+                            if (resultType !== resultTypeResult.type) {
+                                resultTypeResult = isNever(resultType)
+                                    ? undefined
+                                    : { ...resultTypeResult, type: resultType };
+                            }
+                        }
+                    }
+
+                    if (decliningResult && !isNever(decliningResult.type)) {
+                        resultTypeResult = {
+                            ...decliningResult,
+                            type: combineTypes([
+                                decliningResult.type,
+                                resultTypeResult?.type ?? NeverType.createNever(),
+                            ]),
+                            isIncomplete: decliningResult.isIncomplete || resultTypeResult?.isIncomplete,
+                            magicMethodDeprecationInfo:
+                                decliningResult.magicMethodDeprecationInfo ??
+                                resultTypeResult?.magicMethodDeprecationInfo,
+                        };
                     }
 
                     if (!resultTypeResult) {
