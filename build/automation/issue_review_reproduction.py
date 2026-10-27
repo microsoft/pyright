@@ -826,11 +826,10 @@ class TargetStore:
                             "prepared": prepared, "work_retained": work.exists(), "runtime_retained": runtime.exists(),
                         }, indent=2), encoding="utf-8")
 
-    async def probe(
-        self, target: ReproductionTarget, scenario: ReproductionScenario, directory: Path, *, phase: Phase = "original",
+    async def run_static(
+        self, target: ReproductionTarget, inputs: dict[str, str], directory: Path,
     ) -> dict[str, JsonValue]:
         self.verify(target)
-        inputs = scenario_inputs(scenario, phase=phase)
         directory.mkdir(parents=True, exist_ok=True)
         if any(directory.iterdir()):
             raise ValueError("Comparison probe needs a fresh isolated input directory")
@@ -844,8 +843,8 @@ class TargetStore:
             "--outputjson", "--pythonpath", str(directory / "unavailable-python"),
         ]
         record: dict[str, JsonValue] = {
-            "id": uuid.uuid4().hex, "kind": "reproduction", "phase": phase, "target": target.model_dump(mode="json"),
-            "scenario_hash": fingerprint(scenario.model_dump()), "input_hash": before,
+            "id": uuid.uuid4().hex, "kind": "static_observation", "target": target.model_dump(mode="json"),
+            "input_hash": before,
             "inputs": {key: value for key, value in inputs.items()},
             "command": subprocess.list2cmdline(command), "cwd": str(directory),
         }
@@ -857,6 +856,13 @@ class TargetStore:
                 raise ValueError("Comparison inputs changed during checker execution")
         except (OSError, ValueError, TimeoutError) as error:
             record["error"] = str(error)
+        return record
+
+    async def probe(
+        self, target: ReproductionTarget, scenario: ReproductionScenario, directory: Path, *, phase: Phase = "original",
+    ) -> dict[str, JsonValue]:
+        record = await self.run_static(target, scenario_inputs(scenario, phase=phase), directory)
+        record.update(kind="reproduction", phase=phase, scenario_hash=fingerprint(scenario.model_dump()))
         problems: list[str] = []
         observations = observe_claims(scenario, record, problems)
         record["outcome"] = (

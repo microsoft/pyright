@@ -640,6 +640,22 @@ class RootCause(Record):
         )
 
 
+class DiagnosticObservations(Record):
+    input_hash: Text
+    discussion_hash: Text
+    directory: Text
+    action_ineligible: Literal[True] = True
+    faithful_reproduction: Literal[False] = False
+    status: Literal["running", "captured", "blocked"] = "running"
+    reported_version: str | None = None
+    version_quote: str | None = None
+    configuration: dict[str, JsonValue] = Field(default_factory=dict)
+    configuration_assumptions: list[ConfigurationAssumption] = Field(default_factory=list)
+    configuration_qualifications: list[str] = Field(default_factory=list, max_length=258)
+    receipts: list[dict[str, JsonValue]] = Field(default_factory=list, max_length=3)
+    error: str | None = None
+
+
 class Entry(Record):
     input_hash: str
     context_hash: str
@@ -660,6 +676,7 @@ class Entry(Record):
     rca_opt_in: Literal["not_asked", "declined", "accepted"] = "not_asked"
     root_cause: RootCause | None = None
     reproduction_stage: ReproductionStage | None = None
+    diagnostic_observations: DiagnosticObservations | None = None
 
     def unresolved(self) -> bool:
         return self.adjudication is not None and self.closure_reason() is None

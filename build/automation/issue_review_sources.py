@@ -577,7 +577,7 @@ def capture_sources(report_id: str, documents: Sequence[ReportDocument]) -> Sour
             ("pythonVersion", r'(?i)\bPython[ \t]+(?:version[ \t]*[:=]?[ \t]+)?`?([0-9][A-Za-z0-9_.+-]*)', "interpreter_version"),
             ("pythonVersion", r'(?i)\bPython[ \t]+version[ \t]*[:=]?[ \t]+`?([^\s`,;]+)', "interpreter_version"),
             ("pythonVersion", r'--pythonversion(?:=|[ \t]+)([^\s`,;]+)', "checker_cli"),
-            ("pyrightVersion", r'(?i)\bPyright(?:[ \t]+version)?[ \t]*[:=]?[ \t]+`?(1\.\d+\.\d+)', "checker_version"),
+            ("pyrightVersion", r'(?i)\bPyright(?:[ \t]+version)?(?:[ \t]*[:=]?[ \t]+|==|-)`?(1\.\d+\.\d+)', "checker_version"),
             ("typing_extensions", r'\btyping[_-]extensions(?:[ \t]+version)?(?:==|[ :=]+)`?(\d+(?:\.\d+){1,3})', "dependency_version"),
         ]
         setting_names = [
@@ -718,14 +718,65 @@ def _selected_declarations(
     ]
 
 
-def reported_setting_qualifications(prepared: MaterializedSetup) -> list[str]:
-    return [
+def source_document_settings(capture: SourceCapture, source_id: str) -> list[ReportedSettingSelection]:
+    """Choose a conditional source-document setup, not an authoritative resolution of discussion."""
+    verify_capture(capture)
+    source = next((item for item in capture.blocks if item.id == source_id), None)
+    if source is None or source.source_kind != "python":
+        raise ValueError("Conditional source-document settings require captured Python source")
+    selected = []
+    for setting in ("pythonVersion", "typeCheckingMode"):
+        declarations = [item for item in capture.declarations if item.setting == setting]
+        local = [item for item in declarations if item.evidence.document_id == source.document_id]
+        if (
+            not local or len(local) == len(declarations) or not all(item.supported for item in local)
+            or len({fingerprint(item.value) for item in local}) != 1
+        ):
+            continue
+        document_id, start, end = _declaration_unit(capture, local[0])
+        document = next(item for item in capture.documents if item.id == document_id)
+        if end - start > 4096:
+            continue
+        selected.append(ReportedSettingSelection(
+            setting=setting,
+            declaration_ids=tuple(
+                item.id for item in local if _declaration_unit(capture, item) == (document_id, start, end)
+            ),
+            context=EvidenceSpan(document_id=document_id, start=start, end=end, quote=document.text[start:end]),
+            reason=(
+                "Controller-selected settings from the document containing the captured source, for a conditional "
+                "diagnostic experiment only. Other discussion may qualify or correct this setup."
+            ),
+        ))
+    return selected
+
+
+def reported_setting_qualifications(
+    prepared: MaterializedSetup, capture: SourceCapture | None = None,
+) -> list[str]:
+    qualifications = [
         f"Conditional reported setup: {selection.setting} uses captured declarations "
         + ", ".join(selection.declaration_ids)
-        + ". Their association with this example is an assessor-selected reconstruction, not independently "
+        + ". Their association with this example is a conditional reconstruction, not independently "
         "approved historical configuration. Other captured declarations remain comparison/context, not verified settings."
+        + (f" Selection: {selection.context.quote} Reason: {selection.reason}" if capture is not None else "")
         for selection in prepared.reported_settings
     ]
+    if capture is not None:
+        selected = {identifier for item in prepared.reported_settings for identifier in item.declaration_ids}
+        for declaration in prepared.scoped_declarations:
+            if declaration.id in selected:
+                continue
+            document_id, start, end = _declaration_unit(capture, declaration)
+            document = next(item for item in capture.documents if item.id == document_id)
+            context = document.text[start:end] if end - start <= 4096 else (
+                declaration.evidence.quote + " (declaration excerpt; full context is retained in capture.json)"
+            )
+            qualifications.append(
+                f"Other captured {declaration.setting}={declaration.value} at {document.provenance}: {context} "
+                "Retained as comparison or possible correction, not discarded or ruled irrelevant."
+            )
+    return qualifications
 
 
 def materialize_setup(

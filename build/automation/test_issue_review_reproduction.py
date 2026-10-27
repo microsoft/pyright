@@ -31,7 +31,8 @@ from issue_review_reproduction import (
 from issue_review_safety import ScreeningBlocked
 from review_issues import (
     AGENTS, Agent, AutomationError, ChunkResult, Console, ReproductionEvidenceTools, digest, dry_run_proposal,
-    arguments, context_hash, main as review_main, reproduction_response, require_run_mode, unfinished_reproduction_publication,
+    arguments, context_hash, main as review_main, reproduction_response, require_run_mode, save_overnight_report,
+    unfinished_reproduction_publication,
 )
 from test_review_issues import FakeGitHub, audit, issue, save_evidence
 
@@ -1116,6 +1117,166 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.targets.executions, 0)
         self.assertEqual(self.sdk.run.await_count, 1)
         self.assertIn("Missing reporter dependency", stage.error or "")
+
+    def captured_example(self, settings: str = ""):
+        self.console.observe_blocked = True
+        self.github.current.body = (
+            "The checker rejects this assignment.\n\n```python\nvalue: int = 'wrong'\n```\n" + settings
+        )
+        self.entry.issue = self.github.current.model_copy(deep=True)
+        self.entry.input_hash = self.console.key(self.entry.issue)
+
+    async def test_missing_mode_short_circuits_planning_and_observes_captured_source_without_sdk(self):
+        self.captured_example("Python 3.10; pyright-1.1.2")
+        await self.console.reproduce(self.entry)
+        stage = self.entry.reproduction_stage
+        assert stage is not None
+        self.assertEqual(stage.status, "blocked")
+        self.assertIsNone(stage.scenario)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "captured", observation.error)
+        self.assertEqual(observation.configuration["pythonVersion"], "3.10")
+        self.assertEqual([item.setting for item in observation.configuration_assumptions], ["typeCheckingMode"])
+        self.assertEqual(observation.reported_version, "1.1.2")
+        self.assertEqual(len(observation.receipts), 3)
+        self.assertEqual((Path(observation.directory) / "historical" / "repro.py").read_text(), "value: int = 'wrong'\n")
+        self.assertTrue(observation.action_ineligible)
+        self.assertFalse(observation.faithful_reproduction)
+        with self.assertRaises(ValueError):
+            type(observation).model_validate({**observation.model_dump(), "action_ineligible": False})
+        self.assertIsNone(stage.action())
+        with self.assertRaises(AutomationError):
+            self.console.require_reproduction_evidence(self.entry)
+        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.github.mutations, [])
+        await self.console.observe_blocked_reproduction(self.entry)
+        self.assertEqual(self.targets.executions, 3)
+
+    async def test_observations_keep_conflicting_reported_settings_blocked_instead_of_assuming(self):
+        self.captured_example("Python 3.10 and Python 3.11")
+        await self.console.reproduce(self.entry)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "blocked")
+        self.assertIn("Conflicting reported pythonVersion", observation.error or "")
+        self.assertNotIn("pythonVersion", [item.setting for item in observation.configuration_assumptions])
+        self.assertEqual(self.targets.executions, 0)
+        self.sdk.run.assert_not_awaited()
+
+    async def test_observations_scope_original_settings_without_losing_discussion_versions(self):
+        self.captured_example("Running the example on Python 3.10; pyright-1.1.2")
+        self.github.discussion.append({
+            "id": 8, "body": "The separate test suite also covers Python 3.11.",
+        })
+        await self.console.reproduce(self.entry)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "captured", observation.error)
+        self.assertEqual(observation.configuration["pythonVersion"], "3.10")
+        self.assertNotIn("pythonVersion", [item.setting for item in observation.configuration_assumptions])
+        context = "\n".join(observation.configuration_qualifications)
+        self.assertIn("Conditional reported setup", context)
+        self.assertIn("separate test suite", context)
+        self.assertIn("Python 3.11", context)
+        save_overnight_report(
+            self.console.state, "context", [self.entry.issue], [ChunkResult(self.entry.issue, self.entry)],
+            read_only=True, finished=True,
+        )
+        markdown = (self.console.state / "overnight-report.md").read_text(encoding="utf-8")
+        self.assertIn("separate test suite", markdown)
+        self.assertIn("Python 3.11", markdown)
+        assert self.entry.reproduction_stage is not None
+        self.assertIsNone(self.entry.reproduction_stage.action())
+        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_discussion_corrections_remain_explicit_unresolved_context_not_historical_proof(self):
+        self.captured_example("Running the example on Python 3.10")
+        self.github.discussion.append({
+            "id": 9, "body": "Correction: I actually used Python 3.11 for the reported run.",
+        })
+        await self.console.reproduce(self.entry)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "captured", observation.error)
+        self.assertIn("Correction: I actually used Python 3.11", "\n".join(observation.configuration_qualifications))
+        self.assertTrue(observation.action_ineligible)
+        self.assertFalse(observation.faithful_reproduction)
+        assert self.entry.reproduction_stage is not None
+        self.assertIsNone(self.entry.reproduction_stage.action())
+        with self.assertRaises(AutomationError):
+            self.console.require_reproduction_evidence(self.entry)
+
+    async def test_observations_never_bypass_target_cache_only_policy(self):
+        self.captured_example()
+        self.console.prepare_targets = False
+        await self.console.reproduce(self.entry)
+        with patch.object(self.targets, "prepare", AsyncMock(side_effect=AssertionError("Unexpected acquisition"))):
+            await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "blocked")
+        self.assertEqual(len(observation.receipts), 3)
+        self.assertTrue(all("not cached" in str(receipt["error"]) for receipt in observation.receipts))
+        self.assertTrue(all("stdout" not in receipt for receipt in observation.receipts))
+        self.assertEqual(self.targets.executions, 0)
+
+    async def test_observation_fallback_does_not_choose_between_multiple_python_examples(self):
+        self.captured_example("\n```python\nsecond = 2\n```\n")
+        await self.console.reproduce(self.entry)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "blocked")
+        self.assertIn("one unambiguous", observation.error or "")
+        self.assertEqual(self.targets.executions, 0)
+
+    async def test_invalid_observation_output_is_not_success_and_can_be_retried_separately(self):
+        self.captured_example("Python 3.10")
+        await self.console.reproduce(self.entry)
+        strict_stage = self.entry.reproduction_stage
+        self.targets.runner = AsyncMock(return_value=(0, "not JSON", ""))
+        await self.console.observe_blocked_reproduction(self.entry)
+        previous = self.entry.diagnostic_observations
+        assert previous is not None
+        self.assertEqual(previous.status, "blocked")
+        self.assertTrue(all(receipt.get("error") for receipt in previous.receipts))
+        self.assertTrue(all(receipt.get("stdout") == "not JSON" for receipt in previous.receipts))
+        self.targets.runner = self.targets.execute
+        await self.console.observe_blocked_reproduction(self.entry, retry_blocked=True)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "captured", observation.error)
+        self.assertNotEqual(observation.directory, previous.directory)
+        self.assertTrue((Path(previous.directory) / "observations.json").is_file())
+        self.assertIs(self.entry.reproduction_stage, strict_stage)
+
+    async def test_non_object_diagnostics_are_blocked_before_report_rendering(self):
+        self.captured_example()
+        await self.console.reproduce(self.entry)
+
+        async def malformed(command, directory):
+            code, stdout, stderr = await self.targets.execute(command, directory)
+            output = json.loads(stdout)
+            output["generalDiagnostics"] = [None]
+            return code, json.dumps(output), stderr
+
+        self.targets.runner = malformed
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "blocked")
+        self.assertTrue(all("Invalid checker JSON" in str(receipt.get("error")) for receipt in observation.receipts))
+
+    async def test_reconstruction_and_gate_have_an_independent_bounded_timeout(self):
+        self.console.reproduction_timeout = 123
+        await self.ready()
+        self.assertEqual([call.kwargs["timeout"] for call in self.sdk.run.await_args_list], [123, 123])
 
     async def test_empty_assumption_list_cannot_make_an_exploratory_stage_actionable(self):
         self.enable_exploration()

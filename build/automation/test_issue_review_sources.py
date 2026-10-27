@@ -16,7 +16,7 @@ from issue_review_sources import (
     ArtifactEvidence, EvidenceSpan, FeatureProbeResult, MaterializedSetup, ReportDocument, ReportedSettingSelection, SettingChoice,
     SetupRequirement, SourceAssociation, SourceCapture, capture_sources, check_bundled_stub_capability,
     check_feature_capability, check_runtime_metadata, check_target_capability, inspect_requirements, materialize_setup,
-    reported_setting_qualifications, resolve_setup, verify_capture, verify_materialized_setup, verify_span,
+    reported_setting_qualifications, resolve_setup, source_document_settings, verify_capture, verify_materialized_setup, verify_span,
 )
 
 
@@ -335,6 +335,61 @@ class CaptureTests(unittest.TestCase):
 
 
 class DeclarationAndMaterializationTests(unittest.TestCase):
+    def test_source_document_profile_preserves_other_version_context_without_assuming_it_is_irrelevant(self):
+        for original, comparison in (("3.10", "3.11"), ("3.12", "3.15")):
+            with self.subTest(original=original, comparison=comparison):
+                result = capture(
+                    f"Running the example on Python {original}.\n\ntypeCheckingMode: strict\n\n" + fence("x=1\n"),
+                    (f"Separate regression coverage uses Python {comparison}.",),
+                )
+                selection = source_document_settings(result, result.blocks[0].id)
+                prepared = materialize_setup(result, [associate(result)], reported_settings=selection)
+                self.assertFalse(prepared.blockers)
+                self.assertEqual(prepared.configuration["pythonVersion"], original)
+                self.assertCountEqual([item.value for item in prepared.scoped_declarations], [original, comparison])
+                self.assertFalse(prepared.assumptions)
+                qualifications = "\n".join(reported_setting_qualifications(prepared, result))
+                self.assertIn("Separate regression coverage", qualifications)
+                self.assertIn("possible correction", qualifications)
+                verify_materialized_setup(result, prepared.associations, (), prepared, reported_settings=selection)
+
+    def test_source_in_comment_uses_that_comment_instead_of_always_preferring_issue_body(self):
+        result = capture(
+            "The original comparison was on Python 3.10.\n\ntypeCheckingMode: strict\n",
+            ("Reproducing on Python 3.11.\n\n" + fence("x=1\n"),),
+        )
+        selection = source_document_settings(result, result.blocks[0].id)
+        prepared = materialize_setup(result, [associate(result)], reported_settings=selection)
+        self.assertFalse(prepared.blockers)
+        self.assertEqual(prepared.configuration["pythonVersion"], "3.11")
+        self.assertEqual(selection[0].context.document_id, "comment-0")
+        self.assertIn("original comparison", "\n".join(reported_setting_qualifications(prepared, result)))
+
+    def test_source_document_profile_does_not_choose_between_its_own_conflicting_versions(self):
+        result = capture(
+            "Python 3.10\n\nPython 3.11\n\ntypeCheckingMode: strict\n\n" + fence("x=1\n"),
+            ("A separate environment uses Python 3.12.",),
+        )
+        selection = source_document_settings(result, result.blocks[0].id)
+        self.assertFalse(selection)
+        prepared = materialize_setup(result, [associate(result)], reported_settings=selection)
+        self.assertTrue(any("Conflicting reported pythonVersion" in blocker for blocker in prepared.blockers))
+
+    def test_source_document_profile_cannot_hide_unsupported_versions_or_invent_local_settings(self):
+        result = capture(
+            "Python 3.10\n\ntypeCheckingMode: strict\n\n" + fence("x=1\n"),
+            ("Python 3.future",),
+        )
+        with self.assertRaisesRegex(ValueError, "cannot bypass unsupported"):
+            materialize_setup(
+                result, [associate(result)], reported_settings=source_document_settings(result, result.blocks[0].id),
+            )
+        result = capture(fence("x=1\n"), ("Python 3.11\n\ntypeCheckingMode: strict",))
+        self.assertFalse(source_document_settings(result, result.blocks[0].id))
+        self.assertEqual(materialize_setup(result, [associate(result)]).configuration["pythonVersion"], "3.11")
+        with self.assertRaisesRegex(ValueError, "require captured Python source"):
+            source_document_settings(result, "not-a-source")
+
     def test_reported_playground_values_need_no_assumptions_or_relabeling(self):
         url = "https://pyright-play.net/?pythonVersion=3.15&strict=true"
         result = capture(f"[Working]({url})\n\n" + fence("value = 1\n") + f"\n[Custom repr]({url})\n")

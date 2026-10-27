@@ -24,6 +24,7 @@ import importlib.metadata
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -52,6 +53,7 @@ from copilot.session_events import AssistantMessageData, SessionEvent
 from pydantic import BaseModel, Field, JsonValue, TypeAdapter
 
 from issue_review_assessment_models import AssessmentDraft, VerificationRefinement
+from issue_review_assessment import capture_report, original_inputs
 from issue_review_evidence import PAGE_CHARS, evidence_json as evidence_response_raw, evidence_page, evidence_response
 from issue_review_models import (
     EXPLORATORY_SETTINGS,
@@ -61,6 +63,8 @@ from issue_review_models import (
     BlockedChallenge,
     Closure,
     DraftCheck,
+    DiagnosticObservations,
+    ConfigurationAssumption,
     DuplicateFindings,
     ExploratoryReproductionScenario,
     ExploratoryReproductionScenarioTransport,
@@ -105,6 +109,10 @@ from issue_review_reproduction import (
 from issue_review_safety import ENVIRONMENT as SCORER_ENVIRONMENT
 from issue_review_safety import SCREENING_SCOPE, InjectionScreening, ScreeningBlocked, child_environment
 from issue_review_validity import ValidityAssessment, parse_validity_response
+from issue_review_sources import (
+    Setting, SettingChoice, SourceAssociation, materialize_setup, reported_setting_qualifications,
+    source_document_settings,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 AGENTS = ROOT / ".github" / "agents"
@@ -1419,6 +1427,8 @@ class Console:
         exploratory_reproduction: bool = False,
         closure_only: bool = False,
         prepare_targets: bool = True,
+        observe_blocked: bool = False,
+        reproduction_timeout: float = 900,
     ):
         self.github, self.sdk, self.state = github, sdk, state
         self.reviewer, self.duplicate, self.writer = reviewer, duplicate, writer
@@ -1426,6 +1436,7 @@ class Console:
         self.context_hash, self.revision, self.release = context_hash, revision, release
         self.ask, self.read_only = reject_operator_approval if closure_only else ask, read_only
         self.closure_only, self.prepare_targets = closure_only, prepare_targets
+        self.observe_blocked, self.reproduction_timeout = observe_blocked, reproduction_timeout
         self.current_context = current_context or (lambda: self.context_hash)
         self.retry_rca = retry_rca
         self.rca_enabled = rca_enabled and not exploratory_reproduction and not closure_only
@@ -1691,6 +1702,13 @@ class Console:
         try:
             report_text = entry.issue.title + "\n" + (entry.issue.body or "") + "\n" + discussion_text(comments)
             if stage.scenario is None:
+                if self.observe_blocked and not stage.exploratory and not re.search(
+                    r"(?i)\b(?:typeCheckingMode|strict|standard|basic|off)\b", report_text,
+                ):
+                    raise ValueError(
+                        "No explicit checking mode is available in this report; strict reproduction remains blocked. "
+                        "Separate disclosed diagnostic observations may still run."
+                    )
                 scenario_model = ExploratoryReproductionScenario if stage.exploratory else ReproductionScenario
                 settings_guidance = (
                     "This controller explicitly enabled EXPLORATORY, OBSERVATION-ONLY reproduction. When Python "
@@ -1733,7 +1751,7 @@ class Console:
                     + settings_guidance
                     + SURFACE_GUIDANCE + "\nUntrusted issue:\n" + entry.issue.model_dump_json()
                     + "\nUntrusted complete discussion:\n" + json.dumps(comments),
-                    attempt, schema=scenario_model,
+                    attempt, schema=scenario_model, timeout=self.reproduction_timeout,
                     validate=lambda content: validate_reproduction_report(
                         scenario_model.model_validate_json(content), report_text,
                     ),
@@ -1856,7 +1874,7 @@ class Console:
                     str(record["id"]): digest(evidence_response_raw(record)) for record in gate_records
                 }),
                 attempt, schema=ReproductionGate, tools=tools, native_tools=[],
-                validate=validate_gate,
+                validate=validate_gate, timeout=self.reproduction_timeout,
             )
             stage.gate = ReproductionGate.model_validate_json(raw)
             stage.status = "complete"
@@ -1876,6 +1894,126 @@ class Console:
             stage.status, stage.error = "blocked", str(error)
         stage.evidence_hash = self.reproduction_hash(stage)
         atomic_write(attempt / "reproduction.json", stage.model_dump_json(indent=2))
+        self.save(entry)
+
+    async def observe_blocked_reproduction(self, entry: Entry, *, retry_blocked: bool = False) -> None:
+        stage = entry.reproduction_stage
+        if (
+            not self.observe_blocked or self.exploratory_reproduction or self.reproduction_store is None
+            or stage is None or stage.status != "blocked"
+        ):
+            return
+        comments = await self.github.comments(entry.issue.number)
+        await self.github.screen(
+            {"issue": entry.issue.model_dump(mode="json"), "comments": comments},
+            self.directory(entry.issue.number), f"issue:{entry.issue.number}",
+        )
+        discussion = discussion_hash(comments)
+        if discussion != stage.discussion_hash:
+            raise AutomationError("Discussion changed before diagnostic observations")
+        previous = entry.diagnostic_observations
+        if previous is not None:
+            if previous.input_hash != entry.input_hash or previous.discussion_hash != discussion:
+                raise AutomationError("Diagnostic observations belong to different report inputs")
+            if previous.status != "running" and not (
+                retry_blocked and (previous.status == "blocked" or any(
+                    receipt.get("error") for receipt in previous.receipts
+                ))
+            ):
+                return
+        attempt = self.directory(entry.issue.number) / "diagnostic-observations" / uuid.uuid4().hex
+        attempt.mkdir(parents=True)
+        observation = entry.diagnostic_observations = DiagnosticObservations(
+            input_hash=entry.input_hash, discussion_hash=discussion, directory=str(attempt),
+        )
+        self.save(entry)
+        try:
+            documents: list[dict[str, JsonValue]] = []
+            for comment in comments:
+                if not isinstance(comment, dict):
+                    raise ValueError("Discussion contains an unsupported non-object document")
+                documents.append(comment)
+            capture = capture_report(entry.issue, documents)
+            atomic_write(attempt / "capture.json", capture.model_dump_json(indent=2))
+            sources = [block for block in capture.blocks if block.source_kind == "python"]
+            if len(sources) != 1 or capture.limitations:
+                raise ValueError("Automatic observations require one unambiguous, explicitly labeled Python source fence")
+            source = sources[0]
+            defaults: dict[Setting, str] = {"pythonVersion": "3.13", "typeCheckingMode": "standard"}
+            choices = [
+                SettingChoice(
+                    setting=setting, value=value,
+                    reason="Controller-selected bounded diagnostic experiment, not a reporter setting",
+                ) for setting, value in defaults.items()
+                if not any(item.setting == setting for item in capture.declarations)
+            ]
+            prepared = materialize_setup(capture, [
+                SourceAssociation(source_id=source.id, path=source.filename_hint or "repro.py"),
+            ], choices, reported_settings=source_document_settings(capture, source.id))
+            observation.configuration = prepared.configuration
+            observation.configuration_assumptions = [
+                ConfigurationAssumption.model_validate(choice.model_dump()) for choice in choices
+            ]
+            observation.configuration_qualifications = reported_setting_qualifications(prepared, capture)
+            atomic_write(attempt / "setup.json", prepared.model_dump_json(indent=2))
+            inputs = original_inputs(prepared)
+            versions = [item for item in capture.declarations if item.setting == "pyrightVersion"]
+            if len({str(item.value) for item in versions}) > 1:
+                raise ValueError("Conflicting reported Pyright versions; no experimental target selected")
+            if versions:
+                observation.reported_version = str(versions[0].value)
+                observation.version_quote = versions[0].evidence.quote
+            async with self._reproduction_metadata_lock:
+                if self._reproduction_catalog is None:
+                    self._reproduction_catalog = await self.reproduction_store.catalog()
+                if self._reproduction_main is None:
+                    upstream = await self.github.api("GET", f"repos/{REPOSITORY}/commits/main")
+                    if not isinstance(upstream, dict) or not isinstance(upstream.get("sha"), str):
+                        raise AutomationError("Upstream main identity unavailable")
+                    self._reproduction_main = str(upstream["sha"])
+                targets = select_targets(
+                    self._reproduction_catalog, entry.issue, observation, discussion_text(comments),
+                    self._reproduction_main, registry=self.reproduction_store.registry,
+                )
+            for target in targets:
+                receipt: dict[str, JsonValue] = {"target": target.model_dump(mode="json")}
+                try:
+                    if target.status == "blocked":
+                        raise ValueError(target.error or "Selected target is unavailable")
+                    if self.prepare_targets:
+                        await self.reproduction_store.prepare(target)
+                    else:
+                        self.reproduction_store.restore(target)
+                    receipt = await self.reproduction_store.run_static(target, inputs, attempt / target.role)
+                    if not receipt.get("error"):
+                        output = json.loads(str(receipt.get("stdout", "")))
+                        stderr = receipt.get("stderr")
+                        if (
+                            not isinstance(output, dict) or output.get("version") != target.version
+                            or not isinstance(output.get("generalDiagnostics"), list)
+                            or not all(isinstance(item, dict) for item in output["generalDiagnostics"])
+                            or not isinstance(output.get("summary"), dict)
+                            or type(output["summary"].get("filesAnalyzed")) is not int
+                            or output["summary"]["filesAnalyzed"] < 1
+                            or receipt.get("exit_code") not in (0, 1)
+                            or not isinstance(stderr, str) or stderr.strip()
+                        ):
+                            raise ValueError("Invalid checker JSON/version, zero files, or unverified setup output")
+                        receipt["diagnostics"] = output["generalDiagnostics"]
+                except (OSError, ValueError, TimeoutError) as error:
+                    receipt["error"] = str(error)
+                observation.receipts.append(receipt)
+                atomic_write(attempt / "observations.json", observation.model_dump_json(indent=2))
+                self.save(entry)
+            observation.status = "captured" if any(
+                not receipt.get("error") and receipt.get("exit_code") in (0, 1)
+                for receipt in observation.receipts
+            ) else "blocked"
+            if observation.status == "blocked":
+                observation.error = "No selected checker produced a diagnostic observation; inspect target errors"
+        except (OSError, ValueError, AutomationError, TimeoutError) as error:
+            observation.status, observation.error = "blocked", str(error)
+        atomic_write(attempt / "observations.json", observation.model_dump_json(indent=2))
         self.save(entry)
 
     async def review(self, issue: Issue, *, retry_failed: bool) -> Entry:
@@ -1898,6 +2036,7 @@ class Console:
                 show(f"#{issue.number}: previous failure: {cached.error}; use --retry-failed to retry")
                 return cached
             await self.reproduce(cached, retry_blocked=retry_failed)
+            await self.observe_blocked_reproduction(cached, retry_blocked=retry_failed)
             if self.observation_only(cached):
                 cached.decision = "reviewed"
                 cached.error = cached.reproduction_stage.error if cached.reproduction_stage else None
@@ -1920,6 +2059,7 @@ class Console:
         entry.decision, entry.error = "failed", "Review interrupted before a validated response was saved"
         self.save(entry)
         await self.reproduce(entry, retry_blocked=retry_failed)
+        await self.observe_blocked_reproduction(entry, retry_blocked=retry_failed)
         if self.observation_only(entry):
             entry.decision = "reviewed"
             entry.error = entry.reproduction_stage.error if entry.reproduction_stage else None
@@ -1934,6 +2074,8 @@ class Console:
         scratch.mkdir(parents=True)
         entry.scratch_directory = str(scratch)
         self.save(entry)
+        if entry.diagnostic_observations is not None:
+            atomic_write(scratch / "controller-observations.json", entry.diagnostic_observations.model_dump_json(indent=2))
         tools = InvestigationTools(
             self.github, scratch, ROOT / "packages" / "pyright" / "index.js",
             self.release, self.ask, evidence=directory,
@@ -1955,7 +2097,8 @@ class Console:
             f"Scratch: {scratch}. Checkout: {ROOT}. Inspected HEAD: {self.revision}. "
             f"Controller-observed review start: {datetime.now(timezone.utc).isoformat()}. "
             "The caller supplies a prebuilt local CLI; matching version strings do not establish released-checker provenance. "
-            "This runner cannot execute published Pyright releases. reported_release/current_release must be "
+            "The reviewer's run_check tool cannot execute published Pyright releases. "
+            "reported_release/current_release must be "
             "blocked, not_attempted or not_applicable, never reproduced/not_reproduced from checkout evidence. "
             "If any version, dependency, environment, or tool is unavailable, preserve that limit. "
             "Search relevant historical design decisions AND competing bugs/fixes. Mandatory typing rules override "
@@ -1968,6 +2111,11 @@ class Console:
             "checkout reproduction and the concrete missing check; do not substitute a CLI proxy. "
             + SURFACE_GUIDANCE +
             "Blocked or inconclusive evidence must remain visible for needs-investigation adjudication. "
+            "If controller-observations.json exists in scratch, it contains separate experimental static checks "
+            "on captured unchanged source. Read it for diagnostic context, preserving all settings assumptions, "
+            "target failures, missing dependencies and unverified integration claims. These observations are "
+            "NOT faithful historical reproduction, fix verification or independent closure evidence. "
+            "Do not invent run_check receipts or change reported/current_release reproduction status from them. "
             "Stop when this issue's alternatives are distinguished or a concrete blocker is established. "
             "IMPORTANT: Each executed check's command/cwd/exit_code must be copied VERBATIM from run_check's "
             "returned fields. Do not describe, shorten, relativize, or re-quote its command; that fails provenance validation. "
@@ -3233,6 +3381,9 @@ def context_hash(
         Path(__file__).with_name("issue_review_inspector.cjs"),
         Path(__file__).with_name("issue_review_evidence.py"),
         Path(__file__).with_name("issue_review_reproduction.py"),
+        Path(__file__).with_name("issue_review_sources.py"),
+        Path(__file__).with_name("issue_review_assessment.py"),
+        Path(__file__).with_name("issue_review_assessment_models.py"),
         AGENTS / "pyright-issue-reproducer.md", AGENTS / "pyright-issue-reproduction-gate.md",
         Path(__file__).with_name("issue_review_safety.py"), Path(__file__).with_name("requirements.txt"),
         Path(__file__).with_name("issue_review_classifier.py"), Path(__file__).with_name("issue_review_decision.py"),
@@ -3370,6 +3521,8 @@ def dry_run_proposal(
             ] if reason
         ],
         "reproduction": None if reproduction is None else reproduction.model_dump(mode="json"),
+        "diagnostic_observations": None if entry is None or entry.diagnostic_observations is None
+        else entry.diagnostic_observations.model_dump(mode="json"),
         "proposed_labels": [] if reproduction is None or reproduction.action() is None or (
             closure_only and action != "close_fixed"
         ) else [
@@ -3537,6 +3690,43 @@ def overnight_markdown(report: dict[str, JsonValue]) -> str:
             lines.append("\n")
         if row.get("error"):
             lines.append("**Error:** " + cell(str(row["error"])) + "\n\n")
+        observations = row.get("diagnostic_observations")
+        if isinstance(observations, dict):
+            lines.append(
+                "**Separate diagnostic experiments (never closure evidence):** "
+                + cell(str(observations["status"])) + ".\n\n"
+                + "Configuration: `" + cell(json.dumps(observations["configuration"], sort_keys=True)) + "`.\n\n"
+            )
+            assumptions = observations["configuration_assumptions"]
+            receipts = observations["receipts"]
+            assert isinstance(assumptions, list) and isinstance(receipts, list)
+            for assumption in assumptions:
+                assert isinstance(assumption, dict)
+                lines.append(
+                    f"- Assumed {cell(str(assumption['setting']))}={cell(str(assumption['value']))}: "
+                    f"{cell(str(assumption['reason']))}\n"
+                )
+            qualifications = observations.get("configuration_qualifications", [])
+            assert isinstance(qualifications, list)
+            for qualification in qualifications:
+                lines.append("\n" + cell(str(qualification)) + "\n")
+            if observations.get("error"):
+                lines.append("\n**Observation blocker:** " + cell(str(observations["error"])) + "\n")
+            for receipt in receipts:
+                assert isinstance(receipt, dict) and isinstance(receipt["target"], dict)
+                target = receipt["target"]
+                lines.append(
+                    f"\n**{cell(str(target['role']))} / {cell(str(target['identity']))}:** "
+                    + (cell(str(receipt["error"])) if receipt.get("error") else f"checker exit {receipt['exit_code']}")
+                    + "\n\n"
+                )
+                diagnostics = receipt.get("diagnostics", [])
+                assert isinstance(diagnostics, list)
+                for diagnostic in diagnostics:
+                    assert isinstance(diagnostic, dict)
+                    lines.append("- " + cell(str(diagnostic.get("message"))) + "\n")
+                if not diagnostics and not receipt.get("error"):
+                    lines.append("No diagnostics observed; this alone does not establish a fix or type precision.\n")
     return "".join(lines)
 
 
@@ -3591,6 +3781,10 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--model", default="gpt-6.1-sol", help="Copilot model for all stages (default: gpt-6.1-sol)")
     parser.add_argument("--timeout", type=positive, default=900, help="Maximum active seconds per SDK turn, excluding operator approval waits")
     parser.add_argument(
+        "--reproduction-timeout", type=positive, default=900,
+        help="Separate active budget for reconstruction and evidence-gate turns, including correction (default: 900s)",
+    )
+    parser.add_argument(
         "--rca-timeout", type=positive, default=900,
         help="Independent active budget for each RCA investigation/countercheck turn, including output correction (default: 900s)",
     )
@@ -3615,6 +3809,10 @@ def arguments() -> argparse.Namespace:
         "--overnight", action="store_true",
         help="Process all chunks without prompts; only gated closures may publish, otherwise save a local report",
     )
+    parser.add_argument(
+        "--no-observations", action="store_true",
+        help="Disable overnight's separate diagnostic experiments for blocked strict reproduction",
+    )
     parser.add_argument("--target-cache", type=Path, help="Existing integrity-verified checker cache (default: state-dir\\targets)")
     parser.add_argument(
         "--prepare-targets", action="store_true",
@@ -3631,6 +3829,8 @@ async def main(args: argparse.Namespace) -> None:
     non_interactive = getattr(args, "non_interactive", False)
     exploratory = getattr(args, "exploratory_reproduction", False)
     overnight = getattr(args, "overnight", False)
+    observe_blocked = overnight and not exploratory and not getattr(args, "no_observations", False)
+    reproduction_timeout = getattr(args, "reproduction_timeout", 900)
     if non_interactive and not args.read_only and not overnight:
         raise AutomationError("--non-interactive requires --dry-run")
     if overnight and exploratory and not args.read_only:
@@ -3686,6 +3886,7 @@ async def main(args: argparse.Namespace) -> None:
     if overnight:
         editor_options["publication_policy"] = "overnight-closure-only-v1"
         editor_options["target_preparation"] = "authorized" if prepare_targets else "cache-only"
+        editor_options["diagnostic_observations"] = "source-document-context-v2" if observe_blocked else "disabled"
     target_cache = getattr(args, "target_cache", None)
     if target_cache is not None:
         target_cache = target_cache.expanduser().resolve()
@@ -3723,6 +3924,11 @@ async def main(args: argparse.Namespace) -> None:
             "Overnight: all chunks, no prompts; unapproved probes are blocked. Trusted target preparation: "
             + ("preauthorized." if prepare_targets else "disabled (cache-only; opt in with --prepare-targets).")
         )
+        show(
+            "Separate diagnostic observations: "
+            + ("enabled; omitted settings use disclosed pythonVersion=3.13/typeCheckingMode=standard, never closure evidence."
+               if observe_blocked else "disabled.")
+        )
     show("Reproduction: isolated historical npm release, pinned upstream main, and latest npm release; unavailable targets remain blocked.")
     show("Injection screening: target issue and comments only; research reads are not classified.")
     show("Prepare the source CLI with 'pnpm run build:cli:dev' before this run. Do not change source or build outputs during review.")
@@ -3737,6 +3943,7 @@ async def main(args: argparse.Namespace) -> None:
             "screening_scope": SCREENING_SCOPE,
             "rca_enabled": rca_enabled, "automatic_publication": not args.read_only and not exploratory,
             "timeout_seconds": args.timeout, "rca_timeout_seconds": rca_timeout,
+            "reproduction_timeout_seconds": reproduction_timeout, "diagnostic_observations": observe_blocked,
             "reproduction_registry": getattr(args, "reproduction_registry", NPM_REGISTRY),
             "non_interactive": non_interactive,
             "overnight": overnight, "prepare_targets": prepare_targets,
@@ -3770,6 +3977,7 @@ async def main(args: argparse.Namespace) -> None:
                 ),
                 exploratory_reproduction=exploratory,
                 closure_only=overnight, prepare_targets=prepare_targets,
+                observe_blocked=observe_blocked, reproduction_timeout=reproduction_timeout,
             )
             pending = [
                 issue for issue in issues if (

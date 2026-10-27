@@ -45,7 +45,30 @@ not arbitrary commands, package installs or issue-provided scripts. Choose `--re
 when using the approved alternative feed. Source-CLI behavior checks still need the existing local build
 (`pnpm run build:cli:dev`); do not change source or build outputs during a run.
 
-Missing reported settings are not silently assumed. `--exploratory-reproduction --overnight --dry-run` permits
+When strict reproduction is blocked, overnight mode also attempts **separate controller-run diagnostic
+observations**, without another model-planning turn. This conservative fallback requires exactly one explicitly
+labeled Python fence and an unambiguous captured setup. It retains the captured source unchanged and preserves
+reported settings. When different documents mention different Python/checking settings, the fallback can use
+a coherent profile from the document containing the source as a **conditional experiment**. Other declarations
+and their contexts remain visible in the report, including possible corrections; selecting the original
+document does not establish that later comments are irrelevant. Conflicts within that source document,
+unsupported declarations, ambiguous source layouts and unavailable targets remain explicit blockers.
+Only genuinely absent settings receive disclosed experimental defaults: `pythonVersion=3.13` and
+`typeCheckingMode=standard`. `--no-observations` disables this fallback.
+
+The fallback only statically checks source; it never executes reporter Python, installs dependencies or
+substitutes an older main target. It uses the same cache-only/preauthorized-target policy as the strict path.
+Missing imports and runtime-dependency differences remain visible in raw diagnostics. Results, source/settings
+capture, target identities and assumptions are saved under `<issue>\diagnostic-observations\<attempt>`, and
+summarized in the morning report. They are **not faithful historical reproduction, fix verification, type-precision
+proof, or independent closure evidence**. The strict comparison and all publication gates remain unchanged.
+
+Reconstruction/evidence-gate turns have an independent `--reproduction-timeout` budget (default 900 active
+seconds each, including bounded correction), so shortening `--timeout` for other stages does not accidentally
+starve reconstruction. Clearly absent checking-mode reports skip strict model planning in favor of recording
+that blocker and attempting the separate observation path.
+
+Missing reported settings are never silently promoted to facts. `--exploratory-reproduction --overnight --dry-run` permits
 the existing disclosed, observation-only experiments, but cannot authorize live closures. Legacy
 `--non-interactive --dry-run` still stops after one chunk; `--overnight` takes precedence for all-chunk processing.
 Switching between overnight and other publication policies requires a fresh state directory. A compatible
