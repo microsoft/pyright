@@ -27,6 +27,7 @@ import {
     isUnion,
     isUnknown,
     maxSubtypesForInferredType,
+    maxTypeRecursionCount,
     NeverType,
     retainInferredTupleLiterals,
     Type,
@@ -1958,6 +1959,112 @@ test('TupleComparisonResults20', () => {
         analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((left, right) => left - right),
         [49, 50, 51, 52]
     );
+});
+
+test('TupleComparisonResults24', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults24.py']);
+    TestUtils.validateResults(analysisResults, 14);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .slice()
+            .sort((left, right) => left.range.start.line - right.range.start.line)
+            .map((diag) => [diag.range.start.line + 1, diag.getRule()]),
+        [
+            [34, DiagnosticRule.reportArgumentType],
+            [35, DiagnosticRule.reportArgumentType],
+            [36, DiagnosticRule.reportArgumentType],
+            [37, DiagnosticRule.reportArgumentType],
+            [42, DiagnosticRule.reportReturnType],
+            [47, DiagnosticRule.reportReturnType],
+            [52, DiagnosticRule.reportReturnType],
+            [57, DiagnosticRule.reportReturnType],
+            [87, DiagnosticRule.reportArgumentType],
+            [88, DiagnosticRule.reportArgumentType],
+            [89, DiagnosticRule.reportArgumentType],
+            [90, DiagnosticRule.reportArgumentType],
+            [111, DiagnosticRule.reportReturnType],
+            [117, DiagnosticRule.reportReturnType],
+        ]
+    );
+});
+
+test('TupleComparisonClosedResultWorkBound', () => {
+    for (const shape of ['below', 'limit', 'over', 'open', 'depth', 'deep', 'never']) {
+        const code = `// @filename: test.py
+////class /*value*/Value[T]:
+////    def __lt__(self, other: object) -> str:
+////        return "ordered"
+////type Tree[T] = tuple[Value[T], tuple[Tree[list[T]], ...]]
+////def compare(left: Tree[int], right: Tree[int]) -> None:
+////    /*compare*/left < right
+`;
+        const state = parseAndGetTestState(code).state;
+        const evaluator = state.program.evaluator!;
+        const node = getNodeAtMarker(state, 'compare').parent;
+        assert.ok(node?.nodeType === ParseNodeType.BinaryOperation);
+        const strType = evaluator.getBuiltInObject(node, 'str');
+        const boolType = evaluator.getBuiltInObject(node, 'bool');
+        const listType = evaluator.getBuiltInObject(node, 'list');
+        const tupleClass = evaluator.getTupleClassType();
+        assert.ok(isClassInstance(listType) && tupleClass && isInstantiableClass(tupleClass));
+        let payload = strType;
+        let reads = 0;
+        if (shape === 'never') {
+            payload = ClassType.specialize(listType, [NeverType.createNever()], true);
+        } else if (shape === 'open') {
+            const valueNode = getNodeAtMarker(state, 'value');
+            assert.ok(valueNode.nodeType === ParseNodeType.Name);
+            const valueClass = evaluator.getTypeOfExpression(valueNode).type;
+            assert.ok(isInstantiableClass(valueClass) && valueClass.shared.typeParams.length === 1);
+            payload = ClassType.specialize(listType, [valueClass.shared.typeParams[0]], true);
+        } else if (shape === 'depth' || shape === 'deep') {
+            const depth = maxTypeRecursionCount + (shape === 'deep' ? 1 : 0);
+            for (let index = 0; index < depth; index++) {
+                payload = ClassType.specialize(listType, [payload], true);
+            }
+        } else {
+            const width = maxSubtypesForInferredType - (shape === 'below' ? 2 : shape === 'limit' ? 1 : 0);
+            const args = Array.from({ length: width }, () => {
+                const arg = { type: strType, isUnbounded: false };
+                Object.defineProperty(arg, 'type', {
+                    get: () => {
+                        reads++;
+                        return strType;
+                    },
+                });
+                return arg;
+            });
+            payload = ClassType.cloneAsInstance(ClassType.specialize(tupleClass, [strType], true, false, args));
+        }
+        const originalCall = evaluator.getTypeOfMagicMethodCall;
+        const originalExpand = evaluator.mapSubtypesExpandTypeVars;
+        let expansions = 0;
+        evaluator.getTypeOfMagicMethodCall = (...args) =>
+            isClassInstance(args[0]) && args[0].shared.name === 'Value' ? { type: payload } : originalCall(...args);
+        evaluator.mapSubtypesExpandTypeVars = (...args) => {
+            assert.ok(++expansions <= 2 * (maxSubtypesForInferredType + 1), `Unbounded expansion (${shape})`);
+            return originalExpand(...args);
+        };
+        try {
+            reads = 0;
+            const result = evaluator.getTypeOfExpression(node);
+            assert.ok(expansions > 0);
+            assert.ok(reads <= maxSubtypesForInferredType, `Unbounded result traversal (${shape}: ${reads})`);
+            if (shape === 'over' || shape === 'open' || shape === 'deep') {
+                assert.ok(
+                    isTypeSame(result.type, boolType),
+                    `Complex result should use the existing fallback (${shape})`
+                );
+            } else {
+                assert.ok(isUnion(result.type) && result.type.priv.subtypes.some((type) => type === payload));
+                assert.ok(result.type.priv.subtypes.some((type) => isTypeSame(type, boolType)));
+                if (shape !== 'depth' && shape !== 'never') assert.ok(reads > 0);
+            }
+        } finally {
+            evaluator.getTypeOfMagicMethodCall = originalCall;
+            evaluator.mapSubtypesExpandTypeVars = originalExpand;
+        }
+    }
 });
 
 test('TupleComparisonGrowingWorkBound', () => {

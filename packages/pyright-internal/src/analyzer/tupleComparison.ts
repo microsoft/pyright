@@ -34,6 +34,7 @@ import {
     isClass,
     isClassInstance,
     isInstantiableClass,
+    isNever,
     isTypeSame,
     isUnion,
     isTypeVar,
@@ -276,15 +277,37 @@ function inferTupleComparison(
     const getRecursiveBudgetFallback = (): Type | undefined => {
         const declared = getDeclaredContractResult();
         if (!declared) return undefined;
+        const isClosedResult = (type: Type): boolean => {
+            let size = 0;
+            const visit = (type: Type, depth: number): boolean => {
+                if (
+                    ++size > maxSubtypesForInferredType ||
+                    depth > maxTypeRecursionCount ||
+                    type.props?.inferredTupleLiteral ||
+                    type.props?.typeForm ||
+                    getTypeCondition(type)?.length
+                )
+                    return false;
+                if (isAnyOrUnknown(type) || isNever(type)) return true;
+                if (isUnion(type)) return type.priv.subtypes.every((subtype) => visit(subtype, depth + 1));
+                if (!isClass(type) || type.priv.typedDictNarrowedEntries) return false;
+                const argsAreClosed = type.priv.tupleTypeArgs
+                    ? type.priv.tupleTypeArgs.every((arg) => visit(arg.type, depth + 1))
+                    : type.priv.typeArgs?.every((arg) => visit(arg, depth + 1)) ?? true;
+                return (
+                    argsAreClosed && (getTypeAliasInfo(type)?.typeArgs?.every((arg) => visit(arg, depth + 1)) ?? true)
+                );
+            };
+            return visit(type, 0);
+        };
         // Keep cheap results already reached, but never combine growing generic graphs.
         return combineTypes([
             ...resultTypes.filter(
                 (type) =>
                     isAnyOrUnknown(type) ||
                     (isClassInstance(type) &&
-                        !type.priv.typeArgs?.length &&
-                        !type.priv.tupleTypeArgs?.length &&
-                        !ClassType.isBuiltIn(type, 'bool'))
+                        !ClassType.isBuiltIn(type, 'bool') &&
+                        ((!type.priv.typeArgs?.length && !type.priv.tupleTypeArgs?.length) || isClosedResult(type)))
             ),
             declared,
         ]);
@@ -660,7 +683,7 @@ function inferTupleComparison(
 
     const getTupleLiteralItems = (
         expression: ExpressionNode | undefined,
-        args: TupleTypeArg[]
+        args: readonly TupleTypeArg[]
     ): ExpressionNode[] | undefined => {
         if (
             expression?.nodeType !== ParseNodeType.Tuple ||
@@ -741,7 +764,7 @@ function inferTupleComparison(
                     resultTypes.push(boolType);
                     return true;
                 }
-                const homogeneous = (args: TupleTypeArg[]): boolean =>
+                const homogeneous = (args: readonly TupleTypeArg[]): boolean =>
                     args.every(
                         (arg) =>
                             isClassInstance(arg.type) &&
