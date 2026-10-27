@@ -891,6 +891,15 @@ class CheckerConfigIntegrationTest(unittest.TestCase):
             for name, content in native_configs.items():
                 self.assertEqual((directory / name).read_text(), content)
 
+    def test_pyrefly_enables_optional_diagnostics(self) -> None:
+        source = self.root / "source"
+        source.mkdir()
+        (source / "unused_ignore.py").write_text("value: int = 1  # type: ignore\n")
+        result = self._run("pyrefly")
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 1, output)
+        self.assertIn("[unused-type-ignore]", output)
+
     def test_ty_inference_profile_changes_inferred_return_checking(self) -> None:
         source = self.root / "source"
         source.mkdir()

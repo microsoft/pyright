@@ -63,7 +63,7 @@ UPSTREAM_SOURCE = {
 }
 PYRIGHT_DEFAULT_EXCLUDES = ["**/node_modules", "**/__pycache__", "**/.*"]
 DEPENDENCY_ISOLATION = "pip-target-per-package"
-CHECKER_CONFIG_VERSION = 4
+CHECKER_CONFIG_VERSION = 5
 
 
 class BenchmarkError(Exception):
@@ -726,7 +726,7 @@ def _write_pyrefly_config(package_path: Path, check_paths: list[str] | None) -> 
         f"project-excludes = {json.dumps(PYRIGHT_DEFAULT_EXCLUDES)}",
         f"python-interpreter-path = {json.dumps(sys.executable)}",
         f"python-version = {json.dumps(TARGET_PYTHON_VERSION)}",
-        'preset = "default"',
+        'preset = "all"',
         "check-unannotated-defs = true",
         'infer-return-types = "checked"',
     ]

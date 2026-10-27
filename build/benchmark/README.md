@@ -142,11 +142,13 @@ tool's semantics.
 
 The `ty` profile retains ty's default return-type inference. The separately selectable `ty-infer`
 profile uses the same binary and configuration except for
-`analysis.return-type-inference = "always"`. Pyrefly explicitly uses its `default` preset,
+`analysis.return-type-inference = "always"`. Pyrefly explicitly uses its `all` preset,
 `check-unannotated-defs = true`, and `infer-return-types = "checked"`. Pyright uses `basic` mode with
 unannotated-function analysis enabled by default; mypy uses `check_untyped_defs = True`.
-Similar option names or presets do not imply equivalent inference. In particular, ty documents
-limitations for generator and asynchronous return inference even with `"always"`.
+Pyrefly's `all` preset enables every error kind and strict callable subtyping; it is not equivalent
+to Pyright's `basic` mode. Similar option names or presets do not imply equivalent inference.
+Changing diagnostic severity does not necessarily change how much analysis a checker performs.
+In particular, ty documents limitations for generator and asynchronous return inference even with `"always"`.
 
 ```console
 python build/benchmark/typecheck_benchmark.py -c ty ty-infer -r 3 -w 1
