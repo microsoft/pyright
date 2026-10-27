@@ -1584,6 +1584,12 @@ export function isWithinAnnotationComment(node: ParseNode) {
     let prevNode: ParseNode | undefined;
 
     while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Parameter && prevNode === curNode.d.annotationComment) {
+            // Type comments are always considered forward declarations even though
+            // they're not "quoted".
+            return true;
+        }
+
         if (curNode.nodeType === ParseNodeType.Function && prevNode === curNode.d.funcAnnotationComment) {
             // Type comments are always considered forward declarations even though
             // they're not "quoted".
