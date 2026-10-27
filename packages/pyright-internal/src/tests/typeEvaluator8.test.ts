@@ -1988,6 +1988,52 @@ test('TupleComparisonResults24', () => {
     );
 });
 
+for (const context of ['chained', 'parenthesized']) {
+    for (const form of ['tuple', 'name']) {
+        for (const operator of ['<', '<=', '>', '>=']) {
+            test(`TupleComparisonChainedIdentity ${context} ${form} ${operator}`, () => {
+                const left = form === 'tuple' ? '(/*middle*/value, 0)' : '/*middle*/pair';
+                const right = form === 'tuple' ? '(value, 1)' : 'pair';
+                const comparison = `${left} ${operator} ${right}`;
+                const expression = context === 'chained' ? `(Rebind(),) < ${comparison}` : `0 < (${comparison})`;
+                const lines = [
+                    '// @filename: test.py',
+                    '////class Value:',
+                    ...['__lt__', '__le__', '__gt__', '__ge__'].flatMap((method) => [
+                        `////    def ${method}(self, other: object) -> str:`,
+                        '////        return "ordered"',
+                    ]),
+                    '////value = Value()',
+                    '////pair: tuple[Value, int] = (value, 0)',
+                    '////class Rebind:',
+                    '////    def __lt__(self, other: object) -> bool:',
+                    '////        global value, pair',
+                    '////        value = Value()',
+                    '////        pair = (value, 1)',
+                    '////        return True',
+                    '////def compare() -> None:',
+                    `////    _ = ${expression}`,
+                ];
+                const state = parseAndGetTestState(lines.join('\n')).state;
+                const evaluator = state.program.evaluator!;
+                const marker = getNodeAtMarker(state, 'middle');
+                assert.ok(marker.nodeType === ParseNodeType.Name);
+                const node = form === 'tuple' ? marker.parent?.parent : marker.parent;
+                assert.ok(node?.nodeType === ParseNodeType.BinaryOperation);
+                // Whole-chain propagation can hide the child result; inspect the actual comparison node.
+                const result = evaluator.getTypeOfExpression(node);
+                const boolType = evaluator.getBuiltInObject(node, 'bool');
+                const expected =
+                    context === 'chained'
+                        ? combineTypes([evaluator.getBuiltInObject(node, 'str'), boolType])
+                        : boolType;
+                assert.ok(isTypeSame(result.type, expected), 'The complete middle-comparison type must be preserved');
+                assert.strictEqual(evaluator.assignType(boolType, result.type), context !== 'chained');
+            });
+        }
+    }
+}
+
 test('TupleComparisonClosedResultWorkBound', () => {
     for (const shape of ['below', 'limit', 'over', 'open', 'depth', 'deep', 'never']) {
         const code = `// @filename: test.py

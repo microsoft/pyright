@@ -313,8 +313,16 @@ function inferTupleComparison(
         ]);
     };
 
+    // Earlier comparisons can mutate objects or rebind names after a middle operand is captured.
+    const isChainedMiddleOperand =
+        errorNode.nodeType === ParseNodeType.BinaryOperation &&
+        !errorNode.d.hasParens &&
+        errorNode.parent?.nodeType === ParseNodeType.BinaryOperation &&
+        errorNode.parent.d.rightExpr === errorNode &&
+        operatorSupportsChaining(errorNode.parent.d.operator);
     const sameName = (left: ExpressionNode | undefined, right: ExpressionNode | undefined): boolean => {
         if (
+            isChainedMiddleOperand ||
             left?.nodeType !== ParseNodeType.Name ||
             right?.nodeType !== ParseNodeType.Name ||
             left.d.value !== right.d.value
@@ -689,12 +697,7 @@ function inferTupleComparison(
             expression?.nodeType !== ParseNodeType.Tuple ||
             args.length > maxSubtypesForInferredType ||
             expression.d.items.length !== args.length ||
-            // Earlier comparisons can expose a chained middle operand to user code.
-            (errorNode.nodeType === ParseNodeType.BinaryOperation &&
-                !errorNode.d.hasParens &&
-                errorNode.parent?.nodeType === ParseNodeType.BinaryOperation &&
-                errorNode.parent.d.rightExpr === errorNode &&
-                operatorSupportsChaining(errorNode.parent.d.operator)) ||
+            isChainedMiddleOperand ||
             expression.d.items.some(
                 (item, index) =>
                     item.nodeType === ParseNodeType.Unpack || args[index].isUnbounded || args[index].isOptional
