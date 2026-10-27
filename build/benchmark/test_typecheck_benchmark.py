@@ -630,6 +630,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
                 return_value={"pyright": "1.2.3"},
             ),
             patch.object(benchmark, "_save_results", return_value=result_path),
+            patch.object(benchmark, "run_capability_suite", return_value={"results": {}}),
             patch.object(benchmark, "_print_summary"),
             patch.object(benchmark, "clone_package") as clone,
             patch.object(benchmark, "install_deps") as install,

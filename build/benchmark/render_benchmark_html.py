@@ -73,6 +73,26 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
     metrics = {
         checker: _package_metrics(results[checker], checker) for checker in checkers
     }
+    suites = {
+        checker: data["capability_suite"]
+        for checker, data in results.items() if "capability_suite" in data
+    }
+    identities = {
+        json.dumps(
+            [suite["version"], suite["sha256"], suite["cases"]], sort_keys=True
+        )
+        for suite in suites.values()
+    }
+    if len(identities) > 1:
+        raise ValueError("Checker results use different capability suites")
+    capability_cases = next(iter(suites.values()))["cases"] if suites else {}
+    capabilities = {
+        checker: suite["results"].get(checker, {})
+        for checker, suite in suites.items()
+    }
+    for checker, result in capabilities.items():
+        if result.get("ok") and set(result["cases"]) != set(capability_cases):
+            raise ValueError(f"{checker}: incomplete capability results")
     source_scopes: dict[str, tuple[int, str]] = {}
     for checker in checkers:
         for package in results[checker].get("results", []):
@@ -110,6 +130,15 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
         total = totals[checker]
         share = total / max_total * 100 if max_total else 0.0
         version = results[checker].get("type_checker_versions", {}).get(checker, "unknown")
+        capability_cell = ""
+        if suites:
+            capability = capabilities.get(checker, {})
+            text = (
+                f'{sum(case["passed"] for case in capability["cases"].values())}'
+                f' / {len(capability_cases)}'
+                if capability.get("ok") else "Not evaluated"
+            )
+            capability_cell = f"<td>{text}</td>"
         summary_rows.append(
             "<tr>"
             f"<th scope=\"row\"><span class=\"checker\">{html.escape(_checker_label(checker))}</span>"
@@ -119,7 +148,51 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
             f"<strong>{total:.1f}s</strong></td>"
             f"<td>{float(aggregate.get('p50_execution_time_s', 0.0)):.1f}s</td>"
             f"<td>{float(aggregate.get('p50_peak_memory_mb', 0.0)):.0f} MB</td>"
+            + capability_cell +
             "</tr>"
+        )
+
+    capability_section = ""
+    if suites:
+        rows = []
+        for name, label in capability_cases.items():
+            cells = []
+            for checker in checkers:
+                capability = capabilities.get(checker, {})
+                if not capability.get("ok"):
+                    error = html.escape(capability.get("error", "No capability audit recorded"))
+                    cells.append(f'<td class="failed">Not evaluated<small>{error}</small></td>')
+                    continue
+                case = capability["cases"][name]
+                if case["passed"]:
+                    cells.append('<td class="passed">Match</td>')
+                else:
+                    details = (
+                        f'Positive diagnostic lines: {case["positive_diagnostic_lines"]}; '
+                        f'negative diagnostic lines: {case["negative_diagnostic_lines"]}; '
+                        f'expected negative line: {case["expected_error_line"]}.'
+                    )
+                    cells.append(
+                        f'<td class="failed">Mismatch<small>{html.escape(details)}</small></td>'
+                    )
+            rows.append(
+                f'<tr><th scope="row">{html.escape(label)}</th>{"".join(cells)}</tr>'
+            )
+        headers = "".join(
+            f'<th>{html.escape(_checker_label(checker))}</th>' for checker in checkers
+        )
+        capability_section = (
+            '<section><h2>Behavioral capability probes</h2>'
+            '<p class="legend">Untimed paired probes run after corpus timings with the same '
+            'checker configurations. A match requires accepting the positive example, preserving '
+            'asserted types, and reporting exactly the intended negative diagnostic line. '
+            'The assertion control must also pass. Extra strictness diagnostics can cause a mismatch; '
+            'a mismatch does not necessarily mean less inference. Raw JSON retains diagnostic evidence.</p>'
+            '<p class="legend">These few examples are not a comprehensive conformance or quality score, '
+            'do not certify equivalent analysis on the timed projects, and are not a denominator '
+            'for normalizing runtime. Historical results without probes are not evaluated.</p>'
+            '<div class="table-wrap"><table><thead><tr><th>Behavior</th>'
+            f'{headers}</tr></thead><tbody>{"".join(rows)}</tbody></table></div></section>'
         )
 
     package_rows: list[str] = []
@@ -262,13 +335,14 @@ small {{ display:block; margin-top:3px; color:var(--muted); font-family:"IBM Ple
 <header><h1>Python type checker benchmark</h1><p>Weekly cross-checker performance on pinned open-source projects.</p></header>
 <main>
 <section><h2>Run summary</h2><p class="legend">Generated {html.escape(timestamp)} · Python {html.escape(str(environment.get('python_version', 'unknown')))} · {html.escape(str(environment.get('platform_details', environment.get('platform', 'unknown'))))}</p>
-<div class="table-wrap"><table><thead><tr><th>Checker</th><th>Measured</th><th>Failed</th><th>Total time</th><th>Median time</th><th>Median RSS</th></tr></thead><tbody>{''.join(summary_rows)}</tbody></table></div></section>
+<div class="table-wrap"><table><thead><tr><th>Checker</th><th>Measured</th><th>Failed</th><th>Total time</th><th>Median time</th><th>Median RSS</th>{'<th>Behavior matches</th>' if suites else ''}</tr></thead><tbody>{''.join(summary_rows)}</tbody></table></div></section>
 <section><h2>Package comparison</h2><p class="legend">Different checker jobs run on separate hosted runners, so timings are independent trends rather than a fastest-checker ranking. The two Pyright modes run sequentially in one job. Cells show wall time and peak RSS.</p>
 <p class="legend">Checker defaults, inference, and diagnostic coverage differ; these timings do not measure equivalent analysis or time per rule. Pyrefly uses its all preset; Pyright uses basic mode. These presets are not equivalent. The two ty modes run sequentially in one job: ty retains its default return inference, while ty (return inference) enables inference for unannotated returns. Neither mode guarantees Pyright-equivalent inference.</p>
 <p class="legend">Linux RSS measures the parent checker process, not its child processes; multi-process memory totals are not comparable.</p>
 <p class="legend">Verified source-file counts come from an untimed checker audit against a shared implementation-first manifest. Imported dependencies are not included. Historical results without verified counts have not passed this audit.</p>
 <div class="table-wrap"><table><thead><tr><th>Package</th>{checker_headers}</tr></thead><tbody>{''.join(package_rows)}</tbody></table></div></section>
 {threading_section}
+{capability_section}
 <section><h2>Pyright release history</h2><p class="legend">Track per-package execution time and peak memory across every stable Pyright release from the prior year.</p><p><a href="history/">View Pyright package performance by release</a></p></section>
 {pyright_stats_section}
 </main>

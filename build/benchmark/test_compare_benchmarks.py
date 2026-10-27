@@ -77,6 +77,23 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
 
 
 class CompareBenchmarksTest(unittest.TestCase):
+    def test_rejects_faster_results_with_changed_capability_evidence(self) -> None:
+        baseline = _result(10.0, 100.0)
+        candidate = _result(5.0, 100.0)
+        for result in (baseline, candidate):
+            result["capability_suite"] = {
+                "version": 1, "sha256": "same", "cases": {"returns": "Return inference"},
+                "results": {
+                    "pyright": {"ok": True, "cases": {"returns": {"passed": True}}},
+                },
+            }
+        candidate["capability_suite"]["results"]["pyright"]["cases"]["returns"]["passed"] = False
+        failures, _ = compare_benchmarks._analyze(baseline, candidate, 10.0)
+        self.assertTrue(any("capability outcomes changed" in failure for failure in failures))
+        candidate["capability_suite"]["sha256"] = "different"
+        failures, _ = compare_benchmarks._analyze(baseline, candidate, 10.0)
+        self.assertIn("capability suite changed or was not evaluated", failures)
+
     def test_accepts_changes_within_threshold(self) -> None:
         with redirect_stdout(io.StringIO()):
             failures = compare_benchmarks.compare(

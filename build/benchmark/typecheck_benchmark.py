@@ -10,8 +10,9 @@
 
 """Compare type-checker wall time and peak memory on configured Python projects.
 
-This benchmark measures speed and peak RSS only. It does not compare diagnostics
-or type-checking precision. Configured projects are cloned into a temporary
+Corpus timings measure speed and peak RSS, with a separate small behavioral
+capability audit that is not a comprehensive precision comparison.
+Configured projects are cloned into a temporary
 directory and installed into package-specific dependency directories before
 they are checked; --local benchmarks an existing directory without clone or installation.
 """
@@ -36,6 +37,8 @@ from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence, TypedDict
+
+from benchmark_capabilities import CapabilityOutput, CapabilitySuite, run_capability_suite
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1]
@@ -63,7 +66,7 @@ UPSTREAM_SOURCE = {
 }
 PYRIGHT_DEFAULT_EXCLUDES = ["**/node_modules", "**/__pycache__", "**/.*"]
 DEPENDENCY_ISOLATION = "pip-target-per-package"
-CHECKER_CONFIG_VERSION = 5
+CHECKER_CONFIG_VERSION = 6
 
 
 class BenchmarkError(Exception):
@@ -862,6 +865,65 @@ def _build_checker_command(
     return None, []
 
 
+def _run_checker_process(
+    checker: str,
+    package_path: Path,
+    check_paths: list[Path] | None,
+    timeout: int,
+    memory_limit_mb: int,
+    capture_output: bool = True,
+    environment: dict[str, str] | None = None,
+    audit_files: bool = False,
+) -> ProcessResult:
+    """Execute a checker with the shared benchmark configuration and isolation."""
+    command, config_paths = _build_checker_command(
+        checker, package_path, check_paths
+    )
+    if not command:
+        error_message = (
+            "Not installed"
+            if checker in AVAILABLE_TYPE_CHECKERS
+            else f"Unknown checker: {checker}"
+        )
+        raise FileNotFoundError(error_message)
+
+    if audit_files:
+        if checker == "pyright-threads":
+            command.append("--verbose")
+        elif checker == "pyrefly":
+            command.append("--summary=full")
+        elif checker in ("ty", "ty-infer"):
+            command.append("-vv")
+
+    try:
+        # ty merges user configuration even with an explicit project config.
+        with (
+            tempfile.TemporaryDirectory(
+                prefix=".typecheck-benchmark-user-", dir=package_path
+            )
+            if checker in ("ty", "ty-infer")
+            else nullcontext(None)
+        ) as config_home:
+            checker_environment = environment
+            if config_home is not None:
+                checker_environment = (
+                    environment if environment is not None else os.environ
+                ).copy()
+                checker_environment["APPDATA"] = config_home
+                checker_environment["XDG_CONFIG_HOME"] = config_home
+            return run_process_with_timeout(
+                command,
+                cwd=package_path,
+                timeout=timeout,
+                memory_limit_mb=memory_limit_mb,
+                capture_output=capture_output,
+                environment=checker_environment,
+            )
+    finally:
+        for config_path in config_paths:
+            config_path.unlink(missing_ok=True)
+
+
 def run_checker(
     checker: str,
     package_path: Path,
@@ -873,67 +935,19 @@ def run_checker(
     audit_files: bool = False,
 ) -> TimingMetrics:
     """Run one checker once using a minimal checker-specific configuration."""
-    command, config_paths = _build_checker_command(
-        checker, package_path, check_paths
-    )
-    if not command:
-        error_message = (
-            "Not installed"
-            if checker in AVAILABLE_TYPE_CHECKERS
-            else f"Unknown checker: {checker}"
+    try:
+        result = _run_checker_process(
+            checker, package_path, check_paths, timeout, memory_limit_mb,
+            capture_output=capture_output, environment=environment, audit_files=audit_files,
         )
+    except OSError as exc:
         return {
             "ok": False,
             "execution_time_s": 0.0,
             "peak_memory_mb": 0.0,
             "oom_killed": False,
-            "error_message": error_message,
+            "error_message": f"Unable to start {checker}: {exc}",
         }
-
-    if audit_files:
-        if checker == "pyright-threads":
-            command.append("--verbose")
-        elif checker == "pyrefly":
-            command.append("--summary=full")
-        elif checker in ("ty", "ty-infer"):
-            command.append("-vv")
-
-    try:
-        try:
-            # ty merges user configuration even with an explicit project config.
-            with (
-                tempfile.TemporaryDirectory(
-                    prefix=".typecheck-benchmark-user-", dir=package_path
-                )
-                if checker in ("ty", "ty-infer")
-                else nullcontext(None)
-            ) as config_home:
-                checker_environment = environment
-                if config_home is not None:
-                    checker_environment = (
-                        environment if environment is not None else os.environ
-                    ).copy()
-                    checker_environment["APPDATA"] = config_home
-                    checker_environment["XDG_CONFIG_HOME"] = config_home
-                result = run_process_with_timeout(
-                    command,
-                    cwd=package_path,
-                    timeout=timeout,
-                    memory_limit_mb=memory_limit_mb,
-                    capture_output=capture_output,
-                    environment=checker_environment,
-                )
-        except OSError as exc:
-            return {
-                "ok": False,
-                "execution_time_s": 0.0,
-                "peak_memory_mb": 0.0,
-                "oom_killed": False,
-                "error_message": f"Unable to start {checker}: {exc}",
-            }
-    finally:
-        for config_path in config_paths:
-            config_path.unlink(missing_ok=True)
 
     if result["oom_killed"]:
         memory = result["peak_memory_mb"]
@@ -1358,6 +1372,7 @@ def _save_results(
     memory_limit_mb: int,
     os_name: str | None,
     local_dir: Path | None,
+    capability_suite: CapabilitySuite | None = None,
 ) -> Path:
     timestamp = datetime.now(timezone.utc)
     date = timestamp.strftime("%Y-%m-%d")
@@ -1401,6 +1416,8 @@ def _save_results(
         output["os"] = os_name
     if local_dir:
         output["local_directory"] = str(local_dir)
+    if capability_suite is not None:
+        output["capability_suite"] = capability_suite
 
     serialized = json.dumps(output, indent=2) + "\n"
     dated_file.write_text(serialized, encoding="utf-8")
@@ -1531,6 +1548,29 @@ def run_benchmark(
                     )
                 )
 
+    print("\nUntimed behavioral capability audit:")
+
+    def run_capability(
+        checker: str, root: Path, paths: list[Path]
+    ) -> CapabilityOutput:
+        result = _run_checker_process(
+            checker, root, paths, min(timeout, 60), memory_limit_mb, audit_files=True,
+        )
+        return {
+            **result,
+            "files_selected": _parse_source_file_count(
+                checker, result["stdout"] + "\n" + result["stderr"]
+            ),
+        }
+
+    capability_suite = run_capability_suite(type_checkers, run_capability)
+    for checker, result in capability_suite["results"].items():
+        if result["ok"]:
+            passed = sum(case["passed"] for case in result["cases"].values())
+            print(f"  {checker}: {passed}/{len(capability_suite['cases'])} cases passed")
+        else:
+            print(f"  {checker}: not evaluated: {result['error']}")
+
     aggregate = compute_aggregate_stats(results, type_checkers)
     dated_file = _save_results(
         results,
@@ -1544,6 +1584,7 @@ def run_benchmark(
         memory_limit_mb,
         os_name,
         resolved_local_dir,
+        capability_suite,
     )
 
     print("\nBenchmark complete.")

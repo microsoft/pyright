@@ -8,7 +8,8 @@ The upstream copyright and MIT license are reproduced in
 [`UPSTREAM_LICENSE.txt`](UPSTREAM_LICENSE.txt).
 The local integration preserves repository-specific behavior: it builds and invokes the current
 checkout's Pyright production bundle rather than resolving Pyright from `PATH`. The benchmark
-measures performance only, not diagnostic accuracy or type precision.
+measures corpus performance, with a separate small behavioral audit rather than a comprehensive
+diagnostic-accuracy or type-precision comparison.
 
 The checked corpus is a curated set of source repositories derived from
 [`lolpack/type_coverage_py`](https://github.com/lolpack/type_coverage_py/blob/main/included_packages.txt).
@@ -153,6 +154,35 @@ In particular, ty documents limitations for generator and asynchronous return in
 ```console
 python build/benchmark/typecheck_benchmark.py -c ty ty-infer -r 3 -w 1
 ```
+
+After corpus timings finish, the harness runs an **untimed behavioral capability suite** with two
+batch invocations per installed checker, using the same configurations and interpreter.
+Eight paired probes cover an exact-type assertion
+control, unannotated return inference, unannotated function body checking, generics, overloads,
+protocols, narrowing, and propagation from a local annotated import. The import probe does not
+model all third-party package or stub-resolution behavior.
+
+The positive examples must be accepted, including exact `typing.assert_type` checks; unexpected
+`Any` or `Unknown` therefore cannot satisfy an `int` assertion. Negative examples must report a
+diagnostic at exactly the intended line, with no other diagnostic lines. The assertion control
+must pass before any case can match. Both batches require native file counts covering all eight
+probe files; crashes, timeouts, missing counts, and unrecognized output are **not evaluated**,
+not zero capability or a successful result.
+
+JSON stores the versioned suite identity, per-case diagnostic lines, and raw process evidence in
+`capability_suite`. HTML adds a **Behavior matches** column and a per-case matrix. Mismatches can
+mean a missed error, lost precision, or additional strictness diagnostics: for example, Pyrefly's
+`all` preset also requires return annotations. Do not equate every mismatch with weaker inference.
+Comparisons reject changed suite identities or behavioral outcomes rather than accepting a
+speedup that silently changed these observed behaviors.
+Package-shard merges require identical suite identities and outcomes but permit different raw
+process evidence (such as temporary paths); the merged result retains the first shard's evidence.
+
+These are a few examples, not a weighted quality score, a measurement of internal work, or proof
+that the timed corpus receives equivalent analysis. Runtime is not divided by matches, rules, or
+diagnostic counts. Even passing every probe does not justify a quality-adjusted corpus speed ratio;
+that requires a separately controlled workload with verified shared behavioral requirements.
+Historical results without this audit have no verified behavior-match count.
 
 For defensible cross-checker comparisons, use the same machine, pinned source commits, dependency
 versions, interpreter, target platform, source scope, and resource/thread budgets. The weekly jobs

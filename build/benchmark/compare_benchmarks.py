@@ -170,6 +170,22 @@ def _analyze(
     candidate_metrics = _metrics_by_package(candidate)
     baseline_packages = _packages_by_name(baseline)
     candidate_packages = _packages_by_name(candidate)
+    old_suite = baseline.get("capability_suite")
+    new_suite = candidate.get("capability_suite")
+    if old_suite is not None or new_suite is not None:
+        if old_suite is None or new_suite is None or any(
+            old_suite.get(field) != new_suite.get(field)
+            for field in ("version", "sha256", "cases")
+        ):
+            failures.append("capability suite changed or was not evaluated")
+        else:
+            for checker, old_result in old_suite["results"].items():
+                new_result = new_suite["results"].get(checker, {})
+                if (
+                    old_result.get("ok") != new_result.get("ok")
+                    or old_result.get("cases") != new_result.get("cases")
+                ):
+                    failures.append(f"{checker}: behavioral capability outcomes changed")
 
     for key, old in sorted(baseline_metrics.items()):
         package, checker = key

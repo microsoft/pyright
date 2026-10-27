@@ -69,6 +69,52 @@ class _SemanticParser(HTMLParser):
 
 
 class RenderBenchmarkHtmlTest(unittest.TestCase):
+    def test_renders_behavior_matches_without_quality_adjusting_times(self) -> None:
+        pyright = _result("pyright", 2.0, 200.0)
+        ty = _result("ty", 1.0, 100.0)
+        for checker, result in (("pyright", pyright), ("ty", ty)):
+            result["capability_suite"] = {
+                "version": 1,
+                "sha256": "same",
+                "cases": {"returns": "Return inference"},
+                "results": {
+                    checker: {
+                        "ok": True,
+                        "cases": {
+                            "returns": {
+                                "passed": checker == "pyright",
+                                "positive_diagnostic_lines": [] if checker == "pyright" else [3],
+                                "negative_diagnostic_lines": [4] if checker == "pyright" else [],
+                                "expected_error_line": 4,
+                            }
+                        },
+                    }
+                },
+            }
+        report = render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        parser = _SemanticParser()
+        parser.feed(report)
+        self.assertIn("Behavior matches", parser.cells)
+        self.assertIn("1 / 1", parser.cells)
+        self.assertIn("0 / 1", parser.cells)
+        self.assertIn("2.00s", parser.cells)
+        self.assertIn("1.00s", parser.cells)
+        self.assertIn("Behavioral capability probes", parser.headings)
+        self.assertIn("Positive diagnostic lines: [3]", report)
+        self.assertIn("do not certify equivalent analysis", report)
+
+        ty["capability_suite"]["sha256"] = "different"
+        with self.assertRaisesRegex(ValueError, "different capability suites"):
+            render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        ty["capability_suite"]["sha256"] = "same"
+        ty["capability_suite"]["results"]["ty"] = {
+            "ok": False, "error": "<failed audit>",
+        }
+        report = render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        self.assertIn("Not evaluated", report)
+        self.assertIn("&lt;failed audit&gt;", report)
+        self.assertNotIn("<failed audit>", report)
+
     def test_requires_matching_manifests_and_verified_native_counts(self) -> None:
         pyright = _result("pyright", 2.0, 200.0)
         ty = _result("ty", 1.0, 100.0)
