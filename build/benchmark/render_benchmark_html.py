@@ -9,10 +9,12 @@ from pathlib import Path
 from typing import Any
 
 
-CHECKER_ORDER = ["pyright", "pyright-threads", "pyrefly", "ty", "mypy", "zuban"]
+CHECKER_ORDER = ["pyright", "pyright-threads", "pyrefly", "ty", "ty-infer", "mypy", "zuban"]
 
 
 def _checker_label(checker: str) -> str:
+    if checker == "ty-infer":
+        return "ty (return inference)"
     return "pyright (threads)" if checker == "pyright-threads" else checker
 
 
@@ -56,6 +58,9 @@ def _phase_time(phase_times: dict[str, Any], name: str) -> str:
 def render_html(results: dict[str, dict[str, Any]]) -> str:
     if not results:
         raise ValueError("At least one checker result is required")
+    config_version = next(iter(results.values())).get("checker_config_version")
+    if any(data.get("checker_config_version") != config_version for data in results.values()):
+        raise ValueError("Checker results use different benchmark configuration versions")
     checkers = _ordered_checkers(results)
     packages = sorted(
         {
@@ -68,6 +73,23 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
     metrics = {
         checker: _package_metrics(results[checker], checker) for checker in checkers
     }
+    source_scopes: dict[str, tuple[int, str]] = {}
+    for checker in checkers:
+        for package in results[checker].get("results", []):
+            manifest_hash = package.get("source_manifest_sha256")
+            if manifest_hash is None:
+                continue
+            name = package["package_name"]
+            scope = (package["source_file_count"], manifest_hash)
+            if name in source_scopes and source_scopes[name] != scope:
+                raise ValueError(f"{name}: checker results use different source manifests")
+            source_scopes[name] = scope
+            metric = metrics[checker].get(name, {})
+            if metric.get("ok") and (
+                not metric.get("file_count_verified")
+                or metric.get("files_selected") != scope[0]
+            ):
+                raise ValueError(f"{name}/{checker}: source-file count is not verified")
     totals = {
         checker: float(
             results[checker].get("aggregate", {})
@@ -110,10 +132,18 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
                 continue
             cells.append(
                 f'<td><strong>{float(metric["execution_time_s"]):.2f}s</strong>'
-                f'<small>{float(metric.get("peak_memory_mb", 0.0)):.0f} MB</small></td>'
+                f'<small>{float(metric.get("peak_memory_mb", 0.0)):.0f} MB</small>'
+                + (
+                    f'<small>{metric["files_selected"]} source files verified</small>'
+                    if metric.get("file_count_verified") else ""
+                ) + '</td>'
             )
+        scope_label = (
+            f'<small>{source_scopes[package][0]} source files selected</small>'
+            if package in source_scopes else ""
+        )
         package_rows.append(
-            f'<tr><th scope="row">{html.escape(package)}</th>{"".join(cells)}</tr>'
+            f'<tr><th scope="row">{html.escape(package)}{scope_label}</th>{"".join(cells)}</tr>'
         )
 
     pyright_stats_rows: list[str] = []
@@ -234,6 +264,9 @@ small {{ display:block; margin-top:3px; color:var(--muted); font-family:"IBM Ple
 <section><h2>Run summary</h2><p class="legend">Generated {html.escape(timestamp)} · Python {html.escape(str(environment.get('python_version', 'unknown')))} · {html.escape(str(environment.get('platform_details', environment.get('platform', 'unknown'))))}</p>
 <div class="table-wrap"><table><thead><tr><th>Checker</th><th>Measured</th><th>Failed</th><th>Total time</th><th>Median time</th><th>Median RSS</th></tr></thead><tbody>{''.join(summary_rows)}</tbody></table></div></section>
 <section><h2>Package comparison</h2><p class="legend">Different checker jobs run on separate hosted runners, so timings are independent trends rather than a fastest-checker ranking. The two Pyright modes run sequentially in one job. Cells show wall time and peak RSS.</p>
+<p class="legend">Checker defaults, inference, and diagnostic coverage differ; these timings do not measure equivalent analysis or time per rule. The two ty modes run sequentially in one job: ty retains its default return inference, while ty (return inference) enables inference for unannotated returns. Neither mode guarantees Pyright-equivalent inference.</p>
+<p class="legend">Linux RSS measures the parent checker process, not its child processes; multi-process memory totals are not comparable.</p>
+<p class="legend">Verified source-file counts come from an untimed checker audit against a shared implementation-first manifest. Imported dependencies are not included. Historical results without verified counts have not passed this audit.</p>
 <div class="table-wrap"><table><thead><tr><th>Package</th>{checker_headers}</tr></thead><tbody>{''.join(package_rows)}</tbody></table></div></section>
 {threading_section}
 <section><h2>Pyright release history</h2><p class="legend">Track per-package execution time and peak memory across every stable Pyright release from the prior year.</p><p><a href="history/">View Pyright package performance by release</a></p></section>

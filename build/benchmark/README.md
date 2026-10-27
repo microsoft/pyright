@@ -17,8 +17,9 @@ additional dependencies. Repository commits are pinned so pull-request compariso
 source revisions.
 
 Entries can define `exclude_directories` to prune named directories while resolving their check
-paths. The benchmark expands those entries to `.py` and `.pyi` files before invoking any checker, so
-all checkers analyze the same scope. NumPy excludes its test directories; pandas includes its test
+paths. The benchmark expands every entry to a sorted, deduplicated `.py`/`.pyi` manifest before
+invoking any checker. When both are selected for the same module, the `.py` implementation takes
+precedence over its `.pyi`; standalone stubs remain included. NumPy excludes its test directories; pandas includes its test
 and `_testing` directories. Generated Pyright configurations explicitly retain
 its standard `**/node_modules`, `**/__pycache__`, and `**/.*` exclusions.
 
@@ -92,8 +93,111 @@ it afterward. If Pyright is selected, the local Pyright production bundle is sti
 `--skip-pyright-build` is supplied.
 
 Checker configuration files use unique temporary names in the target directory and are removed after
-each invocation. Existing `pyrightconfig.json`, mypy, ty, or Pyrefly configuration files are not
-overwritten. The temporary configuration selects the full local directory.
+each invocation. Every checker receives an explicit configuration, including Zuban, whose mode is
+also explicitly `default`. Existing repository configuration files are not overwritten or extended.
+The temporary configuration selects the full local directory.
+
+## Fairness and interpretation
+
+The benchmark is an end-to-end CLI throughput measurement, not an equal-work or quality-adjusted
+ranking. A slower result does not by itself prove that a checker does more analysis. Different
+inference algorithms, import graphs, bundled stubs, diagnostics, threading, startup, and diagnostic
+formatting all contribute to wall time.
+
+All checkers target the running interpreter's Python major/minor version and receive its interpreter
+path. ty and Pyrefly ignore `.gitignore` and `.ignore`; Zuban disables gitignore exclusions.
+ty also merges user-level configuration even when `--config-file` is supplied, so both ty profiles
+run with fresh empty `APPDATA`/`XDG_CONFIG_HOME` config directories, removed after each invocation.
+ty's built-in directory exclusions are reset before applying Pyright's standard exclusions, and
+Pyrefly's exclusion heuristics are disabled in favor of those same exclusions. This avoids silently
+skipping selected `dist`, `venv`, or ignored source files, or checking hidden directories only in ty.
+Imported dependencies may still be analyzed differently; matching entry-point scope does not imply
+matching transitive work.
+
+Every checker receives the same explicit source-file manifest, not independently expanded directory
+roots. A missing configured path or empty selection is an error; neither falls back to checking the
+whole repository. mypy and Zuban use explicit TOML file lists to avoid command-line size limits and
+Windows INI backslash escaping. ty's source selectors use gitignore-pattern separators even on
+Windows, where native backslashes can silently match no files.
+
+Before any warmups or measured runs, each checker performs one **untimed file-count audit** using
+the benchmark configuration and the selected files. Pyright reports checked files in `--stats`,
+threaded Pyright reports files to analyze with `--verbose`, Pyrefly reports project modules with
+`--summary=full`, ty logs checked file paths with `-vv`, and mypy/Zuban report checked source-file
+counts in their summaries. Missing counts, fatal errors, and counts different from the manifest
+reject that checker's measurements. Verbose/debug audit output is not enabled for measured runs.
+Counts in ordinary checker output are also checked during warmups and measured runs.
+The audit is recorded separately as `uncounted_validation_runs_per_checker = 1`, including when
+`--warmup 0` is selected; this is therefore not a cold-filesystem measurement.
+
+Result JSON retains `source_files`, `source_file_count`, and `source_manifest_sha256` per package;
+each successful checker records its native `files_selected`, `file_count_verified`, and separate
+`file_count_audit_time_s`. HTML cells show the verified count. The report rejects different
+manifests for the same package even if counts match, and the regression comparator also checks the
+manifest hash and audit-run setting. These are source entry-point counts, **not total imported or
+parsed files**; forcing equal dependency counts across different checkers would change their work.
+Counts also do not prove equal diagnostic coverage: repository and user configs are tested
+separately with deliberately suppressed diagnostics, and source-level ignore comments retain each
+tool's semantics.
+
+The `ty` profile retains ty's default return-type inference. The separately selectable `ty-infer`
+profile uses the same binary and configuration except for
+`analysis.return-type-inference = "always"`. Pyrefly explicitly uses its `default` preset,
+`check-unannotated-defs = true`, and `infer-return-types = "checked"`. Pyright uses `basic` mode with
+unannotated-function analysis enabled by default; mypy uses `check_untyped_defs = True`.
+Similar option names or presets do not imply equivalent inference. In particular, ty documents
+limitations for generator and asynchronous return inference even with `"always"`.
+
+```console
+python build/benchmark/typecheck_benchmark.py -c ty ty-infer -r 3 -w 1
+```
+
+For defensible cross-checker comparisons, use the same machine, pinned source commits, dependency
+versions, interpreter, target platform, source scope, and resource/thread budgets. The weekly jobs
+currently use separate hosted runners and install dependencies without a shared version lock, so
+their results are independent trends rather than a controlled speed ranking. Repeated fresh
+processes after a warmup measure a warm-filesystem CLI workload, not editor incrementality or a
+cold-disk workload. Alternate run order for paired experiments and report the individual samples
+and dispersion, not only a speedup.
+
+Do not divide total runtime by enabled rule count or emitted diagnostic count. Rules differ in
+granularity and share parsing, import resolution, inference, constraint solving, and caches.
+Disabling a diagnostic often suppresses reporting without removing its prerequisite analysis.
+For a feature-cost investigation, use focused workloads (for example overload resolution,
+protocol matching, generics, narrowing, unannotated returns, and typed versus untyped imports),
+verify expected diagnostics and inferred types outside the timed runs, and compare paired
+feature-on/feature-off measurements within each checker where supported. Report these as marginal
+costs on that workload, not additive or portable "time per rule". Report type-system conformance
+and curated false-positive/false-negative cases separately from throughput; the
+[Python typing conformance suite](https://github.com/python/typing/tree/main/conformance) is a useful
+shared specification, but not a performance weighting scheme.
+
+Linux peak RSS currently polls only `/proc/<parent-pid>/status`; it does not sum child-process memory.
+In particular, Pyright `--threads` RSS must not be interpreted as total worker memory or a memory
+improvement over single-process Pyright. Windows RSS is unavailable. Neither limitation prevents
+wall-time measurements, but neither supports cross-process memory rankings.
+
+Configuration changes are recorded as `checker_config_version` in result JSON. Comparisons reject
+different versions, including pre-versioned results, so regenerate baselines rather than comparing
+new file-selection or interpreter settings against old measurements.
+Pyrefly's exit-code-1 "no files matched" error is a failed measurement, not an ordinary type error.
+
+The opt-in integration tests execute the real binaries against conflicting root/nested configs,
+ignored files, directory-exclusion probes, and paired implementations/stubs. They verify every
+checker's native count against the same manifest, including clean files and standalone stubs,
+and check that `ty-infer` catches an inferred-return
+assignment that the default profile does not. Install all default checkers and build Pyright first,
+then set `TYPECHECK_BENCHMARK_INTEGRATION=1` and run:
+
+```console
+python -m unittest discover -s build/benchmark -p test_typecheck_benchmark.py
+```
+
+Configuration references:
+[ty configuration](https://docs.astral.sh/ty/configuration/),
+[ty inference and source options](https://docs.astral.sh/ty/reference/configuration/),
+[Pyrefly configuration selection and presets](https://pyrefly.org/en/docs/configuration/),
+and [Zuban modes and configuration](https://docs.zubanls.com/en/latest/usage.html).
 
 ## Developer workflow
 
@@ -171,7 +275,7 @@ that first introduces them cannot trigger itself.
 
 | Flag | Description |
 | --- | --- |
-| `-c, --checkers NAME [NAME ...]` | Checkers to run; choices are `pyright`, `pyright-threads`, `pyright-pip`, `pyrefly`, `ty`, `mypy`, and `zuban` |
+| `-c, --checkers NAME [NAME ...]` | Checkers to run; choices are `pyright`, `pyright-threads`, `pyright-pip`, `pyrefly`, `ty`, `ty-infer`, `mypy`, and `zuban` |
 | `-r, --runs N` | Measured runs per checker (default: 5) |
 | `-w, --warmup N` | Warmup runs discarded before measurement (default: 1) |
 | `-t, --timeout SECONDS` | Timeout for each checker invocation (default: 300) |
@@ -242,6 +346,8 @@ peak-memory charts. Reports and artifacts are published before a failed comparis
 unsuccessful.
 
 The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
+The ty job runs `ty` and `ty-infer` sequentially against the same prepared corpus, with separate
+labels and results; it does not replace ty's default behavior with a stricter configuration.
 The Pyright job measures single-threaded mode and `--threads` mode sequentially on the same runner and
 prepared package corpus. Each mode performs three measured runs after one warmup. The report includes
 a per-package Pyright threading chart with wall time, peak RSS, and speedup. The aggregate job stores

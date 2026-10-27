@@ -238,6 +238,18 @@ Regression threshold: `10.0%`
 
         self.assertEqual(failures, [])
 
+    def test_rejects_changed_checker_configuration(self) -> None:
+        candidate = _result(10.0, 100.0)
+        candidate["checker_config_version"] = 2
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                _result(10.0, 100.0), candidate, 10.0
+            )
+        self.assertEqual(
+            failures,
+            ["environment mismatch for checker_config_version: None != 2"],
+        )
+
     def test_reports_success_without_failed_baseline(self) -> None:
         baseline = _result(0.0, 0.0, ok=False)
         candidate = _result(12.0, 345.0)
@@ -326,7 +338,7 @@ Regression threshold: `10.0%`
             ],
         )
 
-    def test_allows_uncounted_validation_run_mismatch(self) -> None:
+    def test_rejects_uncounted_validation_run_mismatch(self) -> None:
         candidate = _result(10.0, 100.0)
         candidate["uncounted_validation_runs_per_checker"] = 1
 
@@ -335,7 +347,22 @@ Regression threshold: `10.0%`
                 _result(10.0, 100.0), candidate, 10.0
             )
 
-        self.assertEqual(failures, [])
+        self.assertEqual(
+            failures,
+            ["environment mismatch for uncounted_validation_runs_per_checker: 0 != 1"],
+        )
+
+    def test_rejects_different_source_manifests(self) -> None:
+        baseline = _result(10.0, 100.0)
+        candidate = _result(10.0, 100.0)
+        baseline["results"][0]["source_manifest_sha256"] = "old"
+        candidate["results"][0]["source_manifest_sha256"] = "new"
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(baseline, candidate, 10.0)
+        self.assertEqual(
+            failures,
+            ["example/pyright: package source_manifest_sha256 changed from old to new"],
+        )
 
     def test_rejects_package_commit_mismatch(self) -> None:
         candidate = _result(10.0, 100.0)
@@ -579,7 +606,7 @@ Regression threshold: `10.0%`
         )
         self.assertEqual(
             weekly_benchmark_steps[9]["run"],
-            "checkers=('${{ matrix.checker }}')\nextra_args=()\nif [[ '${{ matrix.checker }}' == 'pyright' ]]; then\n  checkers+=(pyright-threads)\n  extra_args+=(--skip-pyright-build)\nfi\npython build/benchmark/typecheck_benchmark.py \\\n  -c \"${checkers[@]}\" -r 3 -w 1 -t 1800 \\\n  --memory-limit-mb 8192 --os-name linux-x64 \\\n  --output build/benchmark/results \\\n  \"${extra_args[@]}\"\n",
+            "checkers=('${{ matrix.checker }}')\nextra_args=()\nif [[ '${{ matrix.checker }}' == 'pyright' ]]; then\n  checkers+=(pyright-threads)\n  extra_args+=(--skip-pyright-build)\nfi\nif [[ '${{ matrix.checker }}' == 'ty' ]]; then\n  checkers+=(ty-infer)\nfi\npython build/benchmark/typecheck_benchmark.py \\\n  -c \"${checkers[@]}\" -r 3 -w 1 -t 1800 \\\n  --memory-limit-mb 8192 --os-name linux-x64 \\\n  --output build/benchmark/results \\\n  \"${extra_args[@]}\"\n",
         )
         weekly_report_steps = weekly_workflow_data["jobs"]["report"]["steps"]
         self.assertEqual(

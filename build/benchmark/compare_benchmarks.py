@@ -157,7 +157,9 @@ def _analyze(
         "node_options",
         "runs_per_package",
         "warmup_runs",
+        "uncounted_validation_runs_per_checker",
         "dependency_isolation",
+        "checker_config_version",
     ):
         if baseline.get(field) != candidate.get(field):
             failures.append(
@@ -257,7 +259,7 @@ def _analyze(
             )
             continue
         scope_changed = False
-        for field in ("check_paths", "exclude_directories"):
+        for field in ("check_paths", "exclude_directories", "source_manifest_sha256"):
             if old_package.get(field, []) != new_package.get(field, []):
                 failures.append(
                     f"{package}/{checker}: package {field} changed from "

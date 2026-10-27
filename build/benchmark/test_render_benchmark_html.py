@@ -69,6 +69,45 @@ class _SemanticParser(HTMLParser):
 
 
 class RenderBenchmarkHtmlTest(unittest.TestCase):
+    def test_requires_matching_manifests_and_verified_native_counts(self) -> None:
+        pyright = _result("pyright", 2.0, 200.0)
+        ty = _result("ty", 1.0, 100.0)
+        for checker, result in (("pyright", pyright), ("ty", ty)):
+            result["checker_config_version"] = 4
+            result["results"][0].update(
+                source_file_count=5, source_manifest_sha256="same"
+            )
+            result["results"][0]["metrics"][checker].update(
+                files_selected=5, file_count_verified=True
+            )
+        report = render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        self.assertIn("5 source files selected", report)
+        self.assertEqual(report.count("5 source files verified"), 2)
+
+        ty["checker_config_version"] = 3
+        with self.assertRaisesRegex(ValueError, "different benchmark configuration versions"):
+            render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        ty["checker_config_version"] = 4
+        ty["results"][0]["source_manifest_sha256"] = "different"
+        with self.assertRaisesRegex(ValueError, "different source manifests"):
+            render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        ty["results"][0]["source_manifest_sha256"] = "same"
+        ty["results"][0]["metrics"]["ty"]["files_selected"] = 4
+        with self.assertRaisesRegex(ValueError, "source-file count is not verified"):
+            render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+
+    def test_renders_ty_inference_as_a_separate_profile(self) -> None:
+        report = render_benchmark_html.render_html(
+            {
+                "ty-infer": _result("ty-infer", 2.0, 200.0),
+                "ty": _result("ty", 1.0, 100.0),
+            }
+        )
+        parser = _SemanticParser()
+        parser.feed(report)
+        self.assertLess(parser.cells.index("ty"), parser.cells.index("ty (return inference)"))
+        self.assertIn("do not measure equivalent analysis or time per rule", report)
+
     def test_loads_one_result_per_checker(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
