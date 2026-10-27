@@ -2056,9 +2056,11 @@ test('TupleComparisonClosedResultWorkBound', () => {
                     `Complex result should use the existing fallback (${shape})`
                 );
             } else {
-                assert.ok(isUnion(result.type) && result.type.priv.subtypes.some((type) => type === payload));
-                assert.ok(result.type.priv.subtypes.some((type) => isTypeSame(type, boolType)));
                 if (shape !== 'depth' && shape !== 'never') assert.ok(reads > 0);
+                assert.ok(
+                    isTypeSame(result.type, combineTypes([payload, boolType])),
+                    `Closed result should preserve exactly payload | bool (${shape})`
+                );
             }
         } finally {
             evaluator.getTypeOfMagicMethodCall = originalCall;
