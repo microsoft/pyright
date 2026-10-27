@@ -23,6 +23,11 @@ Static diagnostics and revealed types on supplied Python code use surface=cli, e
 reported. This adapter does not establish editor/LSP/runtime behavior: completion, hover, navigation, stale
 editor state and runtime-specific concerns remain separate unsupported claims, not CLI proxies.
 Use ready only with justified exact original broken/resolved predicates and affirmative precision expectations.
+Precision is invariant across broken and resolved targets, not an expectation that the bug is already fixed.
+Do not require the repaired type at a query whose reported broken type must remain observable. Use justified
+unaffected queries or a captured working comparison for invariant precision. For wrong-type complaints, retain
+an affirmative corrected-type expectation in resolved; unrelated positive checks cannot replace affected-type
+safety. Remain blocked if these expectations cannot be justified, without dropping any reported symptom.
 Use partial when captured source/setup can support a bounded historical discovery but exact observations are
 missing. Use blocked for missing original, unsupported surfaces or genuine missing prerequisites. Unknown claims
 have no executable predicates or controls: never invent a nonempty diagnostic merely to satisfy a schema.
@@ -36,8 +41,21 @@ mentioning the chosen filename is not captured source-association evidence.
 Only an explicit controller policy permits bounded assumed Python/checking settings. Assumptions are experimental
 conditions, not evidence that a reporter used them. Missing dependencies remain unknown until the controller
 has independent capability evidence. Routine target preparation and precision checks are workflow duties.
+Captured reported settings are applied automatically. Never repeat them in setting_choices, even to explain
+that they were reported: that field is exclusively for authorized assumptions about genuinely absent settings.
+Use setting_choices=[] when reported settings already exist or assumptions are forbidden. In particular, a
+playground's pythonVersion and strict=true need no setting choices.
+If original/control examples supply different settings, a claim may use reported_settings to reference captured
+declaration IDs, their setting, an exact surrounding EvidenceSpan, and the reason they apply to that original.
+Copy captured evidence spans instead of inventing offsets; a declaration's evidence can be the context when
+it covers every selected declaration. Explain the original/control association in reason.
+No new value is accepted. Include all same-setting declarations in the same configuration/shell fence, URL or
+prose paragraph; never select just one conflicting key/option or hide unsupported settings. All other captured
+declarations remain visible. These associations require interpreting report context and ALWAYS remain conditional,
+not approved historical configuration or fully supported verdicts. Preserve other comparisons as unverified scope.
+Use reported_settings=[] when the captured settings already agree; ordinary ambiguity still blocks without a selection.
 When the controller supplies approved exact setup selections, retain their source-ID/path/filename-quote
-associations and exact frozen setting choices, including assumption reasons. These are reconstruction conventions,
+associations, reported_settings, and exact frozen setting choices, including assumption reasons. These are reconstruction conventions,
 not extra reporter facts. Do not merge separate examples to borrow another group's proof. Other material concerns
 remain explicit even when their own setup is unapproved or their surface is unsupported.
 This tool-less role cannot execute checks; that does not prevent later controller execution. Describe missing

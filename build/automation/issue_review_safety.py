@@ -10,10 +10,14 @@ import hashlib
 import json
 import math
 import os
+import re
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from pydantic import JsonValue
+from typing import Literal
+from uuid import uuid4
+
+from pydantic import Field, JsonValue
 
 from issue_review_classifier import (
     ChoiceClassification,
@@ -24,11 +28,13 @@ from issue_review_classifier import (
     ClassificationResponseError,
 )
 from issue_review_decision import ENVIRONMENT, MicrosoftDecisionClassifier
+from issue_review_models import Record, Text
 
 MAX_INPUT_BYTES = 65536
 MAX_STATE_BYTES = 24576
 MAX_EVIDENCE_BYTES = 1024 * 1024
 MAX_SCREENING_PARTS = 64
+MAX_DIAGNOSTIC_BYTES = 4 * MAX_EVIDENCE_BYTES
 SCREENING_SCOPE = "target_issue_and_comments"
 PART_OVERLAP = 2048
 PART_CONTEXT = 1024
@@ -65,6 +71,75 @@ PRIVATE_ENVIRONMENT = {
 
 class ScreeningBlocked(ValueError):
     pass
+
+
+class ScreeningRequest(Record):
+    state: dict[str, str]
+    name: Literal["prompt_injection"]
+    instructions: Text
+    criteria: dict[str, str]
+    timeout: int
+
+
+class ReferenceScreeningDiagnostic(Record):
+    """Untrusted replay data, never a ValidityEvidence record or permission decision."""
+
+    schema_version: Literal[1]
+    kind: Literal["quarantined_reference_screening"]
+    evidence_json: str = Field(min_length=1, max_length=MAX_EVIDENCE_BYTES)
+    requests: list[ScreeningRequest] = Field(max_length=MAX_SCREENING_PARTS)
+    policy_hash: Text
+    classifier_configuration_hash: Text
+    audit: dict[str, JsonValue]
+
+
+def _validate_diagnostic_reference(text: str, source: str) -> None:
+    from issue_review_validity import ValidityEvidence
+
+    match = re.fullmatch(r"validity-reference:([1-9]|1[0-2])", source)
+    evidence = ValidityEvidence.model_validate_json(text)
+    if (
+        match is None or evidence.id != f"validity-reference-{match[1]}"
+        or evidence.kind not in {"typing_spec", "python_docs", "policy", "precedent"}
+        or evidence.provenance != "retrieved_reference" or len(evidence.content) > 4000
+        or evidence.reference_span is None
+    ):
+        raise ValueError("Diagnostic retention requires a bounded controller-retrieved reference")
+
+
+def load_reference_screening_diagnostic(path: Path) -> ReferenceScreeningDiagnostic:
+    from issue_review_validity import parse_json_value
+
+    if path.parent.name != "screening-diagnostics" or path.stat().st_size > MAX_DIAGNOSTIC_BYTES:
+        raise ValueError("Expected a bounded quarantined screening diagnostic")
+    raw = path.read_bytes()
+    diagnostic = ReferenceScreeningDiagnostic.model_validate_json(json.dumps(parse_json_value(raw.decode("utf-8"))))
+    audit = diagnostic.audit
+    source = audit.get("source")
+    if not isinstance(source, str):
+        raise ValueError("Diagnostic source identity is missing")
+    _validate_diagnostic_reference(diagnostic.evidence_json, source)
+    evidence = parse_json_value(diagnostic.evidence_json)
+    if json.dumps(evidence, ensure_ascii=True, sort_keys=True, allow_nan=False) != diagnostic.evidence_json:
+        raise ValueError("Diagnostic evidence is not the exact canonical screening input")
+    if (
+        audit.get("content_hash") != hashlib.sha256(diagnostic.evidence_json.encode()).hexdigest()
+        or audit.get("policy_hash") != diagnostic.policy_hash
+        or any(set(request.state) != {"content"} for request in diagnostic.requests)
+    ):
+        raise ValueError("Diagnostic evidence, policy or classifier state identity is inconsistent")
+    relative = str(path.relative_to(path.parent.parent))
+    expected_hash = hashlib.sha256(raw).hexdigest()
+    with (path.parent.parent / "screening.jsonl").open(encoding="utf-8") as stream:
+        for line in stream:
+            row = parse_json_value(line)
+            if not isinstance(row, dict):
+                raise ValueError("Screening audit row must be an object")
+            if row.get("diagnostic") == relative and row.get("diagnostic_sha256") == expected_hash:
+                if {key: value for key, value in row.items() if key != "diagnostic_sha256"} != audit:
+                    raise ValueError("Diagnostic outcome differs from its original audit")
+                return diagnostic
+    raise ValueError("Diagnostic has no matching hash-bound screening audit")
 
 
 def _evidence_units(value: JsonValue, source: str) -> list[JsonValue] | None:
@@ -248,6 +323,9 @@ class InjectionScreening:
         started = loop.time()
         queued_at: float | None = None
         active_part: dict[str, JsonValue] | None = None
+        diagnostic_evidence: str | None = None
+        diagnostic_requests: list[JsonValue] = []
+        cache_key: str | None = None
         record: dict[str, JsonValue] = {
             "at": datetime.now(timezone.utc).isoformat(), "source": source,
             "policy_hash": self.policy_hash, "status": "error", "queue_seconds": 0,
@@ -267,6 +345,9 @@ class InjectionScreening:
                     f"Issue evidence exceeds the {MAX_EVIDENCE_BYTES}-byte total screening budget; "
                     "it will not be truncated or analyzed"
                 )
+            if source.startswith("validity-reference:"):
+                _validate_diagnostic_reference(text, source)
+                diagnostic_evidence = text
             if len(encoded) > MAX_INPUT_BYTES:
                 record["status"] = "oversized"
             parts = _screening_parts(text, content_hash)
@@ -343,6 +424,11 @@ class InjectionScreening:
                                 f"({part_record['bytes']} bytes).",
                                 flush=True,
                             )
+                        if diagnostic_evidence is not None:
+                            diagnostic_requests.append({
+                                "state": {"content": part}, "name": "prompt_injection",
+                                "instructions": INSTRUCTIONS, "criteria": dict(CRITERIA), "timeout": REQUEST_TIMEOUT,
+                            })
                         part_answer = await self.evaluate(part, part_record)
                         self._check_answer(part_answer, part_record)
                         if worst is None or part_answer.probabilities["injection"] > worst.probabilities["injection"]:
@@ -420,9 +506,38 @@ class InjectionScreening:
                 record["queue_seconds"] = round(loop.time() - queued_at, 3)
             record["finished_at"] = datetime.now(timezone.utc).isoformat()
             record["elapsed_seconds"] = round(loop.time() - started, 3)
+            diagnostic_error = False
+            if diagnostic_evidence is not None:
+                try:
+                    relative = Path("screening-diagnostics") / f"{uuid4().hex}.json"
+                    record["diagnostic"] = str(relative)
+                    diagnostic = {
+                        "schema_version": 1, "kind": "quarantined_reference_screening",
+                        "evidence_json": diagnostic_evidence, "requests": diagnostic_requests,
+                        "policy_hash": self.policy_hash,
+                        "classifier_configuration_hash": self.classifier.configuration_hash,
+                        "audit": record,
+                    }
+                    data = json.dumps(diagnostic, ensure_ascii=True, sort_keys=True, allow_nan=False).encode("utf-8")
+                    if len(data) > MAX_DIAGNOSTIC_BYTES:
+                        raise ValueError("Reference screening diagnostic exceeds its storage budget")
+                    destination = directory / relative
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    with destination.open("xb") as stream:
+                        stream.write(data)
+                    record["diagnostic_sha256"] = hashlib.sha256(data).hexdigest()
+                except (OSError, ValueError) as error:
+                    diagnostic_error = True
+                    record.update(status="error", diagnostic_error_type=type(error).__name__)
+                    if cache_key is not None:
+                        self._allowed.pop(cache_key, None)
             try:
                 directory.mkdir(parents=True, exist_ok=True)
                 with (directory / "screening.jsonl").open("a", encoding="utf-8", newline="\n") as stream:
                     stream.write(json.dumps(record) + "\n")
             except OSError:
+                if cache_key is not None:
+                    self._allowed.pop(cache_key, None)
                 raise ScreeningBlocked("Cannot save the screening audit record; analysis is blocked without override") from None
+            if diagnostic_error:
+                raise ScreeningBlocked("Cannot save the reference screening diagnostic; analysis is blocked without override") from None

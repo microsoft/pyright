@@ -343,7 +343,10 @@ class ReproductionClaim(Record):
     surface: Literal["cli", "editor", "lsp", "other"]
     broken: list[Symptom] = Field(min_length=1)
     resolved: list[Symptom] = Field(min_length=1)
-    precision: list[Symptom] = Field(min_length=1)
+    precision: list[Symptom] = Field(
+        min_length=1,
+        description="Affirmative invariants required on broken and resolved checker targets, not desired repaired types at a broken query. Use justified unaffected original or separate control queries.",
+    )
     context_diagnostics: list[Symptom] = Field(
         default_factory=list, max_length=32,
         description="Read-only opt-in only: exact report-grounded historical context diagnostics, not reported symptoms or precision.",

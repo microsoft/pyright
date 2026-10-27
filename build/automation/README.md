@@ -18,6 +18,46 @@ Failed or screened-out issues remain explicit; run completion does not mean ever
 The console does not implement fixes.
 The original `pyright-issue-reviewer` remains a separate read-only, non-executing reviewer and is not used by this console.
 
+## Unattended closure-only review
+
+Use **`--overnight`** to advance through every selected chunk without prompting. This is a separate publication
+policy: only existing evidence-gated **fixed, by-design or duplicate closures** may publish. Their explanation
+comments still use `rich-mirror`, factual validation and final freshness checks, with any associated closure
+labels. Non-reproduction labels and standalone RCA comments are disabled; all other cases remain open for
+review in the local report. This does not substitute confidence scores for evidence or relax closure gates.
+
+Start with a small rehearsal:
+
+```powershell
+uv run --env-file .env build\automation\review_issues.py --overnight --dry-run `
+    --issues 11899 11890 11882 --chunk-size 1 --state-dir C:\issue-reviews\overnight-trial
+```
+
+Omit `--issues` to select all open issues. `--dry-run` does not draft or publish comments, labels or closures;
+its "would close" results remain unreviewed candidates pending writing and publication checks. Do not remove
+`--dry-run` until those candidates and the configured permissions have been reviewed.
+
+Configure permissions **before launch**. The SDK permission handlers remain restricted: probes needing operator
+approval are denied and recorded instead of asking for input. Overnight mode uses only integrity-verified cached
+checker targets by default. `--target-cache <directory>` reuses an existing cache; unavailable or changed targets
+remain blocked. `--prepare-targets` explicitly preauthorizes the existing trusted-registry download/build path,
+not arbitrary commands, package installs or issue-provided scripts. Choose `--reproduction-registry` explicitly
+when using the approved alternative feed. Source-CLI behavior checks still need the existing local build
+(`pnpm run build:cli:dev`); do not change source or build outputs during a run.
+
+Missing reported settings are not silently assumed. `--exploratory-reproduction --overnight --dry-run` permits
+the existing disclosed, observation-only experiments, but cannot authorize live closures. Legacy
+`--non-interactive --dry-run` still stops after one chunk; `--overnight` takes precedence for all-chunk processing.
+Switching between overnight and other publication policies requires a fresh state directory. A compatible
+overnight dry run can later resume live, but must perform the pending writing and freshness checks first.
+
+The state directory retains raw investigations and evidence and contains **`overnight-report.md`** and
+**`overnight-report.json`**, updated after each chunk and on normal exceptions/interruption. They include every
+selected issue, including unchanged cached results, failures, screening skips and pending issues, and distinguish
+closure candidates from confirmed closures and partial publication failures. A completed run does not mean every
+issue was resolved. Hard process termination leaves the latest checkpoint report, which must not be interpreted
+as a completed run. Dry runs also retain the existing per-issue and run-level action proposals.
+
 ## Read-only issue assessment
 
 The versioned assessment workflow is separate from the publication-capable console above. Its goal is a useful
@@ -48,6 +88,29 @@ strict checking; `strict=false` does not invent a basic/standard mode. Invalid l
 remain invalid. Ordinary static diagnostics/revealed types use the CLI adapter without claiming that the reporter
 invoked it. Genuinely editor/LSP/runtime-only concerns remain separate unsupported claims; supporting diagnostic
 lines, workarounds and precision controls need not become redundant material claims.
+
+Reported Python/checking settings are applied automatically; `setting_choices` is exclusively for explicitly
+authorized experimental assumptions about genuinely absent settings. Repeating a reported value there is rejected
+with correction guidance, even when its reason says "reported". No assumed-settings permission is needed to use
+captured settings, and the controller does not silently remove or reinterpret invalid choices.
+
+If different original/control examples supply different settings, a claim may provide `reported_settings`:
+each selection names `setting` (`pythonVersion` or `typeCheckingMode`), captured `declaration_ids`, an exact
+surrounding `context` (`document_id`, `start`, `end`, `quote`), and a `reason` explaining its association with that
+original. Values always come from the capture. The selection must include every same-setting declaration in its
+JSON/shell fence, playground URL or prose paragraph and every overlapping declaration in its context. Conflicting
+keys/options within one such unit remain conflicting. Unsupported/invalid declarations, other configuration
+settings, malformed configuration and unsupported surfaces cannot be scoped away. Without an explicit selection,
+the existing conservative global conflict behavior remains unchanged.
+
+This is evidence-bound interpretation, **not approval of historical configuration**. Selected and excluded
+declarations remain in the materialized setup, and its exact context/reason/source grouping/settings are hashed
+into the claim's discovery, verification and setup proofs. Results disclose the conditional setup in progress
+records and semantic input. The controller attaches a non-removable qualification that prevents a fully supported
+validity verdict, even if the model omits it or a capability proof approves that exact setup. Original/control
+comparisons not executed under the selected setup remain explicitly unverified; precision controls still use
+the pristine original's exact configuration. New settings do not upgrade old checkpoints or the faithful-historical
+holdout gate. A source-level `# pyright: strict` is not promoted to unknown whole-project configuration.
 
 Discovery is useful when suitable original source and setup exist but exact diagnostic wording was not supplied.
 The controller freezes the reported claim scope, failure direction and pristine inputs first. Historical discovery captures actual
@@ -89,6 +152,17 @@ tree before those checks have executed. Predicted precision types are expectatio
 The controller checks the proposed tree during the role's shared correction budget, freezes both variants, and
 runs originals before controls. A failing precision expectation still blocks the observation; no failed or
 unexecuted control is promoted to evidence. Complaint presence/absence does not settle semantic correctness.
+
+Precision predicates are invariants required on both broken and resolved targets, not expectations that the
+bug is already fixed. For wrong-type complaints, retain a justified affirmative corrected-type predicate in
+`resolved` alongside invariant checks; disappearance of a bad type or an unrelated successful query does not
+prove affected-type safety. If those expectations cannot be justified, keep the assessment blocked.
+Before freezing an executable plan, the controller rejects contradictory presence/absence requirements and
+incompatible types at one standalone reveal query, including conflicts with shared precision across claims.
+Original precision must be compatible with each claim's broken and resolved states. Separate control precision
+is checked in its own phase; multiple queries on one line remain subject to runtime checks rather than being
+assumed to identify a single query. Contradictions reach the existing role correction budget, not automatic
+predicate removal, weakened expectations or extra model attempts.
 
 For recognized default CLI diagnostic rendering, the controller supplies optional diagnostic candidates with exact
 raw report spans. It removes only the two-space renderer prefix on continuation lines and a separately recorded
@@ -140,8 +214,20 @@ python build\automation\assess_issues.py --issue 12345 --state-dir .assessment-n
 
 Replace the issue number, paths, and pinned SHA with the intended inputs. Omitted Python/checking settings stay
 missing unless `--allow-assumed-settings` explicitly authorizes bounded, disclosed experimental choices.
+Prose interpreter versions may end a sentence with a period; the captured version/span excludes that
+punctuation without changing report bytes. Malformed, explicitly quoted and literal/CLI setting values
+are not repaired this way, and other missing settings remain blockers.
 `--reference URL` supplies bounded authoritative typing/Python rules, pinned Pyright documentation, or relevant
-Pyright precedent for controller retrieval. This is not autonomous precedent search. Python language rules are
+Pyright precedent for controller retrieval. Ordinary live validity roles also receive only `read_reference`
+for bounded authority discovery, not native reads, shell, checker execution or general web/issue search.
+Supplied URLs, subsequent searches/pages and the one correction share 12 requests, 48,000 characters
+and 4,000 characters per read; failed reads consume requests. Model-initiated reads and any correction
+remain within the existing 180-second role deadline.
+Each new excerpt is screened before it is saved or made citable. This is not autonomous precedent search.
+Reference screening also retains exact inputs and attempted classifier requests in a separate
+`roles\validity\screening-diagnostics` quarantine. These files are diagnostics, not authorized reference evidence;
+rejected or cancelled excerpts never enter the citation catalog.
+Python language rules are
 version-qualified and cannot override mandatory static typing rules. Without adequate normative evidence,
 semantic conclusions remain qualified or inconclusive. No CPython or mypy comparison is implied by a static
 checker receipt.
@@ -169,6 +255,9 @@ The readiness prompt exposes this validated catalog, and its validator rejects r
 relabeling assumptions rather than silently losing applicable proofs. Selection identities are frozen with the
 policy and checkpoint. Separate examples remain separate groups; a proof for one group does not approve another,
 and unsupported concerns stay explicit. These associations are controller conventions, not newly reported filenames.
+Selections may additionally freeze `reported_settings`; the controller rechecks their captured IDs/context and
+requires the matching claim to retain the exact approved selections. Such setup proofs do not remove their
+conditional semantic qualification.
 For the API, pass the complete record through `setup_evidence=` to `assess`; capability-only
 `setup_capabilities=` remains supported but does not supply a reconstruction catalog. The two overrides cannot
 be combined. Frozen benchmark runners do not implicitly acquire this new input; their contracts remain unchanged.
@@ -249,8 +338,10 @@ Experimental execution evidence can be `discovery_only` or `unobserved`, never `
 Using saved experimental evidence to assess conditional reasoning does not exercise the full assessor, prove
 historical fidelity, change an independent-holdout gate, or authorize an unattended run.
 
-Validity prompts identify whether reference retrieval is actually exposed; the production prefetch-only
-path uses saved evidence, not model-initiated lookups. Default reads of authoritative HTML section URLs locate
+Validity prompts identify whether reference retrieval is actually exposed. Frozen snapshots, frozen normative
+evidence and supplied `--validity-input` remain saved-evidence-only, with no model-initiated lookups.
+For ordinary live input, screened returned references extend the claim-local catalog without changing the
+frozen initial input or its hash. Default reads of authoritative HTML section URLs locate
 the actual visible anchor, not a table-of-contents link or the page introduction. Missing, hidden or ambiguous
 anchors and unsuccessful text searches fail explicitly. Explicit nonzero offsets still page the document's
 visible text; each saved excerpt records its actual absolute offset. Pinned Markdown/precedent readers do not
@@ -662,7 +753,7 @@ Local `screening.jsonl` records store source identifiers, content/policy hashes,
 selected label, probabilities and numeric injection risk, not the input text, tokens or endpoint.
 Queue duration, total elapsed time and completion timestamps distinguish a queued check from an active request.
 Multipart records include fragment hashes, byte counts, individual outcomes, completion counts and the failing
-or interrupted ordinal, without storing the fragments or repeated context.
+or interrupted ordinal, without embedding fragments or repeated context in the ledger.
 They also distinguish the original response hash from the hash of the new documents actually classified, count
 reused/new documents, and record serialized-state sizes, HTTP attempts and retry-wait time. A blocking console message
 identifies its source and issue number, selected label, injection score and allow threshold.
@@ -672,8 +763,35 @@ Target-issue checks are saved in the issue directory. Research tool records inst
 separate. Changing the integration or configured endpoint/deployment invalidates review context; token refresh
 does not change the screening policy.
 
+The read-only assessor's bounded `read_reference` path additionally retains quarantined diagnostics under
+`roles\validity\screening-diagnostics`. This exception does not enable input retention for ordinary issue or
+discussion screening. Each immutable diagnostic contains the exact canonical reference envelope, actual attempted
+classifier states, fixed rubric, classifier-configuration/policy identities and original outcome; multipart
+requests and retry counts remain distinguishable. Successful, rejected, failed, cached and cancelled attempts are
+retained independently. `screening.jsonl` binds each file's hash and outcome. No endpoint, credentials, environment
+variables or raw service error body is included. Treat these local files as untrusted source data, keep them out
+of Git, and do not give them to an issue agent or convert them into a passing citation. Failure to save a required
+diagnostic or audit blocks analysis and removes its whole-input cache entry.
+
+Inspect one diagnostic offline without configuring or contacting the classifier:
+
+```powershell
+python build\automation\evaluate_issue_screening.py --diagnostic C:\run\roles\validity\screening-diagnostics\FILE.json `
+    --output C:\new-screening-inspection.json
+```
+
+Keep its original adjacent `screening.jsonl`; inspection validates the exact artifact hash and recorded outcome.
+Add `--reclassify` only to explicitly send the saved input to the existing approved classifier again. It requires
+the identical policy and classifier configuration, a new output/audit directory and fresh in-memory screening
+state. It reconstructs the whole original input, not just a successful prefix, and verifies captured request
+states before contacting the service. Original files and issue results never change. The new status can differ
+because inference is not deterministic; this is a replay observation, not a human label, accuracy score, safety
+override or authorization to resume a blocked review. Earlier hash-only records cannot recover an exact lost
+classifier input; do not silently substitute a new retrieval for an old rejected excerpt.
+
 Configure only an approved service: screening transmits the target issue and its discussion to that deployment,
-not the agents' separate research reads.
+not the publication console's separate research reads. The read-only assessor also screens the bounded
+authoritative excerpts delivered through its explicit `read_reference` capability.
 Transport-mocked regression tests verify the fail-closed workflow and wire contract, not detection quality.
 Before a backlog run, evaluate representative labeled benign reports, attack attempts and ambiguous examples
 against the actual configured deployment, including quoted attacks and legitimate repro commands. Existing

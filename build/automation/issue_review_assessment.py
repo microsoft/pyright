@@ -22,12 +22,13 @@ from issue_review_assessment_models import (
 )
 from issue_review_models import Issue, ReproductionScenario, ReproductionTarget
 from issue_review_reproduction import (
-    TargetStore, classify, fingerprint, observe_claims, relative_path, scenario_inputs, static_stub_source_warning, tree_hash,
+    PredicateConflict, TargetStore, classify, fingerprint, observe_claims, relative_path, scenario_inputs,
+    static_stub_source_warning, tree_hash,
 )
 from issue_review_sources import (
     MaterializedSetup, ReportDocument, SettingChoice, SetupCapability, SourceAssociation, SourceCapture,
     capture_sources, inspect_requirements, materialize_setup, reported_diagnostics, resolve_setup, verify_capture,
-    verify_materialized_setup,
+    reported_setting_qualifications, verify_materialized_setup,
 )
 
 Screen = Callable[[JsonValue, Path, str], Awaitable[None]]
@@ -78,7 +79,9 @@ def validate_setup_selections(
     known: dict[str, SourceAssociation] = {}
     covered: set[str] = set()
     for selection in selections:
-        prepared = materialize_setup(capture, selection.associations, selection.setting_choices)
+        prepared = materialize_setup(
+            capture, selection.associations, selection.setting_choices, reported_settings=selection.reported_settings,
+        )
         if prepared.digest != selection.setup_hash:
             raise ValueError("Approved setup selection differs from its exact source/layout/settings/assumptions")
         original_inputs(prepared)
@@ -218,6 +221,7 @@ def build_plan(
         return value in report
 
     results = []
+    scope_limitations = []
     for claim in draft.claims:
         if claim.report_quote not in report:
             raise ValueError("Every claim needs one exact contiguous report/discussion quote")
@@ -225,7 +229,17 @@ def build_plan(
             raise ValueError("Claim references an unavailable controller-captured source")
         selected = materialize_setup(
             capture, [item for item in associations(draft) if item.source_id in claim.source_ids], choices(draft),
+            reported_settings=claim.reported_settings,
         )
+        scope_limitations.extend(
+            f"Claim {claim.id}: {qualification}" for qualification in reported_setting_qualifications(selected)
+        )
+        approved = [
+            item for item in setup_selections
+            if {association.source_id for association in item.associations} == set(claim.source_ids)
+        ]
+        if approved and not any(item.reported_settings == claim.reported_settings for item in approved):
+            raise ValueError("Use the exact controller-approved reported setting selections, including context/provenance")
         reasons = list(selected.blockers) + list((claim_blockers or {}).get(claim.id, []))
         if selected.files:
             requirements = inspect_requirements(capture, selected)
@@ -271,6 +285,8 @@ def build_plan(
                     raise ValueError("Rule/location predicates require opted-in historical discovery/refinement")
                 scenario = strict_scenario(draft, claim, selected)
                 original_inputs(selected)
+            except PredicateConflict:
+                raise
             except ValueError as error:
                 reasons.append(str(error))
         if claim.surface != "cli":
@@ -284,6 +300,7 @@ def build_plan(
         results.append(ClaimAssessment(
             id=claim.id, summary=claim.summary, report_quote=claim.report_quote, surface=claim.surface,
             source_ids=claim.source_ids, readiness=readiness,
+            reported_settings=claim.reported_settings,
             reasons=list(dict.fromkeys(reasons or claim.reasons)),
             verification=claim.verification if readiness == "ready" else None,
             scenario=scenario if readiness == "ready" else None,
@@ -296,6 +313,7 @@ def build_plan(
             *draft.limitations, *(limitation.detail for limitation in prepared.limitations),
             *([] if assessment_input is None else assessment_input.limitations),
             *(f"Controller-inferred filename, not a reporter fact: {path}" for path in prepared.inferred_paths),
+            *scope_limitations,
         ])),
         assumptions=[f"{choice.setting}={choice.value}: {choice.reason}" for choice in draft.setting_choices],
         capabilities=list(capabilities),
@@ -417,7 +435,7 @@ class AssessmentController:
         claim = self.claim(claim_id)
         return materialize_setup(
             self.capture, [item for item in associations(self.draft) if item.source_id in claim.source_ids],
-            choices(self.draft),
+            choices(self.draft), reported_settings=claim.reported_settings,
         )
 
     def static_stub_support(self, claim_id: str, target: ReproductionTarget) -> dict[str, list[str]]:
@@ -531,6 +549,11 @@ class AssessmentController:
             "input_hash": before, "plan_hash": fingerprint(plan.model_dump()),
             "command": subprocess.list2cmdline(command), "cwd": str(workspace),
         }
+        if self.claim(plan.claim_id).reported_settings:
+            raw["reported_setup_scope"] = {
+                "conditional": True, "capture_hash": self.capture.digest,
+                "selections": [item.model_dump(mode="json") for item in self.claim(plan.claim_id).reported_settings],
+            }
         try:
             code, stdout, stderr = await store.runner(command, workspace)
             raw.update(exit_code=code, stdout=stdout, stderr=stderr)
@@ -778,6 +801,11 @@ class AssessmentController:
                         "target": target.model_dump(mode="json"), "scenario_hash": fingerprint(plan.scenario.model_dump()),
                         "error": f"{type(error).__name__}: {error}",
                     }
+                if self.claim(plan.claim_id).reported_settings:
+                    raw["reported_setup_scope"] = {
+                        "conditional": True, "capture_hash": self.capture.digest,
+                        "selections": [item.model_dump(mode="json") for item in self.claim(plan.claim_id).reported_settings],
+                    }
                 problems: list[str] = []
                 rule_predicates = [
                     item for claim in plan.scenario.claims for item in claim.broken if item.message is None
@@ -869,7 +897,10 @@ class AssessmentController:
             claim_id=plan.claim_id, phase="verification",
             status="complete" if complete else "partial" if originals else "unobserved",
             receipt_ids=[receipt.id for receipt in receipts], target_observations=observations,
-            reasons=[] if complete else ["Some required original/control observations are blocked or unobserved"],
+            reasons=[
+                *reported_setting_qualifications(self.claim_setup(plan.claim_id)),
+                *([] if complete else ["Some required original/control observations are blocked or unobserved"]),
+            ],
         )
 
     def result(self, progress: Sequence[ClaimProgress], validity: JsonValue | None = None) -> AssessmentRun:
@@ -877,11 +908,13 @@ class AssessmentController:
         by_id = {item.claim_id: item for item in progress}
         if len(by_id) != len(progress) or not set(by_id) <= {claim.id for claim in self.plan.claims}:
             raise ValueError("Assessment progress must retain exactly one record per material claim")
-        return AssessmentRun(
-            policy=self.policy, plan=self.plan,
-            progress=[by_id.get(claim.id) or ClaimProgress(
+        records = []
+        for claim in self.plan.claims:
+            progress_record = by_id.get(claim.id) or ClaimProgress(
                 claim_id=claim.id, phase="unobserved", status="blocked" if claim.readiness == "blocked" else "unobserved",
                 receipt_ids=[], target_observations={}, reasons=claim.reasons or ["No execution attempted"],
-            ) for claim in self.plan.claims],
-            validity=validity,
-        )
+            )
+            records.append(progress_record.model_copy(update={"reasons": list(dict.fromkeys([
+                *progress_record.reasons, *reported_setting_qualifications(self.claim_setup(claim.id)),
+            ]))}))
+        return AssessmentRun(policy=self.policy, plan=self.plan, progress=records, validity=validity)

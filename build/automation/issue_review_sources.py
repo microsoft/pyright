@@ -139,6 +139,13 @@ class SettingChoice(CapturedRecord):
     reason: BoundedText
 
 
+class ReportedSettingSelection(CapturedRecord):
+    setting: Setting
+    declaration_ids: tuple[Label, ...] = Field(min_length=1, max_length=256)
+    context: EvidenceSpan
+    reason: BoundedText
+
+
 class SettingDerivation(CapturedRecord):
     setting: Literal["pythonVersion"]
     value: Label
@@ -152,6 +159,8 @@ class MaterializedSetup(CapturedRecord):
     configuration: dict[str, JsonValue] = Field(max_length=128)
     blockers: tuple[BoundedText, ...] = Field(max_length=256)
     assumptions: tuple[SettingChoice, ...] = Field(max_length=2)
+    reported_settings: tuple[ReportedSettingSelection, ...] = Field(default=(), max_length=2)
+    scoped_declarations: tuple[ReportedDeclaration, ...] = Field(default=(), max_length=256)
     derivations: tuple[SettingDerivation, ...] = Field(default=(), max_length=256)
     source_ids: tuple[Label, ...] = Field(max_length=30)
     associations: tuple[SourceAssociation, ...] = Field(max_length=30)
@@ -584,11 +593,20 @@ def capture_sources(report_id: str, documents: Sequence[ReportDocument]) -> Sour
             for match in re.finditer(pattern, document.text):
                 if any(start <= match.start() < end for start, end in excluded):
                     continue
-                key = setting, match.start(), match.end()
+                value: JsonValue = match[1]
+                end = match.end()
+                if (
+                    kind == "interpreter_version"
+                    and document.text[match.start(1) - 1:match.start(1)] != "`"
+                    and re.fullmatch(r"3\.\d{1,2}(?:\.\d+)?\.", match[1])
+                    and (end == len(document.text) or document.text[end].isspace())
+                ):
+                    value = match[1][:-1]
+                    end -= 1
+                key = setting, match.start(), end
                 if key in seen:
                     continue
                 seen.add(key)
-                value: JsonValue = match[1]
                 if setting in setting_names and isinstance(value, str) and value[:1] in {"'", '"', "`"}:
                     if value.startswith('"'):
                         try:
@@ -603,7 +621,7 @@ def capture_sources(report_id: str, documents: Sequence[ReportDocument]) -> Sour
                 if (setting == "enableExperimentalFeatures" or setting.startswith("report")) and value in ("true", "false"):
                     value = value == "true"
                 declarations.append(_declaration(
-                    report_hash, document, setting, value, match.start(), match.end(), declaration_kind=kind,
+                    report_hash, document, setting, value, match.start(), end, declaration_kind=kind,
                 ))
     data = {
         "report_id": report_id, "report_hash": report_hash, "documents": documents,
@@ -633,14 +651,93 @@ def _source_path(name: str) -> str:
     return str(path)
 
 
+def _declaration_unit(capture: SourceCapture, declaration: ReportedDeclaration) -> tuple[str, int, int]:
+    span = declaration.evidence
+    if declaration.source_id is not None:
+        block = next(item for item in capture.blocks if item.id == declaration.source_id)
+        return block.document_id, block.start, block.end
+    text = next(item.text for item in capture.documents if item.id == span.document_id)
+    if declaration.declaration_kind == "playground_query":
+        for match in re.finditer(r"""https?://[^\s<>()`"']+""", text, re.IGNORECASE):
+            if match.start() <= span.start and span.end <= match.end():
+                return span.document_id, match.start(), match.end()
+        raise ValueError("Captured playground declaration has no complete URL")
+    separators = [
+        (offset, offset + len(line)) for _, offset, line in _lines(text) if not line.rstrip("\r\n").strip(" \t")
+    ]
+    separators.extend((block.start, block.end) for block in capture.blocks if block.document_id == span.document_id)
+    start = max((end for _, end in separators if end <= span.start), default=0)
+    end = min((start for start, _ in separators if start >= span.end), default=len(text))
+    return span.document_id, start, end
+
+
+def _selected_declarations(
+    capture: SourceCapture, selections: Sequence[ReportedSettingSelection],
+) -> list[ReportedDeclaration]:
+    if len(selections) > 2 or len({item.setting for item in selections}) != len(selections):
+        raise ValueError("Reported setting selections must be unique and bounded")
+    chosen: dict[str, set[str]] = {}
+    by_id = {item.id: item for item in capture.declarations}
+    for selection in selections:
+        verify_span(capture, selection.context)
+        identifiers = set(selection.declaration_ids)
+        if len(identifiers) != len(selection.declaration_ids) or not identifiers <= by_id.keys():
+            raise ValueError("Reported setting selection requires unique captured declaration IDs")
+        selected = [by_id[identifier] for identifier in selection.declaration_ids]
+        if any(
+            item.setting != selection.setting or item.evidence.document_id != selection.context.document_id
+            or not selection.context.start <= item.evidence.start < item.evidence.end <= selection.context.end
+            for item in selected
+        ):
+            raise ValueError("Reported setting selection must match its setting and exact captured context")
+        unit = _declaration_unit(capture, selected[0])
+        if any(_declaration_unit(capture, item) != unit for item in selected):
+            raise ValueError("Select one complete reported configuration, URL or prose paragraph per setting")
+        required = {
+            item.id for item in capture.declarations if item.setting == selection.setting
+            and (
+                _declaration_unit(capture, item) == unit
+                or item.evidence.document_id == selection.context.document_id
+                and selection.context.start < item.evidence.end and item.evidence.start < selection.context.end
+            )
+        }
+        if identifiers != required:
+            raise ValueError("Reported setting selection cannot omit declarations from the same configuration or context")
+        if any(not item.supported for item in capture.declarations if item.setting == selection.setting):
+            raise ValueError("Reported setting selection cannot bypass unsupported or invalid reported declarations")
+        chosen[selection.setting] = identifiers
+    for selection in selections:
+        unit = _declaration_unit(capture, by_id[selection.declaration_ids[0]])
+        if any(
+            item.setting in chosen and item.id not in chosen[item.setting]
+            and _declaration_unit(capture, item) == unit for item in capture.declarations
+        ):
+            raise ValueError("Reported settings from one configuration must stay together; no hybrid original/control setup")
+    return [
+        item for item in capture.declarations if item.setting not in chosen or item.id in chosen[item.setting]
+    ]
+
+
+def reported_setting_qualifications(prepared: MaterializedSetup) -> list[str]:
+    return [
+        f"Conditional reported setup: {selection.setting} uses captured declarations "
+        + ", ".join(selection.declaration_ids)
+        + ". Their association with this example is an assessor-selected reconstruction, not independently "
+        "approved historical configuration. Other captured declarations remain comparison/context, not verified settings."
+        for selection in prepared.reported_settings
+    ]
+
+
 def materialize_setup(
     capture: SourceCapture, associations: Sequence[SourceAssociation], setting_choices: Sequence[SettingChoice] = (),
+    *, reported_settings: Sequence[ReportedSettingSelection] = (),
 ) -> MaterializedSetup:
     """Resolve IDs, never model source strings; keep assumptions and limitations explicit.
 
     Missing original source is a blocked record, not permission to reconstruct it.
     Unselected source limitations remain visible without suppressing independent
-    source-supported claims. Ambiguous global configuration still blocks setup.
+    source-supported claims. Explicit per-example reported selections are conditional;
+    otherwise ambiguous global configuration still blocks setup.
     """
     verify_capture(capture)
     if len(associations) > 30:
@@ -684,7 +781,7 @@ def materialize_setup(
         blockers.append("No original analyzed Python (.py) source selected")
     declarations: dict[str, list[ReportedDeclaration]] = {}
     derivations: list[SettingDerivation] = []
-    for declaration in capture.declarations:
+    for declaration in _selected_declarations(capture, reported_settings):
         declarations.setdefault(declaration.setting, []).append(declaration)
     for setting, values in sorted(declarations.items()):
         runtime = [item for item in values if item.declaration_kind == "interpreter_version"]
@@ -713,7 +810,12 @@ def materialize_setup(
         if choice.value not in EXPLORATORY_SETTINGS[choice.setting]:
             raise ValueError("Setting assumption is outside the controller's bounded experiments")
         if choice.setting in declarations:
-            raise ValueError("An assumption cannot replace or relabel any reported declaration")
+            raise ValueError(
+                "An assumption cannot replace or relabel any reported declaration. "
+                f"Remove {choice.setting} from setting_choices: captured reported values are materialized automatically. "
+                "For different original/control settings, use claim.reported_settings with captured declaration IDs "
+                "and exact context, never assumptions. Do not change reported values to make validation pass."
+            )
         configuration[choice.setting] = choice.value
     for setting in ("pythonVersion", "typeCheckingMode"):
         if setting not in configuration and setting not in declarations:
@@ -721,6 +823,10 @@ def materialize_setup(
     data = {
         "files": files, "configuration": configuration, "blockers": tuple(blockers),
         "assumptions": tuple(setting_choices), "derivations": tuple(derivations),
+        "reported_settings": tuple(reported_settings),
+        "scoped_declarations": tuple(
+            item for item in capture.declarations if any(item.setting == choice.setting for choice in reported_settings)
+        ),
         "source_ids": tuple(item.source_id for item in associations),
         "associations": tuple(associations), "inferred_paths": tuple(inferred),
         "limitations": capture.limitations,
@@ -736,8 +842,9 @@ def materialize_setup(
 def verify_materialized_setup(
     capture: SourceCapture, associations: Sequence[SourceAssociation], setting_choices: Sequence[SettingChoice],
     prepared: MaterializedSetup,
+    *, reported_settings: Sequence[ReportedSettingSelection] = (),
 ) -> None:
-    if materialize_setup(capture, associations, setting_choices) != prepared:
+    if materialize_setup(capture, associations, setting_choices, reported_settings=reported_settings) != prepared:
         raise ValueError("Materialized original source/setup changed after capture or selection")
 
 
@@ -831,7 +938,9 @@ def inspect_requirements(capture: SourceCapture, prepared: MaterializedSetup) ->
     dependency compatibility. Lexically ambiguous/dynamic/unhandled imports stay
     explicit; newer grammar alone cannot make the host reject a checker target.
     """
-    verify_materialized_setup(capture, prepared.associations, prepared.assumptions, prepared)
+    verify_materialized_setup(
+        capture, prepared.associations, prepared.assumptions, prepared, reported_settings=prepared.reported_settings,
+    )
     stdlib = {
         "__future__", "abc", "array", "asyncio", "builtins", "collections", "contextlib", "copy", "dataclasses",
         "datetime", "decimal", "enum", "functools", "inspect", "io", "itertools", "math", "operator", "os",

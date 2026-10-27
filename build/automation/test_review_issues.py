@@ -78,9 +78,11 @@ from review_issues import (
     dry_run_proposal,
     main as review_main,
     reject_operator_approval,
+    require_run_mode,
     validate_reproduction_report,
     response_schema,
     save_dry_run_proposals,
+    save_overnight_report,
     state_lock,
 )
 
@@ -617,6 +619,93 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
     async def test_non_interactive_mode_cannot_enable_publication(self):
         with self.assertRaisesRegex(AutomationError, "requires --dry-run"):
             await review_main(Namespace(non_interactive=True, read_only=False))
+
+    async def test_overnight_constructor_denies_approval_and_disables_rca(self):
+        console = Console(
+            self.github, self.console.sdk, self.console.state, self.profile, self.profile, None,
+            "context", "a" * 40, {}, closure_only=True,
+            ask=lambda _prompt: self.fail("Overnight must not prompt"),
+        )
+        self.assertFalse(console.rca_enabled)
+        self.assertNotEqual(console.key(issue()), self.console.key(issue()))
+        with self.assertRaisesRegex(AutomationError, "cannot grant human approval"):
+            console.ask("Execute Python?")
+        with self.assertRaisesRegex(AutomationError, "RCA comments are disabled"):
+            await console.prepare_root_cause_comment(self.entry)
+        with self.assertRaisesRegex(AutomationError, "RCA comments are disabled"):
+            await console.post_root_cause(self.entry)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_overnight_by_design_uses_same_dry_run_and_live_gates(self):
+        self.console.closure_only, self.console.rca_enabled = True, False
+        self.entry.input_hash = self.console.key(self.entry.issue)
+        self.console.read_only = True
+        await self.console.evaluate(self.entry)
+        proposal = dry_run_proposal(ChunkResult(self.entry.issue, self.entry), rca_enabled=False, closure_only=True)
+        self.assertEqual(proposal["proposed_action"], "close_by_design")
+        await self.console.decide(self.entry)
+        self.assertEqual(self.github.mutations, [])
+        self.console.read_only = False
+        with patch.object(self.console, "ensure_root_cause", AsyncMock()) as rca:
+            await self.console.decide(self.entry)
+        rca.assert_not_awaited()
+        self.assertEqual(self.github.mutations, ["comments", "labels", "close"])
+
+    async def test_overnight_report_preserves_candidate_and_partial_publication_failure(self):
+        proposal = dry_run_proposal(ChunkResult(self.entry.issue, self.entry), rca_enabled=False, closure_only=True)
+        self.github.fail = "labels"
+        with self.assertRaises(AutomationError):
+            await self.console.close(self.entry)
+        result = ChunkResult(self.entry.issue, self.entry, "failed", "Label publication failed", proposal=proposal)
+        pending = issue().model_copy(update={"number": 456, "html_url": self.github.canonical.html_url})
+        save_overnight_report(
+            self.console.state, "context", [self.entry.issue, pending], [result], read_only=False, finished=False,
+        )
+        report = json.loads((self.console.state / "overnight-report.json").read_text(encoding="utf-8"))
+        row = report["issues"][0]
+        self.assertEqual(row["candidate_action"], "close_by_design")
+        self.assertEqual(row["proposed_action"], "blocked")
+        self.assertEqual(row["outcome"], "failed")
+        self.assertEqual(row["publication_status"], "comment_posted")
+        self.assertEqual(report["counts"]["closed"], 0)
+        self.assertEqual(report["counts"]["pending"], 1)
+        self.assertFalse(report["execution_complete"])
+        self.assertIn("Label publication failed", (self.console.state / "overnight-report.md").read_text(encoding="utf-8"))
+        self.github.fail = None
+        await self.console.close(self.entry)
+        result.status, result.message = "ready", ""
+        save_overnight_report(self.console.state, "context", [self.entry.issue], [result], read_only=False, finished=True)
+        report = json.loads((self.console.state / "overnight-report.json").read_text(encoding="utf-8"))
+        self.assertEqual(report["counts"]["closed"], 1)
+        self.assertEqual(report["issues"][0]["candidate_action"], "close_by_design")
+
+    async def test_overnight_policy_cannot_reuse_other_modes(self):
+        for previous, overnight in (({}, True), ({"overnight": True}, False)):
+            atomic_write(self.console.state / "run.json", json.dumps(previous))
+            with self.assertRaisesRegex(AutomationError, "publication policy changed"):
+                require_run_mode(self.console.state, False, overnight=overnight)
+        atomic_write(self.console.state / "run.json", '{"overnight": true}')
+        require_run_mode(self.console.state, False, overnight=True)
+        with self.assertRaisesRegex(AutomationError, "reproduction mode changed"):
+            require_run_mode(self.console.state, True, overnight=True)
+
+    async def test_overnight_markdown_includes_assessment_and_component_timeouts(self):
+        result = ChunkResult(self.entry.issue, self.entry)
+        result.proposal = dry_run_proposal(result, rca_enabled=False, closure_only=True)
+        result.proposal["reproduction_blocking_reasons"] = [
+            "Reproducer SDK turn timed out after 240s; faithful historical observation remains blocked",
+        ]
+        save_overnight_report(self.console.state, "context", [self.entry.issue], [result], read_only=True, finished=True)
+        markdown = (self.console.state / "overnight-report.md").read_text(encoding="utf-8")
+        self.assertIn("Assessment:** by design", markdown)
+        self.assertIn("The inspected reports and observed product evidence", markdown)
+        self.assertIn("Historical/main reproduction blockers", markdown)
+        self.assertIn("Reproducer SDK turn timed out after 240s", markdown)
+        self.assertIn("not successful reproduction on every target", markdown)
+
+    async def test_overnight_experimental_settings_cannot_enable_live_closures(self):
+        with self.assertRaisesRegex(AutomationError, "assumptions cannot authorize closures"):
+            await review_main(Namespace(overnight=True, exploratory_reproduction=True, read_only=False))
 
     async def test_writer_is_required_and_audits_resume(self):
         self.entry.comment, self.entry.draft_check = None, None
@@ -1469,6 +1558,80 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(cancelled.is_set())
             console.decide.assert_not_awaited()
             self.assertFalse((args.state_dir / "run.lock").exists())
+
+    async def test_overnight_processes_every_chunk_without_prompts_and_reports_cached_issues(self):
+        snapshots = {123: issue(), 456: self.github.canonical, 789: issue().model_copy(update={"number": 789})}
+        cached = Entry(
+            input_hash="input", context_hash="context", issue=snapshots[789], decision="reviewed",
+        )
+        args = Namespace(
+            state_dir=Path(self.temporary.name) / "overnight-chunks", cli_path="copilot", writer_agent=None,
+            read_only=True, model=None, issues=[123, 456, 789], chunk_size=1, timeout=30, retry_failed=False,
+            overnight=True, non_interactive=True,
+        )
+        github = AsyncMock()
+        github.issue.side_effect = lambda number: snapshots[number]
+        github.api.return_value = {"tag_name": "test"}
+
+        async def review(snapshot, **_options):
+            return Entry(input_hash="input", context_hash="context", issue=snapshot)
+
+        with (
+            patch("review_issues.GitHub", return_value=github),
+            patch("review_issues.InjectionScreening.from_environment"),
+            patch("review_issues.process", AsyncMock(return_value=(0, "test", ""))),
+            patch("review_issues.context_hash", return_value="context"),
+            patch("review_issues.git", return_value="a" * 40),
+            patch("review_issues.CopilotClient"),
+            patch("builtins.input", side_effect=AssertionError("Unexpected overnight prompt")),
+            patch("review_issues.Console") as constructor,
+        ):
+            console = constructor.return_value
+            console.load.side_effect = lambda number: cached if number == 789 else None
+            console.key.return_value = "input"
+            console.review = AsyncMock(side_effect=review)
+            console.evaluate, console.decide = AsyncMock(), AsyncMock()
+            await review_main(args)
+        self.assertEqual([call.args[0].number for call in console.review.await_args_list], [123, 456])
+        self.assertEqual(console.decide.await_count, 2)
+        self.assertFalse(constructor.call_args.kwargs["prepare_targets"])
+        self.assertTrue(constructor.call_args.kwargs["closure_only"])
+        self.assertIs(constructor.call_args.kwargs["ask"], reject_operator_approval)
+        report = json.loads((args.state_dir / "overnight-report.json").read_text(encoding="utf-8"))
+        self.assertEqual([row["issue_number"] for row in report["issues"]], [123, 456, 789])
+        self.assertEqual(report["counts"]["needs_review"], 3)
+        self.assertTrue(report["execution_complete"])
+        self.assertFalse(report["github_mutations_enabled"])
+
+    async def test_overnight_unexpected_failure_reports_pending_issues_and_releases_lock(self):
+        args = Namespace(
+            state_dir=Path(self.temporary.name) / "overnight-interrupted", cli_path="copilot", writer_agent=None,
+            read_only=True, model=None, issues=[123, 456], chunk_size=1, timeout=30, retry_failed=False, overnight=True,
+        )
+        github = AsyncMock()
+        github.issue.side_effect = lambda number: issue() if number == 123 else self.github.canonical
+        github.api.return_value = {"tag_name": "test"}
+        with (
+            patch("review_issues.GitHub", return_value=github),
+            patch("review_issues.InjectionScreening.from_environment"),
+            patch("review_issues.process", AsyncMock(return_value=(0, "test", ""))),
+            patch("review_issues.context_hash", return_value="context"),
+            patch("review_issues.git", return_value="a" * 40),
+            patch("review_issues.CopilotClient"),
+            patch("review_issues.Console") as constructor,
+        ):
+            console = constructor.return_value
+            console.load.return_value = None
+            console.review = AsyncMock(side_effect=RuntimeError("Unexpected controller failure"))
+            console.evaluate, console.decide = AsyncMock(), AsyncMock()
+            with self.assertRaisesRegex(RuntimeError, "Unexpected controller failure"):
+                await review_main(args)
+        report = json.loads((args.state_dir / "overnight-report.json").read_text(encoding="utf-8"))
+        self.assertFalse(report["execution_complete"])
+        self.assertEqual(report["counts"]["pending"], 2)
+        self.assertIn("Unexpected controller failure", report["run_error"])
+        self.assertFalse((args.state_dir / "run.lock").exists())
+        console.decide.assert_not_awaited()
 
     async def test_chunk_failure_preserves_other_results_and_still_prints_the_table(self):
         snapshots = {123: issue(), 456: self.github.canonical}

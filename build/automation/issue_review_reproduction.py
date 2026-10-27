@@ -21,6 +21,7 @@ import tokenize
 import uuid
 from collections.abc import Callable, Collection, Mapping
 from datetime import datetime
+from itertools import combinations, product
 from pathlib import Path, PureWindowsPath
 from types import TracebackType
 from typing import Literal, Protocol
@@ -29,7 +30,7 @@ from urllib.request import HTTPRedirectHandler, build_opener
 
 from pydantic import BaseModel, Field, JsonValue
 
-from issue_review_models import ExploratoryReproductionScenario, Issue, ReproductionScenario, ReproductionTarget
+from issue_review_models import ExploratoryReproductionScenario, Issue, ReproductionScenario, ReproductionTarget, Symptom
 from issue_review_rca import Runner
 
 VERSION = re.compile(r"1\.[0-9]+\.[0-9]+")
@@ -272,6 +273,49 @@ def validate_exploratory_settings(scenario: ExploratoryReproductionScenario, rep
             raise ValueError(f"Exploration cannot replace or relabel the reported {key} setting")
 
 
+class PredicateConflict(ValueError):
+    pass
+
+
+def validate_predicates(scenario: ReproductionScenario) -> None:
+    def compatible(left: Symptom, right: Symptom, context: str, sources: Mapping[str, str]) -> None:
+        if (left.file, left.line, left.severity) != (right.file, right.line, right.severity):
+            return
+        conflict = False
+        if left.present != right.present:
+            positive, negative = (left, right) if left.present else (right, left)
+            conflict = (
+                (negative.message is None or negative.message == positive.message)
+                and (negative.rule is None or negative.rule == positive.rule)
+            )
+        elif left.present and left.severity == "information":
+            first = re.fullmatch(r'Type of "([^"\r\n]+)" is "(.+)"', left.message or "")
+            second = re.fullmatch(r'Type of "([^"\r\n]+)" is "(.+)"', right.message or "")
+            if first and second and first[1] == second[1] and first[2] != second[2]:
+                line = sources[left.file].splitlines()[left.line - 1]
+                # One physical line can contain several queries with different results.
+                conflict = re.fullmatch(
+                    r"\s*[\w.]+\(\s*" + re.escape(first[1]) + r"\s*\)\s*(?:#.*)?", line,
+                ) is not None
+        if conflict:
+            raise PredicateConflict(
+                f"Contradictory verification predicates ({context}) at {left.file}:{left.line}. "
+                "Keep reported symptoms and required type precision. Put justified fixed-only type expectations "
+                "in resolved, not invariant precision; otherwise remain blocked."
+            )
+
+    precision = [item for claim in scenario.claims for item in claim.precision]
+    for left, right in combinations(precision, 2):
+        compatible(left, right, "shared precision", scenario.control_files or scenario.files)
+    for claim in scenario.claims:
+        for state, predicates in (("broken", claim.broken), ("resolved", claim.resolved)):
+            for left, right in combinations(predicates, 2):
+                compatible(left, right, f"claim {claim.id} {state}", scenario.files)
+            if not scenario.control_files:
+                for left, right in product(predicates, precision):
+                    compatible(left, right, f"claim {claim.id} {state} with precision", scenario.files)
+
+
 def scenario_inputs(scenario: ReproductionScenario, *, phase: Phase = "original") -> dict[str, str]:
     if scenario.prerequisites:
         raise ValueError("Unmet report prerequisites: " + "; ".join(scenario.prerequisites))
@@ -317,6 +361,7 @@ def scenario_inputs(scenario: ReproductionScenario, *, phase: Phase = "original"
             # Missing diagnostics are legitimate symptoms, but their positive precision control must execute.
             if not any(item.present and item.severity == "information" for item in claim.precision):
                 raise ValueError("Absence-only symptoms need an affirmative revealed-type control")
+    validate_predicates(scenario)
     return {**files, "pyrightconfig.json": json.dumps(configuration, sort_keys=True, indent=2) + "\n"}
 
 
@@ -615,29 +660,38 @@ class TargetStore:
         ):
             raise ValueError("Pinned checker target is unavailable or its integrity changed")
 
+    def restore(self, target: ReproductionTarget) -> None:
+        if target.registry != self.registry:
+            raise ValueError("Selected target registry differs from the explicit acquisition policy")
+        metadata = self._metadata_path(target)
+        if not metadata.is_file():
+            raise ValueError("Trusted target is not cached; preparation was not authorized (--prepare-targets)")
+        saved = ReproductionTarget.model_validate_json(metadata.read_text(encoding="utf-8"))
+        if (saved.identity, saved.integrity, saved.source, saved.registry) != (
+            target.identity, target.integrity, target.source, target.registry,
+        ):
+            raise ValueError("Cached target provenance changed")
+        target.directory, target.cli, target.tree_hash = saved.directory, saved.cli, saved.tree_hash
+        target.version, target.status = saved.version, saved.status
+        target.artifact_sha512 = saved.artifact_sha512
+        self.verify(target)
+
+    def _metadata_path(self, target: ReproductionTarget) -> Path:
+        return self.directory / fingerprint({
+            "identity": target.identity, "integrity": target.integrity, "source": target.source,
+            "registry": self.registry, "entrypoint": "index.js",
+        }) / "target.json"
+
     async def prepare(self, target: ReproductionTarget) -> None:
         async with self.lock:
             if target.registry != self.registry:
                 raise ValueError("Selected target registry differs from the explicit acquisition policy")
-            key = fingerprint({
-                "identity": target.identity, "integrity": target.integrity, "source": target.source,
-                "registry": self.registry,
-                "entrypoint": "index.js",
-            })
+            metadata = self._metadata_path(target)
+            base, key = metadata.parent, metadata.parent.name
             if key in self._failures:
                 raise ValueError(self._failures[key])
-            base = self.directory / key
-            metadata = base / "target.json"
             if metadata.exists():
-                saved = ReproductionTarget.model_validate_json(metadata.read_text(encoding="utf-8"))
-                if (saved.identity, saved.integrity, saved.source, saved.registry) != (
-                    target.identity, target.integrity, target.source, target.registry,
-                ):
-                    raise ValueError("Cached target provenance changed")
-                target.directory, target.cli, target.tree_hash = saved.directory, saved.cli, saved.tree_hash
-                target.version, target.status = saved.version, saved.status
-                target.artifact_sha512 = saved.artifact_sha512
-                self.verify(target)
+                self.restore(target)
                 return
             base.mkdir(parents=True, exist_ok=True)
             work = base / uuid.uuid4().hex

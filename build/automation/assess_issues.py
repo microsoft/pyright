@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
-from copilot import CopilotClient, RuntimeConnection
+from copilot import CopilotClient, RuntimeConnection, Tool, ToolInvocation, ToolResult
 from copilot.session import CopilotSession
 from pydantic import JsonValue
 
@@ -45,11 +45,14 @@ from issue_review_assessment_models import (
 )
 from issue_review_models import Issue, ReproductionTarget
 from issue_review_reproduction import REGISTRIES, ReleaseCatalog, TargetStore, fingerprint, select_targets
-from issue_review_safety import InjectionScreening, child_environment
-from issue_review_sources import MaterializedSetup, SetupCapability, SourceCapture, materialize_setup, reported_diagnostics
-from issue_review_validity import ValidityEvidence, parse_json_value
+from issue_review_safety import InjectionScreening, ScreeningBlocked, child_environment
+from issue_review_sources import (
+    MaterializedSetup, SetupCapability, SourceCapture, materialize_setup, reported_diagnostics,
+    reported_setting_qualifications,
+)
+from issue_review_validity import MAX_REFERENCE_READS, ReferenceRead, ValidityEvidence, ValidityResearch, parse_json_value
 from review_issues import (
-    AGENTS, ROOT, SDK, Agent, AutomationError, GitHub, discussion_text, show, target_process,
+    AGENTS, ROOT, SDK, Agent, AutomationError, GitHub, ScreenedTools, discussion_text, show, target_process,
 )
 
 PHASES = ("assess", "readiness", "discover", "refine", "verify", "validity")
@@ -181,7 +184,7 @@ def load_controller(directory: Path) -> AssessmentController:
     controller = AssessmentController(
         directory, policy, Issue.model_validate(data["issue"]), data["comments"],
         SourceCapture.model_validate_json(json.dumps(data["capture"])),
-        AssessmentDraft.model_validate(data["draft"]),
+        AssessmentDraft.model_validate_json(json.dumps(data["draft"])),
         MaterializedSetup.model_validate_json(json.dumps(data["prepared"])),
         AssessmentPlan.model_validate_json(json.dumps(data["plan"])),
         implementation=implementation_hash,
@@ -230,6 +233,20 @@ def readiness_prompt(
         "Controller duties (target acquisition, originals-before-controls, precision checks) are workflow, not "
         "missing reporter prerequisites. Report quotes must be single contiguous exact spans. "
         "Source filenames without evidence are disclosed controller conventions. "
+        "Captured reported settings are materialized AUTOMATICALLY. Do not repeat them in setting_choices, "
+        "even with a reason saying they were reported. setting_choices contains ONLY authorized assumptions "
+        "for genuinely absent settings; otherwise it must be []. For example, captured pythonVersion=3.15 "
+        "and strict=true already establish their reported values with no setting choices. "
+        "When different original/control examples report different Python/checking settings, claim.reported_settings "
+        "may select captured declaration_ids, their setting, exact surrounding context (document_id/start/end/quote), "
+        "and a reason explaining the association with this claim's original. Do not supply new values. "
+        "Copy captured evidence spans instead of inventing offsets; one declaration's evidence can be the "
+        "context when it covers every selected declaration, with the association explained in reason. "
+        "Select every same-setting declaration from the same JSON/shell fence, playground URL or prose paragraph; "
+        "do not pick one duplicate key/option or hide unsupported values. Use [] when no scoping is needed. "
+        "Selections are always conditional reconstructions, not approved historical setup. Preserve all other "
+        "examples/comparisons and their settings as unverified obligations rather than claiming they ran. "
+        "They cannot scope away other settings, malformed configuration, missing source or unsupported surfaces. "
         "For filename_quote, copy ONLY that source's captured filename_evidence.quote; use null when it is absent. "
         "A command mentioning a filename or a filename chosen as a convention is not captured association evidence. "
         "Preserve exact diagnostic whitespace. For recognized CLI-rendered candidates below, copy message "
@@ -252,6 +269,11 @@ def readiness_prompt(
         } for item in capture.blocks if item.source_kind in {"python", "unclassified"}])
         + "\nOptional controller-derived CLI diagnostic candidates (not observations or a complete inventory):\n"
         + json.dumps([item.model_dump(mode="json") for item in reported_diagnostics(capture)])
+        + "\nAutomatically captured Python/checking declarations (NOT setting_choices):\n"
+        + json.dumps([
+            item.model_dump(mode="json") for item in capture.declarations
+            if item.setting in {"pythonVersion", "typeCheckingMode"}
+        ])
         + "\nRule/location predicate policy: "
         + (RULE_LOCATION_GUIDANCE if rule_location_predicates else "disabled; exact-message verification only.")
     )
@@ -329,8 +351,10 @@ async def readiness(
             "\nController-approved exact setup selections:\n"
             + json.dumps([item.model_dump(mode="json") for item in setup_selections])
             + "\nWhen using one of these source IDs, copy its exact path/filename_quote association and the "
-            "exact frozen setting_choices, including reason text. These are controller reconstruction conventions "
-            "and disclosed assumptions, not newly reported facts. Do not combine separate example groups to "
+            "exact frozen setting_choices, including reason text. Copy its reported_settings into the matching "
+            "claim without changing their context or reason; these selections remain conditional even with "
+            "an approved setup proof. These are controller reconstruction conventions and disclosed assumptions, "
+            "not newly reported facts. Do not combine separate example groups to "
             "borrow a setup proof. Other source groups and unsupported concerns remain explicit; their setup "
             "may still be blocked. The hashes approve only these exact setups, not reproduction or semantics."
         )
@@ -504,7 +528,12 @@ async def refinement(
         "control_files tree with the same paths/configuration and narrowly justified reveal_type queries. "
         "Precision messages are proposed precision expectations, not observed diagnostics; explain their "
         "derivation from captured code. They must later pass actual controller checks without Any/Unknown "
-        "degradation. Never insert predicted messages into original broken/resolved predicates. "
+        "degradation on both broken and resolved targets. Do not require a desired repaired type at the same "
+        "query whose reported broken type must remain observable. For wrong-type complaints, retain a justified "
+        "affirmative corrected-type predicate in resolved, alongside invariant precision from unaffected "
+        "queries or the reported working comparison. Never drop affected-type safety or reported symptoms "
+        "merely to avoid a conflict; remain blocked if those expectations cannot be justified. "
+        "Never insert predicted messages into original broken/resolved predicates. "
         "Do not block solely because controls have not yet executed or the original lacks reveal_type. "
         "If exact distinguishing predicates and affirmative controls cannot be justified, return readiness=blocked, "
         "verification=null, control_files=[], honest reasons. No commands/research/publication. "
@@ -593,7 +622,7 @@ async def validity_phase(
     normative_evidence: Sequence[ValidityEvidence] = (),
 ) -> JsonValue:
     from issue_review_validity import (
-        LanguageContext, ReferenceRead, ValidityAssessment, ValidityClaimInput, ValidityEvidence, ValidityInput, ValidityResearch,
+        LanguageContext, ValidityAssessment, ValidityClaimInput, ValidityInput,
         build_validity_prompt, content_hash, finalize_validity_response,
     )
 
@@ -623,6 +652,7 @@ async def validity_phase(
     for claim in controller.plan.claims:
         source_id, setup_id = f"source-{claim.id}", f"setup-{claim.id}"
         prepared = controller.claim_setup(claim.id)
+        setup_qualifications = reported_setting_qualifications(prepared)
         captures: list[tuple[str, Literal["source", "setup", "report"], str]] = [
             (source_id, "source", json.dumps({"capture_hash": controller.capture.digest, "files": prepared.files}, sort_keys=True)),
             (setup_id, "setup", json.dumps({
@@ -691,12 +721,13 @@ async def validity_phase(
                 limitations=[
                     "Target language setting only; no observed Python runtime behavior",
                     *(["Explicitly assumed target version; not a reporter fact"] if assumed else []),
+                    *setup_qualifications,
                 ],
             )
         claims.append(ValidityClaimInput(
             id=claim.id, summary=claim.summary, context=claim.report_quote,
             source_id=source_id, setup_id=setup_id, readiness=claim.readiness,
-            assumptions=controller.plan.assumptions,
+            assumptions=[*controller.plan.assumptions, *setup_qualifications],
             limitations=[
                 *(f"Readiness-stage reason (before controller execution): {reason}" for reason in claim.reasons),
                 *(f"Readiness-stage limitation (not an execution ledger): {text}" for text in controller.plan.limitations),
@@ -744,14 +775,23 @@ async def validity_phase(
             for claim in claims:
                 if claim.id in item.claim_ids:
                     claim.evidence_ids.append(item.id)
-    if args.reference:
-        if len(args.reference) > 12:
-            raise ValueError("At most12 bounded authoritative reference reads are permitted")
+    if len(args.reference) > MAX_REFERENCE_READS:
+        raise ValueError(f"At most {MAX_REFERENCE_READS} bounded authoritative reference reads are permitted")
+    scratch = controller.directory / "roles" / "validity"
+    scratch.mkdir(parents=True)
+    live_references = (
+        controller.assessment_input is None and args.validity_input is None and not normative_evidence
+        and args.normative_evidence is None
+    )
+    research = None
+    reference_tools = None
+    if args.reference or live_references:
         research = ValidityResearch(
             AssessmentReferenceReader(github), controller.directory / "references", [claim.id for claim in claims],
         )
+        reference_tools = ValidityReferenceTools(github, scratch, research)
         for url in args.reference:
-            item = await research.read_reference(ReferenceRead(location=url))
+            item = await research.read_reference(ReferenceRead(location=url), screen=reference_tools.screen_evidence)
             evidence.append(item)
             for claim in claims:
                 claim.evidence_ids.append(item.id)
@@ -759,21 +799,67 @@ async def validity_phase(
         schema_version=1, report_id=controller.capture.report_id,
         report_text=report_text(controller.issue, controller.comments), claims=claims, evidence=evidence,
     )
-    scratch = controller.directory / "roles" / "validity"
-    scratch.mkdir(parents=True)
     agent = Agent.load(AGENTS / "pyright-issue-assessment-validity.md", "pyright-issue-assessment-validity")
     save(scratch / "input.json", inputs.model_dump(mode="json"))
     await github.screen(inputs.model_dump(mode="json"), scratch, f"assessment-validity:{controller.issue.number}")
+    frozen_ids = {item.id for item in inputs.evidence}
+
+    def finalize(content: str):
+        additional = [] if research is None else [item for item in research.evidence if item.id not in frozen_ids]
+        return finalize_validity_response(inputs, ValidityAssessment.model_validate_json(content), additional)
 
     def validate(content: str) -> None:
-        finalize_validity_response(inputs, ValidityAssessment.model_validate_json(content))
+        finalize(content)
 
     content = await sdk.run(
-        agent, build_validity_prompt(inputs), scratch, schema=ValidityAssessment, native_tools=[], timeout=BUDGET,
-        validate=validate,
+        agent, build_validity_prompt(inputs, reference_reads=live_references), scratch,
+        schema=ValidityAssessment, tools=reference_tools if live_references else None,
+        native_tools=[], timeout=BUDGET, validate=validate,
     )
     controller.require_identity()
-    return finalize_validity_response(inputs, ValidityAssessment.model_validate_json(content)).model_dump(mode="json")
+    return finalize(content).model_dump(mode="json")
+
+
+class ValidityReferenceTools(ScreenedTools):
+    """A reference-only role cannot inherit the investigator's execution/native permissions."""
+
+    def __init__(self, github: GitHub, evidence: Path, research: ValidityResearch):
+        super().__init__(github, evidence)
+        self.research = research
+        self.tools = [Tool(
+            "read_reference", "Read a bounded authoritative excerpt using find or offset; only screened saved results are citable.",
+            self.read_reference, ReferenceRead.model_json_schema(),
+        )]
+
+    async def read_reference(self, invocation: ToolInvocation) -> ToolResult:
+        audit: dict[str, JsonValue] = {"status": "cancelled"}
+        try:
+            if self.screening_error is not None:
+                raise self.screening_error
+            if self.screening_stopped:
+                raise asyncio.CancelledError
+            request = ReferenceRead.model_validate(invocation.arguments)
+            audit["request"] = request.model_dump(mode="json")
+            item = await self.research.read_reference(request, screen=self.screen_evidence)
+            assert item.reference_span is not None
+            end = item.reference_span.offset + len(item.content)
+            audit["status"] = "saved"
+            audit["evidence_id"] = item.id
+            result = ToolResult(
+                text_result_for_llm=json.dumps({
+                    "evidence": item.model_dump(mode="json"),
+                    "next_offset": end if end < item.reference_span.total_chars else None,
+                }),
+                result_type="success",
+            )
+        except (ScreeningBlocked, AutomationError, OSError, ValueError) as error:
+            audit["status"] = "failed"
+            audit["error"] = str(error)
+            result = ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
+        finally:
+            with (self.evidence / "reference-reads.jsonl").open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(audit) + "\n")
+        return result
 
 
 class AssessmentReferenceReader:

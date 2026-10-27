@@ -722,6 +722,68 @@ class ValidityExecutionTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(FileExistsError):
             await second.read_reference(ReferenceRead(location=SPEC_URL))
 
+    async def test_research_screens_validated_excerpts_before_saving_or_authorizing_them(self):
+        async def screen(value, source):
+            self.assertEqual(value["content"], self.reader.read_reference.return_value.content)
+            self.assertEqual(source, "validity-reference:1")
+            self.assertFalse(self.research.evidence)
+            self.assertFalse(list(self.directory.iterdir()))
+
+        screening = AsyncMock(side_effect=screen)
+        saved = await self.research.read_reference(ReferenceRead(location=SPEC_URL), screen=screening)
+        screening.assert_awaited_once()
+        self.assertEqual(self.research.evidence, [saved])
+
+    async def test_blocked_reference_never_becomes_saved_or_citable_evidence(self):
+        from issue_review_safety import ScreeningBlocked
+
+        screening = AsyncMock(side_effect=ScreeningBlocked("Blocked reference"))
+        with self.assertRaisesRegex(ScreeningBlocked, "Blocked reference"):
+            await self.research.read_reference(ReferenceRead(location=SPEC_URL), screen=screening)
+        self.assertFalse(self.research.evidence)
+        self.assertFalse(list(self.directory.iterdir()))
+        saved = await self.research.read_reference(ReferenceRead(location=SPEC_URL))
+        self.assertEqual(saved.id, "validity-reference-2")
+
+    async def test_cancelled_reference_screening_never_creates_usable_evidence(self):
+        screening = AsyncMock(side_effect=asyncio.CancelledError)
+        with self.assertRaises(asyncio.CancelledError):
+            await self.research.read_reference(ReferenceRead(location=SPEC_URL), screen=screening)
+        self.assertFalse(self.research.evidence)
+        self.assertFalse(list(self.directory.iterdir()))
+
+    async def test_real_screening_retains_a_rejected_excerpt_without_authorizing_its_evidence_id(self):
+        from issue_review_safety import InjectionScreening, ScreeningBlocked
+        from review_issues import GitHub
+        from test_issue_review_safety import classification
+
+        classifier = AsyncMock()
+        classifier.configuration_hash = "offline-reference-screening"
+        classifier.classify.return_value = classification(0.35)
+        github = GitHub(scorer=InjectionScreening(classifier))
+        role = self.directory / "roles" / "validity"
+
+        async def screen(value, source):
+            await github.screen(value, role, source)
+
+        with self.assertRaisesRegex(ScreeningBlocked, "uncertain"):
+            await self.research.read_reference(ReferenceRead(location=SPEC_URL), screen=screen)
+        self.assertFalse(self.research.evidence)
+        self.assertFalse(list(self.directory.glob("validity-reference-*.json")))
+        path, = (role / "screening-diagnostics").glob("*.json")
+        with self.assertRaises(ValueError):
+            ValidityEvidence.model_validate_json(path.read_bytes())
+        diagnostic = json.loads(path.read_bytes())
+        self.assertEqual(json.loads(diagnostic["evidence_json"])["id"], "validity-reference-1")
+
+    async def test_disallowed_authority_requests_also_consume_the_shared_read_allowance(self):
+        for _ in range(12):
+            with self.assertRaises(ValueError):
+                await self.research.read_reference(ReferenceRead(location="file:///not-an-authority"))
+        with self.assertRaisesRegex(ValueError, "budget"):
+            await self.research.read_reference(ReferenceRead(location=SPEC_URL))
+        self.reader.read_reference.assert_not_awaited()
+
     async def test_research_budget_counts_failed_requests_and_never_truncates(self):
         self.reader.read_reference.side_effect = OSError("Unavailable")
         for _ in range(12):

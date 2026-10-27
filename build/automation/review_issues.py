@@ -207,7 +207,7 @@ def reproduction_response(model: type[BaseModel], content: str) -> str:
     if model is ValidityAssessment:
         return parse_validity_response(content).model_dump_json()
     if model in (AssessmentDraft, VerificationRefinement):
-        return model.model_validate(strict_json(content)).model_dump_json()
+        return model.model_validate_json(json.dumps(strict_json(content), allow_nan=False)).model_dump_json()
     if model in (ReproductionScenario, ExploratoryReproductionScenario):
         transport = ExploratoryReproductionScenarioTransport if model is ExploratoryReproductionScenario else ReproductionScenarioTransport
         scenario = transport.model_validate(strict_json(content))
@@ -561,22 +561,69 @@ def inside(path: str, directory: Path) -> bool:
     return Path(path).resolve().is_relative_to(directory.resolve())
 
 
-class InvestigationTools:
+class ScreenedTools:
+    """Shared screening lifecycle without native reads, writes or execution permissions."""
+
+    def __init__(self, github: GitHub, evidence: Path):
+        self.github, self.evidence = github, evidence
+        self.evidence.mkdir(parents=True, exist_ok=True)
+        self.tools: list[Tool] = []
+        self.deadline: asyncio.Timeout | None = None
+        self.screening_error: ScreeningBlocked | None = None
+        self.screening_stopped = False
+        self._screening_tasks: set[asyncio.Task[None]] = set()
+
+    def permission(self, request: PermissionRequest, _invocation: PermissionInvocation) -> PermissionRequestResult:
+        if (
+            not self.screening_stopped and self.screening_error is None
+            and not getattr(request, "managed_approval_required", False)
+            and not getattr(request, "request_sandbox_bypass", False)
+            and isinstance(request, PermissionRequestCustomTool)
+            and request.tool_name in {tool.name for tool in self.tools}
+        ):
+            return PermissionDecisionApproveOnce()
+        return PermissionDecisionReject(feedback="Only this role's bounded custom tools are authorized; no native tools or execution.")
+
+    async def screen_evidence(self, value: JsonValue, source: str) -> None:
+        if self.screening_stopped:
+            raise asyncio.CancelledError
+        if self.screening_error is not None:
+            raise self.screening_error
+        task = asyncio.create_task(self.github.screen(value, self.evidence, source))
+        self._screening_tasks.add(task)
+        try:
+            await task
+            if self.screening_stopped:
+                raise asyncio.CancelledError
+            if self.screening_error is not None:
+                raise self.screening_error
+        except ScreeningBlocked as error:
+            self.screening_error = error
+            if self.deadline is not None:
+                self.deadline.reschedule(asyncio.get_running_loop().time())
+            raise
+        finally:
+            self._screening_tasks.discard(task)
+
+    async def stop_screening(self) -> None:
+        self.screening_stopped = True
+        pending = tuple(self._screening_tasks)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
+class InvestigationTools(ScreenedTools):
     def __init__(
         self, github: GitHub, scratch: Path, source_cli: Path, release: JsonValue,
         ask: Callable[[str], str] = input, evidence: Path | None = None,
         investigator: Literal["review", "duplicates", "root_cause", "root_cause_adversary"] = "review",
         approval_lock: asyncio.Lock | None = None,
     ):
-        self.github, self.scratch, self.source_cli = github, scratch.resolve(), source_cli
+        self.scratch, self.source_cli = scratch.resolve(), source_cli
+        super().__init__(github, evidence or self.scratch)
         self.release, self.ask = release, ask
         self.investigator = investigator
-        self.evidence = evidence or self.scratch
-        self.evidence.mkdir(parents=True, exist_ok=True)
-        self.deadline: asyncio.Timeout | None = None
-        self.screening_error: ScreeningBlocked | None = None
-        self.screening_stopped = False
-        self._screening_tasks: set[asyncio.Task[None]] = set()
         self._approval_lock = asyncio.Lock()
         self._console_approval_lock = approval_lock or asyncio.Lock()
         self.tools = [
@@ -669,30 +716,6 @@ class InvestigationTools:
         except (AutomationError, OSError, ValueError) as error:
             self.log({"tool": "github_read", "error": str(error)})
             return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
-
-    async def screen_evidence(self, value: JsonValue, source: str) -> None:
-        if self.screening_stopped:
-            raise asyncio.CancelledError
-        task = asyncio.create_task(self.github.screen(value, self.evidence, source))
-        self._screening_tasks.add(task)
-        try:
-            await task
-            if self.screening_stopped:
-                raise asyncio.CancelledError
-        except ScreeningBlocked as error:
-            self.screening_error = error
-            if self.deadline is not None:
-                self.deadline.reschedule(asyncio.get_running_loop().time())
-            raise
-        finally:
-            self._screening_tasks.discard(task)
-
-    async def stop_screening(self) -> None:
-        self.screening_stopped = True
-        pending = tuple(self._screening_tasks)
-        for task in pending:
-            task.cancel()
-        await asyncio.gather(*pending, return_exceptions=True)
 
     async def run_check(self, invocation: ToolInvocation) -> ToolResult:
         request = RunCheck.model_validate(invocation.arguments)
@@ -1085,7 +1108,7 @@ class SDK:
 
     async def run(
         self, agent: Agent, prompt: str, scratch: Path, *, schema: type[T] | None = None,
-        tools: InvestigationTools | None = None, evidence: Path | None = None,
+        tools: ScreenedTools | None = None, evidence: Path | None = None,
         validate: Callable[[str], None] | None = None,
         native_tools: list[str] | None = None,
         timeout: float | None = None,
@@ -1095,8 +1118,10 @@ class SDK:
             raise tools.screening_error
         custom_tools = [] if tools is None else tools.tools
         duplicate = agent.name == "pyright-issue-dupe-investigator"
-        standard_tools = native_tools is None
-        native_tools = READ_TOOLS + WRITE_TOOLS if native_tools is None else native_tools
+        standard_tools = native_tools is None and isinstance(tools, InvestigationTools)
+        if tools is not None and not isinstance(tools, InvestigationTools) and native_tools:
+            raise AutomationError("Reference-only roles cannot expose native tools")
+        native_tools = (READ_TOOLS + WRITE_TOOLS if standard_tools else []) if native_tools is None else native_tools
         if duplicate:
             custom_tools = [tool for tool in custom_tools if tool.name == "github_read"]
             if standard_tools:
@@ -1283,10 +1308,16 @@ class SDK:
                                 raise
                             show(f"  [{agent.name}] correcting an invalid report or adjudication...")
                             if schema in (AssessmentDraft, VerificationRefinement, ValidityAssessment):
+                                capability = (
+                                    "Only the already authorized read_reference tool remains available with its "
+                                    "remaining shared allowance; no native tools or execution are authorized. "
+                                    if schema is ValidityAssessment and available == ["read_reference"] else
+                                    "No tools or execution are authorized for this model role. "
+                                )
                                 prompt = (
                                     "Your assessment record failed host validation. Return a corrected COMPLETE record "
-                                    "within this same role budget; no tools or execution are authorized for this model "
-                                    "role. The controller, not this role, executes static checks. Readiness/refinement "
+                                    "within this same role budget. " + capability
+                                    + "The controller, not this role, executes static checks. Readiness/refinement "
                                     "are planning stages: propose justified controls and predicates for later execution, "
                                     "not invented receipts or a prerequisite that those checks already ran. Preserve "
                                     "claim identity, polarity and original source. For validity, set rule.section=null "
@@ -1386,15 +1417,18 @@ class Console:
         rca_timeout: float = 900,
         reproduction_store: TargetStore | None = None,
         exploratory_reproduction: bool = False,
+        closure_only: bool = False,
+        prepare_targets: bool = True,
     ):
         self.github, self.sdk, self.state = github, sdk, state
         self.reviewer, self.duplicate, self.writer = reviewer, duplicate, writer
         self.adjudicator = adjudicator or Agent.load(AGENTS / "pyright-issue-adjudicator.md", "pyright-issue-adjudicator")
         self.context_hash, self.revision, self.release = context_hash, revision, release
-        self.ask, self.read_only = ask, read_only
+        self.ask, self.read_only = reject_operator_approval if closure_only else ask, read_only
+        self.closure_only, self.prepare_targets = closure_only, prepare_targets
         self.current_context = current_context or (lambda: self.context_hash)
         self.retry_rca = retry_rca
-        self.rca_enabled = rca_enabled and not exploratory_reproduction
+        self.rca_enabled = rca_enabled and not exploratory_reproduction and not closure_only
         self.rca_timeout = rca_timeout
         self.reproduction_store = reproduction_store
         self.exploratory_reproduction = exploratory_reproduction
@@ -1428,7 +1462,9 @@ class Console:
         return Entry.model_validate_json(path.read_text(encoding="utf-8")) if path.exists() else None
 
     def key(self, issue: Issue) -> str:
-        mode = "exploratory-reproduction\0" if self.exploratory_reproduction else ""
+        mode = ("closure-only-v1\0" if self.closure_only else "") + (
+            "exploratory-reproduction\0" if self.exploratory_reproduction else ""
+        )
         return digest(self.context_hash + mode + issue.model_dump_json())
 
     def reproduction_policy(self, entry: Entry, stage: ReproductionStage) -> dict[str, JsonValue]:
@@ -1754,7 +1790,10 @@ class Console:
                         if target.status == "blocked":
                             raise ValueError(target.error or "Selected target is unavailable")
                         if phase == "original":
-                            await self.reproduction_store.prepare(target)
+                            if self.prepare_targets:
+                                await self.reproduction_store.prepare(target)
+                            else:
+                                self.reproduction_store.restore(target)
                         elif any(
                             item.get("phase") == "original" and item.get("outcome") == "blocked"
                             for item in records if isinstance(captured := item.get("target"), dict)
@@ -2580,6 +2619,8 @@ class Console:
         return root_cause
 
     async def prepare_root_cause_comment(self, entry: Entry) -> str:
+        if self.closure_only:
+            raise AutomationError("Closure-only mode reports unresolved issues locally; RCA comments are disabled")
         self.require_actionable_mode(entry)
         if self.read_only:
             raise AutomationError("This run is read-only; comment drafting is disabled")
@@ -2627,6 +2668,8 @@ class Console:
         return comment
 
     async def post_root_cause(self, entry: Entry) -> None:
+        if self.closure_only:
+            raise AutomationError("Closure-only mode reports unresolved issues locally; RCA comments are disabled")
         self.require_actionable_mode(entry)
         await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         if self.read_only:
@@ -2863,6 +2906,8 @@ class Console:
         reason = stage.action()
         if reason is None:
             raise AutomationError("No qualified reproduction action")
+        if self.closure_only and reason != "fixed":
+            raise AutomationError("Closure-only mode does not publish not-reproducible labels")
         current = await self.github.issue(entry.issue.number)
         comments = await self.github.comments(entry.issue.number)
         await self.github.screen({
@@ -3137,7 +3182,9 @@ class Console:
             return True
         if entry.reproduction_stage and entry.reproduction_stage.action():
             self.require_reproduction_evidence(entry)
-            if not self.read_only:
+            if not self.read_only and (
+                not self.closure_only or entry.reproduction_stage.action() == "fixed"
+            ):
                 await self.publish_reproduction(entry)
             else:
                 entry.decision = "reviewed"
@@ -3222,6 +3269,7 @@ class ChunkResult:
     status: Literal["ready", "skipped", "failed"] = "ready"
     message: str = ""
     validated_reports: bool = False
+    proposal: dict[str, JsonValue] | None = None
 
 
 def unfinished_reproduction_publication(entry: Entry | None) -> bool:
@@ -3233,16 +3281,21 @@ def unfinished_reproduction_publication(entry: Entry | None) -> bool:
     )
 
 
-def require_run_mode(state: Path, exploratory: bool) -> None:
+def require_run_mode(state: Path, exploratory: bool, *, overnight: bool = False) -> None:
     path = state / "run.json"
     if path.exists():
         previous = JSON.validate_json(path.read_text(encoding="utf-8"))
         mode = previous.get("exploratory_reproduction", False) if isinstance(previous, dict) else None
         if not isinstance(mode, bool) or mode != exploratory:
             raise AutomationError("Run reproduction mode changed; use a fresh state directory")
+        previous_overnight = previous.get("overnight", False) if isinstance(previous, dict) else None
+        if not isinstance(previous_overnight, bool) or previous_overnight != overnight:
+            raise AutomationError("Run overnight publication policy changed; use a fresh state directory")
 
 
-def dry_run_proposal(result: ChunkResult, *, rca_enabled: bool) -> dict[str, JsonValue]:
+def dry_run_proposal(
+    result: ChunkResult, *, rca_enabled: bool, closure_only: bool = False,
+) -> dict[str, JsonValue]:
     entry = result.entry
     review = None if entry is None else entry.review
     adjudication = None if entry is None else entry.adjudication
@@ -3283,12 +3336,15 @@ def dry_run_proposal(result: ChunkResult, *, rca_enabled: bool) -> dict[str, Jso
             if adjudication.duplicate_status == "needs investigation":
                 blockers.append("Duplicate investigation is incomplete or inconclusive")
             if not rca_enabled:
-                blockers.append("RCA disabled (--no-rca)")
+                blockers.append("RCA disabled by run policy")
             elif root_cause is None or not root_cause.publishable():
                 blockers.append(
                     "No publishable RCA" if root_cause is None else
                     root_cause.error or f"RCA status: {root_cause.status}; publication gates not satisfied"
                 )
+    if closure_only and action in {"label_not_reproducible", "post_root_cause"}:
+        blockers.append(f"Closure-only policy: {action} is report-only; no standalone labels or RCA comments")
+        action = "leave_open"
     return {
         "issue_number": result.issue.number, "issue_url": result.issue.html_url,
         "issue_updated_at": result.issue.updated_at,
@@ -3314,7 +3370,9 @@ def dry_run_proposal(result: ChunkResult, *, rca_enabled: bool) -> dict[str, Jso
             ] if reason
         ],
         "reproduction": None if reproduction is None else reproduction.model_dump(mode="json"),
-        "proposed_labels": [] if reproduction is None or reproduction.action() is None else [
+        "proposed_labels": [] if reproduction is None or reproduction.action() is None or (
+            closure_only and action != "close_fixed"
+        ) else [
             label for label in reproduction.proposed_labels
         ],
         "proposed_state_reason": "completed" if action == "close_fixed" else (
@@ -3349,10 +3407,11 @@ def dry_run_proposal(result: ChunkResult, *, rca_enabled: bool) -> dict[str, Jso
 
 def save_dry_run_proposals(
     state: Path, fingerprint: str, results: list[ChunkResult], planned: int, *, rca_enabled: bool,
+    closure_only: bool = False,
 ) -> None:
     proposals: list[JsonValue] = []
     for result in results:
-        proposal = dry_run_proposal(result, rca_enabled=rca_enabled)
+        proposal = dry_run_proposal(result, rca_enabled=rca_enabled, closure_only=closure_only)
         atomic_write(state / str(result.issue.number) / "proposal.json", json.dumps(proposal, indent=2) + "\n")
         proposals.append(proposal)
     atomic_write(state / "proposals.json", json.dumps({
@@ -3375,7 +3434,110 @@ def save_dry_run_proposals(
 
 
 def reject_operator_approval(_prompt: str) -> str:
-    raise AutomationError("Non-interactive dry run cannot grant human approval; record this probe as blocked")
+    raise AutomationError("Non-interactive dry run or overnight execution cannot grant human approval; record this probe as blocked")
+
+
+def save_overnight_report(
+    state: Path, fingerprint: str, issues: list[Issue], results: list[ChunkResult], *,
+    read_only: bool, finished: bool, run_error: str | None = None,
+) -> None:
+    completed = {result.issue.number: result for result in results}
+    rows: list[dict[str, JsonValue]] = []
+    for issue in issues:
+        result = completed.get(issue.number)
+        if result is None:
+            rows.append({
+                "issue_number": issue.number, "issue_url": issue.html_url, "outcome": "pending",
+                "proposed_action": "blocked", "blocking_reasons": ["Not completed before the run stopped"],
+            })
+            continue
+        proposal = dict(result.proposal or dry_run_proposal(result, rca_enabled=False, closure_only=True))
+        candidate = proposal["proposed_action"]
+        entry = result.entry
+        publication = None if entry is None or entry.closure is None else entry.closure.status
+        if publication == "closed" and entry is not None and entry.decision == "closed":
+            outcome = "closed"
+        elif result.status != "ready":
+            outcome = result.status
+            reasons = proposal["blocking_reasons"]
+            assert isinstance(reasons, list)
+            proposal["blocking_reasons"] = [*reasons, result.message or result.status]
+            proposal["proposed_action"] = "blocked"
+        elif read_only and candidate in {"close_fixed", "close_by_design", "close_duplicate"}:
+            outcome = "would_close"
+        else:
+            outcome = "needs_review"
+        rows.append({
+            **proposal, "candidate_action": candidate, "outcome": outcome,
+            "investigation_status": result.status, "publication_status": publication,
+            "error": result.message or (None if entry is None else entry.error),
+        })
+    counts: dict[str, JsonValue] = {name: sum(row["outcome"] == name for row in rows) for name in (
+        "closed", "would_close", "needs_review", "failed", "skipped", "pending",
+    )}
+    report: dict[str, JsonValue] = {
+        "schema_version": 1, "policy": "overnight-closure-only-v1", "context_hash": fingerprint,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "dry_run": read_only, "github_mutations_enabled": not read_only,
+        "execution_complete": finished and counts["pending"] == 0,
+        "run_error": run_error,
+        "planned_issues": len(issues), "counts": counts, "issues": [*rows],
+        "interpretation": (
+            "Dry-run closure candidates are unreviewed; writer/factual validation and final publication checks remain pending."
+            if read_only else "Only confirmed closures are marked closed; failures and incomplete publication require review."
+        ),
+    }
+    atomic_write(state / "overnight-report.json", json.dumps(report, indent=2) + "\n")
+    atomic_write(state / "overnight-report.md", overnight_markdown(report))
+
+
+def overnight_markdown(report: dict[str, JsonValue]) -> str:
+    rows, counts = report["issues"], report["counts"]
+    assert isinstance(rows, list) and isinstance(counts, dict)
+
+    def cell(value: str) -> str:
+        return " ".join(value.split()).replace("|", "\\|").replace("<", "&lt;")
+
+    lines = [
+        "# Overnight issue review\n\n",
+        f"Execution complete: {report['execution_complete']}. Dry run: {report['dry_run']}.\n\n",
+        str(report["interpretation"]) + "\n\n",
+        ("Run error: " + cell(str(report["run_error"])) + "\n\n") if report["run_error"] else "",
+        "Counts: " + ", ".join(f"{name}={count}" for name, count in counts.items()) + ".\n\n",
+        "Counts describe overall investigation outcomes, not successful reproduction on every target. "
+        "Reproduction blockers and timeouts are listed separately below.\n\n",
+        "| Issue | Outcome | Candidate action | Follow-up / blocking reasons | Evidence |\n",
+        "|---|---|---|---|---|\n",
+    ]
+    for row in rows:
+        assert isinstance(row, dict)
+        number = row["issue_number"]
+        reasons = row["blocking_reasons"]
+        assert isinstance(reasons, list)
+        lines.append(
+            f"| [#{number}]({row['issue_url']}) | {row['outcome']} | "
+            f"{row.get('candidate_action', row['proposed_action'])} | "
+            f"{cell('; '.join(str(reason) for reason in reasons))} | [{number}]({number}/) |\n"
+        )
+    for row in rows:
+        assert isinstance(row, dict)
+        lines.append(f"\n## [#{row['issue_number']}]({row['issue_url']})\n\n")
+        if row.get("validity") is not None:
+            lines.append(
+                f"**Assessment:** {cell(str(row['validity']))}. "
+                f"**Duplicates:** {cell(str(row.get('duplicate_status')))}.\n\n"
+            )
+        if row.get("rationale"):
+            lines.append(cell(str(row["rationale"])) + "\n\n")
+        reproduction_reasons = row.get("reproduction_blocking_reasons", [])
+        assert isinstance(reproduction_reasons, list)
+        if reproduction_reasons:
+            lines.append("**Historical/main reproduction blockers:**\n\n")
+            lines.extend("- " + cell(str(reason)) + "\n" for reason in reproduction_reasons)
+            lines.append("\n")
+        if row.get("error"):
+            lines.append("**Error:** " + cell(str(row["error"])) + "\n\n")
+    return "".join(lines)
 
 
 def chunk_table(results: list[ChunkResult], *, rca_enabled: bool) -> str:
@@ -3413,7 +3575,7 @@ def chunk_table(results: list[ChunkResult], *, rca_enabled: bool) -> str:
             elif entry is not None and entry.closure_reason() is not None:
                 summary = "Not needed"
             else:
-                summary = "Not run" if rca_enabled else "Disabled (--no-rca)"
+                summary = "Not run" if rca_enabled else "Disabled by run policy"
         rows.append((f"#{result.issue.number}", cell(by_design), cell(duplicate), cell(summary)))
     widths = [max(len(row[index]) for row in rows) for index in range(4)]
     rendered = ["| " + " | ".join(value.ljust(widths[index]) for index, value in enumerate(row)) + " |" for row in rows]
@@ -3449,6 +3611,15 @@ def arguments() -> argparse.Namespace:
         "--non-interactive", action="store_true",
         help="Requires --dry-run; block probes needing human approval and stop before prompting for another chunk",
     )
+    parser.add_argument(
+        "--overnight", action="store_true",
+        help="Process all chunks without prompts; only gated closures may publish, otherwise save a local report",
+    )
+    parser.add_argument("--target-cache", type=Path, help="Existing integrity-verified checker cache (default: state-dir\\targets)")
+    parser.add_argument(
+        "--prepare-targets", action="store_true",
+        help="Preauthorize trusted checker downloads/builds in overnight mode; otherwise only cached targets run",
+    )
     parser.add_argument("--writer-agent", type=Path, help="Path to the installed rich-mirror agent profile")
     parser.add_argument("--cli-path", default=shutil.which("copilot"), help="Existing authenticated Copilot CLI executable")
     parser.add_argument("--rca-code-path", type=Path, help="Existing VS Code executable for isolated editor RCA (never downloaded)")
@@ -3459,8 +3630,12 @@ def arguments() -> argparse.Namespace:
 async def main(args: argparse.Namespace) -> None:
     non_interactive = getattr(args, "non_interactive", False)
     exploratory = getattr(args, "exploratory_reproduction", False)
-    if non_interactive and not args.read_only:
+    overnight = getattr(args, "overnight", False)
+    if non_interactive and not args.read_only and not overnight:
         raise AutomationError("--non-interactive requires --dry-run")
+    if overnight and exploratory and not args.read_only:
+        raise AutomationError("Overnight exploratory reproduction requires --dry-run; assumptions cannot authorize closures")
+    prepare_targets = not overnight or getattr(args, "prepare_targets", False)
     scorer = InjectionScreening.from_environment()
     args.state_dir = args.state_dir.expanduser().resolve()
     if not args.cli_path:
@@ -3508,6 +3683,13 @@ async def main(args: argparse.Namespace) -> None:
     }
     if exploratory:
         editor_options["reproduction_mode"] = "exploratory"
+    if overnight:
+        editor_options["publication_policy"] = "overnight-closure-only-v1"
+        editor_options["target_preparation"] = "authorized" if prepare_targets else "cache-only"
+    target_cache = getattr(args, "target_cache", None)
+    if target_cache is not None:
+        target_cache = target_cache.expanduser().resolve()
+        editor_options["target_cache"] = str(target_cache)
     fingerprint = context_hash(profiles, args.model, release, runtime, editor_options)
     issues = await github.open_issues() if args.issues is None else [
         await github.issue(number) for number in dict.fromkeys(args.issues)
@@ -3525,22 +3707,28 @@ async def main(args: argparse.Namespace) -> None:
     issues = [issue for issue in issues if issue.state == "open" or issue.number in reconcile]
     show(f"{len(issues)} open/reconciliation issues in {REPOSITORY}; chunks of {args.chunk_size}. State: {args.state_dir}")
     show(f"Model for all SDK stages: {args.model}")
-    rca_enabled = not getattr(args, "no_rca", False) and not exploratory
-    show(f"RCA: {'enabled by default' if rca_enabled else 'disabled (--no-rca or exploratory mode)'}.")
+    rca_enabled = not getattr(args, "no_rca", False) and not exploratory and not overnight
+    show(f"RCA: {'enabled by default' if rca_enabled else 'disabled (--no-rca, exploratory or overnight mode)'}.")
     rca_timeout = getattr(args, "rca_timeout", 900)
     if rca_enabled:
         show(f"RCA investigation/countercheck active budget: {rca_timeout}s per turn (separate from --timeout).")
     show(
         "Exploratory reproduction: observation-only; no drafting, mutations, adjudication or RCA." if exploratory else
         "Dry run: no drafting or GitHub mutations, including label creation." if args.read_only else
+        "Overnight publication: only qualified fixed/by-design/duplicate closures; all other issues are report-only." if overnight else
         "Automatic publication: label verified non-reproductions; close fixed/by-design/duplicate issues; post qualified RCA."
     )
+    if overnight:
+        show(
+            "Overnight: all chunks, no prompts; unapproved probes are blocked. Trusted target preparation: "
+            + ("preauthorized." if prepare_targets else "disabled (cache-only; opt in with --prepare-targets).")
+        )
     show("Reproduction: isolated historical npm release, pinned upstream main, and latest npm release; unavailable targets remain blocked.")
     show("Injection screening: target issue and comments only; research reads are not classified.")
     show("Prepare the source CLI with 'pnpm run build:cli:dev' before this run. Do not change source or build outputs during review.")
     show("Copilot searches use ripgrep; optional indexed search is disabled for SDK compatibility.")
     with state_lock(args.state_dir):
-        require_run_mode(args.state_dir, exploratory)
+        require_run_mode(args.state_dir, exploratory, overnight=overnight)
         atomic_write(args.state_dir / "run.json", json.dumps({
             "repository": REPOSITORY, "revision": git("rev-parse", "HEAD"),
             "context_hash": fingerprint, "runtime": runtime.strip(),
@@ -3551,9 +3739,15 @@ async def main(args: argparse.Namespace) -> None:
             "timeout_seconds": args.timeout, "rca_timeout_seconds": rca_timeout,
             "reproduction_registry": getattr(args, "reproduction_registry", NPM_REGISTRY),
             "non_interactive": non_interactive,
+            "overnight": overnight, "prepare_targets": prepare_targets,
+            "target_cache": str(target_cache or args.state_dir / "targets"),
             "exploratory_reproduction": exploratory,
             "started_at": datetime.now(timezone.utc).isoformat(),
         }, indent=2))
+        if overnight:
+            save_overnight_report(
+                args.state_dir, fingerprint, issues, [], read_only=args.read_only, finished=False,
+            )
         connection = RuntimeConnection.for_stdio(path=args.cli_path)
         async with CopilotClient(
             connection=connection, working_directory=str(ROOT),
@@ -3563,7 +3757,7 @@ async def main(args: argparse.Namespace) -> None:
                 github, SDK(client, args.model, args.timeout), args.state_dir,
                 reviewer, duplicate, writer, fingerprint, git("rev-parse", "HEAD"),
                 release, read_only=args.read_only,
-                ask=reject_operator_approval if non_interactive else input,
+                ask=reject_operator_approval if non_interactive or overnight else input,
                 current_context=lambda: context_hash(profiles, args.model, release, runtime, editor_options),
                 adjudicator=adjudicator,
                 retry_rca=getattr(args, "retry_rca", False),
@@ -3571,10 +3765,11 @@ async def main(args: argparse.Namespace) -> None:
                 rca_enabled=rca_enabled,
                 rca_timeout=rca_timeout,
                 reproduction_store=TargetStore(
-                    args.state_dir / "targets", target_process,
+                    target_cache or args.state_dir / "targets", target_process,
                     registry=getattr(args, "reproduction_registry", NPM_REGISTRY),
                 ),
                 exploratory_reproduction=exploratory,
+                closure_only=overnight, prepare_targets=prepare_targets,
             )
             pending = [
                 issue for issue in issues if (
@@ -3604,8 +3799,23 @@ async def main(args: argparse.Namespace) -> None:
             ]
             failures = skipped = 0
             completed: list[ChunkResult] = []
+            if overnight:
+                pending_numbers = {issue.number for issue in pending}
+                for issue in issues:
+                    if issue.number not in pending_numbers:
+                        entry = console.load(issue.number)
+                        completed.append(ChunkResult(
+                            issue, entry, "failed" if entry is not None and entry.decision == "failed" else "ready",
+                            "" if entry is None else entry.error or "",
+                        ))
+                save_overnight_report(
+                    args.state_dir, fingerprint, issues, completed, read_only=args.read_only, finished=False,
+                )
             if args.read_only or exploratory:
-                save_dry_run_proposals(args.state_dir, fingerprint, completed, len(pending), rca_enabled=rca_enabled)
+                save_dry_run_proposals(
+                    args.state_dir, fingerprint, completed, len(issues) if overnight else len(pending),
+                    rca_enabled=rca_enabled, closure_only=overnight,
+                )
             if len(pending) < len(issues):
                 show(f"{len(issues) - len(pending)} unchanged completed/kept/failed entries skipped; --retry-failed retries failures.")
 
@@ -3643,52 +3853,73 @@ async def main(args: argparse.Namespace) -> None:
                     show(f"#{snapshot.number}: FAILED: {error}. Progress is saved.")
                     return ChunkResult(snapshot, saved, "failed", str(error), validated_reports=reports_validated)
 
-            for offset in range(0, len(pending), args.chunk_size):
-                chunk = pending[offset:offset + args.chunk_size]
-                show(f"\nReviewing chunk {offset // args.chunk_size + 1}: " + ", ".join(f"#{issue.number}" for issue in chunk))
-                if context_hash(profiles, args.model, release, runtime, editor_options) != fingerprint:
-                    raise AutomationError("Local review inputs changed; restart before continuing")
-                tasks = [asyncio.create_task(investigate_snapshot(snapshot)) for snapshot in chunk]
-                try:
-                    results = await asyncio.gather(*tasks)
-                finally:
-                    for task in tasks:
-                        if not task.done():
-                            task.cancel()
-                    await asyncio.gather(*tasks, return_exceptions=True)
-                show("\n" + chunk_table(results, rca_enabled=rca_enabled))
-                failures += sum(result.status == "failed" for result in results)
-                skipped += sum(result.status == "skipped" for result in results)
-                if context_hash(profiles, args.model, release, runtime, editor_options) != fingerprint:
-                    raise AutomationError("Local review inputs changed; no publication allowed")
-                for result in results:
-                    entry = result.entry
-                    if result.status != "ready" or entry is None:
-                        continue
+            finished = False
+            try:
+                for offset in range(0, len(pending), args.chunk_size):
+                    chunk = pending[offset:offset + args.chunk_size]
+                    show(f"\nReviewing chunk {offset // args.chunk_size + 1}: " + ", ".join(f"#{issue.number}" for issue in chunk))
+                    if context_hash(profiles, args.model, release, runtime, editor_options) != fingerprint:
+                        raise AutomationError("Local review inputs changed; restart before continuing")
+                    tasks = [asyncio.create_task(investigate_snapshot(snapshot)) for snapshot in chunk]
                     try:
-                        await console.decide(entry)
-                    except ScreeningBlocked as error:
-                        skipped += 1
-                        result.status, result.message = "skipped", str(error)
-                        entry.error = str(error)
-                        console.save(entry)
-                        show(f"#{entry.issue.number}: SKIPPED: {error}")
-                    except (AutomationError, OSError, ValueError, TimeoutError) as error:
-                        failures += 1
-                        result.status, result.message = "failed", str(error)
-                        entry.error = str(error)
-                        console.save(entry)
-                        show(f"#{entry.issue.number}: STEP FAILED: {error}. Progress is saved.")
-                completed.extend(results)
-                if args.read_only or exploratory:
-                    save_dry_run_proposals(args.state_dir, fingerprint, completed, len(pending), rca_enabled=rca_enabled)
-                    show(f"Dry-run action proposals saved to {args.state_dir / 'proposals.json'} (not approved for publication).")
-                if offset + args.chunk_size < len(pending):
-                    if non_interactive:
-                        show("Non-interactive dry run stopped before the next chunk; review the saved proposals.")
-                        return
-                    if input("\nReview the next chunk? [y/N] ").strip().lower() != "y":
-                        return
+                        results = await asyncio.gather(*tasks)
+                    finally:
+                        for task in tasks:
+                            if not task.done():
+                                task.cancel()
+                        await asyncio.gather(*tasks, return_exceptions=True)
+                    show("\n" + chunk_table(results, rca_enabled=rca_enabled))
+                    failures += sum(result.status == "failed" for result in results)
+                    skipped += sum(result.status == "skipped" for result in results)
+                    completed.extend(results)
+                    if context_hash(profiles, args.model, release, runtime, editor_options) != fingerprint:
+                        for result in results:
+                            result.status, result.message = "failed", "Local review inputs changed; no publication allowed"
+                        raise AutomationError("Local review inputs changed; no publication allowed")
+                    for result in results:
+                        if overnight:
+                            result.proposal = dry_run_proposal(result, rca_enabled=False, closure_only=True)
+                        entry = result.entry
+                        if result.status != "ready" or entry is None:
+                            continue
+                        try:
+                            await console.decide(entry)
+                        except ScreeningBlocked as error:
+                            skipped += 1
+                            result.status, result.message = "skipped", str(error)
+                            entry.error = str(error)
+                            console.save(entry)
+                            show(f"#{entry.issue.number}: SKIPPED: {error}")
+                        except (AutomationError, OSError, ValueError, TimeoutError) as error:
+                            failures += 1
+                            result.status, result.message = "failed", str(error)
+                            entry.error = str(error)
+                            console.save(entry)
+                            show(f"#{entry.issue.number}: STEP FAILED: {error}. Progress is saved.")
+                    if args.read_only or exploratory:
+                        save_dry_run_proposals(
+                            args.state_dir, fingerprint, completed, len(issues) if overnight else len(pending),
+                            rca_enabled=rca_enabled, closure_only=overnight,
+                        )
+                        show(f"Dry-run action proposals saved to {args.state_dir / 'proposals.json'} (not approved for publication).")
+                    if overnight:
+                        save_overnight_report(
+                            args.state_dir, fingerprint, issues, completed, read_only=args.read_only, finished=False,
+                        )
+                    elif offset + args.chunk_size < len(pending):
+                        if non_interactive:
+                            show("Non-interactive dry run stopped before the next chunk; review the saved proposals.")
+                            return
+                        if input("\nReview the next chunk? [y/N] ").strip().lower() != "y":
+                            return
+                finished = True
+            finally:
+                if overnight:
+                    error = sys.exc_info()[1]
+                    save_overnight_report(
+                        args.state_dir, fingerprint, issues, completed, read_only=args.read_only, finished=finished,
+                        run_error=None if error is None else f"{type(error).__name__}: {error}",
+                    )
             if failures:
                 raise AutomationError(f"{failures} investigation/publication steps failed; details and progress are saved")
             if skipped:

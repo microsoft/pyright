@@ -559,6 +559,86 @@ class TransportTests(unittest.TestCase):
 
 
 class OutcomeTests(unittest.TestCase):
+    def test_original_precision_cannot_require_the_fixed_type_at_a_broken_reveal_query(self):
+        for line in ("reveal_type(value)", "typing.reveal_type( value )  # retained", "show(value)"):
+            probe = scenario()
+            probe.files["sample.py"] = "value = 1\n" + line + "\nresult: int = value\n"
+            wrong_type = probe.claims[0].precision[0].model_copy(update={"message": 'Type of "value" is "Never"'})
+            probe.claims[0].broken = [wrong_type]
+            probe.claims[0].resolved = [wrong_type.model_copy(update={"present": False})]
+            with self.subTest(line=line), self.assertRaisesRegex(
+                ValueError, "Contradictory verification predicates.*precision",
+            ):
+                scenario_inputs(probe)
+
+    def test_presence_conflicts_are_rejected_within_states_and_against_invariant_precision(self):
+        for state in ("broken", "resolved"):
+            probe = scenario()
+            expected = probe.claims[0].broken[0]
+            setattr(probe.claims[0], state, [expected, expected.model_copy(update={"present": False})])
+            with self.subTest(state=state), self.assertRaisesRegex(ValueError, "Contradictory verification predicates"):
+                scenario_inputs(probe)
+        for message in ("Unsupported rejection", None):
+            probe = scenario()
+            expected = probe.claims[0].broken[0]
+            probe.claims[0].broken = [expected.model_copy(update={"message": message, "present": False})]
+            probe.claims[0].precision.append(expected)
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, "Contradictory verification predicates"):
+                scenario_inputs(probe)
+
+    def test_distinct_messages_queries_and_execution_phases_are_not_conflated(self):
+        probe = scenario()
+        expected = probe.claims[0].broken[0]
+        probe.claims[0].broken.append(expected.model_copy(update={"message": "Another rejection", "present": False}))
+        scenario_inputs(probe)
+        for line in ("reveal_type(value); reveal_type(value)\n", "reveal_type(value), reveal_type(value)\n"):
+            probe = scenario()
+            wrong_type = probe.claims[0].precision[0].model_copy(update={"message": 'Type of "value" is "Never"'})
+            probe.claims[0].broken = [wrong_type]
+            probe.claims[0].resolved = [wrong_type.model_copy(update={"present": False})]
+            probe.files["sample.py"] = "value = 1\n" + line + "result: int = value\n"
+            scenario_inputs(probe)
+        probe = scenario_with_controls()
+        scenario_inputs(probe)
+        scenario_inputs(probe, phase="control")
+
+    def test_incompatible_shared_precision_is_rejected_across_claims(self):
+        probe = scenario()
+        other = probe.claims[0].model_copy(deep=True, update={"id": "other"})
+        other.precision[0].message = 'Type of "value" is "int"'
+        probe.claims.append(other)
+        with self.assertRaisesRegex(ValueError, "Contradictory verification predicates.*precision"):
+            scenario_inputs(probe)
+
+    def test_corrected_type_in_resolved_preserves_broken_observation_and_blocks_precision_loss(self):
+        probe = scenario()
+        probe.files["sample.py"] = "value = 1\nreveal_type(value)\ncontrol = 1\nreveal_type(control)\n"
+        broken = probe.claims[0].precision[0].model_copy(update={"message": 'Type of "value" is "Never"'})
+        corrected = broken.model_copy(update={"message": 'Type of "value" is "int"'})
+        precision = broken.model_copy(update={"line": 4, "message": 'Type of "control" is "Literal[1]"'})
+        probe.claims[0].broken = [broken]
+        probe.claims[0].resolved = [broken.model_copy(update={"present": False}), corrected]
+        probe.claims[0].precision = [precision]
+        scenario_inputs(probe)
+        with tempfile.TemporaryDirectory() as temporary:
+            cwd = Path(temporary)
+            for value, expected in (
+                ("Never", "reproduced"), ("int", "not_reproduced"), ("Any", "blocked"), ("Unknown", "blocked"),
+            ):
+                actual = record(cwd, broken=False)
+                output = json.loads(actual["stdout"])
+                diagnostic = output["generalDiagnostics"][0]
+                output["generalDiagnostics"] = [
+                    {**diagnostic, "message": f'Type of "value" is "{value}"'},
+                    {**diagnostic, "message": precision.message, "range": {"start": {"line": 3}}},
+                ]
+                actual["stdout"] = json.dumps(output)
+                with self.subTest(value=value):
+                    self.assertEqual(classify(probe, actual), expected)
+            output["generalDiagnostics"] = [output["generalDiagnostics"][1]]
+            actual["stdout"] = json.dumps(output)
+            self.assertEqual(classify(probe, actual), "blocked")
+
     def test_reported_context_is_optional_but_its_message_and_rule_must_match_exactly(self):
         probe = missing_diagnostic_scenario()
         data = probe.model_dump()
@@ -1466,6 +1546,48 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(self.targets.executions, 0)
             self.assertEqual(receipt["stdout"], "x" * 30000)
 
+    async def test_closure_only_reports_non_reproduction_without_labels_or_comments(self):
+            self.console.closure_only, self.console.rca_enabled = True, False
+            self.entry.input_hash = self.console.key(self.entry.issue)
+            self.targets.outcomes["historical"] = "not_reproduced"
+            await self.ready()
+            self.sdk.run.reset_mock()
+            await self.console.evaluate(self.entry)
+            proposal = dry_run_proposal(ChunkResult(self.entry.issue, self.entry), rca_enabled=False, closure_only=True)
+            self.assertEqual(proposal["proposed_action"], "leave_open")
+            self.assertEqual(proposal["proposed_labels"], [])
+            await self.console.decide(self.entry)
+            self.assertEqual(self.entry.decision, "reviewed")
+            with self.assertRaisesRegex(AutomationError, "does not publish not-reproducible labels"):
+                await self.console.publish_reproduction(self.entry)
+            self.sdk.run.assert_not_awaited()
+            self.assertEqual(self.github.mutations, [])
+
+    async def test_closure_only_fixed_case_keeps_existing_publication_gates(self):
+            self.console.closure_only, self.console.rca_enabled = True, False
+            self.entry.input_hash = self.console.key(self.entry.issue)
+            await self.ready()
+            self.console.read_only = True
+            await self.console.evaluate(self.entry)
+            await self.console.decide(self.entry)
+            proposal = dry_run_proposal(ChunkResult(self.entry.issue, self.entry), rca_enabled=False, closure_only=True)
+            self.assertEqual(proposal["proposed_action"], "close_fixed")
+            self.assertEqual(self.github.mutations, [])
+            self.console.read_only = False
+            await self.console.evaluate(self.entry)
+            await self.console.decide(self.entry)
+            self.assertEqual(self.github.mutations, ["comments", "labels", "close"])
+
+    async def test_cache_only_reproduction_records_missing_targets_without_preparing(self):
+            self.console.prepare_targets = False
+            with patch.object(self.targets, "prepare", AsyncMock(side_effect=AssertionError("Unexpected target preparation"))):
+                stage = await self.ready()
+            self.assertIsNone(stage.action())
+            self.assertEqual(set(stage.outcomes.values()), {"blocked"})
+            self.assertEqual(self.targets.executions, 0)
+            records = self.console.reproduction_records(stage)
+            self.assertIn("preparation was not authorized", str(records))
+
     async def test_screening_failure_cannot_be_reinterpreted_as_non_reproduction_or_mutate(self):
         with patch.object(self.github, "screen", AsyncMock(side_effect=ScreeningBlocked("Target blocked"))):
             with self.assertRaises(ScreeningBlocked):
@@ -1793,6 +1915,15 @@ class ArtifactTests(unittest.IsolatedAsyncioTestCase):
                 await store.prepare(target)
             fetch.assert_called_once()
             self.assertEqual(runner.await_count, 1)
+            selected = select_targets(metadata, report, scenario(), "", "a" * 40)[0]
+            with patch("issue_review_reproduction.download", side_effect=AssertionError("Cache restore must not download")):
+                store.restore(selected)
+            self.assertEqual(selected.tree_hash, target.tree_hash)
+            self.assertEqual(selected.status, "ready")
+            self.assertEqual(runner.await_count, 1)
+            changed = selected.model_copy(update={"source": selected.source + "/changed"})
+            with self.assertRaisesRegex(ValueError, "not cached"):
+                store.restore(changed)
             assert runner.await_args is not None
             self.assertEqual(runner.await_args.args[0][0], "node")
             assert target.cli is not None
@@ -1809,6 +1940,8 @@ class ArtifactTests(unittest.IsolatedAsyncioTestCase):
             Path(target.cli).write_text("tampered", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "integrity"):
                 store.verify(target)
+            with self.assertRaisesRegex(ValueError, "integrity"):
+                store.restore(selected)
 
     async def test_bad_integrity_and_archive_links_cannot_prepare_target(self):
         for unsafe in (False, True):

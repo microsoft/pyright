@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 from pathlib import Path
 from typing import Literal
@@ -20,7 +21,10 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
 
 from issue_review_classifier import ChoiceClassifier
 from issue_review_decision import MicrosoftDecisionClassifier
-from issue_review_safety import InjectionScreening, ScreeningBlocked
+from issue_review_safety import (
+    CRITERIA, INSTRUCTIONS, REQUEST_TIMEOUT, InjectionScreening, ScreeningBlocked,
+    _screening_parts, load_reference_screening_diagnostic,
+)
 
 
 class ScreeningCase(BaseModel):
@@ -161,12 +165,91 @@ async def evaluate(
     }
 
 
+def inspect_reference_diagnostic(path: Path) -> dict[str, JsonValue]:
+    diagnostic = load_reference_screening_diagnostic(path)
+    return {
+        "kind": "reference_screening_diagnostic_inspection",
+        "diagnostic_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "policy_hash": diagnostic.policy_hash,
+        "source": diagnostic.audit["source"], "original_status": diagnostic.audit["status"],
+        "classifier_requests": len(diagnostic.requests),
+        "automatic_review_resume": False,
+        **{key: diagnostic.audit[key] for key in (
+            "choice", "risk", "probabilities", "response_model", "part_count", "completed_parts", "cached",
+            "attempts", "error_type", "failed_part", "incomplete_part",
+        ) if key in diagnostic.audit},
+    }
+
+
+async def replay_reference_diagnostic(
+    path: Path, classifier: ChoiceClassifier, directory: Path,
+) -> dict[str, JsonValue]:
+    from issue_review_validity import parse_json_value
+
+    diagnostic = load_reference_screening_diagnostic(path)
+    scorer = InjectionScreening(classifier)
+    if (
+        diagnostic.policy_hash != scorer.policy_hash
+        or diagnostic.classifier_configuration_hash != classifier.configuration_hash
+    ):
+        raise ValueError("Reference replay requires the exact original screening policy and classifier configuration")
+    evidence = parse_json_value(diagnostic.evidence_json)
+    fingerprint = hashlib.sha256(diagnostic.evidence_json.encode()).hexdigest()
+    parts = _screening_parts(diagnostic.evidence_json, fingerprint)
+    expected = [{
+        "state": {"content": part}, "name": "prompt_injection", "instructions": INSTRUCTIONS,
+        "criteria": CRITERIA, "timeout": REQUEST_TIMEOUT,
+    } for part in parts]
+    if [request.model_dump(mode="json") for request in diagnostic.requests] != expected[:len(diagnostic.requests)]:
+        raise ValueError("Captured classifier requests do not match exact current-policy replay")
+    directory.mkdir(parents=True)
+    source = diagnostic.audit["source"]
+    assert isinstance(source, str)
+    try:
+        await scorer.check(evidence, directory, source)
+    except ScreeningBlocked:
+        pass
+    audit = TypeAdapter(dict[str, JsonValue]).validate_json(
+        (directory / "screening.jsonl").read_text(encoding="utf-8").splitlines()[-1]
+    )
+    return {
+        **inspect_reference_diagnostic(path), "kind": "reference_screening_diagnostic_replay",
+        "replay_status": audit["status"], "same_observed_status": audit["status"] == diagnostic.audit["status"],
+        "replay": {key: audit[key] for key in (
+            "choice", "risk", "probabilities", "response_model", "attempts", "error_type",
+            "part_count", "completed_parts", "diagnostic", "diagnostic_sha256",
+        ) if key in audit},
+        "ground_truth_label": None,
+    }
+
+
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cases", type=Path, help="Optional labeled JSON cases; defaults to small synthetic fixtures")
+    inputs = parser.add_mutually_exclusive_group()
+    inputs.add_argument("--cases", type=Path, help="Optional labeled JSON cases; defaults to small synthetic fixtures")
+    inputs.add_argument("--diagnostic", type=Path, help="Inspect a quarantined reference diagnostic offline; no service access")
+    parser.add_argument("--reclassify", action="store_true", help="With --diagnostic only: explicitly rerun the same policy/service, never resume an issue")
     parser.add_argument("--split", choices=("development", "validation", "all"), default="all")
     parser.add_argument("--output", required=True, type=Path, help="Local result JSON; contains scores, not evidence text")
     args = parser.parse_args()
+    if args.reclassify and args.diagnostic is None:
+        parser.error("--reclassify requires --diagnostic")
+    if args.diagnostic is not None:
+        if args.split != "all":
+            parser.error("--split applies only to labeled evaluation cases")
+        if args.output.exists():
+            raise FileExistsError("Reference diagnostic output must use a new path")
+        if args.reclassify:
+            result = await replay_reference_diagnostic(
+                args.diagnostic, MicrosoftDecisionClassifier.from_environment(),
+                args.output.parent / (args.output.stem + "-audits"),
+            )
+        else:
+            result = inspect_reference_diagnostic(args.diagnostic)
+        with args.output.open("x", encoding="utf-8") as stream:
+            stream.write(json.dumps(result, indent=2) + "\n")
+        print(json.dumps(result, indent=2))
+        return 0 if not args.reclassify or result["replay_status"] == "allowed" else 1
     cases = load_cases(args.cases, args.split)
     result = await evaluate(cases, MicrosoftDecisionClassifier.from_environment(), args.output.parent / (args.output.stem + "-audits"))
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")

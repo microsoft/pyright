@@ -13,10 +13,10 @@ from pydantic import ValidationError
 from issue_review_models import ReproductionTarget
 from issue_review_reproduction import fingerprint, tree_hash
 from issue_review_sources import (
-    ArtifactEvidence, EvidenceSpan, FeatureProbeResult, MaterializedSetup, ReportDocument, SettingChoice,
+    ArtifactEvidence, EvidenceSpan, FeatureProbeResult, MaterializedSetup, ReportDocument, ReportedSettingSelection, SettingChoice,
     SetupRequirement, SourceAssociation, SourceCapture, capture_sources, check_bundled_stub_capability,
     check_feature_capability, check_runtime_metadata, check_target_capability, inspect_requirements, materialize_setup,
-    resolve_setup, verify_capture, verify_materialized_setup, verify_span,
+    reported_setting_qualifications, resolve_setup, verify_capture, verify_materialized_setup, verify_span,
 )
 
 
@@ -51,6 +51,20 @@ def capture(body: str, comments: tuple[str, ...] = (), report_id: str = "offline
 
 def associate(captured: SourceCapture, index: int = 0, path: str = "sample.py") -> SourceAssociation:
     return SourceAssociation(source_id=captured.blocks[index].id, path=path)
+
+
+def reported_selection(captured: SourceCapture, quote: str, value: str = "3.13") -> ReportedSettingSelection:
+    document = next(item for item in captured.documents if quote in item.text)
+    start = document.text.index(quote)
+    declaration = next(
+        item for item in captured.declarations if item.setting == "pythonVersion" and item.value == value
+        and item.evidence.document_id == document.id and start <= item.evidence.start < start + len(quote)
+    )
+    return ReportedSettingSelection(
+        setting="pythonVersion", declaration_ids=(declaration.id,),
+        context=EvidenceSpan(document_id=document.id, start=start, end=start + len(quote), quote=quote),
+        reason="Select the captured original's target, retaining the comparison as unverified context",
+    )
 
 
 def fake_target(directory: Path) -> ReproductionTarget:
@@ -321,6 +335,170 @@ class CaptureTests(unittest.TestCase):
 
 
 class DeclarationAndMaterializationTests(unittest.TestCase):
+    def test_reported_playground_values_need_no_assumptions_or_relabeling(self):
+        url = "https://pyright-play.net/?pythonVersion=3.15&strict=true"
+        result = capture(f"[Working]({url})\n\n" + fence("value = 1\n") + f"\n[Custom repr]({url})\n")
+        prepared = materialize_setup(result, [associate(result)])
+        self.assertFalse(prepared.blockers)
+        self.assertEqual(prepared.configuration, {"pythonVersion": "3.15", "typeCheckingMode": "strict"})
+        self.assertFalse(prepared.assumptions)
+        self.assertFalse(prepared.reported_settings)
+        with self.assertRaisesRegex(ValueError, "Remove pythonVersion from setting_choices"):
+            materialize_setup(result, [associate(result)], [
+                SettingChoice(setting="pythonVersion", value="3.15", reason="Reported, not assumed"),
+            ])
+
+    def test_conditional_reported_scope_preserves_original_and_comparison_declarations(self):
+        original = "Original: pythonVersion: 3.13"
+        comparison = "Comparison: pythonVersion: 3.14"
+        result = capture(
+            original + "\n\ntypeCheckingMode: strict\n\n" + fence("value = 1\n") + comparison + "\n",
+        )
+        self.assertTrue(materialize_setup(result, [associate(result)]).blockers)
+        selection = reported_selection(result, original)
+        prepared = materialize_setup(result, [associate(result)], reported_settings=[selection])
+        self.assertFalse(prepared.blockers)
+        self.assertEqual(prepared.configuration["pythonVersion"], "3.13")
+        self.assertEqual(prepared.reported_settings, (selection,))
+        self.assertCountEqual([item.value for item in prepared.scoped_declarations], ["3.13", "3.14"])
+        self.assertFalse(prepared.assumptions)
+        self.assertIn("Conditional reported setup", reported_setting_qualifications(prepared)[0])
+        self.assertIn("not independently approved", reported_setting_qualifications(prepared)[0])
+        other = materialize_setup(
+            result, [associate(result)], reported_settings=[reported_selection(result, comparison, "3.14")],
+        )
+        self.assertEqual(other.configuration["pythonVersion"], "3.14")
+        self.assertNotEqual(other.digest, prepared.digest)
+        verify_materialized_setup(result, prepared.associations, (), prepared, reported_settings=[selection])
+        restored = MaterializedSetup.model_validate_json(prepared.model_dump_json())
+        self.assertEqual(restored, prepared)
+        with self.assertRaisesRegex(ValueError, "changed"):
+            verify_materialized_setup(result, prepared.associations, (), prepared)
+        changed = selection.model_copy(update={"reason": "A different interpretation of the report"})
+        self.assertNotEqual(
+            materialize_setup(result, [associate(result)], reported_settings=[changed]).digest, prepared.digest,
+        )
+
+    def test_reported_selection_does_not_hide_missing_mode_other_settings_or_invalid_configuration(self):
+        original = "Original: pythonVersion: 3.13"
+        for extra, expected in (
+            ("", "Missing reported typeCheckingMode"),
+            ("typeCheckingMode: strict\nextraPaths: ['external']\n", "Unsupported or invalid reported extraPaths"),
+            ('```json\n{"pythonVersion":\n```\n', "invalid_configuration"),
+            ("pythonPlatform: Linux\n\npythonPlatform: Windows\n", "Conflicting reported pythonPlatform"),
+        ):
+            with self.subTest(extra=extra):
+                result = capture(original + "\n\n" + fence("x=1\n") + "Comparison: pythonVersion: 3.14\n\n" + extra)
+                prepared = materialize_setup(
+                    result, [associate(result)], reported_settings=[reported_selection(result, original)],
+                )
+                self.assertTrue(any(expected in item for item in prepared.blockers))
+
+    def test_scope_cannot_cherry_pick_a_config_url_shell_command_or_prose_paragraph(self):
+        for text in (
+            fence('{"pythonVersion":"3.13","pythonVersion":"3.14","typeCheckingMode":"strict"}\n', language="json"),
+            "https://pyright-play.net/?pythonVersion=3.13&pythonVersion=3.14&strict=true",
+            fence("pyright --pythonversion 3.13 --pythonversion 3.14 sample.py\n", language="sh"),
+            "Original pythonVersion: 3.13\nComparison pythonVersion: 3.14",
+            "Original pythonVersion: 3.13\r\nComparison pythonVersion: 3.14",
+        ):
+            with self.subTest(text=text):
+                result = capture(fence("x=1\n") + text)
+                selection = reported_selection(result, text)
+                with self.assertRaisesRegex(ValueError, "cannot omit"):
+                    materialize_setup(result, [associate(result)], reported_settings=[selection])
+                identifiers = tuple(item.id for item in result.declarations if item.setting == "pythonVersion")
+                prepared = materialize_setup(
+                    result, [associate(result)],
+                    reported_settings=[selection.model_copy(update={"declaration_ids": identifiers})],
+                )
+                self.assertTrue(any("Conflicting reported pythonVersion" in item for item in prepared.blockers))
+
+    def test_scoped_context_cannot_hide_overlapping_comparison_or_cross_units(self):
+        original, comparison = "Original pythonVersion: 3.13", "Comparison pythonVersion: 3.14"
+        text = original + "\n\n" + comparison
+        result = capture(text + "\n\n" + fence("x=1\n"))
+        selection = reported_selection(result, text)
+        with self.assertRaisesRegex(ValueError, "cannot omit"):
+            materialize_setup(result, [associate(result)], reported_settings=[selection])
+        selection = selection.model_copy(update={
+            "declaration_ids": tuple(item.id for item in result.declarations if item.setting == "pythonVersion"),
+        })
+        with self.assertRaisesRegex(ValueError, "one complete reported"):
+            materialize_setup(result, [associate(result)], reported_settings=[selection])
+
+    def test_fenced_output_separates_original_command_from_following_comparison_without_blank_lines(self):
+        original = "`pyright --pythonversion 3.13 sample.py` reports:"
+        result = capture(
+            "typeCheckingMode: strict\n\n" + fence("x=1\n") + original + "\n"
+            + fence("A reported diagnostic\n", language="") + "With `--pythonversion 3.14`, both lines are reported.\n",
+        )
+        prepared = materialize_setup(
+            result, [associate(result)], reported_settings=[reported_selection(result, original)],
+        )
+        self.assertFalse(prepared.blockers)
+        self.assertEqual(prepared.configuration["pythonVersion"], "3.13")
+        self.assertCountEqual([item.value for item in prepared.scoped_declarations], ["3.13", "3.14"])
+
+    def test_scoped_python_and_mode_cannot_form_a_hybrid_original_control_configuration(self):
+        original = "https://pyright-play.net/?pythonVersion=3.13&typeCheckingMode=strict"
+        comparison = "https://pyright-play.net/?pythonVersion=3.14&typeCheckingMode=basic"
+        result = capture(original + "\n\n" + fence("x=1\n") + "\n" + comparison)
+        python = reported_selection(result, original)
+        mode_fact = next(
+            item for item in result.declarations if item.setting == "typeCheckingMode" and item.value == "basic"
+        )
+        start = result.documents[0].text.index(comparison)
+        mode = ReportedSettingSelection(
+            setting="typeCheckingMode", declaration_ids=(mode_fact.id,),
+            context=EvidenceSpan(document_id="issue", start=start, end=start + len(comparison), quote=comparison),
+            reason="Comparison mode must not be borrowed for the original Python target",
+        )
+        with self.assertRaisesRegex(ValueError, "no hybrid"):
+            materialize_setup(result, [associate(result)], reported_settings=[python, mode])
+        mode_fact = next(
+            item for item in result.declarations if item.setting == "typeCheckingMode" and item.value == "strict"
+        )
+        mode = mode.model_copy(update={
+            "declaration_ids": (mode_fact.id,), "context": python.context,
+            "reason": "The original URL supplies both settings together",
+        })
+        prepared = materialize_setup(result, [associate(result)], reported_settings=[python, mode])
+        self.assertFalse(prepared.blockers)
+        self.assertEqual(prepared.configuration, {"pythonVersion": "3.13", "typeCheckingMode": "strict"})
+        self.assertEqual(len(reported_setting_qualifications(prepared)), 2)
+
+    def test_invalid_scoped_ids_settings_context_and_unsupported_report_facts_are_rejected(self):
+        quote = "Original pythonVersion: 3.13"
+        result = capture(quote + "\n\nComparison pythonVersion: 3.14\n\n" + fence("x=1\n"))
+        selection = reported_selection(result, quote)
+        for changed in (
+            selection.model_copy(update={"declaration_ids": ("unknown",)}),
+            selection.model_copy(update={"declaration_ids": (*selection.declaration_ids, *selection.declaration_ids)}),
+            selection.model_copy(update={"setting": "typeCheckingMode"}),
+            selection.model_copy(update={"context": selection.context.model_copy(update={"quote": "Invented context"})}),
+            selection.model_copy(update={"context": selection.context.model_copy(update={"start": 1})}),
+        ):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                materialize_setup(result, [associate(result)], reported_settings=[changed])
+        with self.assertRaisesRegex(ValueError, "unique and bounded"):
+            materialize_setup(result, [associate(result)], reported_settings=[selection, selection])
+        invalid = capture(quote + "\n\nComparison pythonVersion: unknown\n\n" + fence("x=1\n"))
+        with self.assertRaisesRegex(ValueError, "cannot bypass unsupported"):
+            materialize_setup(invalid, [associate(invalid)], reported_settings=[reported_selection(invalid, quote)])
+
+    def test_scoped_runtime_patch_target_retains_derivation_and_does_not_invent_missing_python(self):
+        quote = "Original Python 3.14.1"
+        result = capture(quote + "\n\nComparison Python 3.14.2\n\ntypeCheckingMode: strict\n\n" + fence("x=1\n"))
+        selection = reported_selection(result, quote, "3.14.1")
+        prepared = materialize_setup(result, [associate(result)], reported_settings=[selection])
+        self.assertFalse(prepared.blockers)
+        self.assertEqual(prepared.configuration["pythonVersion"], "3.14")
+        self.assertEqual(prepared.derivations[0].reported_values, ("3.14.1",))
+        self.assertCountEqual([item.value for item in prepared.scoped_declarations], ["3.14.1", "3.14.2"])
+        missing = capture(fence("# pyright: strict\nx = 1\n"))
+        self.assertEqual(len(materialize_setup(missing, [associate(missing)]).blockers), 2)
+
     def test_explicit_report_settings_have_exact_separate_provenance(self):
         result = capture(
             SETTINGS + fence("x = 1\n") + "Pyright version 1.1.405; typing_extensions==4.12.2\n",
@@ -600,6 +778,43 @@ class IntakeV2Tests(unittest.TestCase):
         # reproduction verdict or feature compatibility proof is implied.
         self.assertFalse(inspect_requirements(result, prepared))
         self.assertEqual(prepared.files["test.py"], "print([*range(x) for x in range(5)])\n")
+
+    def test_prose_interpreter_versions_exclude_one_sentence_period_without_changing_provenance(self):
+        for version in ("3.8", "3.13", "3.14.2"):
+            for prefix in ("Python ", "Python version: ", "Python version = "):
+                with self.subTest(version=version, prefix=prefix):
+                    text = f"{prefix}{version}.\ntypeCheckingMode: standard\n" + fence("x=1\n")
+                    result = capture(text)
+                    self.assertEqual(result.documents[0].text, text)
+                    verify_capture(result)
+                    values = [item for item in result.declarations if item.setting == "pythonVersion"]
+                    self.assertEqual(len(values), 1)
+                    declaration = values[0]
+                    self.assertEqual(declaration.value, version)
+                    self.assertTrue(declaration.supported)
+                    self.assertEqual(declaration.evidence.quote, prefix + version)
+                    verify_span(result, declaration.evidence)
+                    prepared = materialize_setup(result, [associate(result)])
+                    self.assertEqual(prepared.configuration["pythonVersion"], ".".join(version.split(".")[:2]))
+                    self.assertFalse(prepared.assumptions)
+                    self.assertFalse(prepared.blockers)
+                    verify_materialized_setup(result, prepared.associations, (), prepared)
+
+    def test_sentence_period_handling_does_not_repair_quoted_literal_cli_or_malformed_versions(self):
+        for text in (
+            "Python `3.14.`", "Python version: `3.14.`", "Python 3.14..",
+            "Python 3.14.bad", "Python 3.14.1.2.", "Python 3.14./not-a-version",
+            "Python version: not-a-version.",
+            "pythonVersion: 3.14.", "--pythonversion 3.14.",
+        ):
+            with self.subTest(text=text):
+                result = capture(text + "\n" + fence("x=1\n"))
+                values = [item for item in result.declarations if item.setting == "pythonVersion"]
+                self.assertTrue(values)
+                self.assertTrue(all(not item.supported for item in values))
+                prepared = materialize_setup(result, [associate(result)])
+                self.assertNotIn("pythonVersion", prepared.configuration)
+                self.assertTrue(prepared.blockers)
 
     def test_interpreter_patch_version_is_preserved_with_explicit_major_minor_derivation(self):
         result = capture("Python 3.14.1\ntypeCheckingMode: standard\n" + fence("x: int = 1\n"))

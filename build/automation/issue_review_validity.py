@@ -16,6 +16,7 @@ import http.client
 import json
 import math
 import re
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Literal, Protocol, Self
@@ -490,12 +491,14 @@ class ValidityResearch:
     def evidence(self) -> list[ValidityEvidence]:
         return [item.model_copy(deep=True) for item in self._evidence]
 
-    async def read_reference(self, request: ReferenceRead) -> ValidityEvidence:
-        kind = reference_kind(request.location)
+    async def read_reference(
+        self, request: ReferenceRead, *, screen: Callable[[JsonValue, str], Awaitable[None]] | None = None,
+    ) -> ValidityEvidence:
         if self._reads >= MAX_REFERENCE_READS or self._chars + request.max_chars > MAX_REFERENCE_CHARS:
             raise ValueError("Validity research budget exhausted")
         self._reads += 1
         ordinal = self._reads
+        kind = reference_kind(request.location)
         page = await self._reader.read_reference(request)
         anchored = request.offset == 0 and bool(urlparse(request.location).fragment)
         expected_offset = page.anchor_offset if anchored else request.offset
@@ -517,6 +520,8 @@ class ValidityResearch:
             observation="not_applicable", version=None, retrieved_at=page.retrieved_at,
             reference_span=ReferenceSpan(offset=page.offset, total_chars=page.total_chars),
         )
+        if screen is not None:
+            await screen(evidence.model_dump(mode="json"), f"validity-reference:{ordinal}")
         self._directory.mkdir(parents=True, exist_ok=True)
         # Exclusive creation preserves prior research and makes accidental reuse explicit.
         with (self._directory / f"{evidence.id}.json").open("x", encoding="utf-8") as stream:
@@ -699,7 +704,20 @@ def finalize_validity_response(
 def build_validity_prompt(inputs: ValidityInput, *, reference_reads: bool = False) -> str:
     return (
         PROTOCOL + "\nReference capability: "
-        + ("bounded read_reference is exposed." if reference_reads else "unavailable; use only saved input evidence.")
+        + (
+            "bounded read_reference is exposed. Use authoritative HTTPS typing/Python/PEP URLs, "
+            "commit-pinned microsoft/pyright docs/*.md, or explicit Pyright issue precedents; no web/issue search. "
+            f"All reads, including supplied URLs and any correction, share {MAX_REFERENCE_READS} requests, "
+            f"{MAX_REFERENCE_CHARS} characters and at most 4000 characters per read. Failed reads consume requests. "
+            "An initial page prefix is not a complete rule search: use find for relevant wording, or follow "
+            "next_offset with offset to page visible text. Omit fragments for Markdown/precedent search. "
+            "Use https://typing.python.org/en/latest/spec/index.html to discover typing chapters if needed. "
+            "For Python rules use the controller's exact target version; policy URLs require an actual known "
+            "full commit, never a guessed SHA. Only screened, saved returned evidence IDs and their claim_ids "
+            "extend the claim-local catalog. Missing authority or exhausted retrieval stays explicit and inconclusive. "
+            "No native tools, checker execution or publication are authorized."
+            if reference_reads else "unavailable; use only saved input evidence."
+        )
         + "\nInput SHA256: " + record_hash(inputs)
         + "\nClaim-local reference catalog (exact authorized IDs, not semantic applicability):\n"
         + json.dumps({

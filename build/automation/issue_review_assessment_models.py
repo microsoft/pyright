@@ -10,7 +10,7 @@ from pydantic import Field, JsonValue, model_validator
 from issue_review_models import (
     ConfigurationAssumption, Issue, Record, ReproductionClaim, ReproductionScenario, ReproductionTarget, Text,
 )
-from issue_review_sources import Digest, SettingChoice, SetupCapability, SourceAssociation
+from issue_review_sources import Digest, ReportedSettingSelection, SettingChoice, SetupCapability, SourceAssociation
 
 Readiness = Literal["ready", "partial", "blocked"]
 ClaimId = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")]
@@ -25,6 +25,7 @@ class AssessmentSetupSelection(Record):
     setup_hash: Digest
     associations: list[SourceAssociation] = Field(min_length=1, max_length=30)
     setting_choices: list[SettingChoice] = Field(max_length=2)
+    reported_settings: list[ReportedSettingSelection] = Field(default_factory=list, max_length=2)
 
 
 class AssessmentSetupEvidence(Record):
@@ -164,6 +165,10 @@ class AssessmentClaimDraft(Record):
         description="Static diagnostics/revealed types use cli; editor/LSP/runtime-only concerns are not CLI proxies.",
     )
     source_ids: list[Text] = Field(description="Only Python/stub IDs present in sources, not captured JSON configuration IDs.")
+    reported_settings: list[ReportedSettingSelection] = Field(
+        default_factory=list, max_length=2,
+        description="Optional conditional per-example selection of captured Python/checking declarations. Reference exact IDs and context; never invent values or use setting_choices for reported settings.",
+    )
     readiness: Readiness
     reasons: list[Text]
     verification: ReproductionClaim | None
@@ -200,7 +205,10 @@ class AssessmentDraft(Record):
     reported_version: str | None
     version_quote: str | None
     sources: list[SourceReference] = Field(max_length=30)
-    setting_choices: list[ConfigurationAssumption]
+    setting_choices: list[ConfigurationAssumption] = Field(
+        max_length=2,
+        description="Authorized experimental assumptions ONLY for settings genuinely absent from the capture. Use [] when none are authorized or reported values already exist; reported values are applied automatically.",
+    )
     claims: list[AssessmentClaimDraft] = Field(min_length=1, max_length=16)
     limitations: list[Text]
 
@@ -268,6 +276,7 @@ class ClaimAssessment(Record):
     report_quote: Text
     surface: Literal["cli", "editor", "lsp", "other"]
     source_ids: list[Text]
+    reported_settings: list[ReportedSettingSelection] = Field(default_factory=list, max_length=2)
     readiness: Readiness
     reasons: list[Text]
     verification: ReproductionClaim | None = None

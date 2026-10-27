@@ -85,6 +85,110 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
     def ledger(self) -> list[dict[str, object]]:
         return [json.loads(line) for line in (self.directory / "screening.jsonl").read_text().splitlines()]
 
+    def reference(self, content="Type checkers should check each candidate, then stop after the first match.", ordinal=1):
+        from test_issue_review_validity import evidence
+
+        return evidence(
+            f"validity-reference-{ordinal}", "typing_spec", content,
+            provenance="retrieved_reference",
+            location="https://typing.python.org/en/latest/spec/overload.html",
+            retrieved_at="2026-10-27T16:40:00Z",
+            reference_span={"offset": 9000, "total_chars": 20000},
+        ).model_dump(mode="json")
+
+    async def test_rejected_reference_retains_exact_requests_outside_the_usable_evidence_store(self):
+        value = self.reference()
+        self.classifier.classify.return_value = classification(0.35)
+        with self.assertRaisesRegex(ScreeningBlocked, "uncertain"):
+            await self.scorer.check(value, self.directory, "validity-reference:1")
+        paths = list((self.directory / "screening-diagnostics").glob("*.json"))
+        self.assertEqual(len(paths), 1)
+        diagnostic = json.loads(paths[0].read_bytes())
+        self.assertEqual(diagnostic["kind"], "quarantined_reference_screening")
+        self.assertEqual(json.loads(diagnostic["evidence_json"]), value)
+        self.assertEqual(diagnostic["classifier_configuration_hash"], "test-backend")
+        self.assertEqual(diagnostic["policy_hash"], self.scorer.policy_hash)
+        self.assertEqual(diagnostic["requests"], [{
+            "state": self.classifier.classify.call_args.args[0],
+            **self.classifier.classify.call_args.kwargs,
+        }])
+        self.assertEqual(diagnostic["audit"]["status"], "uncertain")
+        self.assertEqual(diagnostic["audit"]["probabilities"], {"benign": 0.65, "injection": 0.35})
+        ledger = self.ledger()[-1]
+        self.assertEqual(ledger["diagnostic"], str(paths[0].relative_to(self.directory)))
+        self.assertEqual(ledger["diagnostic_sha256"], hashlib.sha256(paths[0].read_bytes()).hexdigest())
+        self.assertNotIn(value["content"], json.dumps(ledger))
+        self.assertFalse(self.scorer._allowed)
+        self.assertFalse(self.scorer._units_allowed)
+
+    async def test_reference_diagnostics_record_only_attempted_fragments_and_cancellation(self):
+        value = self.reference("\U0001f600" * 4000)
+        self.classifier.classify.side_effect = [classification(0), asyncio.CancelledError]
+        with patch("builtins.print"), self.assertRaises(asyncio.CancelledError):
+            await self.scorer.check(value, self.directory, "validity-reference:1")
+        path, = (self.directory / "screening-diagnostics").glob("*.json")
+        diagnostic = json.loads(path.read_bytes())
+        self.assertEqual(len(diagnostic["requests"]), 2)
+        self.assertEqual(diagnostic["audit"]["status"], "cancelled")
+        self.assertEqual(diagnostic["audit"]["completed_parts"], 1)
+        self.assertEqual(diagnostic["audit"]["incomplete_part"], 2)
+        self.assertEqual(diagnostic["requests"][1]["state"], self.classifier.classify.call_args.args[0])
+        self.assertFalse(self.scorer._allowed)
+
+    async def test_unwritable_reference_diagnostic_blocks_and_does_not_cache_success(self):
+        (self.directory / "screening-diagnostics").write_text("Not a directory")
+        with self.assertRaisesRegex(ScreeningBlocked, "Cannot save.*diagnostic"):
+            await self.scorer.check(self.reference(), self.directory, "validity-reference:1")
+        self.assertFalse(self.scorer._allowed)
+        self.assertNotEqual(self.ledger()[-1]["status"], "allowed")
+
+    async def test_concurrent_reference_diagnostics_never_overwrite_an_attempt(self):
+        with patch("builtins.print"):
+            await asyncio.gather(*[
+                self.scorer.check(self.reference(), self.directory, "validity-reference:1") for _ in range(2)
+            ])
+        self.assertEqual(len(list((self.directory / "screening-diagnostics").glob("*.json"))), 2)
+        self.assertEqual(self.classifier.classify.await_count, 1)
+        self.assertEqual(sum(bool(item["cached"]) for item in self.ledger()), 1)
+
+    async def test_reference_diagnostic_route_rejects_nonreference_or_mismatched_payloads(self):
+        values: list[JsonValue] = [{"body": "Must not be retained as a reference"}, self.reference(ordinal=2)]
+        for value in values:
+            with self.subTest(value=value), self.assertRaises(ScreeningBlocked):
+                await self.scorer.check(value, self.directory, "validity-reference:1")
+        self.classifier.classify.assert_not_awaited()
+        self.assertFalse((self.directory / "screening-diagnostics").exists())
+
+    async def test_reference_transport_failure_and_retry_keep_safe_exact_diagnostics(self):
+        from issue_review_safety import load_reference_screening_diagnostic
+
+        self.classifier.classify.side_effect = [
+            ClassificationHTTPError(429, retry_after=1), ClassificationHTTPError(500),
+        ]
+        with patch("issue_review_safety.asyncio.sleep", AsyncMock()), patch("builtins.print"), self.assertRaises(
+            ScreeningBlocked,
+        ):
+            await self.scorer.check(self.reference(), self.directory, "validity-reference:1")
+        path, = (self.directory / "screening-diagnostics").glob("*.json")
+        diagnostic = load_reference_screening_diagnostic(path)
+        self.assertEqual(len(diagnostic.requests), 1)
+        self.assertEqual(diagnostic.audit["attempts"], 2)
+        self.assertEqual(diagnostic.audit["error_type"], "ClassificationHTTPError")
+        self.assertEqual(diagnostic.audit["http_status"], 500)
+        self.assertEqual(self.classifier.classify.call_args_list[0], self.classifier.classify.call_args_list[1])
+        self.assertFalse(self.scorer._allowed)
+
+    async def test_audit_failure_cannot_leave_a_reference_cache_or_an_authorized_diagnostic(self):
+        from issue_review_safety import load_reference_screening_diagnostic
+
+        (self.directory / "screening.jsonl").mkdir()
+        with self.assertRaisesRegex(ScreeningBlocked, "Cannot save the screening audit"):
+            await self.scorer.check(self.reference(), self.directory, "validity-reference:1")
+        self.assertFalse(self.scorer._allowed)
+        path, = (self.directory / "screening-diagnostics").glob("*.json")
+        with self.assertRaises(OSError):
+            load_reference_screening_diagnostic(path)
+
     async def test_missing_configuration_never_uses_a_default_service(self):
         with patch.dict(os.environ, {}, clear=True), self.assertRaisesRegex(ScreeningBlocked, "analysis is disabled"):
             InjectionScreening.from_environment()

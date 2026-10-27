@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -11,6 +12,7 @@ from types import SimpleNamespace
 from typing import Literal
 from unittest.mock import AsyncMock, patch
 
+from copilot import ToolInvocation
 from copilot.session_events import AssistantMessageData
 from pydantic import ValidationError
 
@@ -31,6 +33,7 @@ from issue_review_sources import (
     check_feature_capability, inspect_requirements, materialize_setup,
 )
 from review_issues import AGENTS, SDK, Agent, AutomationError, GitHub, reproduction_response, response_schema
+from test_issue_review_sources import reported_selection
 
 
 def issue(body: str) -> Issue:
@@ -269,6 +272,45 @@ class ModelTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 reproduction_response(AssessmentDraft, changed)
 
+    def test_scoped_setting_arrays_round_trip_through_the_actual_response_decoder(self):
+        capture = capture_report(issue(body(diagnostic=False) + "\nComparison pythonVersion: 3.14\n"), [])
+        draft = draft_for(capture, partial=True)
+        draft.claims[0].reported_settings = [reported_selection(capture, 'pythonVersion="3.13"')]
+        content = draft.model_dump_json()
+        decoded = reproduction_response(AssessmentDraft, content)
+        self.assertEqual(AssessmentDraft.model_validate_json(decoded), draft)
+        raw = json.loads(content)
+        for update in (
+            {"declaration_ids": [1]},
+            {"declaration_ids": "not-an-array"},
+            {"context": {**raw["claims"][0]["reported_settings"][0]["context"], "start": "0"}},
+        ):
+            changed = json.loads(content)
+            changed["claims"][0]["reported_settings"][0].update(update)
+            with self.subTest(update=update), self.assertRaises(ValueError):
+                reproduction_response(AssessmentDraft, json.dumps(changed))
+
+    def test_refinement_decoder_preserves_strict_json_rejection(self):
+        content = VerificationRefinement(
+            schema_version=1, claim_id="assignment", discovery_id="observation", readiness="ready",
+            verification=ReproductionClaim.model_validate(predicates()), control_files=[], reasons=[],
+            explanation="Proposed independent verification",
+        ).model_dump_json()
+        self.assertEqual(
+            VerificationRefinement.model_validate_json(reproduction_response(VerificationRefinement, content)),
+            VerificationRefinement.model_validate_json(content),
+        )
+        for changed in (
+            content.replace('"schema_version":1', '"schema_version":1,"schema_version":1'),
+            content.replace('"line":3', '"line":3,"line":3', 1),
+            content.replace('"line":3', '"line":NaN', 1),
+            content.replace('"line":3', '"line":1e9999', 1),
+            content.replace('"line":3', '"line":"3"', 1),
+            content.replace('"present":true', '"present":"true"', 1),
+        ):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                reproduction_response(VerificationRefinement, changed)
+
 
 class ControllerTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -290,7 +332,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self, *, partial=False, unsupported=False, report=None, reported_message=None, reported_rule=None,
         direction: Literal["unexpected_presence", "unexpected_absence"] = "unexpected_presence",
         report_quote=None, with_controls=False, scoped=False,
-        allow_rule_location_predicates=False, reported_context=(), discovery_lines=None,
+        allow_rule_location_predicates=False, reported_context=(), discovery_lines=None, reported_scope=None,
     ):
         current = issue(report or body(diagnostic=not partial))
         capture = capture_report(current, [])
@@ -328,6 +370,8 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             draft.claims[0].control_files = [
                 ControlSource(path="sample.py", content=capture.blocks[0].content + "reveal_type(value)\n"),
             ]
+        if reported_scope is not None:
+            draft.claims[0].reported_settings = [reported_selection(capture, reported_scope)]
         prepared = materialize_setup(capture, associations(draft), choices(draft))
         policy = AssessmentPolicy(
             input_hash=fingerprint({"issue": current.model_dump(mode="json"), "comments": []}),
@@ -336,6 +380,116 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         )
         plan = build_plan(policy, draft, capture, prepared, report_text(current, []))
         return AssessmentController(self.root / "run", policy, current, [], capture, draft, prepared, plan)
+
+    async def test_reported_scope_is_frozen_in_verification_resume_receipts_and_progress(self):
+        controller = self.controller(
+            report=body() + "\n\nComparison pythonVersion: 3.14\n", with_controls=True,
+            reported_scope='pythonVersion="3.13"',
+        )
+        self.assertEqual(controller.plan.readiness, "ready")
+        self.assertTrue(controller.prepared.blockers)
+        prepared = controller.claim_setup("assignment")
+        self.assertEqual(prepared.configuration["pythonVersion"], "3.13")
+        self.assertFalse(prepared.assumptions)
+        scenario = controller.claim("assignment").scenario
+        assert scenario is not None
+        self.assertEqual(scenario.configuration, prepared.configuration)
+        plan = controller.freeze_verification("assignment", self.test_targets)
+        self.assertEqual(plan.setup_hash, prepared.digest)
+        original_runner = self.store.runner
+
+        async def runner(command, cwd):
+            self.assertEqual(json.loads((cwd / "pyrightconfig.json").read_text())["pythonVersion"], "3.13")
+            return await original_runner(command, cwd)
+
+        self.store.runner = runner
+        receipts = await controller.verify(plan, self.store)
+        self.assertEqual(len(receipts), 6)
+        for receipt in receipts:
+            scope = receipt.raw["reported_setup_scope"]
+            assert isinstance(scope, dict)
+            self.assertIs(scope["conditional"], True)
+        progress = controller.verification_progress(plan, receipts)
+        self.assertEqual(progress.status, "complete")
+        self.assertTrue(any("Conditional reported setup" in text for text in progress.reasons))
+        self.assertEqual(controller.result([progress]).progress, [progress])
+        with patch.object(assess_issues, "implementation_hash", return_value="implementation"):
+            restored = assess_issues.load_controller(controller.directory)
+            self.assertEqual(restored.claim_setup("assignment"), prepared)
+        selected = controller.claim("assignment").reported_settings[0]
+        controller.claim("assignment").reported_settings[0] = selected.model_copy(update={"reason": "Changed scope"})
+        with self.assertRaisesRegex(ValueError, "identity changed"):
+            controller.require_identity()
+
+    async def test_reported_scope_survives_discovery_without_unblocking_unsupported_claims(self):
+        controller = self.controller(
+            partial=True, unsupported=True,
+            report=body(diagnostic=False) + "\n\nComparison pythonVersion: 3.14\n",
+            reported_scope='pythonVersion="3.13"',
+        )
+        self.assertEqual(controller.claim("assignment").readiness, "partial")
+        self.assertEqual(controller.claim("editor").readiness, "blocked")
+        plan = controller.freeze_discovery("assignment", self.test_targets[0])
+        self.assertEqual(json.loads(plan.inputs["pyrightconfig.json"])["pythonVersion"], "3.13")
+        receipt = await controller.discover(plan, self.store)
+        self.assertEqual(receipt.observation, "captured")
+        scope = receipt.raw["reported_setup_scope"]
+        assert isinstance(scope, dict)
+        self.assertIs(scope["conditional"], True)
+        progress = controller.result([]).progress
+        self.assertTrue(any("Conditional reported setup" in text for text in progress[0].reasons))
+        self.assertFalse(any("Conditional reported setup" in text for text in progress[1].reasons))
+
+    async def test_scoped_validity_cannot_drop_qualification_or_become_fully_supported(self):
+        from issue_review_validity import ValidityAssessment, ValidityInput
+        from test_issue_review_validity import assessment, claim, evidence
+
+        controller = self.controller(
+            report=body() + "\n\nComparison pythonVersion: 3.14\n", with_controls=True,
+            reported_scope='pythonVersion="3.13"',
+        )
+        plan = controller.freeze_verification("assignment", self.test_targets)
+        receipts = await controller.verify(plan, self.store)
+        result = controller.result([controller.verification_progress(plan, receipts)])
+        args = assess_issues.arguments(["--issue", "11037", "--state-dir", str(controller.directory)])
+        sdk, github = SDK(AsyncMock(), "gpt-6.1-sol", 180), GitHub()
+        rule = evidence(
+            "rule", "typing_spec", "An annotated variable is checked against its declared type.",
+            provenance="retrieved_reference",
+            location="https://typing.python.org/en/latest/spec/annotations.html#variable-annotations",
+            section="Variable annotations", retrieved_at="2026-10-26T22:00:00Z",
+        )
+
+        async def inspect(_agent, _prompt, scratch, **kwargs):
+            self.assertIsNone(kwargs["tools"])
+            self.assertEqual(kwargs["native_tools"], [])
+            self.assertIn("Reference capability: unavailable", _prompt)
+            frozen = ValidityInput.model_validate_json((scratch / "input.json").read_bytes())
+            captured = frozen.claims[0]
+            self.assertTrue(any("Conditional reported setup" in text for text in captured.assumptions))
+            assert captured.language_context is not None
+            self.assertEqual(captured.language_context.provenance, "reported")
+            setup = next(item for item in frozen.evidence if item.id == captured.setup_id)
+            declarations = json.loads(setup.content)["materialized"]["scoped_declarations"]
+            self.assertEqual({item["value"] for item in declarations}, {"3.13", "3.14"})
+            proposal = claim(
+                source_id=captured.source_id, setup_id=captured.setup_id, evidence_ids=captured.evidence_ids,
+                assumptions=[], limitations=[],
+            )
+            with self.assertRaisesRegex(ValueError, "settled claim"):
+                kwargs["validate"](assessment(frozen, [proposal]).model_dump_json())
+            proposal = proposal.model_copy(update={"status": "qualified"})
+            content = assessment(frozen, [proposal]).model_dump_json()
+            kwargs["validate"](content)
+            return content
+
+        with patch.object(sdk, "run", side_effect=inspect), patch.object(github, "screen", AsyncMock()):
+            validity = await assess_issues.validity_phase(
+                controller, args, sdk, result, github=github, normative_evidence=[rule],
+            )
+        validated = ValidityAssessment.model_validate(validity)
+        self.assertEqual(validated.claims[0].status, "qualified")
+        self.assertTrue(any("Conditional reported setup" in text for text in validated.claims[0].assumptions))
 
     async def missing_diagnostic_case(self, *, enabled=True, reported_rule=False, comparison=True, known_wording=None):
         quote = "The assignments at lines 3 and 4 should be rejected, like the comparison at line 1."
@@ -960,6 +1114,21 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "source-file set"):
             controller.validate_refinement("assignment", discovery, refined)
 
+    async def test_refinement_rejects_contradictory_precision_before_freezing_or_executing_verification(self):
+        controller = self.controller(partial=True)
+        discovery = await controller.discover(controller.freeze_discovery("assignment", self.test_targets[0]), self.store)
+        data = {**predicates(), "report_quote": controller.claim("assignment").report_quote}
+        data["precision"].append(data["broken"][0])
+        refined = VerificationRefinement(
+            schema_version=1, claim_id="assignment", discovery_id=discovery.id, readiness="ready",
+            verification=ReproductionClaim.model_validate(data), control_files=[], reasons=[],
+            explanation="A required invariant cannot also be required absent in the resolved state",
+        )
+        with self.assertRaisesRegex(ValueError, "Contradictory verification predicates"):
+            controller.validate_refinement("assignment", discovery, refined)
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(list(controller.directory.glob("verification-*")), [])
+
     async def test_refinement_cannot_change_scope_quote_or_invent_diagnostic(self):
         controller = self.controller(partial=True)
         discovery = await controller.discover(controller.freeze_discovery("assignment", self.test_targets[0]), self.store)
@@ -1088,6 +1257,104 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(sdk, "run", side_effect=inspect_bridge), patch.object(github, "screen", AsyncMock()):
             with self.assertRaisesRegex(ValueError, "Offline inspection completed"):
                 await assess_issues.validity_phase(controller, args, sdk, result, github=github)
+
+    async def test_live_validity_can_search_and_page_authority_with_one_shared_bounded_catalog(self):
+        from issue_review_validity import ClaimValidity, ReferenceRead, ValidityAssessment, ValidityInput, reference_page
+        from test_issue_review_validity import assessment, claim
+
+        controller = self.controller()
+        args = assess_issues.arguments(["--issue", "11037", "--state-dir", str(controller.directory)])
+        url = "https://typing.python.org/en/latest/spec/annotations.html"
+        args.reference = [url]
+        document = "Navigation\n" * 600 + "Required premise: annotated variables are checked against declared types.\n" + "Details\n" * 1000
+        sdk, github = SDK(AsyncMock(), "gpt-6.1-sol", 180), GitHub()
+
+        async def read(request):
+            return reference_page(request, document, section="Offline annotated-variable rule")
+
+        async def inspect(_agent, prompt, scratch, **kwargs):
+            frozen = ValidityInput.model_validate_json((scratch / "input.json").read_bytes())
+            captured = frozen.claims[0]
+            tools = kwargs.get("tools")
+            assert isinstance(tools, assess_issues.ValidityReferenceTools)
+            self.assertEqual([tool.name for tool in tools.tools], ["read_reference"])
+            self.assertEqual(kwargs["native_tools"], [])
+            self.assertEqual(kwargs["timeout"], 180)
+            self.assertIn("bounded read_reference is exposed", prompt)
+            prefix = next(item for item in frozen.evidence if item.id == "validity-reference-1")
+            self.assertNotIn("Required premise", prefix.content)
+            response = await tools.read_reference(ToolInvocation(arguments=ReferenceRead(
+                location=url, find="Required premise",
+            ).model_dump(mode="json")))
+            self.assertEqual(response.result_type, "success")
+            found = json.loads(response.text_result_for_llm)
+            learned = found["evidence"]
+            self.assertEqual(learned["id"], "validity-reference-2")
+            self.assertGreater(learned["reference_span"]["offset"], 4000)
+            page = await tools.read_reference(ToolInvocation(arguments=ReferenceRead(
+                location=url, offset=found["next_offset"], max_chars=200,
+            ).model_dump(mode="json")))
+            self.assertEqual(page.result_type, "success")
+            self.assertEqual(json.loads(page.text_result_for_llm)["evidence"]["id"], "validity-reference-3")
+            proposal = claim(
+                source_id=captured.source_id, setup_id=captured.setup_id,
+                disposition="inconclusive", status="inconclusive", confidence="low",
+                evidence_ids=[*captured.evidence_ids, learned["id"]],
+                limitations=["Offline synthetic reference fixture, not a real issue judgment"],
+                information_requests=[{
+                    "requested": "Independent original diagnostic", "reason": "No checker was run in this fixture",
+                    "distinguishes": "Actual rejection from an unverified report",
+                }],
+            ).model_dump()
+            proposal["rules"][0].update(
+                evidence_id=learned["id"], section=None,
+                excerpt="annotated variables are checked against declared types.",
+                premises=[{"code_context": "result: int = value", "application": "This is an annotated assignment"}],
+            )
+            content = assessment(frozen, [ClaimValidity.model_validate(proposal)]).model_dump_json()
+            kwargs["validate"](content)
+            return content
+
+        with patch.object(sdk, "run", side_effect=inspect), patch.object(github, "screen", AsyncMock()) as screening, patch.object(
+            assess_issues.AssessmentReferenceReader, "read_reference", side_effect=read,
+        ) as reader:
+            outcome = await assess_issues.validity_phase(controller, args, sdk, controller.result([]), github=github)
+        validated = ValidityAssessment.model_validate(outcome)
+        self.assertEqual(validated.claims[0].rules[0].section, "Offline annotated-variable rule")
+        self.assertEqual(reader.await_count, 3)
+        self.assertEqual(len(list((controller.directory / "references").glob("validity-reference-*.json"))), 3)
+        self.assertEqual(screening.await_count, 4)
+
+    async def test_supplied_frozen_validity_input_does_not_gain_live_reference_tools(self):
+        controller = self.controller()
+        args = assess_issues.arguments(["--issue", "11037", "--state-dir", str(controller.directory)])
+        sdk, github = SDK(AsyncMock(), "gpt-6.1-sol", 180), GitHub()
+
+        async def capture_input(_agent, _prompt, _scratch, **kwargs):
+            self.assertIsNotNone(kwargs["tools"])
+            raise ValueError("Offline controller input captured")
+
+        async def inspect(_agent, prompt, _scratch, **kwargs):
+            self.assertIsNone(kwargs["tools"])
+            self.assertEqual(kwargs["native_tools"], [])
+            self.assertIn("Reference capability: unavailable", prompt)
+            raise ValueError("Offline frozen input inspected")
+
+        with patch.object(github, "screen", AsyncMock()), patch.object(
+            assess_issues.AssessmentReferenceReader, "read_reference", AsyncMock(side_effect=AssertionError("No reference fetch")),
+        ):
+            with patch.object(sdk, "run", side_effect=capture_input):
+                with self.assertRaisesRegex(ValueError, "input captured"):
+                    await assess_issues.validity_phase(controller, args, sdk, controller.result([]), github=github)
+            args.validity_input = controller.directory / "roles" / "validity" / "input.json"
+            frozen = AssessmentController(
+                self.root / "frozen-validity", controller.policy, controller.issue, controller.comments,
+                controller.capture, controller.draft, controller.prepared, controller.plan,
+            )
+            with patch.object(sdk, "run", side_effect=inspect):
+                with self.assertRaisesRegex(ValueError, "frozen input inspected"):
+                    await assess_issues.validity_phase(frozen, args, sdk, frozen.result([]), github=github)
+        self.assertFalse((frozen.directory / "references").exists())
 
     async def test_blocked_discovery_receipt_is_not_a_captured_validity_fact(self):
         from issue_review_validity import ValidityInput
@@ -1338,6 +1605,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
 
     def setup_selection_fixture(
         self, *, assumed=False, extra_source=False, partial=False, with_controls=False, runtime=False, feature=False,
+        reported_scope=False,
     ):
         statement = "from typing_extensions import ReadOnly" if feature else "import typing_extensions"
         report = body(diagnostic=not partial).replace("result: int = value", "result: int = value\n" + statement)
@@ -1347,11 +1615,19 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             report += "\n```python\nother = 0\n```\n"
         if assumed:
             report = report.replace('typeCheckingMode="standard"\n', "")
-        controller = self.controller(report=report, partial=partial, with_controls=with_controls)
+        if reported_scope:
+            report += "\n\nComparison pythonVersion: 3.14\n"
+        controller = self.controller(
+            report=report, partial=partial, with_controls=with_controls,
+            reported_scope='pythonVersion="3.13"' if reported_scope else None,
+        )
         setting_choices = [SettingChoice(
             setting="typeCheckingMode", value="standard", reason="Approved conditional experiment; not a reporter fact",
         )] if assumed else []
-        prepared = materialize_setup(controller.capture, associations(controller.draft), setting_choices)
+        prepared = materialize_setup(
+            controller.capture, associations(controller.draft), setting_choices,
+            reported_settings=controller.draft.claims[0].reported_settings,
+        )
         requirement = next(
             item for item in inspect_requirements(controller.capture, prepared) if item.kind == "static_stubs"
         )
@@ -1361,6 +1637,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         capability = check_bundled_stub_capability(requirement, self.test_targets[0], self.store.verify)
         selection = AssessmentSetupSelection(
             setup_hash=prepared.digest, associations=list(prepared.associations), setting_choices=setting_choices,
+            reported_settings=controller.draft.claims[0].reported_settings,
         )
         evidence = AssessmentSetupEvidence(
             capture_hash=controller.capture.digest,
@@ -1368,6 +1645,27 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             capabilities=[capability], selections=[selection],
         )
         return controller, evidence
+
+    async def test_scoped_setup_proof_binds_exact_declarations_context_and_reason(self):
+        controller, evidence = self.setup_selection_fixture(reported_scope=True)
+        assess_issues.validate_setup_evidence(evidence, controller.capture, self.test_targets)
+        policy = controller.policy.model_copy(update={
+            "setup_capabilities_hash": fingerprint([item.model_dump(mode="json") for item in evidence.capabilities]),
+            "setup_selections_hash": fingerprint([item.model_dump(mode="json") for item in evidence.selections]),
+        })
+        plan = build_plan(
+            policy, controller.draft, controller.capture, controller.prepared, report_text(controller.issue, []),
+            capabilities=evidence.capabilities, setup_selections=evidence.selections,
+        )
+        self.assertEqual(plan.readiness, "ready")
+        self.assertTrue(plan.claims[0].reported_settings)
+        selected = controller.draft.claims[0].reported_settings[0]
+        controller.draft.claims[0].reported_settings[0] = selected.model_copy(update={"reason": "Changed provenance"})
+        with self.assertRaisesRegex(ValueError, "exact controller-approved reported"):
+            build_plan(
+                policy, controller.draft, controller.capture, controller.prepared, report_text(controller.issue, []),
+                capabilities=evidence.capabilities, setup_selections=evidence.selections,
+            )
 
     def static_stub_controller(self, *, partial=False, runtime=False, feature_target=None):
         original, evidence = self.setup_selection_fixture(
@@ -2200,6 +2498,9 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             controller = assess_issues.load_controller(args.state_dir)
 
             async def inspect_identity(agent, prompt, scratch, **kwargs):
+                self.assertIsNone(kwargs["tools"])
+                self.assertEqual(kwargs["native_tools"], [])
+                self.assertIn("Reference capability: unavailable", prompt)
                 inputs = ValidityInput.model_validate_json((scratch / "input.json").read_text())
                 self.assertEqual(inputs.report_id, snapshot.report_id)
                 self.assertNotEqual(inputs.report_id, "0")
@@ -2384,6 +2685,274 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SDKTests(unittest.IsolatedAsyncioTestCase):
+    async def test_reference_only_sdk_correction_keeps_permissions_deadline_and_prefetch_allowance(self):
+        from copilot.generated.rpc import PermissionDecisionApproveOnce, PermissionDecisionReject
+        from copilot.generated.session_events import (
+            PermissionRequestCustomTool, PermissionRequestRead, PermissionRequestWrite,
+        )
+        from issue_review_validity import ReferenceRead, ValidityAssessment, ValidityResearch, reference_page
+        from test_issue_review_validity import assessment, inputs
+
+        with tempfile.TemporaryDirectory() as temporary:
+            scratch = Path(temporary)
+            url = "https://typing.python.org/en/latest/spec/annotations.html"
+            request = ReferenceRead(location=url)
+            reader, github = AsyncMock(), GitHub()
+            reader.read_reference.return_value = reference_page(request, "Offline bounded reference.")
+            research = ValidityResearch(reader, scratch / "references", ["assignment"])
+            tools = assess_issues.ValidityReferenceTools(github, scratch, research)
+            approved = tools.permission(
+                PermissionRequestCustomTool(tool_name="read_reference", tool_description="Bounded reference"),
+                {"session_id": "offline"},
+            )
+            self.assertIsInstance(approved, PermissionDecisionApproveOnce)
+            for denied in (
+                PermissionRequestRead(path=str(scratch / "input.json"), intention="Read evidence"),
+                PermissionRequestWrite(file_name=str(scratch / "new.py"), intention="Write", diff="", can_offer_session_approval=False),
+                PermissionRequestCustomTool(tool_name="run_check", tool_description="Not available"),
+                PermissionRequestCustomTool(tool_name="read_reference", tool_description="Managed", managed_approval_required=True),
+            ):
+                self.assertIsInstance(tools.permission(denied, {"session_id": "offline"}), PermissionDecisionReject)
+            agent = Agent.load(AGENTS / "pyright-issue-assessment-validity.md", "pyright-issue-assessment-validity")
+            session, client = AsyncMock(), AsyncMock()
+            session.session_id = "offline-reference-correction"
+            session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=agent.name))
+            session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(
+                tools=[SimpleNamespace(name="read_reference")],
+            )
+            client.create_session.return_value = session
+            turns = 0
+
+            async def respond(prompt, **kwargs):
+                nonlocal turns
+                turns += 1
+                for _ in range(1 if turns == 1 else 10):
+                    result = await tools.read_reference(ToolInvocation(arguments=request.model_dump(mode="json")))
+                    self.assertEqual(result.result_type, "success")
+                if turns == 1:
+                    return SimpleNamespace(data=AssistantMessageData(content='{"schema_version":1}', message_id="invalid"))
+                self.assertIn("already authorized read_reference", prompt)
+                self.assertNotIn("no tools or execution are authorized", prompt.lower())
+                exhausted = await tools.read_reference(ToolInvocation(arguments=request.model_dump(mode="json")))
+                self.assertEqual(exhausted.result_type, "failure")
+                self.assertIn("budget exhausted", exhausted.text_result_for_llm)
+                return SimpleNamespace(data=AssistantMessageData(content=assessment(inputs()).model_dump_json(), message_id="valid"))
+
+            session.send_and_wait.side_effect = respond
+            with patch.object(github, "screen", AsyncMock()):
+                await research.read_reference(request, screen=tools.screen_evidence)
+                await SDK(client, "gpt-6.1-sol", 180).run(
+                    agent, "Offline reference capability", scratch, schema=ValidityAssessment, tools=tools, timeout=180,
+                )
+            self.assertEqual(reader.read_reference.await_count, 12)
+            self.assertEqual(len(research.evidence), 12)
+            client.create_session.assert_awaited_once()
+            config = client.create_session.call_args.kwargs
+            self.assertEqual(config["available_tools"], ["read_reference"])
+            self.assertFalse(config["enable_skills"])
+            self.assertFalse(config["enable_host_git_operations"])
+            self.assertTrue(tools.screening_stopped)
+            records = [json.loads(line) for line in (scratch / "sdk-events.jsonl").read_text().splitlines()]
+            waits = [item["data"]["remaining_active_seconds"] for item in records
+                     if item["type"] == "controller.lifecycle" and item["data"]["phase"] == "response_wait"]
+            self.assertEqual(len(waits), 2)
+            self.assertLess(waits[1], waits[0])
+            with self.assertRaisesRegex(AutomationError, "cannot expose native"):
+                await SDK(client, "gpt-6.1-sol", 180).run(
+                    agent, "Forbidden native read", scratch, tools=tools, native_tools=["view"],
+                )
+            client.create_session.assert_awaited_once()
+
+    async def test_blocked_reference_aborts_sdk_without_delivering_or_saving_it(self):
+        from issue_review_safety import ScreeningBlocked
+        from issue_review_validity import ReferenceRead, ValidityResearch, reference_page
+
+        with tempfile.TemporaryDirectory() as temporary:
+            scratch = Path(temporary)
+            request = ReferenceRead(location="https://typing.python.org/en/latest/spec/annotations.html")
+            reader, github = AsyncMock(), GitHub()
+            reader.read_reference.return_value = reference_page(request, "Blocked offline reference.")
+            research = ValidityResearch(reader, scratch / "references", ["assignment"])
+            tools = assess_issues.ValidityReferenceTools(github, scratch, research)
+            agent = Agent.load(AGENTS / "pyright-issue-assessment-validity.md", "pyright-issue-assessment-validity")
+            session, client = AsyncMock(), AsyncMock()
+            session.session_id = "offline-blocked-reference"
+            session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=agent.name))
+            session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[SimpleNamespace(name="read_reference")])
+            client.create_session.return_value = session
+
+            async def respond(*args, **kwargs):
+                result = await tools.read_reference(ToolInvocation(arguments=request.model_dump(mode="json")))
+                self.assertEqual(result.result_type, "failure")
+                self.assertNotIn("Blocked offline reference.", result.text_result_for_llm)
+                return SimpleNamespace(data=AssistantMessageData(content="Must not be accepted", message_id="blocked"))
+
+            session.send_and_wait.side_effect = respond
+            with patch.object(github, "screen", AsyncMock(side_effect=ScreeningBlocked("Denied reference"))):
+                with self.assertRaisesRegex(ScreeningBlocked, "Denied reference"):
+                    await SDK(client, "gpt-6.1-sol", 180).run(
+                        agent, "Offline denied reference", scratch, tools=tools, native_tools=[], timeout=180,
+                    )
+            session.abort.assert_awaited_once()
+            session.disconnect.assert_awaited_once()
+            self.assertFalse(research.evidence)
+            self.assertFalse(list((scratch / "references").glob("*.json")))
+            self.assertTrue(tools.screening_stopped)
+            self.assertFalse((scratch / f"{agent.name}-last-response.txt").exists())
+
+    async def test_one_blocked_screen_prevents_an_overlapping_reference_from_becoming_usable(self):
+        from issue_review_safety import ScreeningBlocked
+        from issue_review_validity import ReferenceRead, ValidityResearch, reference_page
+
+        with tempfile.TemporaryDirectory() as temporary:
+            scratch = Path(temporary)
+            request = ReferenceRead(location="https://typing.python.org/en/latest/spec/annotations.html")
+            reader, github = AsyncMock(), GitHub()
+            reader.read_reference.return_value = reference_page(request, "Offline overlapping reference.")
+            research = ValidityResearch(reader, scratch / "references", ["assignment"])
+            tools = assess_issues.ValidityReferenceTools(github, scratch, research)
+            second_started, release_second = asyncio.Event(), asyncio.Event()
+
+            async def screen(value, directory, source):
+                if source == "validity-reference:1":
+                    await second_started.wait()
+                    raise ScreeningBlocked("Denied overlapping reference")
+                second_started.set()
+                await release_second.wait()
+
+            with patch.object(github, "screen", AsyncMock(side_effect=screen)):
+                first = asyncio.create_task(tools.read_reference(ToolInvocation(arguments=request.model_dump(mode="json"))))
+                second = asyncio.create_task(tools.read_reference(ToolInvocation(arguments=request.model_dump(mode="json"))))
+                async with asyncio.timeout(2):
+                    first_result = await first
+                    release_second.set()
+                    second_result = await second
+            self.assertEqual((first_result.result_type, second_result.result_type), ("failure", "failure"))
+            self.assertFalse(research.evidence)
+            self.assertFalse(list((scratch / "references").glob("*.json")))
+
+    async def test_scoped_setting_json_reaches_host_validation_without_a_correction(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            current = issue(body(diagnostic=False) + "\nComparison pythonVersion: 3.14\n")
+            capture = capture_report(current, [])
+            draft = draft_for(capture, partial=True)
+            draft.claims[0].reported_settings = [reported_selection(capture, 'pythonVersion="3.13"')]
+            session, client = AsyncMock(), AsyncMock()
+            session.session_id = "offline-scoped-setup"
+            session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name="pyright-issue-assessor"))
+            session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+            session.send_and_wait.return_value = SimpleNamespace(
+                data=AssistantMessageData(content=draft.model_dump_json(), message_id="scoped"),
+            )
+            client.create_session.return_value = session
+            github = GitHub()
+            args = assess_issues.arguments(["--issue", "11037", "--state-dir", str(root / "run")])
+            agent = Agent.load(AGENTS / "pyright-issue-assessor.md", "pyright-issue-assessor")
+            with patch.object(github, "issue", AsyncMock(return_value=current)), patch.object(
+                github, "comments", AsyncMock(return_value=[]),
+            ), patch.object(github, "screen", AsyncMock()):
+                controller = await assess_issues.readiness(args, github, SDK(client, "gpt-6.1-sol", 180), agent)
+            self.assertEqual(controller.claim("assignment").readiness, "partial")
+            self.assertEqual(controller.claim("assignment").reported_settings, draft.claims[0].reported_settings)
+            self.assertEqual(controller.claim_setup("assignment").configuration["pythonVersion"], "3.13")
+            self.assertFalse(controller.claim_setup("assignment").assumptions)
+            session.send_and_wait.assert_awaited_once()
+            client.create_session.assert_awaited_once()
+            self.assertEqual(client.create_session.call_args.kwargs["available_tools"], [])
+
+    async def test_contradictory_precision_plan_is_corrected_before_execution_with_the_same_budget(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            current = issue(body())
+            valid = draft_for(capture_report(current, [])).model_dump_json()
+            invalid = json.loads(valid)
+            invalid["claims"][0]["verification"]["precision"].append(
+                invalid["claims"][0]["verification"]["broken"][0],
+            )
+            session, client = AsyncMock(), AsyncMock()
+            session.session_id = "offline-contradictory-precision"
+            session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name="pyright-issue-assessor"))
+            session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+            session.send_and_wait.side_effect = [
+                SimpleNamespace(data=AssistantMessageData(content=json.dumps(invalid), message_id="contradiction")),
+                SimpleNamespace(data=AssistantMessageData(content=valid, message_id="corrected")),
+            ]
+            client.create_session.return_value = session
+            github = GitHub()
+            args = assess_issues.arguments(["--issue", "11037", "--state-dir", str(root / "run")])
+            agent = Agent.load(AGENTS / "pyright-issue-assessor.md", "pyright-issue-assessor")
+            with patch.object(github, "issue", AsyncMock(return_value=current)), patch.object(
+                github, "comments", AsyncMock(return_value=[]),
+            ), patch.object(github, "screen", AsyncMock()):
+                controller = await assess_issues.readiness(args, github, SDK(client, "gpt-6.1-sol", 180), agent)
+            self.assertEqual(controller.claim("assignment").verification, ReproductionClaim.model_validate(predicates()))
+            self.assertEqual(session.send_and_wait.await_count, 2)
+            self.assertIn("Contradictory verification predicates", session.send_and_wait.call_args_list[1].args[0])
+            client.create_session.assert_awaited_once()
+            self.assertFalse((controller.directory / "targets.json").exists())
+            self.assertEqual(list(controller.directory.rglob("*receipt.json")), [])
+            records = [json.loads(line) for line in (
+                controller.directory / "roles" / "readiness" / "sdk-events.jsonl"
+            ).read_text().splitlines()]
+            waits = [
+                record["data"]["remaining_active_seconds"] for record in records
+                if record["type"] == "controller.lifecycle" and record["data"]["phase"] == "response_wait"
+            ]
+            self.assertLess(waits[1], waits[0])
+
+    async def test_reported_settings_echo_is_corrected_without_assumption_permission_or_a_new_budget(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            url = "https://pyright-play.net/?pythonVersion=3.15&strict=true"
+            current = issue(
+                f"[Working]({url})\n\n[Custom repr]({url})\n\n"
+                + body(diagnostic=False).replace('pythonVersion="3.13"\ntypeCheckingMode="standard"\n', ""),
+            )
+            capture = capture_report(current, [])
+            valid = draft_for(capture, partial=True).model_dump_json()
+            invalid = json.loads(valid)
+            invalid["setting_choices"] = [
+                {"setting": setting, "value": value, "reason": "Explicitly reported; not an assumption"}
+                for setting, value in (("pythonVersion", "3.15"), ("typeCheckingMode", "strict"))
+            ]
+            session, client = AsyncMock(), AsyncMock()
+            session.session_id = "offline-reported-setup"
+            session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name="pyright-issue-assessor"))
+            session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+            session.send_and_wait.side_effect = [
+                SimpleNamespace(data=AssistantMessageData(content=json.dumps(invalid), message_id="echo")),
+                SimpleNamespace(data=AssistantMessageData(content=valid, message_id="corrected")),
+            ]
+            client.create_session.return_value = session
+            github = GitHub()
+            args = assess_issues.arguments(["--issue", "11037", "--state-dir", str(root / "run")])
+            agent = Agent.load(AGENTS / "pyright-issue-assessor.md", "pyright-issue-assessor")
+            with patch.object(github, "issue", AsyncMock(return_value=current)), patch.object(
+                github, "comments", AsyncMock(return_value=[]),
+            ), patch.object(github, "screen", AsyncMock()):
+                controller = await assess_issues.readiness(args, github, SDK(client, "gpt-6.1-sol", 180), agent)
+            self.assertEqual(controller.claim("assignment").readiness, "partial")
+            self.assertEqual(controller.prepared.configuration, {"pythonVersion": "3.15", "typeCheckingMode": "strict"})
+            self.assertFalse(controller.prepared.assumptions)
+            self.assertFalse(controller.policy.allow_assumed_settings)
+            self.assertEqual(session.send_and_wait.await_count, 2)
+            client.create_session.assert_awaited_once()
+            correction = session.send_and_wait.call_args_list[1].args[0]
+            self.assertIn("Remove pythonVersion from setting_choices", correction)
+            self.assertIn("materialized automatically", correction)
+            self.assertEqual(client.create_session.call_args.kwargs["available_tools"], [])
+            events = [
+                json.loads(line) for line in (
+                    root / "run" / "roles" / "readiness" / "sdk-events.jsonl"
+                ).read_text().splitlines()
+            ]
+            waits = [
+                record["data"]["remaining_active_seconds"] for record in events
+                if record["type"] == "controller.lifecycle" and record["data"]["phase"] == "response_wait"
+            ]
+            self.assertLess(waits[1], waits[0])
+
     async def test_honest_partial_wire_uses_one_shared_sdk_correction_budget(self):
         with tempfile.TemporaryDirectory() as temporary:
             scratch = Path(temporary)
