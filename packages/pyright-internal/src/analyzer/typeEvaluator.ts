@@ -14582,6 +14582,26 @@ export function createTypeEvaluator(
                 }
             }
 
+            // Retain the wrapped signature for inference after an invalid descriptor
+            // argument without treating the descriptor itself as callable.
+            if (requiresSpecialization(argParam.paramType)) {
+                const methodType = getMethodFromDescriptor(argType);
+                if (methodType) {
+                    const recoveryConstraints = constraints.clone();
+                    if (
+                        assignType(
+                            argParam.paramType,
+                            methodType,
+                            /* diag */ undefined,
+                            recoveryConstraints,
+                            assignTypeFlags
+                        )
+                    ) {
+                        constraints.copyFromClone(recoveryConstraints);
+                    }
+                }
+            }
+
             return { isCompatible: false, argType, isTypeIncomplete, skippedBareTypeVarExpectedType, condition };
         }
 

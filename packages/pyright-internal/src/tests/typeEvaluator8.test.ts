@@ -1001,6 +1001,40 @@ test('MethodDescriptor4', () => {
     );
 });
 
+test('MethodDescriptor5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodDescriptor5.py']);
+
+    TestUtils.validateResults(analysisResults, 15);
+    const errors = [...analysisResults[0].errors].sort((a, b) => a.range.start.line - b.range.start.line);
+    assert.deepStrictEqual(
+        errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]).sort(),
+        [
+            [31, DiagnosticRule.reportArgumentType],
+            [40, DiagnosticRule.reportCallIssue],
+            [49, DiagnosticRule.reportArgumentType],
+            [50, DiagnosticRule.reportCallIssue],
+            [61, DiagnosticRule.reportArgumentType],
+            [73, DiagnosticRule.reportGeneralTypeIssues],
+            [73, DiagnosticRule.reportGeneralTypeIssues],
+            [74, DiagnosticRule.reportOptionalMemberAccess],
+            [74, DiagnosticRule.reportAttributeAccessIssue],
+            [74, DiagnosticRule.reportOptionalMemberAccess],
+            [75, DiagnosticRule.reportOperatorIssue],
+            [75, DiagnosticRule.reportOptionalMemberAccess],
+            [83, DiagnosticRule.reportArgumentType],
+            [94, DiagnosticRule.reportArgumentType],
+            [104, DiagnosticRule.reportArgumentType],
+        ].sort()
+    );
+});
+
+test('MethodDescriptor6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodDescriptor6.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportOperatorIssue);
+});
+
 test('Partial1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['partial1.py']);
 
