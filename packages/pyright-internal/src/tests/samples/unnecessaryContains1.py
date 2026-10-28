@@ -68,13 +68,25 @@ class Enum1(Enum):
 class Class1: ...
 
 
-def func6(x: object, y: Hashable, z: Class1):
+class Class2:
+    def __eq__(self, other: object) -> bool:
+        return True
+
+
+def func6(x: object, y: Hashable):
     if x in (int, str):
         return
 
     if y in (int,):
         return
 
+
+def func7(z: Class1):
     # This should generate an error if "reportUnnecessaryContains" is enabled.
     if z in (int,):
+        return
+
+
+def func8(z: Class1, w: Class2):
+    if w in (z,):
         return

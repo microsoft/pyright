@@ -28032,6 +28032,46 @@ export function createTypeEvaluator(
         return isBytesLikeType(leftType) && isBytesLikeType(rightType);
     }
 
+    // A class object's __eq__ comes from its metaclass.
+    function lookUpEqOperatorOverload(type: Type): ClassMember | undefined {
+        let classType: ClassType | undefined;
+        if (isInstantiableClass(type)) {
+            const metaclass = type.shared.effectiveMetaclass;
+            classType = metaclass && isClass(metaclass) ? metaclass : undefined;
+        } else if (isClassInstance(type)) {
+            classType = ClassType.cloneAsInstantiable(type);
+        }
+
+        if (!classType) {
+            return undefined;
+        }
+
+        const eqMethod = lookUpClassMember(classType, '__eq__', MemberAccessFlags.SkipObjectBaseClass);
+
+        // If this is a synthesized method for a dataclass, we can assume
+        // that other dataclass types will not be comparable.
+        if (eqMethod && ClassType.isDataClass(classType) && eqMethod.symbol.getSynthesizedType()) {
+            return undefined;
+        }
+
+        return eqMethod;
+    }
+
+    // The right operand's __eq__ runs only as the reflected fallback of ==,
+    // and built-in __eq__ methods return NotImplemented for other types.
+    function hasEqOperatorOverload(leftType: Type, rightType: Type, assumeIsOperator: boolean) {
+        if (lookUpEqOperatorOverload(leftType)) {
+            return true;
+        }
+
+        if (assumeIsOperator) {
+            return false;
+        }
+
+        const eqMethod = lookUpEqOperatorOverload(rightType);
+        return !!eqMethod && !(isClass(eqMethod.classType) && ClassType.isBuiltIn(eqMethod.classType));
+    }
+
     // Determines whether the two types are potentially comparable -- i.e.
     // their types overlap in such a way that it makes sense for them to
     // be compared with an == or != operator. The functional also supports
@@ -28073,15 +28113,8 @@ export function createTypeEvaluator(
                 }
             }
 
-            // Does the class have an operator overload for eq?
-            const metaclass = leftType.shared.effectiveMetaclass;
-            if (metaclass && isClass(metaclass)) {
-                if (lookUpClassMember(metaclass, '__eq__', MemberAccessFlags.SkipObjectBaseClass)) {
-                    return true;
-                }
-            }
-
-            return false;
+            // Does either operand have an operator overload for eq?
+            return hasEqOperatorOverload(leftType, rightType, assumeIsOperator);
         }
 
         if (isClassInstance(leftType)) {
@@ -28152,24 +28185,8 @@ export function createTypeEvaluator(
                 }
             }
 
-            // Does the class have an operator overload for eq?
-            const eqMethod = lookUpClassMember(
-                ClassType.cloneAsInstantiable(leftType),
-                '__eq__',
-                MemberAccessFlags.SkipObjectBaseClass
-            );
-
-            if (eqMethod) {
-                // If this is a synthesized method for a dataclass, we can assume
-                // that other dataclass types will not be comparable.
-                if (ClassType.isDataClass(leftType) && eqMethod.symbol.getSynthesizedType()) {
-                    return false;
-                }
-
-                return true;
-            }
-
-            return false;
+            // Does either operand have an operator overload for eq?
+            return hasEqOperatorOverload(leftType, rightType, assumeIsOperator);
         }
 
         return true;

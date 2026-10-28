@@ -158,13 +158,42 @@ def func13(x: IntVal):
         pass
 
 
-def func14(a: A, b: Hashable, c: object):
+class ClassWithEq:
+    def __eq__(self, other: object) -> bool:
+        return True
+
+
+class MetaWithEq(type):
+    def __eq__(self, other: object) -> bool:
+        return True
+
+
+class ClassWithMetaEq(metaclass=MetaWithEq): ...
+
+
+def func14(b: Hashable, c: object):
     if int == b:
         pass
 
     if int is c:
         pass
 
+
+def func15(a: A):
     # This should generate an error if reportUnnecessaryComparison is enabled.
     if int == a:
+        pass
+
+
+def func16(a: A, d: ClassWithEq, e: DC1):
+    if a == d or e == d or int == d:
+        pass
+
+    if int == ClassWithMetaEq or a == ClassWithMetaEq:
+        pass
+
+
+def func17(a: A, d: ClassWithEq):
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if a is d:
         pass
