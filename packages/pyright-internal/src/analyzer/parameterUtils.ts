@@ -23,6 +23,7 @@ import {
     isTypeSame,
     isTypeVarTuple,
     isUnpackedClass,
+    isUnpackedTypeVar,
     Type,
     TypeVarType,
 } from './types';
@@ -176,7 +177,7 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
 
                 paramType.priv.tupleTypeArgs.forEach((tupleArg, tupleIndex) => {
                     const category =
-                        isTypeVarTuple(tupleArg.type) || tupleArg.isUnbounded
+                        isTypeVarTuple(tupleArg.type) || isUnpackedTypeVar(tupleArg.type) || tupleArg.isUnbounded
                             ? ParamCategory.ArgsList
                             : ParamCategory.Simple;
 

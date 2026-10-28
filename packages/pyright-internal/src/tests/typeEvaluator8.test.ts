@@ -1057,7 +1057,7 @@ test('TupleUnpack3', () => {
 
 test('TupleUnpack4', () => {
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack4.py']);
-    TestUtils.validateResults(analysisResults1, 8);
+    TestUtils.validateResults(analysisResults1, 14);
 });
 
 test('TupleUnpack5', () => {
