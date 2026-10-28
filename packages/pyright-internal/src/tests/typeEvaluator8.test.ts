@@ -963,6 +963,98 @@ test('Descriptor7', () => {
     );
 });
 
+test('MethodDescriptor1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodDescriptor1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('MethodDescriptor2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodDescriptor2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('MethodDescriptor3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodDescriptor3.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+    const errors = [...analysisResults[0].errors].sort((a, b) => a.range.start.line - b.range.start.line);
+    assert.deepStrictEqual(
+        errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [14, DiagnosticRule.reportCallIssue],
+            [17, DiagnosticRule.reportArgumentType],
+            [20, DiagnosticRule.reportAttributeAccessIssue],
+            [24, DiagnosticRule.reportFunctionMemberAccess],
+        ]
+    );
+    assert.match(errors[2].message, /Cannot assign to attribute "__func__"/);
+});
+
+test('MethodDescriptor4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodDescriptor4.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+    analysisResults[0].errors.forEach((diagnostic) =>
+        assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportAssignmentType)
+    );
+});
+
+test('MethodDescriptor5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodDescriptor5.py']);
+
+    TestUtils.validateResults(analysisResults, 15);
+    const errors = [...analysisResults[0].errors].sort((a, b) => a.range.start.line - b.range.start.line);
+    assert.deepStrictEqual(
+        errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]).sort(),
+        [
+            [31, DiagnosticRule.reportArgumentType],
+            [40, DiagnosticRule.reportCallIssue],
+            [49, DiagnosticRule.reportArgumentType],
+            [50, DiagnosticRule.reportCallIssue],
+            [61, DiagnosticRule.reportArgumentType],
+            [73, DiagnosticRule.reportGeneralTypeIssues],
+            [73, DiagnosticRule.reportGeneralTypeIssues],
+            [74, DiagnosticRule.reportOptionalMemberAccess],
+            [74, DiagnosticRule.reportAttributeAccessIssue],
+            [74, DiagnosticRule.reportOptionalMemberAccess],
+            [75, DiagnosticRule.reportOperatorIssue],
+            [75, DiagnosticRule.reportOptionalMemberAccess],
+            [83, DiagnosticRule.reportArgumentType],
+            [94, DiagnosticRule.reportArgumentType],
+            [104, DiagnosticRule.reportArgumentType],
+        ].sort()
+    );
+});
+
+test('MethodDescriptor6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodDescriptor6.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportOperatorIssue);
+});
+
+test('MethodDescriptor7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodDescriptor7.py']);
+
+    TestUtils.validateResults(analysisResults, 9);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]).sort(),
+        [
+            [36, DiagnosticRule.reportArgumentType],
+            [62, DiagnosticRule.reportArgumentType],
+            [84, DiagnosticRule.reportCallIssue],
+            [84, DiagnosticRule.reportArgumentType],
+            [85, DiagnosticRule.reportArgumentType],
+            [86, DiagnosticRule.reportCallIssue],
+            [103, DiagnosticRule.reportCallIssue],
+            [103, DiagnosticRule.reportArgumentType],
+            [114, DiagnosticRule.reportInconsistentOverload],
+        ].sort()
+    );
+});
+
 test('Partial1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['partial1.py']);
 
