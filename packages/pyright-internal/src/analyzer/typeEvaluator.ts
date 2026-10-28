@@ -186,6 +186,8 @@ import {
     contextualTypeCacheEntryMatches,
     findContextualTypeCacheEntry,
     SpeculativeModeOptions,
+    SpeculativeTypeCache,
+    SpeculativeTypeEntry,
     SpeculativeTypeTracker,
     useNodeCacheIsolation,
 } from './typeCacheUtils';
@@ -718,6 +720,7 @@ export function createTypeEvaluator(
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: Map<number, TypeCacheEntry> | undefined;
     let returnTypeInferenceTypeFormTypeCache: Map<number, TypeFormTypeCacheEntry[]> | undefined;
+    let returnTypeInferenceSpeculativeTypeCache: SpeculativeTypeCache | undefined;
     const signatureTrackerStack: SignatureTrackerStackEntry[] = [];
     let prefetched: Partial<PrefetchedTypes> | undefined;
 
@@ -809,6 +812,14 @@ export function createTypeEvaluator(
         }
 
         return typeFormTypeCache;
+    }
+
+    function getReturnTypeInferenceSpeculativeTypeCache(node: ParseNode) {
+        if (returnTypeInferenceSpeculativeTypeCache && isNodeInReturnTypeInferenceContext(node)) {
+            return returnTypeInferenceSpeculativeTypeCache;
+        }
+
+        return undefined;
     }
 
     function readTypeFormTypeCacheEntry(node: ParseNode, expectedType: Type | undefined) {
@@ -948,7 +959,8 @@ export function createTypeEvaluator(
                     node,
                     typeResult,
                     incompleteGenCount,
-                    inferenceContext?.expectedType
+                    inferenceContext?.expectedType,
+                    getReturnTypeInferenceSpeculativeTypeCache(node)
                 );
             }
         }
@@ -1438,7 +1450,11 @@ export function createTypeEvaluator(
         // Is it cached in the speculative type cache?
         const specCacheEntry = useTypeFormCache
             ? undefined
-            : speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
+            : speculativeTypeTracker.getSpeculativeType(
+                  node,
+                  inferenceContext?.expectedType,
+                  getReturnTypeInferenceSpeculativeTypeCache(node)
+              );
         if (specCacheEntry) {
             if (
                 !specCacheEntry.typeResult.isIncomplete ||
@@ -25767,6 +25783,7 @@ export function createTypeEvaluator(
             // the main type cache.
             const prevTypeCache = returnTypeInferenceTypeCache;
             const prevTypeFormTypeCache = returnTypeInferenceTypeFormTypeCache;
+            const prevSpeculativeTypeCache = returnTypeInferenceSpeculativeTypeCache;
             returnTypeInferenceContextStack.push({
                 functionNode,
                 codeFlowAnalyzer: codeFlowEngine.createCodeFlowAnalyzer(),
@@ -25775,6 +25792,7 @@ export function createTypeEvaluator(
             try {
                 returnTypeInferenceTypeCache = new Map<number, TypeCacheEntry>();
                 returnTypeInferenceTypeFormTypeCache = new Map<number, TypeFormTypeCacheEntry[]>();
+                returnTypeInferenceSpeculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
 
                 let allArgTypesAreUnknown = true;
                 functionNode.d.params.forEach((param, index) => {
@@ -25853,6 +25871,7 @@ export function createTypeEvaluator(
                 returnTypeInferenceContextStack.pop();
                 returnTypeInferenceTypeCache = prevTypeCache;
                 returnTypeInferenceTypeFormTypeCache = prevTypeFormTypeCache;
+                returnTypeInferenceSpeculativeTypeCache = prevSpeculativeTypeCache;
             }
         });
 
