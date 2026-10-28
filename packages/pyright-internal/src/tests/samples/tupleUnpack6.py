@@ -169,3 +169,15 @@ def test20[S: tuple[int, ...]](t: tuple[Any, ...]):
 def test21[S: tuple[int, ...]](t: tuple[*tuple[Any, ...], int]):
     # This should generate an error.
     v: tuple[*S, str] = t
+
+
+def func22[S: tuple[int, ...]](m: tuple[*S, int, int], v: tuple[*S, int]) -> tuple[*S, str]: ...
+
+
+def test22(t: tuple[int, int, int]):
+    reveal_type(func22(t, t), expected_text="tuple[int, str] | tuple[int, int, str]")
+
+
+def test23(t: tuple[int, int, int]):
+    # This should generate an error.
+    v: tuple[object, str] = func22(t, t)

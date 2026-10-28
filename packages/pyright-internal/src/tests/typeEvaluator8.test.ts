@@ -1067,7 +1067,7 @@ test('TupleUnpack5', () => {
 
 test('TupleUnpack6', () => {
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack6.py']);
-    TestUtils.validateResults(analysisResults1, 11);
+    TestUtils.validateResults(analysisResults1, 12);
 });
 
 test('PseudoGeneric1', () => {
