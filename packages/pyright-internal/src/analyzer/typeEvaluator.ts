@@ -21322,7 +21322,9 @@ export function createTypeEvaluator(
                     return ClassType.cloneForPacked(type);
                 }
 
-                return makeTupleObject(evaluatorInterface, [{ type, isUnbounded: !isTypeVarTuple(type) }]);
+                return makeTupleObject(evaluatorInterface, [
+                    { type, isUnbounded: !(isTypeVarTuple(type) || isUnpackedTypeVar(type)) },
+                ]);
             }
 
             case ParamCategory.KwargsDict: {

@@ -178,3 +178,14 @@ class ClassE(ClassB):
     def method1(self, a: bytes, b: int, c: str, d: bool, /) -> None: ...
 
     def method2(self, a: int, b: str, /) -> None: ...
+
+
+def func15(*args: Unpack[U]):
+    reveal_type(args, expected_text="tuple[*U@func15]")
+    a, b = args
+    reveal_type(b, expected_text="str")
+
+
+def func16(*args: Unpack[U]):
+    # This should generate an error.
+    args[2]
