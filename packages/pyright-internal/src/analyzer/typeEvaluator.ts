@@ -2259,7 +2259,9 @@ export function createTypeEvaluator(
 
         return mapSubtypes(type, (subtype) => {
             if (isClass(subtype)) {
-                if (subtype.priv.literalValue !== undefined) {
+                // A sentinel literal represents a stable singleton, so stripping
+                // it cannot produce a wider instance type.
+                if (subtype.priv.literalValue !== undefined && !isSentinelLiteral(subtype)) {
                     subtype = ClassType.cloneWithLiteral(subtype, /* value */ undefined);
                 }
 
@@ -11954,7 +11956,12 @@ export function createTypeEvaluator(
                                 }
                             }
 
-                            return convertToInstantiable(stripLiteralValue(subtype));
+                            // stripLiteralValue retains sentinel literals, but type() of a
+                            // sentinel evaluates to its class, not the sentinel object.
+                            const classSubtype = isSentinelLiteral(subtype)
+                                ? ClassType.cloneWithLiteral(subtype, /* value */ undefined)
+                                : stripLiteralValue(subtype);
+                            return convertToInstantiable(classSubtype);
                         }
 
                         if (TypeBase.isInstance(subtype)) {
@@ -19836,17 +19843,27 @@ export function createTypeEvaluator(
 
             // Now determine the decorated type of the class.
             let decoratedType: Type = classType;
+            let isDecoratedTypeUnknown = false;
             let foundUnknown = false;
 
             for (let i = node.d.decorators.length - 1; i >= 0; i--) {
                 const decorator = node.d.decorators[i];
 
                 const newDecoratedType = useSignatureTracker(node.parent ?? node, () =>
-                    applyClassDecorator(evaluatorInterface, decoratedType, classType, decorator, nodeInfo)
+                    applyClassDecorator(
+                        evaluatorInterface,
+                        decoratedType,
+                        classType,
+                        decorator,
+                        nodeInfo,
+                        isDecoratedTypeUnknown
+                    )
                 );
                 const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
 
                 if (unknownOrAny && isUnknown(unknownOrAny)) {
+                    isDecoratedTypeUnknown = true;
+
                     // Report this error only on the first unknown type.
                     if (!foundUnknown) {
                         addDiagnostic(
@@ -19858,6 +19875,9 @@ export function createTypeEvaluator(
                         foundUnknown = true;
                     }
                 } else {
+                    // Preserving the recovery type also preserves its uncertainty.
+                    isDecoratedTypeUnknown = isDecoratedTypeUnknown && isTypeSame(newDecoratedType, decoratedType);
+
                     // Apply the decorator only if the type is known.
                     decoratedType = newDecoratedType;
                 }

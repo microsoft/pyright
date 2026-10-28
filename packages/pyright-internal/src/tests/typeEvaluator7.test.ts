@@ -26,6 +26,7 @@ import {
     pythonVersion3_8,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { LocMessage } from '../localization/localize';
 import { ParseNodeType } from '../parser/parseNodes';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
@@ -1016,6 +1017,45 @@ test('Protocol54', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol54.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Protocol55', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol55.py']);
+
+    TestUtils.validateResults(analysisResults, 5);
+
+    const decoratorErrors = analysisResults[0].errors.filter(
+        (diag) => diag.getRule() === DiagnosticRule.reportGeneralTypeIssues
+    );
+    assert.deepStrictEqual(
+        decoratorErrors.map((diag) => ({ message: diag.message, range: diag.range })),
+        [13, 24, 45, 156].map((line) => ({
+            message: LocMessage.runtimeCheckableNotProtocol(),
+            range: { start: { line, character: 1 }, end: { line, character: 18 } },
+        }))
+    );
+    const protocolErrors = analysisResults[0].errors.filter(
+        (diag) => diag.getRule() === DiagnosticRule.reportArgumentType
+    );
+    assert.deepStrictEqual(
+        protocolErrors.map((diag) => diag.range.start.line),
+        [97]
+    );
+});
+
+test('Protocol55UntypedDecorators', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportUntypedClassDecorator = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol55.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 12);
+    const untypedDecoratorErrors = analysisResults[0].errors.filter(
+        (diag) => diag.getRule() === DiagnosticRule.reportUntypedClassDecorator
+    );
+    assert.deepStrictEqual(
+        untypedDecoratorErrors.map((diag) => diag.range.start.line),
+        [127, 135, 142, 149, 158, 165, 190]
+    );
 });
 
 test('ProtocolExplicit1', () => {
