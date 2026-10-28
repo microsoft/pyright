@@ -27,7 +27,7 @@ import {
     Type,
     TypeVarType,
 } from './types';
-import { doForEachSubtype, partiallySpecializeType } from './typeUtils';
+import { doForEachSubtype, expandUnpackedTypeVarsInTupleArgs, partiallySpecializeType } from './typeUtils';
 
 export function isTypedKwargs(param: FunctionParam, effectiveParamType: Type): boolean {
     return (
@@ -83,6 +83,10 @@ export interface ParamListDetailsOptions {
     // suggests that this should be disallowed for calls whereas it
     // explicitly says this is allowed for callable assignment rules.
     disallowExtraKwargsForTd?: boolean;
+
+    // Should an unpacked TypeVar in *args be expanded into the
+    // entries of its tuple upper bound?
+    expandUnpackedTypeVars?: boolean;
 }
 
 // Examines the input parameters within a function signature and creates a
@@ -172,10 +176,24 @@ export function getParamListDetails(type: FunctionType, options?: ParamListDetai
         if (param.category === ParamCategory.ArgsList) {
             // If this is an unpacked tuple, expand the entries.
             const paramType = FunctionType.getParamType(type, index);
-            if (param.name && isUnpackedClass(paramType) && paramType.priv.tupleTypeArgs) {
+            let tupleTypeArgs = isUnpackedClass(paramType) ? paramType.priv.tupleTypeArgs : undefined;
+
+            if (options?.expandUnpackedTypeVars) {
+                if (tupleTypeArgs) {
+                    tupleTypeArgs = expandUnpackedTypeVarsInTupleArgs(tupleTypeArgs);
+                } else if (isUnpackedTypeVar(paramType)) {
+                    const unexpandedTypeArg = { type: paramType, isUnbounded: false };
+                    const expandedTypeArgs = expandUnpackedTypeVarsInTupleArgs([unexpandedTypeArg]);
+                    if (expandedTypeArgs[0] !== unexpandedTypeArg) {
+                        tupleTypeArgs = expandedTypeArgs;
+                    }
+                }
+            }
+
+            if (param.name && tupleTypeArgs) {
                 const addToPositionalOnly = index < result.positionOnlyParamCount;
 
-                paramType.priv.tupleTypeArgs.forEach((tupleArg, tupleIndex) => {
+                tupleTypeArgs.forEach((tupleArg, tupleIndex) => {
                     const category =
                         isTypeVarTuple(tupleArg.type) || isUnpackedTypeVar(tupleArg.type) || tupleArg.isUnbounded
                             ? ParamCategory.ArgsList

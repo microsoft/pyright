@@ -29999,8 +29999,8 @@ export function createTypeEvaluator(
         diag: DiagnosticAddendum | undefined,
         enforceParamNames: boolean
     ): boolean {
-        const baseParamDetails = getParamListDetails(baseMethod);
-        const overrideParamDetails = getParamListDetails(overrideMethod);
+        const baseParamDetails = getParamListDetails(baseMethod, { expandUnpackedTypeVars: true });
+        const overrideParamDetails = getParamListDetails(overrideMethod, { expandUnpackedTypeVars: true });
         const constraints = new ConstraintTracker();
 
         let canOverride = true;
@@ -30130,47 +30130,43 @@ export function createTypeEvaluator(
                     !isPrivateOrProtectedName(baseParam.name || '') &&
                     baseParamDetails.params[i].kind !== ParamKind.Positional &&
                     baseParam.category === ParamCategory.Simple &&
+                    !FunctionParam.isNameSynthesized(baseParam) &&
                     enforceParamNames &&
                     baseParam.name !== overrideParam.name
                 ) {
                     if (overrideParam.category === ParamCategory.Simple) {
-                        if (!FunctionParam.isNameSynthesized(baseParam)) {
-                            if (overrideParamDetails.params[i].kind === ParamKind.Positional) {
-                                diag?.addMessage(
-                                    LocAddendum.overrideParamNamePositionOnly().format({
-                                        index: i + 1,
-                                        baseName: baseParam.name || '*',
-                                    })
-                                );
-                            } else {
-                                diag?.addMessage(
-                                    LocAddendum.overrideParamName().format({
-                                        index: i + 1,
-                                        baseName: baseParam.name || '*',
-                                        overrideName: overrideParam.name || '*',
-                                    })
-                                );
-                            }
-                            canOverride = false;
+                        if (overrideParamDetails.params[i].kind === ParamKind.Positional) {
+                            diag?.addMessage(
+                                LocAddendum.overrideParamNamePositionOnly().format({
+                                    index: i + 1,
+                                    baseName: baseParam.name || '*',
+                                })
+                            );
+                        } else {
+                            diag?.addMessage(
+                                LocAddendum.overrideParamName().format({
+                                    index: i + 1,
+                                    baseName: baseParam.name || '*',
+                                    overrideName: overrideParam.name || '*',
+                                })
+                            );
                         }
+                        canOverride = false;
                     }
                 } else if (
                     i < overrideParamDetails.positionOnlyParamCount &&
-                    i >= baseParamDetails.positionOnlyParamCount
+                    i >= baseParamDetails.positionOnlyParamCount &&
+                    !FunctionParam.isNameSynthesized(baseParam) &&
+                    baseParamDetails.params[i].kind !== ParamKind.Positional &&
+                    baseParamDetails.params[i].kind !== ParamKind.ExpandedArgs
                 ) {
-                    if (
-                        !FunctionParam.isNameSynthesized(baseParam) &&
-                        baseParamDetails.params[i].kind !== ParamKind.Positional &&
-                        baseParamDetails.params[i].kind !== ParamKind.ExpandedArgs
-                    ) {
-                        diag?.addMessage(
-                            LocAddendum.overrideParamNamePositionOnly().format({
-                                index: i + 1,
-                                baseName: baseParam.name || '*',
-                            })
-                        );
-                        canOverride = false;
-                    }
+                    diag?.addMessage(
+                        LocAddendum.overrideParamNamePositionOnly().format({
+                            index: i + 1,
+                            baseName: baseParam.name || '*',
+                        })
+                    );
+                    canOverride = false;
                 } else {
                     const baseParamType = baseParamDetails.params[i].type;
                     const overrideParamType = overrideParamDetails.params[i].type;

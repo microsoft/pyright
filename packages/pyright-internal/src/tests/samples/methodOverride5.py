@@ -19,3 +19,16 @@ class Child(Parent[int]):
     def method_1(self, arg1: int) -> None: ...
 
     def method_2(self, arg1: int) -> None: ...
+
+
+class Parent2:
+    def method_1(self, *args: *tuple[bytes, int]) -> None: ...
+
+
+class Child2(Parent2):
+    def method_1(self, arg1: bytes, arg2: int, /) -> None: ...
+
+
+class Child3(Parent2):
+    # This should generate an error.
+    def method_1(self, arg1: bytes, arg2: str, /) -> None: ...
