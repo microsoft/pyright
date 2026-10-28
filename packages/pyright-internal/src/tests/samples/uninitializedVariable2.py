@@ -3,7 +3,7 @@
 # (but does not assign) variables.
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import KW_ONLY, dataclass, field
 from typing import NamedTuple, final
 
 
@@ -66,3 +66,16 @@ class IAbstract(ABC):
 # This should generate an error because p2 is uninitialized.
 class I(IAbstract):
     p3: int
+
+
+# KW_ONLY is a dataclass pseudo-field, not an instance variable.
+# This should not generate an uninitialized-instance-variable error.
+@dataclass
+class JAbstract(ABC):
+    _: KW_ONLY
+
+
+@final
+@dataclass
+class J(JAbstract):
+    required: int

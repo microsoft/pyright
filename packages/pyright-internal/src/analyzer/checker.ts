@@ -5511,6 +5511,11 @@ export class Checker extends ParseTreeWalker {
         // that are not initialized.
         const diagAddendum = new DiagnosticAddendum();
         abstractSymbols.forEach((member, name) => {
+            // KW_ONLY is a dataclass separator, not an instance variable.
+            if (member.symbol.isDataClassKeywordOnly()) {
+                return;
+            }
+
             const decls = member.symbol.getDeclarations();
 
             if (decls.length === 0 || !isClass(member.classType)) {
