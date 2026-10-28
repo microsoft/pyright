@@ -52,7 +52,7 @@ import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment, narrowForKeyDeletion } from './typedDicts';
 import { EvalFlags, Reachability, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
-import { getTypeNarrowingCallback } from './typeGuards';
+import { applyTypeNarrowingCallback, getTypeNarrowingCallback } from './typeGuards';
 import {
     ClassType,
     combineTypes,
@@ -791,7 +791,10 @@ export function getCodeFlowEngine(
                                     let isIncomplete = flowTypeResult.isIncomplete;
 
                                     if (flowType) {
-                                        const flowTypeResult = typeNarrowingCallback(flowType);
+                                        const flowTypeResult = applyTypeNarrowingCallback(
+                                            typeNarrowingCallback,
+                                            flowType
+                                        );
 
                                         if (flowTypeResult) {
                                             flowType = flowTypeResult.type;
@@ -853,7 +856,10 @@ export function getCodeFlowEngine(
                                             let narrowedType = refTypeInfo.type;
                                             let isIncomplete = !!refTypeInfo.isIncomplete;
 
-                                            const narrowedTypeResult = typeNarrowingCallback(refTypeInfo.type);
+                                            const narrowedTypeResult = applyTypeNarrowingCallback(
+                                                typeNarrowingCallback,
+                                                refTypeInfo.type
+                                            );
                                             if (narrowedTypeResult) {
                                                 narrowedType = narrowedTypeResult.type;
                                                 if (narrowedTypeResult.isIncomplete) {
@@ -1629,7 +1635,10 @@ export function getCodeFlowEngine(
                             if (typeNarrowingCallback) {
                                 const refTypeInfo = evaluator.getTypeOfExpression(conditionalFlowNode.reference!);
 
-                                const narrowedTypeResult = typeNarrowingCallback(refTypeInfo.type);
+                                const narrowedTypeResult = applyTypeNarrowingCallback(
+                                    typeNarrowingCallback,
+                                    refTypeInfo.type
+                                );
                                 const narrowedType = narrowedTypeResult?.type ?? refTypeInfo.type;
 
                                 if (isNever(narrowedType) && !refTypeInfo.isIncomplete) {

@@ -46,6 +46,7 @@ import {
     FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
+    getInferredTupleLiteralBase,
     isAny,
     isAnyOrUnknown,
     isClass,
@@ -63,6 +64,7 @@ import {
     isUnion,
     maxTypeRecursionCount,
     OverloadedType,
+    retainInferredTupleLiterals,
     TupleTypeArg,
     Type,
     TypeBase,
@@ -123,6 +125,31 @@ export interface IsInstanceClassTypeInfo {
 }
 
 export type TypeNarrowingCallback = (type: Type) => TypeNarrowingResult | undefined;
+
+export function applyTypeNarrowingCallback(
+    callback: TypeNarrowingCallback,
+    type: Type
+): TypeNarrowingResult | undefined {
+    const result = callback(type);
+    const baseType = getInferredTupleLiteralBase(type);
+    if (baseType === type) {
+        return result;
+    }
+
+    // Narrow both views at the flow boundary, not recursively within a guard.
+    // Independently established literals must survive mutable inference too.
+    const baseResult = callback(baseType);
+    if (!result && !baseResult) {
+        return undefined;
+    }
+    return {
+        type: retainInferredTupleLiterals(
+            result?.type ?? type,
+            getInferredTupleLiteralBase(baseResult?.type ?? baseType)
+        ),
+        isIncomplete: !!result?.isIncomplete || !!baseResult?.isIncomplete,
+    };
+}
 
 // Given a reference expression and a test expression, returns a callback that
 // can be used to narrow the type described by the reference expression.
