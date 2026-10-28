@@ -314,6 +314,17 @@ export function assignTupleTypeArgs(
                 return true;
             }
 
+            // A bound unpacked TypeVar also accepts a `*tuple[Any, ...]`
+            // source.
+            if (
+                isUnpackedTypeVar(destArgType) &&
+                TypeVarType.isBound(destArgType) &&
+                !TypeVarType.isUnification(destArgType) &&
+                isTupleGradualForm(srcArgType)
+            ) {
+                continue;
+            }
+
             if (
                 !evaluator.assignType(
                     destArgType,
@@ -386,9 +397,9 @@ export function adjustTupleTypeArgs(
     srcTypeArgs: TupleTypeArg[],
     flags: AssignTypeFlags
 ): boolean {
-    // An unpacked TypeVar in the dest that is outside its solving scope and
-    // whose upper bound is an empty tuple contributes no entries, so remove it
-    // unless the source contains the same TypeVar.
+    // A bound unpacked TypeVar in the dest whose upper bound is an empty
+    // tuple contributes no entries, so remove it unless the source contains
+    // the same TypeVar.
     const emptyBoundIndex = destTypeArgs.findIndex(
         (t) =>
             isUnpackedTypeVar(t.type) &&

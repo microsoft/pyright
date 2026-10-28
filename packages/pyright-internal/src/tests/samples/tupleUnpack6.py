@@ -1,7 +1,7 @@
 # This sample tests assignment of a tuple to a tuple type that contains
 # an unpacked TypeVar whose upper bound is a tuple.
 
-from typing import Callable, Literal
+from typing import Any, Callable, Literal
 
 
 class Box[S: tuple[int, ...]]:
@@ -159,3 +159,13 @@ def test18[T: tuple[int, int]](t1: tuple[bytes, *T], t2: tuple[int, int, *T, str
 def test19[T: tuple[()]](t: tuple[bytes, *T]) -> tuple[bytes, *T]:
     reveal_type(func18(t), expected_text="tuple[bytes, *T@test19]")
     return func18(t)
+
+
+def test20[S: tuple[int, ...]](t: tuple[Any, ...]):
+    v1: tuple[*S, Literal[3]] = t
+    v2: tuple[*S] = t
+
+
+def test21[S: tuple[int, ...]](t: tuple[*tuple[Any, ...], int]):
+    # This should generate an error.
+    v: tuple[*S, str] = t
