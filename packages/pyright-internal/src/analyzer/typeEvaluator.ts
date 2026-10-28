@@ -14585,7 +14585,15 @@ export function createTypeEvaluator(
             // Retain the wrapped signature for inference after an invalid descriptor
             // argument without treating the descriptor itself as callable.
             if (requiresSpecialization(argParam.paramType)) {
-                const methodType = getMethodFromDescriptor(argType);
+                let methodType = getMethodFromDescriptor(argType);
+                if (methodType && isOverloaded(methodType)) {
+                    // Recover the runtime signature, not a single overload's
+                    // parameters selected when the returned decorator is called.
+                    const implementation = OverloadedType.getImplementation(methodType);
+                    if (implementation && isFunction(implementation)) {
+                        methodType = implementation;
+                    }
+                }
                 if (methodType) {
                     const recoveryConstraints = constraints.clone();
                     if (

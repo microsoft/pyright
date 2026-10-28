@@ -1035,6 +1035,26 @@ test('MethodDescriptor6', () => {
     assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportOperatorIssue);
 });
 
+test('MethodDescriptor7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodDescriptor7.py']);
+
+    TestUtils.validateResults(analysisResults, 9);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]).sort(),
+        [
+            [36, DiagnosticRule.reportArgumentType],
+            [62, DiagnosticRule.reportArgumentType],
+            [84, DiagnosticRule.reportCallIssue],
+            [84, DiagnosticRule.reportArgumentType],
+            [85, DiagnosticRule.reportArgumentType],
+            [86, DiagnosticRule.reportCallIssue],
+            [103, DiagnosticRule.reportCallIssue],
+            [103, DiagnosticRule.reportArgumentType],
+            [114, DiagnosticRule.reportInconsistentOverload],
+        ].sort()
+    );
+});
+
 test('Partial1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['partial1.py']);
 
