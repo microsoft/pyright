@@ -77,6 +77,15 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
 
 
 class CompareBenchmarksTest(unittest.TestCase):
+    def test_rejects_a_speedup_with_a_smaller_native_file_count(self) -> None:
+        baseline = _result(10.0, 100.0)
+        candidate = _result(5.0, 100.0)
+        baseline["results"][0]["metrics"]["pyright"]["files_selected"] = 2
+        candidate["results"][0]["metrics"]["pyright"]["files_selected"] = 1
+        failures, rows = compare_benchmarks._analyze(baseline, candidate, 10.0)
+        self.assertIn("example/pyright: native source-file count changed", failures)
+        self.assertEqual(rows, [])
+
     def test_rejects_faster_results_with_changed_capability_evidence(self) -> None:
         baseline = _result(10.0, 100.0)
         candidate = _result(5.0, 100.0)

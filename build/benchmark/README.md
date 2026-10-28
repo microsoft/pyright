@@ -17,11 +17,11 @@ Each entry in `install_envs.json` defines its repository, check paths, installat
 additional dependencies. Repository commits are pinned so pull-request comparisons analyze the same
 source revisions.
 
-Entries can define `exclude_directories` to prune named directories while resolving their check
-paths. The benchmark expands every entry to a sorted, deduplicated `.py`/`.pyi` manifest before
-invoking any checker. When both are selected for the same module, the `.py` implementation takes
-precedence over its `.pyi`; standalone stubs remain included. NumPy excludes its test directories; pandas includes its test
-and `_testing` directories. Generated Pyright configurations explicitly retain
+Entries can define `exclude_directories`, translated into exclusions in each benchmark config.
+The benchmark passes configured roots to each checker and preserves native file discovery; it
+does not select implementations over stubs or stubs over implementations. Native import resolution
+normally prefers stubs where available. NumPy excludes its test directories; pandas includes its test
+and `_testing` directories. Generated benchmark configurations explicitly retain
 its standard `**/node_modules`, `**/__pycache__`, and `**/.*` exclusions.
 
 ## Prerequisites
@@ -115,29 +115,41 @@ skipping selected `dist`, `venv`, or ignored source files, or checking hidden di
 Imported dependencies may still be analyzed differently; matching entry-point scope does not imply
 matching transitive work.
 
-Every checker receives the same explicit source-file manifest, not independently expanded directory
-roots. A missing configured path or empty selection is an error; neither falls back to checking the
-whole repository. mypy and Zuban use explicit TOML file lists to avoid command-line size limits and
+Each checker discovers files natively within the configured roots. A missing configured path or
+empty root selection is an error; neither falls back to checking the whole repository.
+mypy and Zuban receive roots through TOML file lists to avoid command-line size limits and
 Windows INI backslash escaping. ty's source selectors use gitignore-pattern separators even on
 Windows, where native backslashes can silently match no files.
 
+Before checking, an **untimed repository configuration search** recursively inventories native
+`pyrightconfig.json`, `ty.toml`, `pyrefly.toml`, `zuban.toml`, `mypy.ini`, and `.mypy.ini` candidates.
+It also searches TOML files for checker-specific `[tool.*]` settings and `project.requires-python`,
+and INI settings in `setup.cfg` and mypy configs. JSON records `repository_configs` per package;
+console output and the weekly HTML show paths, sections/setting names, and that explicit benchmark
+configs are passed instead. Configuration values are not published, and detected does not mean
+applied. Invalid TOML/INI files produce visible audit parse errors rather than disappearing from
+the inventory. The search skips VCS metadata, `node_modules`, `__pycache__`, and harness-generated
+configs. It does not modify or delete repository configs. The real-binary suppression tests below,
+not discovery alone, provide evidence that conflicting corpus configs cannot override the harness.
+
 Before any warmups or measured runs, each checker performs one **untimed file-count audit** using
-the benchmark configuration and the selected files. Pyright reports checked files in `--stats`,
+the benchmark configuration and native discovery. Pyright reports checked files in `--stats`,
 threaded Pyright reports files to analyze with `--verbose`, Pyrefly reports project modules with
 `--summary=full`, ty logs checked file paths with `-vv`, and mypy/Zuban report checked source-file
-counts in their summaries. Missing counts, fatal errors, and counts different from the manifest
-reject that checker's measurements. Verbose/debug audit output is not enabled for measured runs.
+counts in their summaries. Missing/zero counts and fatal errors reject that checker's measurements.
+Verbose/debug audit output is not enabled for measured runs.
 Counts in ordinary checker output are also checked during warmups and measured runs.
 The audit is recorded separately as `uncounted_validation_runs_per_checker = 1`, including when
 `--warmup 0` is selected; this is therefore not a cold-filesystem measurement.
 
-Result JSON retains `source_files`, `source_file_count`, and `source_manifest_sha256` per package;
-each successful checker records its native `files_selected`, `file_count_verified`, and separate
-`file_count_audit_time_s`. HTML cells show the verified count. The report rejects different
-manifests for the same package even if counts match, and the regression comparator also checks the
-manifest hash and audit-run setting. These are source entry-point counts, **not total imported or
-parsed files**; forcing equal dependency counts across different checkers would change their work.
-Counts also do not prove equal diagnostic coverage: repository and user configs are tested
+Each successful checker records its native `files_selected`, `file_count_verified`, and separate
+`file_count_audit_time_s`. Different audited counts make that package **Not comparable**, including
+across separate weekly checker jobs; its timings are excluded from report totals rather than
+forcing the tools to discover the same files. Raw JSON retains the measurements and differences.
+The regression comparator rejects changed native counts, roots, exclusions, or audit-run settings.
+These are source entry-point counts, **not total imported or parsed files**. Equal counts do not
+prove identical file identities, equal dependency work, or equal diagnostic coverage.
+Repository and user configs are tested
 separately with deliberately suppressed diagnostics, and source-level ignore comments retain each
 tool's semantics.
 
@@ -216,7 +228,7 @@ Pyrefly's exit-code-1 "no files matched" error is a failed measurement, not an o
 
 The opt-in integration tests execute the real binaries against conflicting root/nested configs,
 ignored files, directory-exclusion probes, and paired implementations/stubs. They verify every
-checker's native count against the same manifest, including clean files and standalone stubs,
+checker's native count before and after the hostile configs, including clean files and standalone stubs,
 and check that `ty-infer` catches an inferred-return
 assignment that the default profile does not. Install all default checkers and build Pyright first,
 then set `TYPECHECK_BENCHMARK_INTEGRATION=1` and run:

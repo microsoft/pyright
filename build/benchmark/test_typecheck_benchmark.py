@@ -13,7 +13,88 @@ import typecheck_benchmark as benchmark
 
 
 class TypecheckBenchmarkTest(unittest.TestCase):
-    def test_resolve_check_paths_excludes_named_directories(self) -> None:
+    def test_repository_config_audit_finds_native_files_and_toml_settings_without_values(self) -> None:
+        nested = self.root / "source"
+        nested.mkdir()
+        (self.root / "pyproject.toml").write_text(
+            '[project]\nrequires-python = ">=3.10"\n'
+            '[tool.ty.rules]\nall = "ignore"\n'
+            '[tool.pyrefly.errors]\nbad-assignment = false\n'
+            '[[tool.pyrefly.sub-config]]\nmatches = "**/*.py"\n'
+            '[tool.pyrefly.sub-config.errors]\nbad-return = false\n'
+        )
+        (self.root / "pyrightconfig.json").write_text('{"typeCheckingMode":"off"}')
+        (nested / "ty.toml").write_text('[src]\nexclude = ["sentinel-value"]\n')
+        (nested / "pyrefly.toml").write_text('project-includes = ["sentinel-value"]\n')
+        (nested / "setup.cfg").write_text("[mypy]\nignore_errors = True\n")
+        (nested / "custom.toml").write_text('[tool.mypy]\nignore_errors = true\n')
+        (self.root / ".git").mkdir()
+        (self.root / ".git" / "ty.toml").write_text('[rules]\nall = "ignore"\n')
+        (self.root / ".typecheck-benchmark-ty-generated.toml").write_text("[rules]\n")
+        records = benchmark._audit_repository_configs(self.root)
+        by_path = {record["path"]: record for record in records}
+        self.assertEqual(set(by_path), {
+            "pyproject.toml", "pyrightconfig.json", "source/ty.toml",
+            "source/pyrefly.toml", "source/setup.cfg", "source/custom.toml",
+        })
+        self.assertIn("tool.ty.rules.all", by_path["pyproject.toml"]["settings"])
+        self.assertIn("tool.pyrefly.errors.bad-assignment", by_path["pyproject.toml"]["settings"])
+        self.assertIn("tool.pyrefly.sub-config[0].errors.bad-return", by_path["pyproject.toml"]["settings"])
+        self.assertIn("mypy.ignore_errors", by_path["source/setup.cfg"]["settings"])
+        self.assertEqual(by_path["source/custom.toml"]["checkers"], ["mypy", "zuban"])
+        self.assertIn("not applied", by_path["source/ty.toml"]["disposition"])
+        self.assertNotIn("sentinel-value", json.dumps(records))
+
+    def test_repository_config_audit_surfaces_parse_errors_without_config_contents(self) -> None:
+        (self.root / "pyproject.toml").write_text('invalid = "sentinel-value')
+        (self.root / "mypy.ini").write_text("[mypy]\nsentinel-value\n")
+        records = benchmark._audit_repository_configs(self.root)
+        self.assertEqual(len(records), 2)
+        self.assertTrue(all("parse_error" in record for record in records))
+        self.assertNotIn("sentinel-value", json.dumps(records))
+
+    def test_incomplete_repository_search_is_not_a_successful_empty_audit(self) -> None:
+        with (
+            patch.object(benchmark, "_audit_repository_configs", side_effect=PermissionError("denied")),
+            patch.object(benchmark, "run_checker") as run,
+            redirect_stdout(io.StringIO()),
+        ):
+            result = benchmark._benchmark_directory(
+                name="local", github_url=None, package_path=self.root, resolved_paths=None,
+                type_checkers=["ty"], timeout=30, runs=1, warmup=0, memory_limit_mb=0,
+            )
+        self.assertIn("Repository configuration audit failed", result["error"])
+        self.assertNotIn("repository_configs", result)
+        run.assert_not_called()
+
+    def test_different_native_counts_are_not_accepted_as_comparable_timings(self) -> None:
+        (self.root / "module.py").write_text("")
+        (self.root / "module.pyi").write_text("")
+        roots = []
+
+        def run(checker, package_path, check_paths, *args, **kwargs):
+            roots.append(check_paths)
+            return {
+                "ok": True, "execution_time_s": 0.1, "peak_memory_mb": 10.0,
+                "oom_killed": False, "files_selected": 2 if checker == "pyright" else 1,
+            }
+
+        with (
+            patch.object(benchmark, "_checker_command", return_value=["checker"]),
+            patch.object(benchmark, "run_checker", side_effect=run),
+            redirect_stdout(io.StringIO()),
+        ):
+            result = benchmark._benchmark_directory(
+                name="local", github_url=None, package_path=self.root, resolved_paths=None,
+                type_checkers=["pyright", "mypy"], timeout=30, runs=1, warmup=0,
+                memory_limit_mb=0,
+            )
+        self.assertTrue(all(paths == [self.root] for paths in roots))
+        self.assertTrue(all(not metric["ok"] for metric in result["metrics"].values()))
+        self.assertTrue(all(metric["source_count_mismatch"] for metric in result["metrics"].values()))
+        self.assertEqual(benchmark.compute_aggregate_stats([result], ["pyright"])["pyright"]["packages_tested"], 0)
+
+    def test_resolve_check_paths_preserves_directories_for_native_discovery(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             package_path = Path(temp_dir)
             (package_path / "source" / "tests").mkdir(parents=True)
@@ -23,16 +104,15 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             (package_path / "source" / "tests" / "test_module.py").write_text("")
 
             paths, missing = benchmark._resolve_check_paths(
-                package_path, ["source"], ["tests"]
+                package_path, ["source"]
             )
 
             self.assertEqual(missing, [])
             self.assertEqual(
-                {path.relative_to(package_path).as_posix() for path in paths},
-                {"source/module.py", "source/types.pyi"},
+                paths, [package_path / "source"],
             )
 
-    def test_manifest_prefers_implementations_deduplicates_and_prunes_defaults(self) -> None:
+    def test_resolve_check_paths_does_not_choose_implementations_or_stubs(self) -> None:
         source = self.root / "source"
         source.mkdir()
         for name in ("module.py", "module.pyi", "stub.pyi", "clean.py", ".hidden.py"):
@@ -41,15 +121,14 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             (source / name).mkdir()
             (source / name / "ignored.py").write_text("")
         paths, missing = benchmark._resolve_check_paths(
-            self.root, ["source", "source/module.py", "missing"], ["tests"]
+            self.root, ["source", "source/module.py", "missing"]
         )
         self.assertEqual(missing, ["missing"])
         self.assertEqual(
-            [path.relative_to(source).name for path in paths],
-            ["clean.py", "module.py", "stub.pyi"],
+            paths, [source, source / "module.py"],
         )
         stub_only, _ = benchmark._resolve_check_paths(
-            self.root, ["source/module.pyi"], []
+            self.root, ["source/module.pyi"]
         )
         self.assertEqual(stub_only, [source / "module.pyi"])
 
@@ -463,6 +542,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
                 "check_untyped_defs": True,
                 "python_version": benchmark.TARGET_PYTHON_VERSION,
                 "python_executable": benchmark.sys.executable,
+                "exclude": [r"(^|[/\\])(?:node_modules|__pycache__|\.[^/\\]+)([/\\]|$)"],
             },
         )
         configs[0].unlink()
@@ -670,6 +750,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             capture_output: bool = True,
             environment: dict[str, str] | None = None,
             audit_files: bool = False,
+            exclude_directories: list[str] | None = None,
         ) -> benchmark.TimingMetrics:
             calls.append(audit_files)
             return {
@@ -701,7 +782,8 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         self.assertEqual(calls, [True, False, False])
         self.assertEqual(
             stdout.getvalue(),
-            "    pyright source-file audit: 1/1 verified\n"
+            "    Repository config audit: 0 candidate files\n"
+            "    pyright source-file audit: 1 native files verified\n"
             "    Running pyright (2 measured)...\n"
             "      Run 1/2... 1.000s, 2.0 MB\n"
             "      Run 2/2... 1.000s, 2.0 MB\n"
@@ -721,6 +803,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             capture_output: bool = True,
             environment: dict[str, str] | None = None,
             audit_files: bool = False,
+            exclude_directories: list[str] | None = None,
         ) -> benchmark.TimingMetrics:
             captures.append(capture_output)
             return {
@@ -750,12 +833,12 @@ class TypecheckBenchmarkTest(unittest.TestCase):
 
         self.assertEqual(captures, [True, True, True, True])
 
-    def test_file_count_mismatch_prevents_timed_runs(self) -> None:
+    def test_zero_native_file_count_prevents_timed_runs(self) -> None:
         for name in ("clean.py", "second.py"):
             (self.root / name).write_text("")
         audit: benchmark.TimingMetrics = {
             "ok": True, "execution_time_s": 0.1, "peak_memory_mb": 10.0,
-            "oom_killed": False, "files_selected": 1,
+            "oom_killed": False, "files_selected": 0,
         }
         with (
             patch.object(benchmark, "_checker_command", return_value=["checker"]),
@@ -769,12 +852,10 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             )
         run.assert_called_once()
         self.assertIs(run.call_args.kwargs["audit_files"], True)
-        self.assertEqual(result["source_file_count"], 2)
-        self.assertEqual(result["source_files"], ["clean.py", "second.py"])
-        self.assertEqual(len(result["source_manifest_sha256"]), 64)
+        self.assertEqual(result["check_paths"], ["."])
         self.assertFalse(result["metrics"]["ty"]["ok"])
         self.assertFalse(result["metrics"]["ty"]["file_count_verified"])
-        self.assertIn("expected 2, ty reported 1", result["metrics"]["ty"]["error_message"])
+        self.assertIn("ty reported 0", result["metrics"]["ty"]["error_message"])
 
     def test_empty_source_selection_is_not_a_full_repository_fallback(self) -> None:
         with patch.object(benchmark, "run_checker") as run:
@@ -818,10 +899,11 @@ class CheckerConfigIntegrationTest(unittest.TestCase):
         self.root = Path(self.temp_dir.name)
 
     def _run(
-        self, checker: str, check_paths: list[Path] | None = None
+        self, checker: str, check_paths: list[Path] | None = None,
+        exclude_directories: list[str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
         command, configs = benchmark._build_checker_command(
-            checker, self.root, check_paths or [self.root / "source"]
+            checker, self.root, check_paths or [self.root / "source"], exclude_directories
         )
         self.assertIsNotNone(command, f"{checker} must be installed for integration tests")
         try:
@@ -846,13 +928,21 @@ class CheckerConfigIntegrationTest(unittest.TestCase):
             )
         for name, content in (
             ("paired.py", 'value: int = "wrong"\n'),
-            ("paired.pyi", "value: int\n"),
+            ("paired.pyi", "value: MissingType\n"),
             ("standalone.pyi", "value: int\n"),
             ("clean.py", "value: int = 1\n"),
         ):
             (source / name).write_text(content)
         (self.root / ".ignore").write_text("source/ignored.py\n")
         (self.root / ".gitignore").write_text("source/ignored.py\n")
+        checkers = [*benchmark.DEFAULT_TYPE_CHECKERS, "ty-infer", "pyright-threads"]
+        baselines = {}
+        for checker in checkers:
+            baseline = benchmark.run_checker(
+                checker, self.root, [source], 60, 0, audit_files=True
+            )
+            self.assertTrue(baseline["ok"], baseline)
+            baselines[checker] = baseline["files_selected"]
         native_configs = {
             "pyrightconfig.json": '{"typeCheckingMode":"off","exclude":["**"]}',
             "ty.toml": '[rules]\nall = "ignore"\n',
@@ -870,24 +960,32 @@ class CheckerConfigIntegrationTest(unittest.TestCase):
             for name, content in native_configs.items():
                 (directory / name).write_text(content)
 
-        manifest, missing = benchmark._resolve_check_paths(self.root, ["source"], [])
+        roots, missing = benchmark._resolve_check_paths(self.root, ["source"])
         self.assertEqual(missing, [])
-        self.assertEqual(len(manifest), 8)
-        self.assertNotIn(source / "paired.pyi", manifest)
-        for checker in [*benchmark.DEFAULT_TYPE_CHECKERS, "ty-infer", "pyright-threads"]:
+        self.assertEqual(roots, [source])
+        for checker in checkers:
             with self.subTest(checker=checker):
                 audit = benchmark.run_checker(
-                    checker, self.root, manifest, 60, 0, audit_files=True
+                    checker, self.root, roots, 60, 0, audit_files=True
                 )
                 self.assertTrue(audit["ok"], audit)
-                self.assertEqual(audit["files_selected"], len(manifest), audit)
-                result = self._run(checker, manifest)
+                self.assertEqual(audit["files_selected"], baselines[checker], audit)
+                result = self._run(checker, roots)
                 output = result.stdout + result.stderr
                 self.assertEqual(result.returncode, 1, output)
                 for name in ("selected", "ignored", "dist_probe", "venv_probe", "tests_probe"):
                     self.assertIn(f"{name}.py", output, output)
+                self.assertIn("paired.pyi", output, output)
                 for name in ("outside", "node_modules_probe", "hidden_probe"):
                     self.assertNotIn(f"{name}.py", output, output)
+                excluded = benchmark.run_checker(
+                    checker, self.root, roots, 60, 0, audit_files=True,
+                    exclude_directories=["tests"],
+                )
+                self.assertTrue(excluded["ok"], excluded)
+                self.assertEqual(excluded["files_selected"], baselines[checker] - 1)
+                result = self._run(checker, roots, ["tests"])
+                self.assertNotIn("tests_probe.py", result.stdout + result.stderr)
         for directory in (self.root, source):
             for name, content in native_configs.items():
                 self.assertEqual((directory / name).read_text(), content)

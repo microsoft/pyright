@@ -275,6 +275,9 @@ def _analyze(
             )
             continue
         scope_changed = False
+        if old.get("files_selected") != new.get("files_selected"):
+            failures.append(f"{package}/{checker}: native source-file count changed")
+            scope_changed = True
         for field in ("check_paths", "exclude_directories", "source_manifest_sha256"):
             if old_package.get(field, []) != new_package.get(field, []):
                 failures.append(

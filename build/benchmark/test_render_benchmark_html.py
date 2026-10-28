@@ -69,6 +69,43 @@ class _SemanticParser(HTMLParser):
 
 
 class RenderBenchmarkHtmlTest(unittest.TestCase):
+    def test_native_count_mismatches_are_not_comparable_or_in_summary_totals(self) -> None:
+        pyright = _result("pyright", 2.0, 200.0)
+        mypy = _result("mypy", 1.0, 100.0)
+        for checker, result, count in (("pyright", pyright, 2), ("mypy", mypy, 1)):
+            result["results"][0]["metrics"][checker].update(
+                files_selected=count, file_count_verified=True
+            )
+        report = render_benchmark_html.render_html({"pyright": pyright, "mypy": mypy})
+        self.assertEqual(report.count("Not comparable"), 2)
+        self.assertIn("2 native source files", report)
+        self.assertIn("1 native source files", report)
+        self.assertNotIn("2.00s", report)
+        self.assertNotIn("1.00s", report)
+        self.assertNotIn("<strong>2.0s</strong>", report)
+        self.assertTrue(pyright["results"][0]["metrics"]["pyright"]["ok"])
+
+    def test_repository_configuration_audit_is_visible_and_escaped(self) -> None:
+        result = _result("ty", 1.0, 100.0)
+        result["results"][0]["repository_configs"] = [
+            {
+                "path": "nested/pyproject.toml", "checkers": ["ty"],
+                "sections": ["tool.ty"], "settings": ["tool.ty.rules.all"],
+                "disposition": "not applied: explicit benchmark config",
+            },
+            {
+                "path": "broken.toml", "checkers": [], "sections": [], "settings": [],
+                "parse_error": "<invalid TOML>",
+            },
+        ]
+        report = render_benchmark_html.render_html({"ty": result})
+        self.assertIn("Repository configuration audit", report)
+        self.assertIn("nested/pyproject.toml", report)
+        self.assertIn("tool.ty.rules.all", report)
+        self.assertIn("not applied: explicit benchmark config", report)
+        self.assertIn("Scan parse error: &lt;invalid TOML&gt;", report)
+        self.assertNotIn("<invalid TOML>", report)
+
     def test_renders_behavior_matches_without_quality_adjusting_times(self) -> None:
         pyright = _result("pyright", 2.0, 200.0)
         ty = _result("ty", 1.0, 100.0)

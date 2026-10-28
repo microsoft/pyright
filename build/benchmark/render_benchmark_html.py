@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import statistics
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +45,7 @@ def _ordered_checkers(results: dict[str, dict[str, Any]]) -> list[str]:
 
 def _package_metrics(data: dict[str, Any], checker: str) -> dict[str, dict[str, Any]]:
     return {
-        package["package_name"]: package.get("metrics", {}).get(checker, {})
+        package["package_name"]: package.get("metrics", {}).get(checker, {}).copy()
         for package in data.get("results", [])
         if package.get("package_name")
     }
@@ -110,11 +111,41 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
                 or metric.get("files_selected") != scope[0]
             ):
                 raise ValueError(f"{name}/{checker}: source-file count is not verified")
+    mismatched_packages = set()
+    for package in packages:
+        native_counts = {
+            metric["files_selected"]
+            for checker in checkers
+            if (metric := metrics[checker].get(package, {})).get("file_count_verified")
+        }
+        if len(native_counts) > 1:
+            mismatched_packages.add(package)
+            for checker in checkers:
+                metric = metrics[checker].get(package, {})
+                if metric.get("file_count_verified"):
+                    metric["ok"] = False
+                    metric["source_count_mismatch"] = True
+    aggregates = {
+        checker: results[checker].get("aggregate", {}).get(checker, {})
+        for checker in checkers
+    }
+    if mismatched_packages:
+        for checker in checkers:
+            accepted = [metric for metric in metrics[checker].values() if metric.get("ok")]
+            aggregates[checker] = {
+                "packages_tested": len(accepted),
+                "packages_failed": len(metrics[checker]) - len(accepted),
+                "total_execution_time_s": sum(metric["execution_time_s"] for metric in accepted),
+                "p50_execution_time_s": statistics.median(
+                    [metric["execution_time_s"] for metric in accepted]
+                ) if accepted else 0,
+                "p50_peak_memory_mb": statistics.median(
+                    [metric.get("peak_memory_mb", 0) for metric in accepted]
+                ) if accepted else 0,
+            }
     totals = {
         checker: float(
-            results[checker].get("aggregate", {})
-            .get(checker, {})
-            .get("total_execution_time_s", 0.0)
+            aggregates[checker].get("total_execution_time_s", 0.0)
         )
         for checker in checkers
     }
@@ -124,7 +155,7 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
 
     summary_rows: list[str] = []
     for checker in checkers:
-        aggregate = results[checker].get("aggregate", {}).get(checker, {})
+        aggregate = aggregates[checker]
         tested = int(aggregate.get("packages_tested", 0))
         failed = int(aggregate.get("packages_failed", 0))
         total = totals[checker]
@@ -201,7 +232,12 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
         for checker in checkers:
             metric = metrics[checker].get(package, {})
             if not metric.get("ok"):
-                cells.append('<td class="failed">Not measured</td>')
+                cells.append(
+                    '<td class="failed">Not comparable'
+                    f'<small>{metric["files_selected"]} native source files</small></td>'
+                    if metric.get("source_count_mismatch")
+                    else '<td class="failed">Not measured</td>'
+                )
                 continue
             cells.append(
                 f'<td><strong>{float(metric["execution_time_s"]):.2f}s</strong>'
@@ -218,6 +254,50 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
         package_rows.append(
             f'<tr><th scope="row">{html.escape(package)}{scope_label}</th>{"".join(cells)}</tr>'
         )
+
+    config_rows = []
+    for package in packages:
+        records = {
+            json.dumps(record, sort_keys=True)
+            for data in results.values()
+            for item in data.get("results", [])
+            if item.get("package_name") == package
+            for record in item.get("repository_configs", [])
+        }
+        audited = any(
+            "repository_configs" in item
+            for data in results.values() for item in data.get("results", [])
+            if item.get("package_name") == package
+        )
+        if not records and audited:
+            config_rows.append(
+                f'<tr><th>{html.escape(package)}</th><td colspan="3">'
+                'No checker configs or TOML settings detected</td></tr>'
+            )
+        for serialized in sorted(records):
+            record = json.loads(serialized)
+            detail = ", ".join(
+                record.get("settings") or record["sections"] or record["checkers"]
+            ) or "Unknown"
+            handling = (
+                f'Scan parse error: {record["parse_error"]}'
+                if "parse_error" in record else record["disposition"]
+            )
+            config_rows.append(
+                f'<tr><th>{html.escape(package)}</th><td>{html.escape(record["path"])}</td>'
+                f'<td>{html.escape(detail)}</td><td>{html.escape(handling)}</td></tr>'
+            )
+    config_section = (
+        '<section><h2>Repository configuration audit</h2>'
+        '<p class="legend">Untimed recursive search of each checkout for native checker configs, '
+        'TOML tool sections, and mypy INI settings. Detected does not mean applied: the harness '
+        'passes explicit benchmark configurations instead. Values are not published. Parse errors '
+        'are shown rather than treated as absence. The search skips VCS metadata, node_modules, '
+        'and __pycache__; source-level ignore comments retain their native semantics.</p>'
+        '<div class="table-wrap"><table><thead><tr><th>Package</th><th>File</th>'
+        '<th>Checker / sections</th><th>Handling</th></tr></thead><tbody>'
+        f'{"".join(config_rows)}</tbody></table></div></section>'
+    ) if config_rows else ""
 
     pyright_stats_rows: list[str] = []
     for package, metric in sorted(metrics.get("pyright", {}).items()):
@@ -339,10 +419,11 @@ small {{ display:block; margin-top:3px; color:var(--muted); font-family:"IBM Ple
 <section><h2>Package comparison</h2><p class="legend">Different checker jobs run on separate hosted runners, so timings are independent trends rather than a fastest-checker ranking. The two Pyright modes run sequentially in one job. Cells show wall time and peak RSS.</p>
 <p class="legend">Checker defaults, inference, and diagnostic coverage differ; these timings do not measure equivalent analysis or time per rule. Pyrefly uses its all preset; Pyright uses basic mode. These presets are not equivalent. The two ty modes run sequentially in one job: ty retains its default return inference, while ty (return inference) enables inference for unannotated returns. Neither mode guarantees Pyright-equivalent inference.</p>
 <p class="legend">Linux RSS measures the parent checker process, not its child processes; multi-process memory totals are not comparable.</p>
-<p class="legend">Verified source-file counts come from an untimed checker audit against a shared implementation-first manifest. Imported dependencies are not included. Historical results without verified counts have not passed this audit.</p>
+<p class="legend">Each checker discovers files natively within the configured roots; the harness does not choose .py over .pyi or vice versa. Untimed audits record native source-file counts, not imported dependencies. Different counts make a package not comparable and exclude its timings from report totals. Equal counts do not prove identical files or analysis. Historical results without audits are not verified.</p>
 <div class="table-wrap"><table><thead><tr><th>Package</th>{checker_headers}</tr></thead><tbody>{''.join(package_rows)}</tbody></table></div></section>
 {threading_section}
 {capability_section}
+{config_section}
 <section><h2>Pyright release history</h2><p class="legend">Track per-package execution time and peak memory across every stable Pyright release from the prior year.</p><p><a href="history/">View Pyright package performance by release</a></p></section>
 {pyright_stats_section}
 </main>
