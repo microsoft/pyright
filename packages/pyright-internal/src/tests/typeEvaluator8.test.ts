@@ -465,6 +465,100 @@ test('Operator12', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Operator13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator13.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [[206, DiagnosticRule.reportOperatorIssue]]
+    );
+});
+
+test('Operator14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator14.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [111, 116].map((line) => [line, DiagnosticRule.reportAttributeAccessIssue])
+    );
+});
+
+test('Operator15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator15.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Operator16', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator16.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .slice()
+            .sort((left, right) => left.range.start.line - right.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [31, DiagnosticRule.reportReturnType],
+            [36, DiagnosticRule.reportAssignmentType],
+            [41, DiagnosticRule.reportReturnType],
+            [46, DiagnosticRule.reportReturnType],
+            ...[97, 131, 148, 167].map((line) => [line, DiagnosticRule.reportOperatorIssue]),
+        ]
+    );
+});
+
+test('Operator17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator17.py']);
+
+    TestUtils.validateResults(analysisResults, 14);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .slice()
+            .sort((left, right) => left.range.start.line - right.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            ...[20, 26, 32].map((line) => [line, DiagnosticRule.reportIncompatibleMethodOverride]),
+            [60, DiagnosticRule.reportAttributeAccessIssue],
+            [65, DiagnosticRule.reportReturnType],
+            [70, DiagnosticRule.reportAssignmentType],
+            ...[84, 86].map((line) => [line, DiagnosticRule.reportOperatorIssue]),
+            [99, DiagnosticRule.reportIncompatibleMethodOverride],
+            [115, DiagnosticRule.reportReturnType],
+            [125, DiagnosticRule.reportIncompatibleMethodOverride],
+            [132, DiagnosticRule.reportOperatorIssue],
+            [137, DiagnosticRule.reportIncompatibleMethodOverride],
+            [143, DiagnosticRule.reportOperatorIssue],
+        ]
+    );
+});
+
+test('Operator18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator18.py']);
+
+    TestUtils.validateResults(analysisResults, 7);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .slice()
+            .sort((left, right) => left.range.start.line - right.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            ...[22, 36, 46, 56, 64, 69].map((line) => [line, DiagnosticRule.reportOperatorIssue]),
+            [89, DiagnosticRule.reportReturnType],
+        ]
+    );
+});
+
+test('Operator19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator19.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].range.start.line + 1, 62);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportReturnType);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

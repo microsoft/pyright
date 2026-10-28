@@ -4232,12 +4232,15 @@ export function createTypeEvaluator(
                     );
                     if (memberInfo?.isTypeDeclared) {
                         declaredType = getTypeOfMember(memberInfo);
-                        if (
-                            isMethodExemptFromLsp(nameValue) &&
+                        const isMethodAlias =
                             memberInfo.symbol
                                 .getTypedDeclarations()
                                 .some((decl) => decl.type === DeclarationType.Function) &&
                             isFunctionOrOverloaded(typeResult.type) &&
+                            isFunctionOrOverloaded(declaredType);
+                        if (
+                            isMethodExemptFromLsp(nameValue) &&
+                            isMethodAlias &&
                             isFunctionOrOverloaded(declaredType) &&
                             !isFinalVariable(memberInfo.symbol)
                         ) {
@@ -4293,7 +4296,6 @@ export function createTypeEvaluator(
                 // Replace the assigned type with the (unnarrowed) declared type.
                 destType = declaredType;
             } else {
-                // Constrain the resulting type to match the declared type.
                 destType = narrowTypeBasedOnAssignment(declaredType, typeResult).type;
             }
         } else {
@@ -19251,7 +19253,7 @@ export function createTypeEvaluator(
             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             fileInfo.fileUri,
-            ClassTypeFlags.None,
+            ClassTypeFlags.IntersectionClass,
             ParseTreeUtils.getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
             effectiveMetaclass,
@@ -25704,6 +25706,22 @@ export function createTypeEvaluator(
         return getInferredReturnTypeResult(type).type;
     }
 
+    function getNotImplementedInferenceReceiver(type: FunctionType, returnType: Type): ClassType | undefined {
+        const receiver = type.priv.boundToType;
+        if (
+            !type.shared.declaredReturnType &&
+            isClassInstance(returnType) &&
+            ClassType.isBuiltIn(returnType, 'types.NotImplementedType') &&
+            receiver &&
+            type.shared.methodClass &&
+            !ClassType.isSameGenericClass(receiver, type.shared.methodClass)
+        ) {
+            return receiver;
+        }
+
+        return undefined;
+    }
+
     // Returns the return type of the function. If the type is explicitly provided in
     // a type annotation, that type is returned. If not, an attempt is made to infer
     // the return type. If a list of args is provided, the inference logic may take
@@ -25718,22 +25736,23 @@ export function createTypeEvaluator(
             // from ever running (e.g. an unannotated factory whose body narrows a
             // parameter-derived local with `isinstance`). When a call site is available,
             // fall through so the argument types can refine the inferred return type.
+            // The same applies to inherited methods inferred as only NotImplemented.
             //
             // NOTE: This gate intentionally mirrors a subset of the downstream call-site
-            // refinement guard in `_getInferredReturnTypeResult` (search `isPartlyUnknown(returnType)`),
+            // refinement guard in `_getInferredReturnTypeResult` (search `inheritedNotImplementedReceiver`),
             // but tests the cached *specialized* return type here rather than the freshly-inferred
             // one, and omits the `!isStubDefinition`/`!isPyTypedDefinition`/`!isIncomplete`
             // conjuncts (not yet known at this point). Keep the two in sync if either is edited.
             const canRefineWithCallSite =
                 options?.callSiteInfo !== undefined &&
                 !type.shared.declaredReturnType &&
-                FunctionType.hasUnannotatedParams(type) &&
-                isPartlyUnknown(specializedReturnType);
+                ((FunctionType.hasUnannotatedParams(type) && isPartlyUnknown(specializedReturnType)) ||
+                    getNotImplementedInferenceReceiver(type, specializedReturnType) !== undefined);
             if (!canRefineWithCallSite) {
                 return { type: specializedReturnType };
             }
 
-            // Refine the cached partly-unknown return type using the call site. If the
+            // Refine the cached inferred return type using the call site. If the
             // refinement comes back incomplete -- e.g. a self- or mutually-recursive
             // factory whose base case returns the isinstance-narrowed local -- fall back
             // to the already-cached specialized return type rather than propagating the
@@ -25837,16 +25856,20 @@ export function createTypeEvaluator(
             type.shared.inferredReturnType = { type: returnType, isIncomplete, evaluationCount: evalCount + 1 };
         }
 
-        // If the type is partially unknown and the function has one or more unannotated
-        // params, try to analyze the function with the provided argument types and
-        // attempt to do a better job at inference.
+        // An inherited wrapper may infer only NotImplemented from a base helper,
+        // even though the bound receiver overrides that helper.
+        const inheritedNotImplementedReceiver = getNotImplementedInferenceReceiver(type, returnType);
+
+        // Refine partially unknown returns or inherited NotImplemented wrappers
+        // using the call site's argument types.
         if (
             !isIncomplete &&
             analyzeUnannotatedFunctions &&
-            isPartlyUnknown(returnType) &&
-            FunctionType.hasUnannotatedParams(type) &&
+            (inheritedNotImplementedReceiver ||
+                (isPartlyUnknown(returnType) &&
+                    FunctionType.hasUnannotatedParams(type) &&
+                    !FunctionType.isPyTypedDefinition(type))) &&
             !FunctionType.isStubDefinition(type) &&
-            !FunctionType.isPyTypedDefinition(type) &&
             callSiteInfo
         ) {
             let hasDecorators = false;
@@ -25864,8 +25887,12 @@ export function createTypeEvaluator(
             // We can't use this technique if decorators or async are used because they
             // would need to be applied to the inferred return type.
             if (!hasDecorators && !isAsync) {
-                const contextualReturnType = inferReturnTypeForCallSite(type, callSiteInfo);
-                if (contextualReturnType) {
+                const contextualReturnType = inferReturnTypeForCallSite(
+                    type,
+                    callSiteInfo,
+                    inheritedNotImplementedReceiver
+                );
+                if (contextualReturnType && (!inheritedNotImplementedReceiver || !isUnknown(contextualReturnType))) {
                     returnType = contextualReturnType;
 
                     if (type.shared.declaration?.node) {
@@ -25880,7 +25907,11 @@ export function createTypeEvaluator(
         return { type: returnType, isIncomplete };
     }
 
-    function inferReturnTypeForCallSite(type: FunctionType, callSiteInfo: CallSiteEvaluationInfo): Type | undefined {
+    function inferReturnTypeForCallSite(
+        type: FunctionType,
+        callSiteInfo: CallSiteEvaluationInfo,
+        inheritedReceiver?: ClassType
+    ): Type | undefined {
         const args = callSiteInfo.args;
         let contextualReturnType: Type | undefined;
 
@@ -25959,6 +25990,14 @@ export function createTypeEvaluator(
                             if (!isUnknown(paramType)) {
                                 allArgTypesAreUnknown = false;
                             }
+                        } else if (inheritedReceiver && arg?.argument.typeResult) {
+                            paramType = arg.argument.typeResult.type;
+                            if (!isUnknown(paramType)) {
+                                allArgTypesAreUnknown = false;
+                            }
+                        } else if (inheritedReceiver && index === 0) {
+                            paramType = inheritedReceiver;
+                            allArgTypesAreUnknown = false;
                         } else if (param.d.defaultValue) {
                             paramType = getTypeOfExpression(param.d.defaultValue).type;
                             if (!isUnknown(paramType)) {
