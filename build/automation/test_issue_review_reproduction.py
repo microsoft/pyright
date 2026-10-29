@@ -2183,6 +2183,7 @@ class ArtifactTests(unittest.IsolatedAsyncioTestCase):
                     dist.mkdir(parents=True)
                     (dist / "pyright.js").write_text("// trusted fixture", encoding="utf-8")
                     (dist.parent / "index.js").write_text("// entrypoint", encoding="utf-8")
+                    (dist.parent / "langserver.index.js").write_text("// langserver entrypoint", encoding="utf-8")
                 return 0, "", ""
 
             store, target = self.cached_target(root / "targets")
@@ -2228,6 +2229,7 @@ class ArtifactTests(unittest.IsolatedAsyncioTestCase):
                     (dist.parent / "index.js").write_text(
                         "global.__rootDirectory = __dirname + '/dist/';\nrequire('./dist/pyright');\n", encoding="utf-8",
                     )
+                    (dist.parent / "langserver.index.js").write_text("// trusted langserver entrypoint", encoding="utf-8")
                     stdlib = dist / "typeshed-fallback" / "stdlib"
                     stdlib.mkdir(parents=True)
                     (stdlib / "builtins.pyi").write_text("class int: ...\n", encoding="utf-8")
@@ -2265,6 +2267,7 @@ class ArtifactTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(Path(target.directory or "").is_dir())
             runtime = Path(target.directory or "")
             self.assertEqual(Path(target.cli or ""), runtime / "index.js")
+            self.assertEqual((runtime / "langserver.index.js").read_text(), "// trusted langserver entrypoint")
             self.assertEqual((runtime / "index.js").read_text(), "global.__rootDirectory = __dirname + '/dist/';\nrequire('./dist/pyright');\n")
             self.assertEqual((runtime / "dist" / "typeshed-fallback" / "stdlib" / "builtins.pyi").read_text(), "class int: ...\n")
             self.assertEqual(next(command for command, _ in calls if command[0] == "node"), ["node", str(runtime / "index.js"), "--version"])

@@ -10,6 +10,8 @@ reports that do not qualify for closure. The console displays a table with **By 
 **Non-dry runs automatically label qualified non-reproductions, close verified fixed/by-design/duplicate issues,
 or post a qualified root-cause investigation while leaving other issues open.** There is no per-issue publication
 prompt. Use `--dry-run` to disable all comment drafting and GitHub mutations, and `--no-rca` to disable RCA.
+The explicit `--rehearse-closures` exception runs closing-comment preparation without enabling publication;
+ordinary `--dry-run` behavior is unchanged.
 Dry runs save per-issue `proposal.json` files and a run-level `proposals.json`, including the proposed action
 (`close_fixed`, `label_not_reproducible`, `close_by_design`, `close_duplicate`, `post_root_cause`, `leave_open`, or `blocked`), per-claim confidence,
 blocking reasons, and evidence paths. These are unreviewed action proposals, not closing-comment drafts or
@@ -17,6 +19,57 @@ publication authorization. Writer/draft validation and publication freshness che
 Failed or screened-out issues remain explicit; run completion does not mean every investigation succeeded.
 The console does not implement fixes.
 The original `pyright-issue-reviewer` remains a separate read-only, non-executing reviewer and is not used by this console.
+
+## Publication-disabled closure rehearsal
+
+`--rehearse-closures` exercises the **real rich-mirror writer, factual reviewer and pre-publication gates** for
+by-design, duplicate and fixed candidates. It requires an explicit `--issues` list and a fresh `--state-dir`,
+implies noninteractive read-only publication, disables RCA and separate diagnostic experiments, and uses cached
+checker targets unless `--prepare-targets` is explicitly supplied. It never grants execution approval.
+It is not exploratory reproduction and cannot promote observation-only receipts or unresolved claims.
+
+For a fresh, bounded investigation followed by closure rehearsal:
+
+```powershell
+uv run --env-file .env build\automation\review_issues.py --rehearse-closures `
+    --issues 11946 --chunk-size 1 --timeout 300 --reproduction-timeout 300 `
+    --target-cache C:\issue-reviews\prepared-targets --state-dir C:\issue-reviews\closure-rehearsal
+```
+
+To exercise only a selected **frozen candidate**, without reinvestigation, use `--rehearsal-from` and a distinct,
+non-overlapping output directory:
+
+```powershell
+uv run --env-file .env build\automation\review_issues.py --rehearse-closures --overnight `
+    --issues 11946 --chunk-size 1 --timeout 300 `
+    --rehearsal-from C:\issue-reviews\frozen-overnight `
+    --state-dir C:\issue-reviews\derived-closure-rehearsal
+```
+
+Retain the source run's applicable mode, model, target-cache, registry and editor options when comparing identity
+(the example source used `--overnight`). The controller copies only the selected entry, reports and check ledger
+byte-for-byte. Embedded execution paths remain frozen read-only inputs; new SDK logs, drafts and rejection artifacts
+go to the derived directory, including fixed-comment checks. It does not copy an entire run, rewrite source
+artifacts, recompute their adjudication or bypass implementation/context, report-integrity, canonical-issue,
+issue/discussion freshness, screening, target-integrity or claim-eligibility gates.
+Changing controller code or evidence contracts normally makes an old candidate **stale**. That is a useful saved
+rejection, not permission to reseal it. A fresh investigation is needed to exercise later stages under the new
+contract; do not call those unexecuted stages successful.
+
+Each issue retains `rehearsal.json`, the proposed `comment.md` once produced, and the normal factual-check/SDK
+artifacts. Run-level `rehearsals.json` records completion separately from per-issue results. Stage outcomes are
+`untested`, `running`, `passed` or `rejected` for eligibility, writing, factual review and final eligibility.
+Failures retain the draft and available factual problems, with explicit blocking reasons. Missing prerequisites
+and failed investigations leave unreached closure stages untested. An existing publication ledger requires manual
+reconciliation rather than being resumed by rehearsal. Standalone non-reproduction labels and RCA comments are
+outside closure rehearsal.
+
+The GitHub transport rejects every non-GET request and GraphQL in this mode, in addition to the controller's
+read-only publication guards. No comments, issue/repository labels or closures can be sent, and no retry/publication
+ledger is created. Final eligibility reuses the live pre-publication checks after factual review and rechecks the
+discussion against the pre-draft snapshot. Checks that require an actual comment, label or closure, and GitHub's
+confirmation of those mutations, remain explicitly **untested**. Even a passed rehearsal has
+`publication_ready=false`; it is not publication authorization and its state cannot be resumed as a live run.
 
 ## Unattended closure-only review
 
@@ -109,6 +162,17 @@ history, an ancillary example or a proposed repair remains unresolved. Those cla
 the report. This is intentionally asymmetric: one supported bug establishes a reason to keep the issue open,
 but by-design and duplicate closure retain their existing all-claims evidence requirements.
 Completed keep-open bug investigations have the `keep_open_bug` outcome rather than `needs_review`.
+Fresh claims must also supply `expectation`: `mandatory_rule`, `intended_behavior`, `additional_analysis` or
+`unresolved`, with an explicit expected behavior, reason and claim-local source evidence. Requirement/accepted-intent
+evidence includes an exact excerpt retained in `Source.finding` and an application to the code's actual premises,
+settings and versions. Accepted intent identifies a verified regression test, documented contract or applicable
+maintainer decision; today's implementation, proposed PRs, labels and runtime/mypy parity alone do not suffice.
+Only a mandatory-rule or established-intent failure supports `bug`. Desirable additional analysis is not
+automatically a bug, and lack of a spec mandate does not automatically establish by-design behavior.
+Old schema-version-one entries remain readable with a missing/null expectation explicitly **not recorded**:
+no evidence is inferred, old bug tags do not become supported under the new gate, and missing bases block new
+by-design and duplicate closures. Fresh reviews reject null expectations; existing frozen runs are not rewritten
+or rescored. The reports expose per-claim bases and category counts, not an accuracy claim based on bug labels.
 The report also records `triage_category`, `next_action`, per-category counts and the investigator's recommendation,
 distinguishing semantic decisions, missing applicable product execution, transient infrastructure failures and
 screening rejections. Disabled RCA is a policy note, not a failed investigation.
@@ -1020,8 +1084,40 @@ reconstructed Python example; it is separate from executing that example in CPyt
 includes the investigator's findings plus controller-recorded commands, configuration/source snapshots, exit codes,
 and full output. Reported diagnostics and expected behavior must be distinguished from observed diagnostics/types.
 
-The runner executes only the prepared checkout CLI, not published Pyright releases. Its validator rejects
-release-target reproduction claims based on that checkout, even when version strings match. Language-server,
+`run_check(kind="pyright")` executes only the prepared checkout CLI. When the controller has selected historical,
+main or latest artifacts in the reproduction/diagnostic stages, the reviewer also receives `run_prepared_check`.
+It accepts only the advertised opaque `target_id`, an `original`/`control` phase, and a mandatory
+`configuration_reason`. It never accepts a checker path, version, command or acquisition request.
+The controller uses `TargetStore.restore`, `verify` and `run_static`; a missing cache, changed provenance or
+changed artifact blocks the experiment. This investigator tool is always **cache-only**, even if the operator
+authorized target preparation for a preceding controller stage. No downloads, installs or builds are added.
+
+Prepared checks freeze 1-30 scratch Python/stub files (64 KiB each) and an explicit, restricted
+`pyrightconfig.json` into a fresh controller-owned execution directory outside investigator write scope.
+Stub-only specimens are supported without adding a fabricated `.py` companion.
+`pythonVersion` and `typeCheckingMode` must be explicit; no missing reporter setting is guessed.
+`configuration_reason` must explain the experimental choices and missing reporter settings. Configuration
+scope paths must be relative and remain inside scratch. Inputs and outputs are screened; target/input integrity
+is rechecked around the existing controlled execution, with the role's cancellation/deadline still active.
+There are at most 12 attempts per investigation. Separate controls must reference a successful original receipt
+for the same target, file set and exact configuration; they never replace the original observation.
+
+The receipt identifies the exact npm release or pinned upstream-main SHA, selected registry, artifact checksums,
+runtime tree hash, target-selection reason, full configuration/source snapshots, exact command/cwd/exit code,
+stdout/stderr, original/control relationship and receipt hash. `target_selection` distinguishes explicitly
+reported releases from approximate issue-creation as-of releases, latest-at-selection releases and pinned main.
+**Every reviewer prepared-target receipt is experimental, not faithful reproduction, and action-ineligible**,
+including an execution of an explicitly reported version. Settings/source correspondence to the reporter remains
+unverified. Actual observed diagnostics belong in the report's checks and Markdown; they do not upgrade the
+source-checkout audit's release reproduction statuses, satisfy its checkout check, or pass the independent strict
+reproduction/action gates. Missing checking-mode evidence remains a historical-reproduction blocker, not a
+checker-execution failure. Small receipts are returned directly; large ones use the existing bounded delivery
+index and `read_prepared_evidence` exact JSON-pointer pages. Complete raw receipts remain in
+`prepared-checks/<receipt-id>.json` and successful screened executions in `checks.jsonl`.
+
+The validator rejects release-target reproduction claims based on the source checkout or these experimental
+receipts, even when version strings match. The narrowly scoped headless LSP capability below can observe
+workspace progress and diagnostic publication. Other language-server,
 editor-specific, packaging, and similar checks remain blocked rather than being inferred from a CLI result.
 Non-CLI surfaces or insufficient reproduction cannot receive a confident `by design`/`bug` tag or a closure offer.
 The required surface follows the material complaint, not the client name in environment metadata. Self-contained
@@ -1029,6 +1125,62 @@ typing, abstractness, and diagnostic-correctness questions can use the CLI even 
 The report records `surface_reason` and leaves historical/editor integration unverified. Actual diagnostic-delivery
 failures, editor/CLI discrepancies, completions, interpreter handoff, and configuration discovery still need their
 real surface; a component check cannot settle those claims.
+
+### Bounded headless language-server progress observations
+
+Ordinary behavior investigation (including overnight review with RCA disabled) exposes `lsp_progress_probe` and
+`lsp_read_evidence`. The same bounded tools are available during RCA, but they do not supply inspector/root-cause
+evidence. This is **not** arbitrary LSP execution, an editor adapter, or a replacement for the strict historical
+reproduction stage. Receipts remain experimental, `action_ineligible: true`, and `faithful_reproduction: false`;
+they cannot authorize a release/fix/duplicate claim or a closure.
+
+The caller prepares the actual checkout server with `pnpm run build:cli:dev`. The probe copies its full `dist`
+and unchanged upstream `langserver.index.js`, preserving bundled-stub initialization. It never uses the CLI
+entrypoint to infer LSP behavior. A controller-bound prepared target can supply the same wrapper/bundle after
+`TargetStore.restore/verify`; acquisition is not available to the investigator. A sealed older cache missing
+the wrapper remains blocked, not modified/resealed. Matching version strings alone are not release provenance.
+
+Create a dedicated scratch folder containing inspected `.py`/`.pyi` files and an explicit `pyrightconfig.json`
+with `"pythonVersion": "3.14"`. Only optional `typeCheckingMode` is supported beyond that setting; omission is
+preserved, not silently rewritten as a reporter choice. Other configurations/files remain unsupported.
+Call, for example:
+
+```json
+{"project":"progress-case","open_file":"a.py","target_id":"checkout","observation_seconds":15}
+```
+
+The source is statically analyzed, never executed. The controller freezes it and runs three fresh workspace/
+server processes in order: original Python-target 3.14/workspace (no document opened), a separate 3.13 static-target/
+workspace control, and 3.14/openFilesOnly with the selected source open. **The 3.13 control does not switch the
+interpreter.** Actual interpreter path/version, platform, Node, target revision/provenance, runtime/source hashes,
+all workspace inputs, fixed client capabilities/settings, sanitized child environment, exact commands and complete
+bounded bidirectional protocol transcripts are retained outside agent-writable scratch.
+The runner's interpreter may differ from a report's; for #11925, Python 3.14.3 is not the reported 3.14.9.
+The missing original initialize exchange, no-config/interpreter-discovery variant, historical build and editor
+behavior remain unverified unless separately observed through their actual supported surface.
+
+The client only initializes, answers scoped configuration/progress-token creation, optionally opens one source,
+observes, then shuts down/exits. It performs no diagnostic pulls, watched-file edits, arbitrary requests/commands,
+reporter-script downloads, shell access, installs, or GitHub mutations. Unknown server requests fail qualification
+without executing them. Windows servers start suspended, enter a kill-on-close job, then resume; POSIX servers
+have a new process group. Owned descendants are terminated and stdout/stderr drained on success, failure and
+cancellation; a cancelled attempt retains partial evidence rather than becoming successful.
+
+Bounds are 16 sources, 64 KiB of input, 64 input-tree entries, 256 KiB/frame, 2 MiB of aggregate message bodies,
+2,048 events and 64 KiB stderr. Each case observes 1-30 seconds (default 15), with bounded initialization/shutdown/
+cleanup. Each runtime allows at most three matrix attempts. Over-limit, malformed, incomplete configuration,
+missing source-publication, server error, early exit and unsupported-request captures are failed/partial, never
+successful truncated evidence. Large receipts use the existing exact JSON-pointer paging transport through
+`lsp_read_evidence`; an index/preview is not a complete transcript.
+
+Progress summaries preserve token type/identity, **creation versus begin/report/end**, event order and unmatched/
+active lifecycles at the pre-shutdown cutoff. An end caused by shutdown is not analysis completion. Diagnostic
+summaries preserve publication URI, version, order, count and prior count. An empty publication can clear earlier
+diagnostics; it is not independently an error or proof that a library stub is the counted file. A token active at
+the bounded cutoff establishes neither a permanent hang, CPU idleness, remaining-file identity, templatelib
+causation nor a duplicate. Compare the controls and retain interpreter/configuration qualifications.
+
+Focused coverage: from `build\automation`, run `python -m unittest test_issue_review_lsp`.
 
 ## Reports and tags
 
@@ -1335,7 +1487,7 @@ unchanged; this is a normal-build change guard, not protection against adversari
 
 Outputs include per-case `review.md`, structured findings, actual product-check/source-read ledgers, SDK usage,
 and run fingerprints for the agent, workflow, SDK, source diff, and prepared CLI/stubs. `summary.json` separates
-reference agreement, false by-design decisions against the reference, abstentions, and operational failures.
+reference agreement, false by-design/bug decisions against the reference, abstentions, and operational failures.
 Executed claims must match controller records, and resolved verdicts require actual Pyright output and a retrieved
 source. Those checks do not prove that the cited rule applies or the reasoning is sound; inspect the report against
 the hidden reference after its conclusion is frozen. The summary deliberately does not call agreement "accuracy".
@@ -1346,6 +1498,16 @@ targets for each material claim. The overall verdict/confidence remain semantic 
 Summary rows expose each closure gate separately, including historical research; that gate is **blocked in this
 restricted benchmark**, and invented historical-search records are rejected. A supported semantic conclusion
 can therefore coexist with no closure candidate. Duplicate adjudication and publication checks are not simulated.
+
+Evaluation version 3 additionally requires explicit per-claim expectations and rejects an overall bug verdict
+without an observed mandatory-rule or established-intent failure. It records bug/by-design reference coverage
+and false-bug reference disagreements as well as false-design disagreements: more bug labels alone are not
+evidence of improved accuracy. Reference resolutions remain evidence to inspect, not unquestionable ground truth.
+An inspected stub example can use `repro_filename="original.pyi"` rather than silently changing its context to
+`.py`; scratch controls may also use `.pyi`. For a caller-approved existing prepared source artifact outside this
+checkout, `--source-cli C:\trusted-checkout\packages\pyright\index.js` records and rechecks the actual wrapper,
+bundle/stub content hash and path. It does not install/build anything or assert published-release provenance or
+a verified source-to-build revision. The benchmark implementation revision remains separately identified.
 
 Hidden references may specify `expected_design_closure`; omitted values remain unscored rather than being
 inferred from old labels. The two existing bug controls provisionally specify `false`. Closure metrics distinguish

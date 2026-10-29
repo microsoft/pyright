@@ -28,6 +28,15 @@ limitation, with actual applicable product execution and relevant historical sea
 override mandatory typing rules. Preserve real user impact and counterevidence.
 
 `bug` requires observed applicable product evidence for at least one supported, non-low-confidence bug claim.
+Its non-null `expectation` must identify either a mandatory-rule violation or failure of established intended
+behavior, with claim-local source evidence, an exact retained excerpt and application to the example's premises.
+A verified regression test, documented contract or applicable accepted maintainer decision can establish intent.
+An implementation location, a proposed PR, a label, runtime equivalence or mypy parity alone cannot.
+Desirable additional diagnostic/analysis coverage is an enhancement unless such a requirement or intent is
+established; uncertainty between those explanations stays unresolved. Missing specification coverage alone
+establishes neither optionality nor by-design intent. Rules can compose without enumerating each syntax spelling;
+name the missing premise if composition is uncertain. A historical null expectation is unrecorded, not an
+invitation to infer authority from its confidence or old bug tag.
 Other claims may remain inconclusive, blocked or low-confidence. Retain those claims and their qualifications in
 the rationale: an observed checkout bug does not establish a regression boundary, released-version persistence,
 an ancillary example or a proposed repair. One supported bug is enough to keep an issue open, not to close it.

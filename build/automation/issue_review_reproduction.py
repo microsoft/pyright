@@ -828,6 +828,10 @@ class TargetStore:
                     await self.command([pnpm, "--dir", str(Path("packages") / "pyright"), "run", "webpack"], work, log)
                     await run_target_io(shutil.copytree, work / "packages" / "pyright" / "dist", runtime / "dist")
                     await run_target_io(shutil.copyfile, work / "packages" / "pyright" / "index.js", runtime / "index.js")
+                    await run_target_io(
+                        shutil.copyfile, work / "packages" / "pyright" / "langserver.index.js",
+                        runtime / "langserver.index.js",
+                    )
                 # The upstream package entrypoint initializes discovery of its bundled typeshed.
                 cli = runtime / "index.js"
                 if not cli.is_file() or not (runtime / "dist" / "pyright.js").is_file():

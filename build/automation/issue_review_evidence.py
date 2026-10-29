@@ -92,7 +92,7 @@ def _observations(record: dict[str, JsonValue]) -> Iterator[dict[str, JsonValue]
                 yield row
 
 
-def evidence_response(record: dict[str, JsonValue]) -> str:
+def evidence_response(record: dict[str, JsonValue], *, read_tool: str = "rca_read_evidence") -> str:
     raw = evidence_json(record)
     if len(raw) <= MAX_RESPONSE_BYTES:
         return raw
@@ -122,7 +122,7 @@ def evidence_response(record: dict[str, JsonValue]) -> str:
         ),
         "read": {"evidence_id": identifier, "pointer": "", "offset": 0, "max_chars": PAGE_CHARS},
         "note": "Delivery index only, not a complete capture or qualification verdict. Strings named *_preview "
-        "may be shortened. Use rca_read_evidence with an exact pointer and follow next_offset; failed or "
+        f"may be shortened. Use {read_tool} with an exact pointer and follow next_offset; failed or "
         "missing observations remain failed or missing. The raw receipt is unchanged.",
     }
     for key, value in sorted(record.items()):

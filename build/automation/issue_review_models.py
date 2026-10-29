@@ -45,7 +45,9 @@ class Source(Record):
         "typing_spec", "python_docs", "maintainer_decision", "repository",
         "checker_comparison", "reporter",
     ]
-    location: Text
+    location: Text = Field(
+        description="For retrieved references, copy the exact returned URL/path; section names and prose belong in finding.",
+    )
     finding: Text
     applicability: Text
 
@@ -57,6 +59,41 @@ class Reproduction(Record):
         "reproduced", "not_reproduced", "blocked", "not_attempted", "not_applicable"
     ]
     check_ids: list[str]
+
+
+class ExpectationEvidence(Record):
+    source_id: Text
+    authority: Literal[
+        "typing_requirement", "language_requirement", "accepted_policy",
+        "behavior_only", "proposal", "comparison",
+    ]
+    excerpt: Text = Field(description="Exact supporting excerpt retained in the referenced Source.finding.")
+    application: Text = Field(
+        description="Apply the rule's premises or accepted decision to this exact code, settings and version scope.",
+    )
+    intent_basis: Literal["documented_contract", "regression_test", "maintainer_decision"] | None = None
+
+    @model_validator(mode="after")
+    def validate_intent(self) -> Self:
+        if (self.authority == "accepted_policy") != (self.intent_basis is not None):
+            raise ValueError("Accepted intent requires its documented-contract, regression-test or decision basis")
+        return self
+
+
+class ClaimExpectation(Record):
+    kind: Literal["mandatory_rule", "intended_behavior", "additional_analysis", "unresolved"]
+    expected_behavior: Text
+    reason: Text = Field(
+        description="Why this expectation is mandatory, established intent, desirable additional coverage, or unsettled.",
+    )
+    evidence: list[ExpectationEvidence]
+
+    def established(self) -> bool:
+        authorities = {
+            "mandatory_rule": {"typing_requirement", "language_requirement"},
+            "intended_behavior": {"accepted_policy"},
+        }
+        return any(item.authority in authorities.get(self.kind, set()) for item in self.evidence)
 
 
 class Claim(Record):
@@ -74,6 +111,16 @@ class Claim(Record):
     counterevidence: Text
     falsification: Text
     user_impact: Text
+    expectation: ClaimExpectation | None = Field(
+        default=None,
+        description="Required in fresh reviews. Null means the historical record did not capture this distinction.",
+    )
+
+    def supported_bug(self) -> bool:
+        return (
+            self.disposition == "bug" and self.confidence != "low"
+            and self.expectation is not None and self.expectation.established()
+        )
 
 
 class HistoricalSearch(Record):
@@ -109,6 +156,36 @@ class ReviewEvidence(Record):
                 } for source_id in claim.source_ids
             ):
                 raise ValueError(f"Design conclusion lacks applicable source evidence: {claim.id}")
+            if claim.expectation is not None:
+                for evidence in claim.expectation.evidence:
+                    if evidence.source_id not in claim.source_ids:
+                        raise ValueError(f"Expectation evidence is not authorized for claim: {claim.id}")
+                    source = sources[evidence.source_id]
+                    kinds = {
+                        "typing_requirement": {"typing_spec"},
+                        "language_requirement": {"python_docs"},
+                        "accepted_policy": {"maintainer_decision", "repository"},
+                    }
+                    if evidence.authority in kinds and source.kind not in kinds[evidence.authority]:
+                        raise ValueError(f"Expectation authority does not match source kind: {claim.id}")
+                    if evidence.authority == "accepted_policy":
+                        if evidence.intent_basis == "maintainer_decision":
+                            if source.kind != "maintainer_decision":
+                                raise ValueError(f"Accepted intent requires the actual maintainer decision: {claim.id}")
+                        elif source.kind != "repository" or not re.search(
+                            r"(?:^|[/\\])" + (
+                                r"docs[/\\]" if evidence.intent_basis == "documented_contract" else r"tests[/\\]"
+                            ), source.location,
+                        ):
+                            raise ValueError(f"Accepted intent requires a documentation or test reference: {claim.id}")
+                    if evidence.excerpt not in source.finding:
+                        raise ValueError(f"Expectation excerpt is not retained in its source finding: {claim.id}")
+                if claim.expectation.kind in {"mandatory_rule", "intended_behavior"} and not claim.expectation.established():
+                    raise ValueError(f"Expectation lacks a requirement or accepted-intent source: {claim.id}")
+                if claim.disposition == "bug" and not claim.expectation.established():
+                    raise ValueError(f"Bug claim needs a mandatory rule or established intended behavior: {claim.id}")
+                if claim.disposition in DESIGN_DISPOSITIONS and not claim.expectation.established():
+                    raise ValueError(f"Design claim needs an applicable rule or accepted policy: {claim.id}")
             if {item.target for item in claim.reproduction} != {
                 "reported_release", "current_release", "checkout"
             }:
@@ -122,12 +199,18 @@ class ReviewEvidence(Record):
                     raise ValueError(f"Reproduction has no executed check: {claim.id}")
         return self
 
+    def require_expectations(self) -> None:
+        missing = [claim.id for claim in self.claims if claim.expectation is None]
+        if missing:
+            raise ValueError(f"Fresh reviews require explicit claim expectations: {', '.join(missing)}")
+
     def closure_candidate(self) -> bool:
         return bool(self.historical_searches) and self.design_claims_supported()
 
     def design_claims_supported(self) -> bool:
         return all(
             claim.disposition in DESIGN_DISPOSITIONS and claim.confidence == "high"
+            and claim.expectation is not None and claim.expectation.established()
             and any(item.target == "checkout" and item.status in {"reproduced", "not_reproduced"}
                     for item in claim.reproduction)
             for claim in self.claims
@@ -142,7 +225,7 @@ class ReviewEvidence(Record):
 
     def observed_bug(self) -> bool:
         return self.product_surface == "cli" and any(
-            claim.disposition == "bug" and claim.confidence != "low"
+            claim.supported_bug()
             and any(item.target == "checkout" and item.status in {"reproduced", "not_reproduced"}
                     for item in claim.reproduction)
             for claim in self.claims
@@ -150,7 +233,12 @@ class ReviewEvidence(Record):
 
     def resolved_claims(self) -> bool:
         return self.observed_product() and all(
-            claim.confidence != "low" and claim.disposition in DESIGN_DISPOSITIONS | {"bug"}
+            claim.confidence != "low" and (
+                (
+                    claim.disposition in DESIGN_DISPOSITIONS
+                    and claim.expectation is not None and claim.expectation.established()
+                ) or claim.supported_bug()
+            )
             for claim in self.claims
         )
 
@@ -268,7 +356,7 @@ class Adjudication(Record):
         if self.validity == "by design" and not (audit.closure_candidate() and audit.observed_product()):
             raise ValueError("By-design classification needs every claim to pass the observed high-confidence design gate")
         if self.validity == "bug" and not audit.observed_bug():
-            raise ValueError("Bug classification needs an observed, non-low-confidence bug claim")
+            raise ValueError("Bug classification needs an observed claim with a mandatory rule or established intended behavior")
         if self.duplicate_status == "dupe" and not any(
             candidate.issue_number == self.duplicate_of and candidate.relation == "duplicate"
             and candidate.confidence == "high"
@@ -726,6 +814,10 @@ class Entry(Record):
         if self.reproduction_stage is not None and self.reproduction_stage.observation_only():
             return None
         if self.review is None or self.duplicates is None or self.adjudication is None:
+            return None
+        if any(claim.expectation is None for claim in self.review.claims):
+            return None
+        if self.adjudication.validity == "bug" and not self.review.observed_bug():
             return None
         self.adjudication.validate_reports(self.review, self.duplicates)
         if "needs investigation" in {self.adjudication.validity, self.adjudication.duplicate_status}:

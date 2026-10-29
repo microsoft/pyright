@@ -93,6 +93,12 @@ Classify as:
 -   **Inconclusive / needs information:** evidence does not distinguish the plausible explanations.
 
 State confidence and remaining uncertainty. For correct behavior, draft an explanation and workaround if available.
+For bug-versus-enhancement conclusions, explicitly distinguish a mandatory-rule violation, a failure of established
+intended behavior, and desirable additional analysis coverage. Apply exact rules/policy to the code's premises;
+runtime/mypy parity, today's implementation, a label or a proposed PR cannot independently establish intent.
+Verified regression tests, documented contracts and applicable accepted maintainer decisions can establish it.
+If the distinction remains unsettled, retain that uncertainty instead of treating confidence as authority.
+An omitted spec example does not defeat valid composition of applicable rules; identify the missing premise.
 Keep semantic disposition separate from reproduction on each target. A supported intentional policy can coexist
 with a historical diagnostic that no longer reproduces; state both, and preserve unresolved material claims
 rather than forcing a settled overall verdict or closure.

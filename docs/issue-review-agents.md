@@ -130,10 +130,12 @@ drafts or publishes comments. The controller alone acquires integrity-checked pu
 isolated, SHA-pinned upstream main build, never a reporter installer or a similarly versioned feature bundle.
 Main source builds use a uniquely owned system-temporary checkout, separate from the hashed runtime cache, to
 avoid Windows dependency-loader path limits. Work directories are removed on success or failure. Main runtimes
-retain the unchanged upstream `index.js` alongside the complete built `dist`, including bundled typeshed;
+retain the unchanged upstream `index.js` and `langserver.index.js` alongside the complete built `dist`, including bundled typeshed;
 published packages likewise run their own `index.js`. Calling the inner bundle directly skips upstream root/
 stub initialization and is not supported. Cache identity includes this entrypoint layout; older direct-bundle
 targets and saved receipts cannot pass the new verification.
+New main preparation copies both trusted wrappers before hashing/ready marking. Previously sealed main caches
+are never modified to add a wrapper: CLI-valid caches lacking `langserver.index.js` remain unsupported for LSP.
 An explicit reported Pyright release takes precedence over the newest actual publication on/before issue
 creation. Approximate selection is disclosed; issue update time is separately preserved.
 Registry selection is operator-controlled, never inferred from issue text. Direct npm requires published SHA-512.
@@ -163,6 +165,34 @@ rich-mirror and factual checking; dry runs disable drafting, label creation, com
 exact unapproved proposals. See [historical reproduction](../build/automation/README.md#historical-reproduction-before-rca)
 for target/build prerequisites and supported-surface limits. The older source-checkout audit remains unable to
 claim published-release reproduction from its prepared CLI; the new stage's evidence is independent.
+
+The behavior reviewer can additionally call `run_prepared_check` for controller-advertised opaque target IDs.
+This tool only restores and verifies already cached targets through `TargetStore`, then uses its existing
+controlled static runner. It cannot select another version/path, acquire, install or build, even when earlier
+controller preparation was authorized. Explicit scratch Python/checking settings and an experimental
+configuration explanation are mandatory; omitted reporter settings remain unknown. Controller-owned receipts
+preserve exact target provenance (reported release, approximate as-of release, latest-at-selection or pinned
+upstream main), configuration, inputs, command and output, plus hashes and separate original/control linkage.
+Large results have exact paginated `read_prepared_evidence` delivery rather than silently shortened output.
+These reviewer receipts are always experimental, not faithful historical reproduction, and action-ineligible.
+Their actual diagnostics can inform discussion, but cannot replace a source-checkout run, promote the audit's
+release reproduction statuses or satisfy the independent strict gate. A missing checking mode blocks faithful
+reconstruction independently of whether a checker can execute.
+
+The explicit [publication-disabled closure rehearsal](../build/automation/README.md#publication-disabled-closure-rehearsal)
+is separate from ordinary dry-run behavior. `--rehearse-closures` runs real rich-mirror drafting, factual checking
+and final pre-publication eligibility for bounded fixed/by-design/duplicate candidates while the transport denies
+all GitHub mutations. It saves proposed comments, stage outcomes and rejection reasons. Frozen-source replay
+uses a distinct derived directory without rewriting or resealing historical evidence; stale context, unresolved
+claims and integrity/freshness failures still block it. Mutation-dependent checks remain untested, and a passed
+rehearsal is never publication authorization.
+
+Ordinary behavior investigation also has a [bounded headless LSP progress probe](../build/automation/README.md#bounded-headless-language-server-progress-observations),
+even when overnight RCA is disabled. It records actual progress-token creation/begin/report/end and diagnostic
+publication lifecycles for the Python 3.14 workspace case and separate static-target/open-files controls. It does
+not switch interpreters, execute arbitrary LSP/editor operations, or turn a timeout/empty diagnostic publication
+into a root-cause claim. These qualified, action-ineligible observations do not relax strict reproduction or
+publication gates; unsupported surfaces and exact historical/environment prerequisites remain blocked.
 
 Strict reconstruction is the default. The explicit `--exploratory-reproduction` mode permits disclosed, bounded
 source-compatible choices only for genuinely omitted Python/checking settings. Quoted reported settings and chosen
@@ -206,6 +236,32 @@ Search historical as-designed decisions and competing bugs/fixes/spec changes. R
 comments, and explain the precedent's assumptions, scope, and continued applicability. Do not treat labels or repeated
 AI-generated summaries as independent confirmation. A historical decision does not override newer applicable rules.
 Challenge a proposed conclusion with a discriminating example or explain why decisive evidence already settles it.
+
+### Bug versus additional analysis coverage
+
+Fresh console and blinded-design reviews record each claim's `expectation` independently of disposition,
+confidence and reproduction. The categories are `mandatory_rule` (an applicable requirement), `intended_behavior`
+(an established project contract), `additional_analysis` (desirable coverage beyond established requirements),
+and `unresolved`. Each records the expected behavior and category reason. Its evidence names a claim-local source,
+retains an exact excerpt in `Source.finding`, and applies the actual premises, version/settings scope and decision
+qualifications. Typing requirements use typing-spec sources; language requirements use Python documentation and
+cannot override mandatory static typing rules. Accepted intent identifies a documented contract, verified regression
+test or actual maintainer decision, not merely the current implementation or a proposed repair.
+
+An observed non-low-confidence bug now requires mandatory-rule or established-intent support. Parity, asymmetry,
+labels and proposed PRs are supporting observations, not normative contracts. Missing specification coverage alone
+does not establish an enhancement or a by-design policy; applicable rules can compose without enumerating each
+spelling. Where the missing premise or accepted intent remains uncertain, retain an unresolved claim. For example,
+the observed version-comparison asymmetry motivating #11927 does not alone settle mandatory-rule versus optional
+coverage. This is not a retrospective relabeling of that issue or any frozen run.
+
+One supported core bug still suffices to keep an issue open while ancillary claims remain unresolved. By-design
+and duplicate closure retain their all-material-claims standards. Historical audit schema version 1 remains
+readable with `expectation=null` when the field was absent: reports display **not recorded**, never infer authority,
+and do not count an old bug tag as newly supported. Missing expectations cannot support new by-design or duplicate
+closures. Fresh-review validation rejects absent/null expectations.
+No historical entries, seals, hashes or scores are automatically rewritten or migrated. Use a fresh run directory
+for the new policy. Reported bug counts and expectation-category counts are not accuracy measurements.
 
 For crashes, import resolution, performance, packaging, and language-service issues, use the relevant reproduction surface.
 Typing-spec analysis and mypy comparisons can be inapplicable; say why. Do not call a single CLI/test duration a meaningful

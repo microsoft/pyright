@@ -132,6 +132,17 @@ class BlindingTests(unittest.TestCase):
         self.assertTrue(summary["complete"])
         self.assertFalse(score(cases, [{"id": "case-a01", "error": "Interrupted"}])["complete"])
 
+    def test_more_bug_labels_are_not_automatically_reference_agreement(self):
+        cases = [reference(), reference(id="case-a02", issue_number=456, expected="bug", family="other")]
+        summary = score(cases, [
+            {"id": "case-a01", "verdict": "bug"}, {"id": "case-a02", "verdict": "bug"},
+        ])
+        self.assertEqual(summary["reference_agreements"], 1)
+        self.assertEqual(summary["false_bug_against_reference"], 1)
+        self.assertEqual(summary["bug_reference_cases"], 1)
+        self.assertEqual(summary["by_design_reference_cases"], 1)
+        self.assertIn("not ground truth", str(summary["interpretation"]))
+
     def test_resolved_results_need_evidence(self):
         with self.assertRaises(ValidationError):
             blind_findings(
@@ -226,6 +237,20 @@ class BenchmarkToolTests(unittest.IsolatedAsyncioTestCase):
         denied = await self.tools.write_scratch(invocation({"file": r"..\original\original.py", "content": "changed"}))
         self.assertEqual(denied.result_type, "failure")
         self.assertEqual((self.directory / "original" / "original.py").read_text(), report.repro_source)
+
+    async def test_stub_report_keeps_its_pyi_context_without_changing_original_source(self):
+        body = "```python\nfrom typing import overload\n@overload\ndef f(x: int) -> int: ...\n```"
+        report = make_report(reference(repro_block=1, repro_filename="original.pyi"), body, comments(), {123})
+        with patch("review_issues.process", new_callable=AsyncMock, return_value=(
+            1, '{"version":"1.1.414","generalDiagnostics":[]}', "",
+        )):
+            await run_baseline(report, self.directory)
+        original = self.directory / "original"
+        self.assertEqual((original / "original.pyi").read_text(), report.repro_source)
+        self.assertEqual(json.loads((original / "pyrightconfig.json").read_text())["include"], ["original.pyi"])
+        self.assertFalse((original / "original.py").exists())
+        result = await self.tools.write_scratch(invocation({"file": "control.pyi", "content": "value: int\n"}))
+        self.assertEqual(result.result_type, "success")
 
     async def test_mutated_capture_cannot_start_model_analysis(self):
         github = FakeGitHub()
@@ -348,6 +373,27 @@ class BenchmarkToolTests(unittest.IsolatedAsyncioTestCase):
             bundle.write_text("a different prepared bundle", encoding="utf-8")
             self.assertNotEqual(product_fingerprint(), original)
 
+    async def test_explicit_prepared_source_cli_is_hashed_and_used_for_originals_and_controls(self):
+        base = self.directory / "trusted-checkout" / "packages" / "pyright"
+        (base / "dist").mkdir(parents=True)
+        cli = base / "index.js"
+        cli.write_text("trusted wrapper", encoding="utf-8")
+        (base / "dist" / "pyright.js").write_text("trusted build", encoding="utf-8")
+        original_hash = product_fingerprint(cli)
+        self.assertIsInstance(original_hash, str)
+        report = make_report(reference(repro_block=1), "```python\nvalue: int = 'wrong'\n```", comments(), {123})
+        with patch("review_issues.process", new_callable=AsyncMock, return_value=(
+            1, '{"version":"1.1.414","generalDiagnostics":[]}', "",
+        )) as run:
+            await run_baseline(report, self.directory, cli)
+        self.assertEqual(run.call_args.args[0][1], str(cli))
+        tools = BenchmarkTools(self.scratch, self.directory, {123}, cli)
+        self.assertEqual(tools.source_cli, cli)
+        cli.write_text("changed wrapper", encoding="utf-8")
+        self.assertNotEqual(product_fingerprint(cli), original_hash)
+        with self.assertRaisesRegex(AutomationError, "index.js wrapper"):
+            product_fingerprint(base / "dist" / "pyright.js")
+
     async def test_oversized_reference_metadata_fails_without_a_pagination_loop(self):
         location = "https://typing.python.org/" + "\u03b1" * 2000
         self.tools.references[location] = "x"
@@ -368,7 +414,7 @@ class BenchmarkToolTests(unittest.IsolatedAsyncioTestCase):
             counterevidence="Control", falsification="Different result", limitations=[],
             checks=[Check(id="check", status="executed", command="node test", cwd="scratch", exit_code=1, observations="A diagnostic")],
             sources=[Source(id="spec", kind="typing_spec", location="https://typing.python.org/en/latest/spec/",
-                            finding="Rule", applicability="Relevant")],
+                            finding="An assignment rule", applicability="Relevant")],
         )
         with self.assertRaises(AutomationError):
             validate_findings(findings, [])
@@ -376,9 +422,25 @@ class BenchmarkToolTests(unittest.IsolatedAsyncioTestCase):
                   "stdout": '{"version":"1.1.414","generalDiagnostics":[]}'}
         with self.assertRaises(AutomationError):
             validate_findings(findings, [record])
+        with self.assertRaisesRegex(AutomationError, "exact excerpt"):
+            validate_findings(findings, [
+                record, {"tool": "read_reference", "location": "https://typing.python.org/en/latest/spec/", "content": "Rule"},
+            ])
         validate_findings(findings, [
-            record, {"tool": "read_reference", "location": "https://typing.python.org/en/latest/spec/", "content": "Rule"},
+            record, {"tool": "read_reference", "location": "https://typing.python.org/en/latest/spec/", "content": "An assignment rule"},
         ])
+
+    async def test_source_location_prose_is_rejected_with_actionable_exact_receipt_guidance(self):
+        findings = blind_findings()
+        findings.sources[0].location += " - Assignment rules"
+        records: list[JsonValue] = [
+            {"kind": "pyright", "command": "node pyright.js", "cwd": "scratch", "exit_code": 1,
+             "stdout": '{"version":"1.1.414","generalDiagnostics":[]}'},
+            {"tool": "read_reference", "location": "https://typing.python.org/en/latest/spec/",
+             "content": "An assignment rule"},
+        ]
+        with self.assertRaisesRegex(AutomationError, "Copy Source.location exactly"):
+            validate_findings(findings, records)
 
     async def test_blinded_report_cannot_fabricate_history_or_release_execution(self):
         findings = blind_findings(historical_searches=audit().historical_searches)

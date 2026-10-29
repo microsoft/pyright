@@ -114,6 +114,14 @@ def audit() -> Audit:
             "basis": "An applicable rule explains this diagnostic", "source_ids": ["spec"],
             "counterevidence": "Runtime acceptance does not prove a static assignment",
             "falsification": "A different applicable assignment rule", "user_impact": "A clearer diagnostic could help",
+            "expectation": {
+                "kind": "mandatory_rule", "expected_behavior": "Reject the incompatible assignment",
+                "reason": "The applicable assignment requirement establishes this expectation",
+                "evidence": [{
+                    "source_id": "spec", "authority": "typing_requirement", "excerpt": "An assignment rule",
+                    "application": "This fixture's assignment has the rule's incompatible types",
+                }],
+            },
         }],
         "checks": [{
             "id": "check", "status": "executed", "command": "node pyright.js",
@@ -1183,7 +1191,7 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
                 session = AsyncMock()
                 session.session_id = "capability-test"
                 session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.profile.name))
-                active = ["view", "glob", "web_fetch", "github_read", "run_check", *variants]
+                active = ["view", "glob", "web_fetch", *[tool.name for tool in tools.tools], *variants]
                 session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(
                     tools=[SimpleNamespace(name=name) for name in active],
                 )
@@ -1201,7 +1209,7 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
     async def test_sdk_rejects_missing_capabilities_and_unexpected_tools_before_inference(self):
         scratch = Path(self.temporary.name)
         tools = InvestigationTools(self.github, scratch, ROOT / "packages" / "pyright" / "index.js", {})
-        complete = {"view", "glob", "web_fetch", "github_read", "run_check", "rg", "apply_patch"}
+        complete = {"view", "glob", "web_fetch", *[tool.name for tool in tools.tools], "rg", "apply_patch"}
         for active in (
             complete - {"rg"}, complete - {"apply_patch"}, complete - {"run_check"}, complete | {"powershell"},
             complete - {"apply_patch"} | {"create"},

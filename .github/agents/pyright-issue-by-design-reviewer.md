@@ -79,6 +79,19 @@ and output contract. A by-design claim is a hypothesis to test, not a preferred 
     demonstrate a concern, but not automatically a mandatory typing-rule violation. Distinguish that from an
     established intended-behavior contract and optional diagnostic/analysis coverage. An unsupported conclusion
     remains qualified or inconclusive; absence of a mandatory rule is still not by-design proof.
+-   Give every fresh claim a non-null `expectation`: `mandatory_rule`, `intended_behavior`, `additional_analysis`,
+    or `unresolved`, independent of its disposition, confidence and reproduction. State the expected behavior and
+    category reason. Each evidence item references that claim's source, retains an exact excerpt in `Source.finding`,
+    and applies the rule's premises or accepted decision to the exact settings, versions and context.
+    `typing_requirement` uses the typing spec; `language_requirement` uses Python language documentation without
+    overriding static typing requirements. `accepted_policy` must identify its `intent_basis`: a documented
+    contract, verified regression test or actual maintainer decision, with acceptance, chronology and scope.
+    Today's implementation alone is `behavior_only`, a proposed repair is `proposal`, and runtime/mypy parity
+    is `comparison`; none independently establishes intent. Desirable extra analysis without an established
+    requirement or intent is an enhancement, or inconclusive if those alternatives remain unresolved.
+    Do not promote a proposed PR into policy or treat an unenumerated spelling alone as a missing rule:
+    applicable rules can compose. One evidenced bug can keep the issue open with ancillary uncertainty,
+    but all material claims must still meet the existing by-design/duplicate closure standards.
 -   Challenge the preferred interpretation with a nearby valid and invalid case or a discriminating counterexample.
     State what would falsify the conclusion. Do not manufacture a counterexample when decisive rules already settle it.
 -   Acknowledge real user impact even when behavior is intentional. An intentional false positive can justify an
