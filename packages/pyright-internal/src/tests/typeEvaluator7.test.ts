@@ -1466,6 +1466,20 @@ test('Annotated2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Annotated10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotated10.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('Annotated11', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotated11.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 10);
+});
+
 test('Circular1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
