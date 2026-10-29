@@ -1288,6 +1288,22 @@ test('StaticExpression2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('StaticExpression3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_8;
+    configOptions.defaultPythonPlatform = 'windows';
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['staticExpression3.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 3);
+
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    configOptions.defaultPythonPlatform = 'Linux';
+
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['staticExpression3.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 0);
+});
+
 test('StaticExpressionLiteral1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['staticExpressionLiteral1.py']);
 
