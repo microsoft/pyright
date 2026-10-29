@@ -27618,9 +27618,18 @@ export function createTypeEvaluator(
                 const overloads = OverloadedType.getOverloads(concreteSrcType);
                 const filteredOverloads: FunctionType[] = [];
                 const typeVarSignatures: ConstraintSet[] = [];
+                const overloadScopeIds = overloads.map((overload) => getTypeVarScopeId(overload) ?? '');
 
-                overloads.forEach((overload) => {
-                    const overloadScopeId = getTypeVarScopeId(overload) ?? '';
+                overloads.forEach((overload, index) => {
+                    // Overloads that were produced by solving a ParamSpec share a
+                    // scope ID, so add the index to keep their signatures separate.
+                    let overloadScopeId = overloadScopeIds[index];
+                    if (
+                        overloadScopeId &&
+                        overloadScopeIds.indexOf(overloadScopeId) !== overloadScopeIds.lastIndexOf(overloadScopeId)
+                    ) {
+                        overloadScopeId = `${overloadScopeId}-${index}`;
+                    }
                     const constraintsClone = constraints?.cloneWithSignature(overloadScopeId);
 
                     if (assignType(destType, overload, /* diag */ undefined, constraintsClone, flags, recursionCount)) {
