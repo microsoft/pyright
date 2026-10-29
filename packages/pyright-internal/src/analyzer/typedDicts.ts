@@ -74,6 +74,7 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     specializeTupleClass,
+    synthesizeTypeVarForSelfCls,
 } from './typeUtils';
 
 // Creates a new custom TypedDict "alternate syntax" factory class.
@@ -675,6 +676,47 @@ export function synthesizeTypedDictClassMethods(
             return OverloadedType.create([updateMethod2, updateMethod1, updateMethod3]);
         }
 
+        function createOrMethod(methodName: string, strType: Type, isInPlace: boolean): OverloadedType {
+            const selfType = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false);
+            const orSelfParam = FunctionParam.create(
+                ParamCategory.Simple,
+                selfType,
+                FunctionParamFlags.TypeDeclared,
+                'self'
+            );
+            const partialType = allEntriesAreReadOnly
+                ? NeverType.createNever()
+                : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType));
+
+            const createOverload = (valueType: Type, returnType: Type) => {
+                const method = FunctionType.createSynthesizedInstance(methodName, FunctionTypeFlags.Overloaded);
+                FunctionType.addParam(method, orSelfParam);
+                FunctionType.addParam(
+                    method,
+                    FunctionParam.create(ParamCategory.Simple, valueType, FunctionParamFlags.TypeDeclared, 'value')
+                );
+                FunctionType.addPositionOnlyParamSeparator(method);
+                method.shared.declaredReturnType = returnType;
+                return method;
+            };
+
+            // In addition to the overloads in typeshed, accept a partial TypedDict
+            // so a dict expression can provide a subset of the writable entries.
+            const overloads = [createOverload(selfType, selfType), createOverload(partialType, selfType)];
+
+            const dictType = evaluator.getBuiltInObject(node, 'dict', [strType, AnyType.create()]);
+            if (!isInPlace && isClassInstance(dictType)) {
+                overloads.push(
+                    createOverload(
+                        dictType,
+                        evaluator.getBuiltInObject(node, 'dict', [strType, evaluator.getObjectType()])
+                    )
+                );
+            }
+
+            return OverloadedType.create(overloads);
+        }
+
         const getOverloads: FunctionType[] = [];
         const popOverloads: FunctionType[] = [];
         const setDefaultOverloads: FunctionType[] = [];
@@ -760,6 +802,19 @@ export function synthesizeTypedDictClassMethods(
         }
 
         symbolTable.set('update', Symbol.createWithType(SymbolFlags.ClassMember, createUpdateMethod()));
+
+        symbolTable.set(
+            '__or__',
+            Symbol.createWithType(SymbolFlags.ClassMember, createOrMethod('__or__', strType, false))
+        );
+        symbolTable.set(
+            '__ror__',
+            Symbol.createWithType(SymbolFlags.ClassMember, createOrMethod('__ror__', strType, false))
+        );
+        symbolTable.set(
+            '__ior__',
+            Symbol.createWithType(SymbolFlags.ClassMember, createOrMethod('__ior__', strType, true))
+        );
 
         // If the TypedDict is closed and all of its entries are NotRequired and
         // not ReadOnly, add a "clear" and "popitem" method.
@@ -903,6 +958,15 @@ export function getTypedDictMembersForClass(
             ...extraItems,
             valueType: applySolvedTypeVars(extraItems.valueType, solution),
         };
+
+        // Apply the same "Partial" conversion to the extra items.
+        if (classType.priv.isTypedDictPartial) {
+            if (extraItems.isReadOnly) {
+                extraItems.valueType = NeverType.createNever();
+            } else {
+                extraItems.isReadOnly = true;
+            }
+        }
     }
 
     return { knownItems: entries, extraItems };

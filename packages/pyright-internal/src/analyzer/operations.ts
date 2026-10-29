@@ -337,7 +337,7 @@ export function getTypeOfBinaryOperation(
             // If this is a bitwise or ("|"), use the type of the left operand. This allows
             // us to support the case where a TypedDict is being updated with a dict expression.
             if (isClassInstance(leftType) && ClassType.isTypedDictClass(leftType)) {
-                expectedOperandType = leftType;
+                expectedOperandType = getTypedDictUpdateType(leftType);
             }
         }
     }
@@ -528,7 +528,10 @@ export function getTypeOfAugmentedAssignment(
     if (node.d.operator === OperatorType.BitwiseOrEqual) {
         // If this is a bitwise or ("|="), use the type of the left operand. This allows
         // us to support the case where a TypedDict is being updated with a dict expression.
-        expectedOperandType = leftType;
+        expectedOperandType =
+            isClassInstance(leftType) && ClassType.isTypedDictClass(leftType)
+                ? getTypedDictUpdateType(leftType)
+                : leftType;
     }
 
     const rightTypeResult = evaluator.getTypeOfExpression(
@@ -1156,6 +1159,16 @@ export function customMetaclassSupportsMethod(type: Type, methodName: string): b
     }
 
     return true;
+}
+
+// Returns the expected type for a dict expression used to update a TypedDict
+// with "|" or "|=". It may provide all entries or any subset of the
+// (unnarrowed) writable entries.
+function getTypedDictUpdateType(typedDictType: ClassType): Type {
+    return combineTypes([
+        typedDictType,
+        ClassType.cloneForPartialTypedDict(ClassType.cloneForNarrowedTypedDictEntries(typedDictType, undefined)),
+    ]);
 }
 
 // All functions in Python derive from object, so they inherit all
