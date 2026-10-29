@@ -23,9 +23,11 @@ from issue_review_classifier import (
     ChoiceClassification,
     ChoiceClassifier,
     ClassificationAuthenticationError,
+    ClassificationConnectionError,
     ClassificationError,
     ClassificationHTTPError,
     ClassificationResponseError,
+    ClassificationTimeoutError,
 )
 from issue_review_decision import ENVIRONMENT, MicrosoftDecisionClassifier
 from issue_review_models import Record, Text
@@ -248,6 +250,7 @@ class InjectionScreening:
             "chunking_version": 1, "max_evidence_bytes": MAX_EVIDENCE_BYTES, "max_parts": MAX_SCREENING_PARTS,
             "part_overlap": PART_OVERLAP, "part_context": PART_CONTEXT,
             "document_reuse_version": 1,
+            "transient_retry_version": 1,
             "max_state_bytes": MAX_STATE_BYTES,
             "console_scope": SCREENING_SCOPE,
         }, sort_keys=True).encode()).hexdigest()
@@ -283,17 +286,27 @@ class InjectionScreening:
                             {"content": text}, name="prompt_injection", instructions=INSTRUCTIONS, criteria=CRITERIA,
                             timeout=REQUEST_TIMEOUT,
                         )
-                except ClassificationHTTPError as error:
-                    if error.status != 429 or retried:
+                except (ClassificationHTTPError, ClassificationConnectionError, ClassificationTimeoutError, TimeoutError) as error:
+                    transient = not isinstance(error, ClassificationHTTPError) or error.status in {429, 500, 502, 503, 504}
+                    if not transient or retried:
                         raise
-                    delay = max(1, error.retry_after if error.retry_after is not None else DEFAULT_RETRY_DELAY)
+                    delay = 2
+                    if isinstance(error, ClassificationHTTPError):
+                        if error.retry_after is not None:
+                            delay = max(1, error.retry_after)
+                        elif error.status == 429:
+                            delay = DEFAULT_RETRY_DELAY
                     if delay >= deadline - loop.time():
                         raise
                     retried = True
                     if audit is not None:
                         audit["retry_wait_seconds"] = delay
+                        audit["retry_error_type"] = type(error).__name__
+                        if isinstance(error, ClassificationHTTPError):
+                            audit["retry_http_status"] = error.status
+                    detail = f"HTTP {error.status}" if isinstance(error, ClassificationHTTPError) else type(error).__name__
                     print(
-                        f"[classifier] HTTP 429; waiting {delay:g}s before one retry "
+                        f"[classifier] {detail}; waiting {delay:g}s before one retry "
                         f"({SCREENING_TIMEOUT}s total screening limit).",
                         flush=True,
                     )

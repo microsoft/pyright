@@ -24,7 +24,7 @@ from datetime import datetime
 from itertools import combinations, product
 from pathlib import Path, PureWindowsPath
 from types import TracebackType
-from typing import Literal, Protocol
+from typing import Literal, ParamSpec, Protocol, TypeVar
 from urllib.parse import urlparse
 from urllib.request import HTTPRedirectHandler, build_opener
 
@@ -42,6 +42,23 @@ REGISTRIES = (NPM_REGISTRY, MICROSOFT_REGISTRY)
 MICROSOFT_FEED = "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry"
 UPSTREAM = "https://github.com/microsoft/pyright.git"
 MAX_DOWNLOAD = 128 * 1024 * 1024
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+async def run_target_io(operation: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+    worker = asyncio.create_task(asyncio.to_thread(operation, *args, **kwargs))
+    try:
+        return await asyncio.shield(worker)
+    except asyncio.CancelledError:
+        # A filesystem worker cannot be stopped; join it before cleanup or releasing a cache lock.
+        completion = asyncio.gather(worker, return_exceptions=True)
+        while not completion.done():
+            try:
+                await asyncio.shield(completion)
+            except asyncio.CancelledError:
+                continue
+        raise
 
 
 class ReleaseCatalog(BaseModel):
@@ -179,26 +196,44 @@ class ReportedVersion(Protocol):
     def version_quote(self) -> str | None: ...
 
 
+def reported_pyright_versions(report: str) -> list[tuple[str, str]]:
+    return [
+        (match[1], match[0])
+        for match in re.finditer(r"(?i)pyright[^\n]{0,50}?\b(1\.\d+\.\d+)\b", report)
+    ]
+
+
 def select_targets(
     catalog: ReleaseCatalog | dict, issue: Issue, scenario: ReportedVersion, discussion: str, main_sha: str,
-    *, registry: str = NPM_REGISTRY,
+    *, registry: str = NPM_REGISTRY, partial_observations: bool = False,
 ) -> list[ReproductionTarget]:
     registry = registry_base(registry)
     catalog = ReleaseCatalog.model_validate(catalog)
     if not SHA.fullmatch(main_sha):
         raise ValueError("Upstream main must be pinned to a full commit SHA")
-    report = (issue.title + "\n" + (issue.body or "") + "\n" + discussion)
-    explicit = scenario.reported_version
-    # Catch an omitted explicit version rather than silently preferring a date approximation.
-    reported = set(re.findall(r"(?i)pyright[^\n]{0,50}?\b(1\.\d+\.\d+)\b", report))
-    if explicit is not None:
-        if (
-            not VERSION.fullmatch(explicit) or not scenario.version_quote or scenario.version_quote not in report
-            or explicit not in scenario.version_quote or (reported and explicit not in reported)
-        ):
-            raise ValueError("Explicit reported version has no matching report evidence")
-        version, reason, approximate = explicit, "Explicitly reported Pyright version: " + scenario.version_quote, False
-    else:
+    def published(role: Literal["historical", "latest"], selected: str | None, why: str, approx: bool) -> ReproductionTarget:
+        try:
+            if not selected:
+                raise ValueError("Latest publication is unavailable")
+            return release_target(catalog, role, selected, why, approx, registry=registry)
+        except ValueError as error:
+            return ReproductionTarget(
+                role=role, identity=f"npm:pyright@{selected or 'unavailable'}", version=selected or "unavailable",
+                source=f"{registry}/pyright", registry=registry,
+                selection_reason=why, approximate=approx, status="blocked", error=str(error),
+            )
+
+    def historical() -> ReproductionTarget:
+        report = issue.title + "\n" + (issue.body or "") + "\n" + discussion
+        explicit = scenario.reported_version
+        reported = {version for version, _ in reported_pyright_versions(report)}
+        if explicit is not None:
+            if (
+                not VERSION.fullmatch(explicit) or not scenario.version_quote or scenario.version_quote not in report
+                or explicit not in scenario.version_quote or (reported and explicit not in reported)
+            ):
+                raise ValueError("Explicit reported version has no matching report evidence")
+            return published("historical", explicit, "Explicitly reported Pyright version: " + scenario.version_quote, False)
         if reported:
             raise ValueError("Report names a Pyright version; historical approximation is not allowed")
         if not issue.created_at:
@@ -212,24 +247,23 @@ def select_targets(
         if not available:
             raise ValueError("No published Pyright release exists on/before issue creation")
         _, version = max(available)
-        reason = (
+        return published("historical", version, (
             f"Newest actual npm publication on/before issue creation {issue.created_at}; "
             "approximate historical target, not the reporter's exact binary"
+        ), True)
+
+    try:
+        historical_target = historical()
+    except ValueError as error:
+        if not partial_observations:
+            raise
+        historical_target = ReproductionTarget(
+            role="historical", identity="historical:unresolved", version="unavailable",
+            source=f"{registry}/pyright", registry=registry, approximate=False, status="blocked",
+            selection_reason="Historical target unresolved; independent diagnostic experiments only", error=str(error),
         )
-        approximate = True
-    def published(role: Literal["historical", "latest"], selected: str | None, why: str, approx: bool) -> ReproductionTarget:
-        try:
-            if not selected:
-                raise ValueError("Latest publication is unavailable")
-            return release_target(catalog, role, selected, why, approx, registry=registry)
-        except ValueError as error:
-            return ReproductionTarget(
-                role=role, identity=f"npm:pyright@{selected or 'unavailable'}", version=selected or "unavailable",
-                source=f"{registry}/pyright", registry=registry,
-                selection_reason=why, approximate=approx, status="blocked", error=str(error),
-            )
     return [
-        published("historical", version, reason, approximate),
+        historical_target,
         ReproductionTarget(
             role="main", identity=main_sha, version="pending build", source=UPSTREAM, registry=registry,
             selection_reason="Actual upstream microsoft/pyright main pinned by GitHub commits/main",
@@ -561,6 +595,29 @@ def classify(
     return "reproduced" if "reproduced" in outcomes else "not_reproduced"
 
 
+def extract_package(data: bytes, runtime: Path) -> None:
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
+        total = 0
+        for member in archive.getmembers():
+            path = Path(member.name)
+            if (
+                not member.isfile() and not member.isdir() or path.anchor
+                or ".." in path.parts or ":" in member.name or "\\" in member.name
+                or not path.parts or path.parts[0] != "package"
+            ):
+                raise ValueError("Unsafe package archive entry")
+            if member.isfile():
+                total += member.size
+                if total > MAX_DOWNLOAD * 4:
+                    raise ValueError("Expanded checker package exceeds the bound")
+                destination = runtime.joinpath(*path.parts[1:])
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                source = archive.extractfile(member)
+                if source is None:
+                    raise ValueError("Package file has no contents")
+                destination.write_bytes(source.read())
+
+
 def remove_owned_directory(directory: Path) -> None:
     def retry_readonly(
         operation: Callable[..., object], name: str,
@@ -691,7 +748,7 @@ class TargetStore:
             if key in self._failures:
                 raise ValueError(self._failures[key])
             if metadata.exists():
-                self.restore(target)
+                await run_target_io(self.restore, target)
                 return
             base.mkdir(parents=True, exist_ok=True)
             work = base / uuid.uuid4().hex
@@ -735,7 +792,7 @@ class TargetStore:
                         archive_path = work / name
                         if archive_path.is_symlink() or archive_path.stat().st_size > MAX_DOWNLOAD:
                             raise ValueError("Trusted artifact exceeds the download bound or is a link")
-                        data = archive_path.read_bytes()
+                        data = await run_target_io(archive_path.read_bytes)
                     target.artifact_sha512 = "sha512-" + base64.b64encode(hashlib.sha512(data).digest()).decode()
                     if target.integrity and target.integrity.startswith("sha512-"):
                         observed_integrity = target.artifact_sha512
@@ -748,26 +805,7 @@ class TargetStore:
                     })
                     if observed_integrity != target.integrity:
                         raise ValueError("Published checker package failed integrity verification")
-                    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
-                        total = 0
-                        for member in archive.getmembers():
-                            path = Path(member.name)
-                            if (
-                                not member.isfile() and not member.isdir() or path.anchor
-                                or ".." in path.parts or ":" in member.name or "\\" in member.name
-                                or not path.parts or path.parts[0] != "package"
-                            ):
-                                raise ValueError("Unsafe package archive entry")
-                            if member.isfile():
-                                total += member.size
-                                if total > MAX_DOWNLOAD * 4:
-                                    raise ValueError("Expanded checker package exceeds the bound")
-                                destination = runtime.joinpath(*path.parts[1:])
-                                destination.parent.mkdir(parents=True, exist_ok=True)
-                                source = archive.extractfile(member)
-                                if source is None:
-                                    raise ValueError("Package file has no contents")
-                                destination.write_bytes(source.read())
+                    await run_target_io(extract_package, data, runtime)
                 else:
                     if target.source != UPSTREAM or not SHA.fullmatch(target.identity):
                         raise ValueError("Main target must be the trusted upstream pinned commit")
@@ -788,8 +826,8 @@ class TargetStore:
                     ], work, log)
                     # Only this known upstream project script runs, never a reporter-supplied command.
                     await self.command([pnpm, "--dir", str(Path("packages") / "pyright"), "run", "webpack"], work, log)
-                    shutil.copytree(work / "packages" / "pyright" / "dist", runtime / "dist")
-                    shutil.copyfile(work / "packages" / "pyright" / "index.js", runtime / "index.js")
+                    await run_target_io(shutil.copytree, work / "packages" / "pyright" / "dist", runtime / "dist")
+                    await run_target_io(shutil.copyfile, work / "packages" / "pyright" / "index.js", runtime / "index.js")
                 # The upstream package entrypoint initializes discovery of its bundled typeshed.
                 cli = runtime / "index.js"
                 if not cli.is_file() or not (runtime / "dist" / "pyright.js").is_file():
@@ -802,7 +840,7 @@ class TargetStore:
                     raise ValueError("Checker version differs from the integrity-verified package")
                 target.version = observed
                 target.directory, target.cli = str(runtime), str(cli)
-                target.tree_hash, target.status = tree_hash(runtime), "ready"
+                target.tree_hash, target.status = await run_target_io(tree_hash, runtime), "ready"
                 metadata.write_text(target.model_dump_json(indent=2), encoding="utf-8")
                 prepared = True
             except (OSError, ValueError, TimeoutError, tarfile.TarError) as error:
@@ -813,11 +851,11 @@ class TargetStore:
             finally:
                 try:
                     if work_created:
-                        remove_owned_directory(work)
+                        await run_target_io(remove_owned_directory, work)
                 finally:
                     try:
                         if runtime_created and not prepared:
-                            remove_owned_directory(runtime)
+                            await run_target_io(remove_owned_directory, runtime)
                     finally:
                         (base / f"preparation-{work.name}.json").write_text(json.dumps({
                             "target": target.model_dump(), "commands": log,
@@ -829,7 +867,7 @@ class TargetStore:
     async def run_static(
         self, target: ReproductionTarget, inputs: dict[str, str], directory: Path,
     ) -> dict[str, JsonValue]:
-        self.verify(target)
+        await run_target_io(self.verify, target)
         directory.mkdir(parents=True, exist_ok=True)
         if any(directory.iterdir()):
             raise ValueError("Comparison probe needs a fresh isolated input directory")
@@ -837,7 +875,7 @@ class TargetStore:
             path = directory / relative_path(name)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding="utf-8", newline="\n")
-        before = tree_hash(directory)
+        before = await run_target_io(tree_hash, directory)
         command = [
             "node", target.cli or "", "--project", str(directory / "pyrightconfig.json"),
             "--outputjson", "--pythonpath", str(directory / "unavailable-python"),
@@ -851,8 +889,8 @@ class TargetStore:
         try:
             code, stdout, stderr = await self.runner(command, directory)
             record.update({"exit_code": code, "stdout": stdout, "stderr": stderr})
-            self.verify(target)
-            if tree_hash(directory) != before:
+            await run_target_io(self.verify, target)
+            if await run_target_io(tree_hash, directory) != before:
                 raise ValueError("Comparison inputs changed during checker execution")
         except (OSError, ValueError, TimeoutError) as error:
             record["error"] = str(error)

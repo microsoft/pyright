@@ -22,7 +22,7 @@ from issue_review_assessment_models import (
 )
 from issue_review_models import Issue, ReproductionScenario, ReproductionTarget
 from issue_review_reproduction import (
-    PredicateConflict, TargetStore, classify, fingerprint, observe_claims, relative_path, scenario_inputs,
+    PredicateConflict, TargetStore, classify, fingerprint, observe_claims, relative_path, run_target_io, scenario_inputs,
     static_stub_source_warning, tree_hash,
 )
 from issue_review_sources import (
@@ -531,14 +531,14 @@ class AssessmentController:
     async def discover(self, plan: DiscoveryPlan, store: TargetStore) -> AssessmentReceipt:
         self.require_discovery_plan(plan)
         target = plan.historical_target
-        store.verify(target)
+        await run_target_io(store.verify, target)
         workspace = self.directory / f"discovery-{plan.claim_id}" / "original"
         workspace.mkdir()
         for name, content in plan.inputs.items():
             path = workspace / relative_path(name)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding="utf-8", newline="\n")
-        before = tree_hash(workspace)
+        before = await run_target_io(tree_hash, workspace)
         command = [
             "node", target.cli or "", "--project", str(workspace / "pyrightconfig.json"),
             "--outputjson", "--pythonpath", str(workspace / "unavailable-python"),
@@ -557,9 +557,9 @@ class AssessmentController:
         try:
             code, stdout, stderr = await store.runner(command, workspace)
             raw.update(exit_code=code, stdout=stdout, stderr=stderr)
-            store.verify(target)
+            await run_target_io(store.verify, target)
             self.require_discovery_plan(plan)
-            if tree_hash(workspace) != before:
+            if await run_target_io(tree_hash, workspace) != before:
                 raise ValueError("Historical discovery inputs changed during execution")
         except (OSError, ValueError, TimeoutError) as error:
             raw["error"] = str(error)

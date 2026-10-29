@@ -43,6 +43,7 @@ from issue_review_models import (
     BlockedChallenge,
     DraftCheck,
     DuplicateCandidate,
+    DuplicateEvidence,
     DuplicateFindings,
     DuplicateReport,
     Entry,
@@ -241,6 +242,76 @@ class ContextTests(unittest.TestCase):
 
 
 class ModelTests(unittest.TestCase):
+    def test_supported_bug_survives_unresolved_unobserved_ancillary_claim(self):
+        report = audit()
+        report.claims[0].disposition = "bug"
+        ancillary = report.claims[0].model_copy(deep=True)
+        ancillary.id, ancillary.disposition, ancillary.confidence = "regression-history", "inconclusive", "low"
+        for reproduction in ancillary.reproduction:
+            reproduction.status, reproduction.check_ids = "blocked", []
+        report.claims.append(ancillary)
+        result = Adjudication(
+            issue_number=123, report_hash="hash", validity="bug", duplicate_status="no dupe found",
+            duplicate_of=None, rationale="Checkout bug observed; regression history remains unverified.",
+        )
+        result.validate_reports(report, no_duplicates())
+        self.assertTrue(report.observed_bug())
+        self.assertFalse(report.resolved_claims())
+        self.assertFalse(report.closure_candidate())
+        entry = Entry(input_hash="input", context_hash="context", issue=issue(), review=report,
+                      duplicates=no_duplicates(), adjudication=result)
+        self.assertIsNone(entry.closure_reason())
+        result.validity = "by design"
+        with self.assertRaises(ValueError):
+            result.validate_reports(report, no_duplicates())
+        result.validity = "bug"
+        for mutation in ("confidence", "observed", "surface"):
+            changed = report.model_copy(deep=True)
+            if mutation == "confidence":
+                changed.claims[0].confidence = "low"
+            elif mutation == "observed":
+                changed.claims[0].reproduction[2].status = "blocked"
+            else:
+                changed.product_surface = "language_server"
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                result.validate_reports(changed, no_duplicates())
+
+    def test_keep_current_requires_explicit_complete_canonical_evidence(self):
+        duplicates = no_duplicates()
+        duplicates.candidates = [DuplicateCandidate(
+            issue_number=456, relation="duplicate", confidence="high", shared_cause="Same established cause",
+            differences="Older report is broader", canonical_reason="The current issue is the focused maintained report",
+            canonical_issue_number=123, evidence=[DuplicateEvidence(
+                url="https://github.com/microsoft/pyright/issues/456", finding="Same cause in the raw-name subcase",
+            )],
+        )]
+        result = Adjudication(
+            issue_number=123, report_hash="hash", validity="by design", duplicate_status="keep current",
+            duplicate_of=None, rationale="Retain this report as canonical; do not close either report.",
+        )
+        result.validate_reports(audit(), duplicates)
+        entry = Entry(input_hash="input", context_hash="context", issue=issue(), review=audit(),
+                      duplicates=duplicates, adjudication=result)
+        self.assertIsNone(entry.closure_reason())
+        for mutation in ("incomplete", "unknown", "conflict", "unresolved", "no_link"):
+            changed = duplicates.model_copy(deep=True)
+            candidate = changed.candidates[0]
+            if mutation == "incomplete":
+                changed.search_complete = False
+            elif mutation == "unknown":
+                candidate.canonical_issue_number = None
+            elif mutation == "conflict":
+                candidate.canonical_issue_number = 456
+            elif mutation == "unresolved":
+                candidate.relation = "inconclusive"
+            else:
+                candidate.evidence[0].url = "https://example.test/unrelated"
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                result.validate_reports(audit(), changed)
+        result.duplicate_status, result.duplicate_of = "dupe", 456
+        with self.assertRaises(ValueError):
+            result.validate_reports(audit(), duplicates)
+
     def test_policy_disposition_and_target_reproduction_are_reported_independently(self):
         report = audit()
         report.claims[0].reproduction[2].status = "not_reproduced"
@@ -615,6 +686,80 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(summary["proposals"][0]["proposed_action"], "blocked")
         self.assertFalse(summary["proposals"][0]["by_design_closure_candidate"])
         self.assertEqual(self.github.mutations, [])
+
+    async def test_partial_bug_does_not_weaken_duplicate_closure_and_is_completed_triage(self):
+        self.duplicate_entry()
+        assert self.entry.review is not None
+        ancillary = self.entry.review.claims[0].model_copy(deep=True)
+        ancillary.id, ancillary.disposition, ancillary.confidence = "numpy-example", "inconclusive", "low"
+        self.entry.review.claims.append(ancillary)
+        self.assertIsNone(self.entry.closure_reason())
+        proposal = dry_run_proposal(ChunkResult(self.entry.issue, self.entry), rca_enabled=False, closure_only=True)
+        self.assertEqual(proposal["proposed_action"], "leave_open")
+        self.assertIn("Additional unresolved claims", str(proposal["blocking_reasons"]))
+        self.assertNotIn("RCA disabled", str(proposal["blocking_reasons"]))
+        result = ChunkResult(self.entry.issue, self.entry, proposal=proposal)
+        save_overnight_report(self.console.state, "context", [self.entry.issue], [result], read_only=True, finished=True)
+        report = json.loads((self.console.state / "overnight-report.json").read_text())
+        self.assertEqual(report["counts"]["keep_open_bug"], 1)
+        self.assertEqual(report["counts"]["needs_review"], 0)
+        self.assertEqual(report["counts"]["would_close"], 0)
+        self.assertEqual(report["issues"][0]["triage_category"], "keep_open_bug")
+        markdown = (self.console.state / "overnight-report.md").read_text()
+        self.assertIn("numpy-example", markdown)
+        self.assertIn("Next action", markdown)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_keep_current_adjudication_requires_actual_counterpart_and_discussion_reads(self):
+        self.duplicate_entry()
+        assert self.entry.duplicates is not None
+        self.entry.duplicates.candidates[0].canonical_issue_number = 123
+        self.entry.adjudication = None
+        result = Adjudication(
+            issue_number=123, report_hash=self.console.report_hash(self.entry), validity="bug",
+            duplicate_status="keep current", duplicate_of=None,
+            rationale="The focused current issue should remain canonical.",
+        )
+        self.console.sdk.run = AsyncMock(return_value=result.model_dump_json())
+        with self.assertRaisesRegex(AutomationError, "actual canonical issue and discussion reads"):
+            await self.console.adjudicate(self.entry)
+        path = self.console.directory(123) / "checks.jsonl"
+        with path.open("a", encoding="utf-8") as stream:
+            for operation, response in (("issue", self.github.canonical.model_dump(mode="json")), ("comments", [])):
+                stream.write(json.dumps({
+                    "investigator": "duplicates", "request": {"operation": operation, "number": 456},
+                    "result": response,
+                }) + "\n")
+        result.report_hash = self.console.report_hash(self.entry)
+        self.console.sdk.run = AsyncMock(return_value=result.model_dump_json())
+        await self.console.adjudicate(self.entry)
+        self.assertEqual(self.entry.adjudication, result)
+        self.assertIsNone(self.entry.closure_reason())
+        self.assertIn("Keep current", chunk_table([ChunkResult(self.entry.issue, self.entry)], rca_enabled=False))
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_overnight_distinguishes_service_failure_screening_and_missing_product_evidence(self):
+        for message, category in (
+            ("Classifier could not validate evidence (TimeoutError); analysis is blocked without override.",
+             "infrastructure_failure"),
+            ("Injection screening flagged; analysis is blocked without override.", "screening_blocked"),
+        ):
+            result = ChunkResult(self.entry.issue, None, "skipped", message)
+            save_overnight_report(self.console.state, "context", [self.entry.issue], [result], read_only=True, finished=True)
+            row = json.loads((self.console.state / "overnight-report.json").read_text())["issues"][0]
+            self.assertEqual(row["triage_category"], category)
+            self.assertEqual(row["blocking_reasons"], [message])
+            self.assertTrue(row["next_action"])
+        assert self.entry.review is not None
+        self.entry.review.product_surface = "language_server"
+        self.entry.review.claims[0].reproduction[2].status = "blocked"
+        save_evidence(self.console, self.entry, validity="needs investigation")
+        save_overnight_report(
+            self.console.state, "context", [self.entry.issue], [ChunkResult(self.entry.issue, self.entry)],
+            read_only=True, finished=True,
+        )
+        row = json.loads((self.console.state / "overnight-report.json").read_text())["issues"][0]
+        self.assertEqual(row["triage_category"], "reproduction_needed")
 
     async def test_non_interactive_mode_cannot_enable_publication(self):
         with self.assertRaisesRegex(AutomationError, "requires --dry-run"):

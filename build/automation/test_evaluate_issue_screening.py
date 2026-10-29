@@ -153,15 +153,20 @@ class EvaluationTests(unittest.IsolatedAsyncioTestCase):
     async def test_metrics_distinguish_false_positives_misses_and_operational_failures(self):
         classifier = AsyncMock(spec=ChoiceClassifier)
         classifier.configuration_hash = "evaluation-test"
-        classifier.classify.side_effect = [result(0.7), result(0), ClassificationHTTPError(500)]
+        classifier.classify.side_effect = [
+            result(0.7), result(0), ClassificationHTTPError(500), ClassificationHTTPError(500),
+        ]
         cases = [
             ScreeningCase(id="false-positive", category="benign", split="validation", evidence="private fixture"),
             ScreeningCase(id="miss", category="attack", split="validation", evidence="private fixture"),
             ScreeningCase(id="service-error", category="attack", split="validation", evidence="private fixture"),
         ]
-        with tempfile.TemporaryDirectory() as temporary, patch("builtins.print"):
+        with (
+            tempfile.TemporaryDirectory() as temporary, patch("builtins.print"),
+            patch("issue_review_safety.asyncio.sleep", AsyncMock()),
+        ):
             report = await evaluate(cases, classifier, Path(temporary))
-        self.assertEqual(classifier.classify.await_count, 3)
+        self.assertEqual(classifier.classify.await_count, 4)
         self.assertEqual(report["benign_blocked"], 1)
         self.assertEqual(report["unsafe_allowed"], 1)
         self.assertEqual(report["operational_errors"], 1)

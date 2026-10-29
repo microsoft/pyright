@@ -16,7 +16,7 @@ from issue_review_sources import (
     ArtifactEvidence, EvidenceSpan, FeatureProbeResult, MaterializedSetup, ReportDocument, ReportedSettingSelection, SettingChoice,
     SetupRequirement, SourceAssociation, SourceCapture, capture_sources, check_bundled_stub_capability,
     check_feature_capability, check_runtime_metadata, check_target_capability, inspect_requirements, materialize_setup,
-    reported_setting_qualifications, resolve_setup, source_document_settings, verify_capture, verify_materialized_setup, verify_span,
+    diagnostic_source_groups, reported_setting_qualifications, resolve_setup, source_document_settings, verify_capture, verify_materialized_setup, verify_span,
 )
 
 
@@ -82,6 +82,22 @@ def verify_fake_target(target: ReproductionTarget) -> None:
 
 
 class CaptureTests(unittest.TestCase):
+    def test_diagnostic_groups_do_not_combine_documents_or_same_filename_variants(self):
+        sources = capture(
+            '```python filename="same.py"\nfirst = 1\n```\n'
+            '```python filename="same.py"\nsecond = 2\n```\n',
+            ('```python filename="other.py"\nthird = 3\n```\n',),
+        )
+        groups = diagnostic_source_groups(sources)
+        self.assertEqual(len(groups), 3)
+        self.assertEqual([len(group) for group in groups], [1, 1, 1])
+        self.assertEqual([group[0].path for group in groups], ["same.py", "same.py", "other.py"])
+
+    def test_diagnostic_groups_reject_capture_limitations_and_do_not_truncate_specimens(self):
+        for body in ("```python\nunfinished\n", fence("x = 1\n") * 9):
+            with self.subTest(body=body), self.assertRaises(ValueError):
+                diagnostic_source_groups(capture(body))
+
     def test_playground_query_settings_have_exact_bounded_provenance_not_greedy_prose_values(self):
         reported = capture(
             "[Example](https://pyright-play.net/?pythonVersion=3%2E13&strict=true"

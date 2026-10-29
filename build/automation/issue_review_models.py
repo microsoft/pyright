@@ -140,6 +140,20 @@ class ReviewEvidence(Record):
             for claim in self.claims
         )
 
+    def observed_bug(self) -> bool:
+        return self.product_surface == "cli" and any(
+            claim.disposition == "bug" and claim.confidence != "low"
+            and any(item.target == "checkout" and item.status in {"reproduced", "not_reproduced"}
+                    for item in claim.reproduction)
+            for claim in self.claims
+        )
+
+    def resolved_claims(self) -> bool:
+        return self.observed_product() and all(
+            claim.confidence != "low" and claim.disposition in DESIGN_DISPOSITIONS | {"bug"}
+            for claim in self.claims
+        )
+
 
 class Audit(ReviewEvidence):
     schema_version: Literal[1]
@@ -189,6 +203,10 @@ class DuplicateCandidate(Record):
     shared_cause: Text
     differences: Text
     canonical_reason: Text
+    canonical_issue_number: int | None = Field(
+        default=None, gt=0,
+        description="Preferred canonical issue for an established duplicate; the current issue means retain it.",
+    )
     evidence: list[DuplicateEvidence] = Field(min_length=1)
 
 
@@ -209,6 +227,12 @@ class DuplicateReport(Record):
         numbers = [candidate.issue_number for candidate in self.candidates]
         if self.issue_number in numbers or len(set(numbers)) != len(numbers):
             raise ValueError("Duplicate candidates must be distinct from each other and the target")
+        for candidate in self.candidates:
+            if candidate.canonical_issue_number is not None and (
+                candidate.relation != "duplicate"
+                or candidate.canonical_issue_number not in {self.issue_number, candidate.issue_number}
+            ):
+                raise ValueError("Canonical preference must name one of the two established duplicate reports")
         return self
 
 
@@ -225,7 +249,7 @@ class Adjudication(Record):
     issue_number: int = Field(gt=0)
     report_hash: Text
     validity: Literal["by design", "bug", "needs investigation"]
-    duplicate_status: Literal["dupe", "no dupe found", "needs investigation"]
+    duplicate_status: Literal["dupe", "no dupe found", "keep current", "needs investigation"]
     duplicate_of: int | None
     rationale: Text
 
@@ -243,16 +267,12 @@ class Adjudication(Record):
             raise ValueError("Adjudication and investigations must refer to the same issue")
         if self.validity == "by design" and not (audit.closure_candidate() and audit.observed_product()):
             raise ValueError("By-design classification needs every claim to pass the observed high-confidence design gate")
-        if self.validity == "bug" and not (
-            audit.observed_product()
-            and any(claim.disposition == "bug" for claim in audit.claims)
-            and all(claim.confidence != "low" and claim.disposition in DESIGN_DISPOSITIONS | {"bug"}
-                    for claim in audit.claims)
-        ):
-            raise ValueError("Bug classification needs observed product evidence and resolved, non-low-confidence claims")
+        if self.validity == "bug" and not audit.observed_bug():
+            raise ValueError("Bug classification needs an observed, non-low-confidence bug claim")
         if self.duplicate_status == "dupe" and not any(
             candidate.issue_number == self.duplicate_of and candidate.relation == "duplicate"
             and candidate.confidence == "high"
+            and candidate.canonical_issue_number in {None, self.duplicate_of}
             and any(
                 evidence.url == f"https://github.com/{REPOSITORY}/issues/{self.duplicate_of}"
                 or evidence.url.startswith(f"https://github.com/{REPOSITORY}/issues/{self.duplicate_of}#")
@@ -266,6 +286,22 @@ class Adjudication(Record):
             and all(candidate.relation in {"related", "not_duplicate"} for candidate in duplicates.candidates)
         ):
             raise ValueError("No-dupe classification requires a completed bounded search without unresolved candidates")
+        if self.duplicate_status == "keep current" and not (
+            duplicates.search_complete and duplicates.searches
+            and any(candidate.relation == "duplicate" for candidate in duplicates.candidates)
+            and all(
+                candidate.relation in {"related", "not_duplicate"}
+                or candidate.relation == "duplicate" and candidate.confidence == "high"
+                and candidate.canonical_issue_number == self.issue_number
+                and any(
+                    evidence.url == f"https://github.com/{REPOSITORY}/issues/{candidate.issue_number}"
+                    or evidence.url.startswith(f"https://github.com/{REPOSITORY}/issues/{candidate.issue_number}#")
+                    for evidence in candidate.evidence
+                )
+                for candidate in duplicates.candidates
+            )
+        ):
+            raise ValueError("Keeping the current canonical issue needs a completed, source-linked shared-cause search")
 
     def tags(self) -> str:
         duplicate = f"dupe of #{self.duplicate_of}" if self.duplicate_status == "dupe" else self.duplicate_status
@@ -640,12 +676,9 @@ class RootCause(Record):
         )
 
 
-class DiagnosticObservations(Record):
-    input_hash: Text
-    discussion_hash: Text
+class DiagnosticObservationCase(Record):
     directory: Text
-    action_ineligible: Literal[True] = True
-    faithful_reproduction: Literal[False] = False
+    source_ids: list[str] = Field(default_factory=list, max_length=30)
     status: Literal["running", "captured", "blocked"] = "running"
     reported_version: str | None = None
     version_quote: str | None = None
@@ -654,6 +687,14 @@ class DiagnosticObservations(Record):
     configuration_qualifications: list[str] = Field(default_factory=list, max_length=258)
     receipts: list[dict[str, JsonValue]] = Field(default_factory=list, max_length=3)
     error: str | None = None
+
+
+class DiagnosticObservations(DiagnosticObservationCase):
+    input_hash: Text
+    discussion_hash: Text
+    action_ineligible: Literal[True] = True
+    faithful_reproduction: Literal[False] = False
+    cases: list[DiagnosticObservationCase] = Field(default_factory=list, max_length=8)
 
 
 class Entry(Record):
@@ -688,6 +729,10 @@ class Entry(Record):
             return None
         self.adjudication.validate_reports(self.review, self.duplicates)
         if "needs investigation" in {self.adjudication.validity, self.adjudication.duplicate_status}:
+            return None
+        if self.adjudication.duplicate_status == "keep current":
+            return None
+        if self.adjudication.validity == "bug" and not self.review.resolved_claims():
             return None
         if self.adjudication.duplicate_status == "dupe":
             return "duplicate"

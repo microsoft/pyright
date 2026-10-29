@@ -166,6 +166,7 @@ class MaterializedSetup(CapturedRecord):
     associations: tuple[SourceAssociation, ...] = Field(max_length=30)
     inferred_paths: tuple[Label, ...] = Field(max_length=30)
     limitations: tuple[SourceLimitation, ...] = Field(max_length=256)
+    separate_checker_targets: bool = False
     hashes: dict[str, str] = Field(max_length=32)
     digest: Digest
 
@@ -676,8 +677,11 @@ def _selected_declarations(
 ) -> list[ReportedDeclaration]:
     if len(selections) > 2 or len({item.setting for item in selections}) != len(selections):
         raise ValueError("Reported setting selections must be unique and bounded")
+    if not selections:
+        return list(capture.declarations)
     chosen: dict[str, set[str]] = {}
     by_id = {item.id: item for item in capture.declarations}
+    units = {item.id: _declaration_unit(capture, item) for item in capture.declarations}
     for selection in selections:
         verify_span(capture, selection.context)
         identifiers = set(selection.declaration_ids)
@@ -690,13 +694,13 @@ def _selected_declarations(
             for item in selected
         ):
             raise ValueError("Reported setting selection must match its setting and exact captured context")
-        unit = _declaration_unit(capture, selected[0])
-        if any(_declaration_unit(capture, item) != unit for item in selected):
+        unit = units[selected[0].id]
+        if any(units[item.id] != unit for item in selected):
             raise ValueError("Select one complete reported configuration, URL or prose paragraph per setting")
         required = {
             item.id for item in capture.declarations if item.setting == selection.setting
             and (
-                _declaration_unit(capture, item) == unit
+                units[item.id] == unit
                 or item.evidence.document_id == selection.context.document_id
                 and selection.context.start < item.evidence.end and item.evidence.start < selection.context.end
             )
@@ -706,16 +710,17 @@ def _selected_declarations(
         if any(not item.supported for item in capture.declarations if item.setting == selection.setting):
             raise ValueError("Reported setting selection cannot bypass unsupported or invalid reported declarations")
         chosen[selection.setting] = identifiers
-    for selection in selections:
-        unit = _declaration_unit(capture, by_id[selection.declaration_ids[0]])
-        if any(
-            item.setting in chosen and item.id not in chosen[item.setting]
-            and _declaration_unit(capture, item) == unit for item in capture.declarations
-        ):
-            raise ValueError("Reported settings from one configuration must stay together; no hybrid original/control setup")
-    return [
+    remaining = [
         item for item in capture.declarations if item.setting not in chosen or item.id in chosen[item.setting]
     ]
+    retained = {item.id for item in remaining}
+    retained_units = {units[item.id] for item in remaining if item.setting in {"pythonVersion", "typeCheckingMode"}}
+    if any(
+        item.setting in {"pythonVersion", "typeCheckingMode"} and item.id not in retained
+        and units[item.id] in retained_units for item in capture.declarations
+    ):
+        raise ValueError("Reported settings from one configuration must stay together; no hybrid original/control setup")
+    return remaining
 
 
 def source_document_settings(capture: SourceCapture, source_id: str) -> list[ReportedSettingSelection]:
@@ -751,6 +756,94 @@ def source_document_settings(capture: SourceCapture, source_id: str) -> list[Rep
     return selected
 
 
+def _target_setting_value(declaration: ReportedDeclaration) -> JsonValue:
+    if declaration.declaration_kind == "interpreter_version" and declaration.supported:
+        return ".".join(str(declaration.value).split(".")[:2])
+    return declaration.value
+
+
+def diagnostic_setting_profiles(capture: SourceCapture, source_id: str) -> list[list[ReportedSettingSelection]]:
+    """Enumerate conditional captured contexts, never infer original/control roles or cross-product settings."""
+    base = source_document_settings(capture, source_id)
+    source = next(item for item in capture.blocks if item.id == source_id)
+    settings = ("pythonVersion", "typeCheckingMode")
+    local = [
+        item for item in capture.declarations
+        if item.setting in settings and item.evidence.document_id == source.document_id
+    ]
+    conflicting = {
+        setting for setting in settings
+        if len({fingerprint(item.value) for item in local if item.setting == setting}) > 1
+    }
+    if not conflicting or any(
+        not item.supported for item in capture.declarations if item.setting in settings
+    ):
+        return [base]
+    by_unit: dict[tuple[str, int, int], list[ReportedDeclaration]] = {}
+    for item in local:
+        by_unit.setdefault(_declaration_unit(capture, item), []).append(item)
+    profiles: dict[str, tuple[int, list[ReportedSettingSelection]]] = {}
+    priority = {"literal_setting": 0, "checker_cli": 1, "playground_query": 2, "interpreter_version": 3}
+    for (document_id, start, end), declarations in sorted(by_unit.items()):
+        if not any(item.setting in conflicting for item in declarations):
+            continue
+        if end - start > 4096:
+            return [base]
+        document = next(item for item in capture.documents if item.id == document_id)
+        selections = [selection for selection in base if selection.setting not in {item.setting for item in declarations}]
+        for setting in settings:
+            values = [item for item in declarations if item.setting == setting]
+            if values:
+                selections.append(ReportedSettingSelection(
+                    setting=setting, declaration_ids=tuple(item.id for item in values),
+                    context=EvidenceSpan(document_id=document_id, start=start, end=end, quote=document.text[start:end]),
+                    reason=(
+                        "Controller-selected complete captured context for an independent conditional diagnostic "
+                        "experiment. Other contexts are not contradictory settings for this execution, nor verified "
+                        "original/control assignments or authoritative corrections."
+                    ),
+                ))
+        identifiers = {identifier for selection in selections for identifier in selection.declaration_ids}
+        key = fingerprint({
+            setting: sorted({
+                fingerprint(_target_setting_value(item)) for item in capture.declarations
+                if item.id in identifiers and item.setting == setting
+            }) for setting in settings
+        })
+        rank = min(priority[item.declaration_kind] for item in declarations)
+        if key not in profiles or rank < profiles[key][0]:
+            profiles[key] = rank, selections
+        if len(profiles) > 8:
+            raise ValueError("Automatic observations exceed the eight-case source/settings budget; no cases were silently omitted")
+    return [selections for _, selections in profiles.values()]
+
+
+def diagnostic_source_groups(capture: SourceCapture) -> list[list[SourceAssociation]]:
+    verify_capture(capture)
+    sources = [block for block in capture.blocks if block.source_kind == "python"]
+    if not sources or capture.limitations:
+        raise ValueError("Automatic observations require explicitly labeled Python fences without capture limitations")
+    groups: list[list[SourceAssociation]] = []
+    for document in sorted(capture.documents, key=lambda item: item.kind != "issue_body"):
+        local = [source for source in sources if source.document_id == document.id]
+        if not local:
+            continue
+        names = [source.filename_hint for source in local]
+        distinct_names = {name.casefold() for name in names if name is not None}
+        specimens = [local] if all(names) and len(distinct_names) == len(local) else [[source] for source in local]
+        for specimen in specimens:
+            groups.append([
+                SourceAssociation(
+                    source_id=source.id, path=source.filename_hint or "repro.py",
+                    filename_quote=source.filename_evidence.quote if source.filename_evidence else None,
+                )
+                for source in specimen
+            ])
+    if len(groups) > 8:
+        raise ValueError("Automatic observations exceed the eight-specimen budget; no specimens were silently omitted")
+    return groups
+
+
 def reported_setting_qualifications(
     prepared: MaterializedSetup, capture: SourceCapture | None = None,
 ) -> list[str]:
@@ -782,6 +875,7 @@ def reported_setting_qualifications(
 def materialize_setup(
     capture: SourceCapture, associations: Sequence[SourceAssociation], setting_choices: Sequence[SettingChoice] = (),
     *, reported_settings: Sequence[ReportedSettingSelection] = (),
+    separate_checker_targets: bool = False,
 ) -> MaterializedSetup:
     """Resolve IDs, never model source strings; keep assumptions and limitations explicit.
 
@@ -835,11 +929,10 @@ def materialize_setup(
     for declaration in _selected_declarations(capture, reported_settings):
         declarations.setdefault(declaration.setting, []).append(declaration)
     for setting, values in sorted(declarations.items()):
+        if setting == "pyrightVersion" and separate_checker_targets:
+            continue
         runtime = [item for item in values if item.declaration_kind == "interpreter_version"]
-        targets = [
-            ".".join(str(item.value).split(".")[:2]) if item in runtime and item.supported else item.value
-            for item in values
-        ]
+        targets = [_target_setting_value(item) for item in values]
         distinct = {fingerprint(value) for value in targets}
         exact_runtime = {
             item.value for item in runtime
@@ -881,6 +974,7 @@ def materialize_setup(
         "source_ids": tuple(item.source_id for item in associations),
         "associations": tuple(associations), "inferred_paths": tuple(inferred),
         "limitations": capture.limitations,
+        "separate_checker_targets": separate_checker_targets,
         "hashes": {
             **{name: _sha(content) for name, content in files.items()},
             "$capture": capture.digest, "$configuration": fingerprint(configuration),
@@ -894,8 +988,12 @@ def verify_materialized_setup(
     capture: SourceCapture, associations: Sequence[SourceAssociation], setting_choices: Sequence[SettingChoice],
     prepared: MaterializedSetup,
     *, reported_settings: Sequence[ReportedSettingSelection] = (),
+    separate_checker_targets: bool = False,
 ) -> None:
-    if materialize_setup(capture, associations, setting_choices, reported_settings=reported_settings) != prepared:
+    if materialize_setup(
+        capture, associations, setting_choices, reported_settings=reported_settings,
+        separate_checker_targets=separate_checker_targets,
+    ) != prepared:
         raise ValueError("Materialized original source/setup changed after capture or selection")
 
 

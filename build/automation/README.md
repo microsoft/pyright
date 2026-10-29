@@ -46,15 +46,31 @@ when using the approved alternative feed. Source-CLI behavior checks still need 
 (`pnpm run build:cli:dev`); do not change source or build outputs during a run.
 
 When strict reproduction is blocked, overnight mode also attempts **separate controller-run diagnostic
-observations**, without another model-planning turn. This conservative fallback requires exactly one explicitly
-labeled Python fence and an unambiguous captured setup. It retains the captured source unchanged and preserves
+observations**, without another model-planning turn. This bounded fallback checks explicitly labeled Python
+fences and an unambiguous captured setup. Separate snippets run as isolated specimens, never concatenated;
+distinct explicitly named files from one document can form a conditional multi-file specimen. Same-filename
+variants and different documents remain separate. Original/control relationships and cross-snippet dependencies
+are not inferred. Source IDs, file paths and these qualifications remain visible for each specimen. At most
+eight source/settings cases run; an exceeded budget or capture limitation blocks explicitly rather than truncating.
+The fallback retains the captured source unchanged and preserves
 reported settings. When different documents mention different Python/checking settings, the fallback can use
 a coherent profile from the document containing the source as a **conditional experiment**. Other declarations
 and their contexts remain visible in the report, including possible corrections; selecting the original
-document does not establish that later comments are irrelevant. Conflicts within that source document,
-unsupported declarations, ambiguous source layouts and unavailable targets remain explicit blockers.
+document does not establish that later comments are irrelevant. Separate complete configurations, commands,
+URLs or prose paragraphs in that document can also supply independent **conditional setting profiles**.
+For example, explicit Python 3.13 and 3.14 comparison commands can each be checked without treating them as
+contradictory settings for one execution. Settings from one configuration stay together; profiles are never a
+cross-product of version/mode fragments. Equivalent static settings share a check, preferring explicit configuration
+over interpreter-version prose while retaining all captured contexts and patch-version qualifications.
+These profiles do not establish which case was the original, a control or an authoritative correction.
+Conflicting values within one context, unsupported declarations, ambiguous source layouts and unavailable targets
+remain explicit blockers.
 Only genuinely absent settings receive disclosed experimental defaults: `pythonVersion=3.13` and
 `typeCheckingMode=standard`. `--no-observations` disables this fallback.
+The fallback uses the same reported-version reference reader as target selection, including references such
+as `npx pyright@1.1.414`. Ambiguous or unavailable historical versions block that target, not independent
+main/latest experiments. Checker-version references remain captured; this does not relax Python/checking
+configuration requirements or the strict path's historical-target selection.
 
 The fallback only statically checks source; it never executes reporter Python, installs dependencies or
 substitutes an older main target. It uses the same cache-only/preauthorized-target policy as the strict path.
@@ -62,6 +78,13 @@ Missing imports and runtime-dependency differences remain visible in raw diagnos
 capture, target identities and assumptions are saved under `<issue>\diagnostic-observations\<attempt>`, and
 summarized in the morning report. They are **not faithful historical reproduction, fix verification, type-precision
 proof, or independent closure evidence**. The strict comparison and all publication gates remain unchanged.
+
+Target-cache restoration, integrity hashing, archive extraction, main-bundle copying and owned-directory cleanup
+run in worker threads so slow filesystem operations do not block another issue's screening timeouts or retry wait.
+The same provenance and before/after integrity checks remain mandatory, including resumed assessments and
+publication revalidation. Cancellation drains the current filesystem operation before cleanup or cache-lock
+release; it never leaves a worker writing into a directory that has already been removed. Screening budgets,
+retry limits and fail-closed decisions are unchanged.
 
 Reconstruction/evidence-gate turns have an independent `--reproduction-timeout` budget (default 900 active
 seconds each, including bounded correction), so shortening `--timeout` for other stages does not accidentally
@@ -80,6 +103,21 @@ selected issue, including unchanged cached results, failures, screening skips an
 closure candidates from confirmed closures and partial publication failures. A completed run does not mean every
 issue was resolved. Hard process termination leaves the latest checkpoint report, which must not be interpreted
 as a completed run. Dry runs also retain the existing per-issue and run-level action proposals.
+
+A supported, observed, non-low-confidence bug claim is sufficient for a `bug` classification even when regression
+history, an ancillary example or a proposed repair remains unresolved. Those claims and qualifications stay in
+the report. This is intentionally asymmetric: one supported bug establishes a reason to keep the issue open,
+but by-design and duplicate closure retain their existing all-claims evidence requirements.
+Completed keep-open bug investigations have the `keep_open_bug` outcome rather than `needs_review`.
+The report also records `triage_category`, `next_action`, per-category counts and the investigator's recommendation,
+distinguishing semantic decisions, missing applicable product execution, transient infrastructure failures and
+screening rejections. Disabled RCA is a policy note, not a failed investigation.
+Duplicate metadata can explicitly prefer the current issue as canonical. `keep current` requires completed
+searches, inspected source-linked shared causes and consistent canonical preferences without unresolved candidates;
+it never authorizes closing either issue. Ordinary duplicate closure still requires a different verified canonical.
+
+Use a **fresh state directory** after these policy/code changes. Prior run evidence is not upgraded or rewritten;
+new observation attempts and read-only comparisons must retain their own source/settings and target provenance.
 
 ## Read-only issue assessment
 
@@ -730,8 +768,12 @@ Missing configuration, invalid responses, timeouts, authentication/service error
 also block analysis of the target issue.
 Unrelated issues in the batch can still proceed.
 
-Each classifier attempt has a 30-second bound. On HTTP 429 only, the controller makes at most one retry,
-waiting for `Retry-After` (seconds or an HTTP date), or 60 seconds if no valid delay is returned.
+Each classifier attempt has a 30-second bound. The controller makes at most one retry for a timeout, a classified
+connection failure, or HTTP 429/500/502/503/504. It waits for `Retry-After` (seconds or an HTTP date) when supplied,
+60 seconds for HTTP 429 without that header, or two seconds for other transient failures.
+Both attempts use identical evidence and classifier policy, and the audit records the retry's error category,
+safe HTTP status, attempt count and wait. Authentication/validation errors, malformed responses, uncertain/flagged
+answers and storage failures are not retried.
 All checks in this console share one cancellable classifier queue: requests and their retry waits are
 serialized, and queued checks recheck the allow-cache before making a request. Concurrent checks of identical
 passing evidence therefore share the first result instead of independently retrying and racing each other.
@@ -744,7 +786,7 @@ Reused scores retain the worst observed group risk, not a newly inferred per-doc
 Each active screening part, including both attempts and its retry wait, has a two-minute limit.
 A delay that exceeds that remaining budget blocks without retrying.
 Queue waits and HTTP retry waits print safe progress messages. The SDK's `--timeout` bounds agent turns,
-not the controller's pre-analysis target-issue screening. Other errors and a second HTTP 429 still block
+not the controller's pre-analysis target-issue screening. Non-transient errors and an exhausted retry still block
 analysis; there is no safety override. The reusable REST client itself never retries.
 Separate console processes do not share this queue, so avoid running them against the same low-quota deployment.
 Credential subprocesses can use the full attempt budget; authentication and HTTP together must still finish

@@ -25,6 +25,7 @@ from issue_review_classifier import (
     ChoiceClassification,
     ChoiceClassifier,
     ClassificationAuthenticationError,
+    ClassificationConnectionError,
     ClassificationHTTPError,
     ClassificationResponseError,
     ClassificationTimeoutError,
@@ -603,10 +604,10 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
         sleep.assert_not_awaited()
         self.classifier.classify.assert_awaited_once()
 
-    async def test_non_rate_limit_failures_do_not_wait_or_retry(self):
+    async def test_non_transient_failures_do_not_wait_or_retry(self):
         for error in (
-            ClassificationHTTPError(404), ClassificationHTTPError(500),
-            ClassificationAuthenticationError(401), ClassificationTimeoutError("private detail"),
+            ClassificationHTTPError(404), ClassificationHTTPError(422),
+            ClassificationAuthenticationError(401), ClassificationResponseError("private detail"),
         ):
             with self.subTest(error=type(error)):
                 self.classifier.classify.reset_mock()
@@ -618,6 +619,61 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
                     await self.scorer.check("evidence", self.directory, "issue:1")
                 sleep.assert_not_awaited()
                 self.classifier.classify.assert_awaited_once()
+
+    async def test_transient_failures_retry_once_with_identical_input_and_safe_audit(self):
+        for index, error in enumerate((
+            TimeoutError("private detail"), ClassificationTimeoutError("private detail"),
+            ClassificationConnectionError("private detail"),
+            ClassificationHTTPError(500), ClassificationHTTPError(502), ClassificationHTTPError(503),
+            ClassificationHTTPError(504),
+        )):
+            with self.subTest(error=type(error), index=index):
+                self.classifier.classify.reset_mock()
+                self.classifier.classify.side_effect = [error, classification(0)]
+                with patch("issue_review_safety.asyncio.sleep", AsyncMock()) as sleep, patch("builtins.print"):
+                    await self.scorer.check(f"evidence-{index}", self.directory, "issue:1")
+                sleep.assert_awaited_once_with(2)
+                self.assertEqual(self.classifier.classify.await_count, 2)
+                self.assertEqual(*self.classifier.classify.await_args_list)
+                row = self.ledger()[-1]
+                self.assertEqual(row["attempts"], 2)
+                self.assertEqual(row["retry_error_type"], type(error).__name__)
+                self.assertEqual(row["status"], "allowed")
+                self.assertNotIn("private detail", json.dumps(row))
+
+    async def test_exhausted_transient_retry_and_flagged_answer_remain_fail_closed(self):
+        for index, responses in enumerate((
+            [TimeoutError(), TimeoutError()],
+            [TimeoutError(), classification(1)],
+            [classification(1)],
+        )):
+            self.classifier.classify.reset_mock()
+            self.classifier.classify.side_effect = responses
+            with (
+                patch("issue_review_safety.asyncio.sleep", AsyncMock()) as sleep, patch("builtins.print"),
+                self.assertRaises(ScreeningBlocked),
+            ):
+                await self.scorer.check(f"blocked-{index}", self.directory, "issue:1")
+            self.assertEqual(self.classifier.classify.await_count, len(responses))
+            self.assertEqual(sleep.await_count, len(responses) - 1)
+            self.assertFalse(self.scorer._allowed)
+            self.assertFalse(self.scorer._units_allowed)
+
+    async def test_service_retry_respects_retry_after_without_exceeding_total_budget(self):
+        for delay, allowed in ((7, True), (SCREENING_TIMEOUT, False)):
+            self.classifier.classify.reset_mock()
+            self.classifier.classify.side_effect = [ClassificationHTTPError(503, retry_after=delay), classification(0)]
+            with patch("issue_review_safety.asyncio.sleep", AsyncMock()) as sleep, patch("builtins.print"):
+                if allowed:
+                    await self.scorer.check(f"service-{delay}", self.directory, "issue:1")
+                else:
+                    with self.assertRaises(ScreeningBlocked):
+                        await self.scorer.check(f"service-{delay}", self.directory, "issue:1")
+            self.assertEqual(self.classifier.classify.await_count, 2 if allowed else 1)
+            if allowed:
+                sleep.assert_awaited_once_with(delay)
+            else:
+                sleep.assert_not_awaited()
 
     async def test_cancellation_during_rate_limit_wait_never_retries_or_allows(self):
         started = asyncio.Event()
@@ -805,10 +861,13 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.subTest(status=status):
                 self.classifier.classify.reset_mock()
-                self.classifier.classify.side_effect = [classification(0), bad]
-                with patch("builtins.print"), self.assertRaises(ScreeningBlocked):
+                responses = [classification(0), bad]
+                if isinstance(bad, ClassificationHTTPError):
+                    responses.append(bad)
+                self.classifier.classify.side_effect = responses
+                with patch("builtins.print"), patch("issue_review_safety.asyncio.sleep", AsyncMock()), self.assertRaises(ScreeningBlocked):
                     await self.scorer.check(value, self.directory, "issue:1")
-                self.assertEqual(self.classifier.classify.await_count, 2)
+                self.assertEqual(self.classifier.classify.await_count, len(responses))
                 self.assertEqual(self.scorer._allowed, {})
                 record = self.ledger()[-1]
                 self.assertEqual(record["status"], status)

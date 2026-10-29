@@ -44,7 +44,7 @@ from issue_review_assessment_models import (
     DiscoveryPlan, VerificationPlan, VerificationRefinement,
 )
 from issue_review_models import Issue, ReproductionTarget
-from issue_review_reproduction import REGISTRIES, ReleaseCatalog, TargetStore, fingerprint, select_targets
+from issue_review_reproduction import REGISTRIES, ReleaseCatalog, TargetStore, fingerprint, run_target_io, select_targets
 from issue_review_safety import InjectionScreening, ScreeningBlocked, child_environment
 from issue_review_sources import (
     MaterializedSetup, SetupCapability, SourceCapture, materialize_setup, reported_diagnostics,
@@ -418,7 +418,7 @@ async def choose_targets(
             raise ValueError("Frozen targets must preserve exactly one historical/main/latest assignment")
         for target in targets:
             if target.status == "ready":
-                store.verify(target)
+                await run_target_io(store.verify, target)
         frozen = {
             "schema_version": 1, "mode": "controller_frozen", "targets": values,
             "provenance": inputs.target_selection_provenance, "cache": str(store.directory.resolve()),
@@ -455,7 +455,7 @@ async def choose_targets(
             raise ValueError("Frozen prepared target identity/provenance changed")
         for target in targets:
             if target.status == "ready":
-                store.verify(target)
+                await run_target_io(store.verify, target)
         return targets
     # Pin the actual upstream main, never the feature checkout or a user-supplied CLI version string.
     main = await github.api("GET", "repos/microsoft/pyright/commits/main")
@@ -489,7 +489,7 @@ async def choose_targets(
             cached = ReproductionTarget.model_validate_json(path.read_text(encoding="utf-8"))
             if any(getattr(cached, name) != getattr(target, name) for name in ("identity", "source", "integrity", "registry")):
                 raise ValueError("Cached target differs from selected published/upstream provenance")
-            store.verify(cached)
+            await run_target_io(store.verify, cached)
             target.directory, target.cli, target.tree_hash = cached.directory, cached.cli, cached.tree_hash
             target.artifact_sha512, target.status, target.version = cached.artifact_sha512, "ready", cached.version
     save(controller.directory / "targets.json", [target.model_dump(mode="json") for target in targets])

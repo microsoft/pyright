@@ -1,14 +1,17 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+import asyncio
 import base64
 import hashlib
 import io
 import json
 import os
+import shutil
 import stat
 import tarfile
 import tempfile
+import threading
 import unittest
 from argparse import Namespace
 from http.client import HTTPMessage
@@ -20,6 +23,7 @@ from copilot import ToolInvocation
 from pydantic import JsonValue
 
 from issue_review_evidence import evidence_json
+from issue_review_classifier import ChoiceClassification
 from issue_review_models import (
     Closure, DraftCheck, Entry, ExploratoryReproductionScenario, Label, ReproductionGate, ReproductionScenario,
 )
@@ -28,7 +32,7 @@ from issue_review_reproduction import (
     ReleaseCatalog, TargetStore, classify, fingerprint, observe_claims, registry_base, release_wording, scenario_inputs,
     select_targets, tree_hash, validate_exploratory_settings, validate_registry_url,
 )
-from issue_review_safety import ScreeningBlocked
+from issue_review_safety import InjectionScreening, ScreeningBlocked
 from review_issues import (
     AGENTS, Agent, AutomationError, ChunkResult, Console, ReproductionEvidenceTools, digest, dry_run_proposal,
     arguments, context_hash, main as review_main, reproduction_response, require_run_mode, save_overnight_report,
@@ -1166,6 +1170,86 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.targets.executions, 0)
         self.sdk.run.assert_not_awaited()
 
+    async def test_observations_compare_separate_reported_python_targets_without_assuming_version(self):
+        self.captured_example(
+            "`pyright --pythonversion 3.13 repro.py` reports the unexpected diagnostic.\n\n"
+            "With `pyright --pythonversion 3.14 repro.py`, both branches are reported."
+        )
+        await self.console.reproduce(self.entry)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "captured", observation.error)
+        self.assertEqual([case.configuration["pythonVersion"] for case in observation.cases], ["3.13", "3.14"])
+        for case in observation.cases:
+            self.assertEqual(case.status, "captured", case.error)
+            self.assertEqual([item.setting for item in case.configuration_assumptions], ["typeCheckingMode"])
+            self.assertIn("Other captured pythonVersion", "\n".join(case.configuration_qualifications))
+            self.assertEqual((Path(case.directory) / "main" / "repro.py").read_text(), "value: int = 'wrong'\n")
+        self.assertEqual(self.targets.executions, 6)
+        assert self.entry.reproduction_stage is not None
+        self.assertIsNone(self.entry.reproduction_stage.action())
+        self.assertTrue(observation.action_ineligible)
+        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_observations_keep_complete_configuration_profiles_together(self):
+        self.captured_example(
+            'Original settings:\n```json\n{"pythonVersion": "3.13", "typeCheckingMode": "strict"}\n```\n\n'
+            'Comparison settings:\n```json\n{"pythonVersion": "3.14", "typeCheckingMode": "basic"}\n```\n'
+        )
+        await self.console.reproduce(self.entry)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual([case.configuration for case in observation.cases], [
+            {"pythonVersion": "3.13", "typeCheckingMode": "strict"},
+            {"pythonVersion": "3.14", "typeCheckingMode": "basic"},
+        ])
+        self.assertTrue(all(case.status == "captured" and not case.configuration_assumptions for case in observation.cases))
+
+    async def test_observations_preserve_working_version_control_and_runtime_patch_context(self):
+        self.captured_example(
+            "Expected: progress ends, as it does with a Python 3.13 target.\n\n"
+            'Failing settings:\n```json\n{"pythonVersion": "3.14"}\n```\n\n'
+            "Interpreter: Python 3.14.9."
+        )
+        await self.console.reproduce(self.entry)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "captured", observation.error)
+        self.assertCountEqual([case.configuration["pythonVersion"] for case in observation.cases], ["3.13", "3.14"])
+        self.assertEqual(self.targets.executions, 6)
+        for case in observation.cases:
+            self.assertIn("Python 3.14.9", "\n".join(case.configuration_qualifications))
+            self.assertIn("Python 3.13", "\n".join(case.configuration_qualifications))
+        target_case = next(case for case in observation.cases if case.configuration["pythonVersion"] == "3.14")
+        self.assertIn('"pythonVersion": "3.14"', "\n".join(target_case.configuration_qualifications))
+
+    async def test_observation_setting_profiles_exceeding_budget_block_without_execution(self):
+        self.captured_example("\n\n".join(f"`pyright --pythonversion 3.{minor} repro.py`" for minor in range(7, 16)))
+        await self.console.reproduce(self.entry)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "blocked")
+        self.assertIn("eight", observation.error or "")
+        self.assertEqual(self.targets.executions, 0)
+
+    async def test_observations_cannot_borrow_checking_mode_from_another_version_profile(self):
+        self.captured_example(
+            'Original settings:\n```json\n{"pythonVersion": "3.13", "typeCheckingMode": "strict"}\n```\n\n'
+            "A separate comparison uses Python 3.14."
+        )
+        await self.console.reproduce(self.entry)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual([case.status for case in observation.cases], ["captured", "blocked"])
+        self.assertIn("no hybrid original/control setup", observation.cases[1].error or "")
+        self.assertEqual(self.targets.executions, 3)
+
     async def test_observations_scope_original_settings_without_losing_discussion_versions(self):
         self.captured_example("Running the example on Python 3.10; pyright-1.1.2")
         self.github.discussion.append({
@@ -1226,15 +1310,97 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all("stdout" not in receipt for receipt in observation.receipts))
         self.assertEqual(self.targets.executions, 0)
 
-    async def test_observation_fallback_does_not_choose_between_multiple_python_examples(self):
+    async def test_observation_fallback_checks_fences_independently_without_combining_them(self):
         self.captured_example("\n```python\nsecond = 2\n```\n")
         await self.console.reproduce(self.entry)
         await self.console.observe_blocked_reproduction(self.entry)
         observation = self.entry.diagnostic_observations
         assert observation is not None
-        self.assertEqual(observation.status, "blocked")
-        self.assertIn("one unambiguous", observation.error or "")
-        self.assertEqual(self.targets.executions, 0)
+        self.assertEqual(observation.status, "captured", observation.error)
+        self.assertEqual(len(observation.cases), 2)
+        self.assertEqual(observation.receipts, [])
+        self.assertEqual(self.targets.executions, 6)
+        for case, source in zip(observation.cases, ["value: int = 'wrong'\n", "second = 2\n"]):
+            self.assertEqual((Path(case.directory) / "main" / "repro.py").read_text(), source)
+            self.assertIn("Isolated captured fence", "\n".join(case.configuration_qualifications))
+            self.assertEqual(len(case.source_ids), 1)
+        save_overnight_report(
+            self.console.state, "context", [self.entry.issue], [ChunkResult(self.entry.issue, self.entry)],
+            read_only=True, finished=True,
+        )
+        markdown = (self.console.state / "overnight-report.md").read_text()
+        self.assertIn("specimen 2", markdown)
+        self.assertIn(observation.cases[1].source_ids[0], markdown)
+        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_explicit_multifile_observations_retain_reported_paths(self):
+        self.captured_example()
+        self.github.current.body = (
+            '```python filename="model.py"\nvalue = 1\n```\n'
+            '```python filename="main.py"\nfrom model import value\nresult: str = value\n```\n'
+        )
+        self.entry.issue = self.github.current.model_copy(deep=True)
+        self.entry.input_hash = self.console.key(self.entry.issue)
+        await self.console.reproduce(self.entry)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "captured", observation.error)
+        self.assertEqual(len(observation.source_ids), 2)
+        self.assertEqual((Path(observation.directory) / "main" / "model.py").read_text(), "value = 1\n")
+        self.assertIn("Conditional multi-file", "\n".join(observation.configuration_qualifications))
+        self.assertEqual(self.targets.executions, 3)
+
+    async def test_explicit_npx_version_uses_same_reference_parser_as_target_selection(self):
+        self.captured_example("\n```\n$ npx pyright@1.1.2 repro.py\n```\n")
+        await self.console.reproduce(self.entry)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.reported_version, "1.1.2")
+        self.assertEqual(observation.status, "captured", observation.error)
+        self.assertEqual(self.targets.executions, 3)
+
+    async def test_conflicting_checker_versions_block_only_historical_experiment(self):
+        self.captured_example("Pyright 1.1.2 compared with Pyright 1.1.3")
+        await self.console.reproduce(self.entry)
+        stage = self.entry.reproduction_stage
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "captured", observation.error)
+        self.assertIsNone(observation.reported_version)
+        self.assertIn("historical approximation is not allowed", str(observation.receipts[0]["error"]))
+        roles = []
+        for receipt in observation.receipts:
+            target = receipt["target"]
+            assert isinstance(target, dict)
+            if not receipt.get("error"):
+                roles.append(target["role"])
+        self.assertEqual(roles, ["main", "latest"])
+        self.assertEqual(self.targets.executions, 2)
+        self.assertIs(self.entry.reproduction_stage, stage)
+        assert stage is not None
+        self.assertIsNone(stage.action())
+        with self.assertRaises(ValueError):
+            select_targets(catalog(), self.entry.issue, observation, "", "a" * 40)
+        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_partial_specimen_failure_keeps_successes_and_separate_retry_artifacts(self):
+        self.captured_example('\n```python filename="../escape.py"\nsecond = 2\n```\n')
+        await self.console.reproduce(self.entry)
+        await self.console.observe_blocked_reproduction(self.entry)
+        observation = self.entry.diagnostic_observations
+        assert observation is not None
+        self.assertEqual(observation.status, "captured")
+        self.assertEqual([case.status for case in observation.cases], ["captured", "blocked"])
+        self.assertIn("relative paths", observation.cases[1].error or "")
+        await self.console.observe_blocked_reproduction(self.entry, retry_blocked=True)
+        assert self.entry.diagnostic_observations is not None
+        self.assertNotEqual(self.entry.diagnostic_observations.directory, observation.directory)
+        self.assertTrue((Path(observation.directory) / "observations.json").is_file())
 
     async def test_invalid_observation_output_is_not_success_and_can_be_retried_separately(self):
         self.captured_example("Python 3.10")
@@ -1905,6 +2071,147 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ArtifactTests(unittest.IsolatedAsyncioTestCase):
+    def cached_target(self, directory):
+        report = issue().model_copy(update={"created_at": "2025-02-15T00:00:00Z"})
+        target = select_targets(catalog(), report, scenario(), "", "a" * 40)[1]
+        runtime = directory / "runtime"
+        runtime.mkdir(parents=True)
+        cli = runtime / "index.js"
+        cli.write_text("// trusted fixture", encoding="utf-8")
+        target.directory, target.cli = str(runtime), str(cli)
+        target.tree_hash, target.status = tree_hash(runtime), "ready"
+        store = TargetStore(directory, AsyncMock(return_value=(0, "{}", "")))
+        metadata = store._metadata_path(target)
+        metadata.parent.mkdir(parents=True)
+        metadata.write_text(target.model_dump_json(), encoding="utf-8")
+        return store, target
+
+    async def test_slow_target_verification_does_not_starve_screening_timeout_and_retry(self):
+        for operation in ("prepare", "run_static"):
+            with self.subTest(operation=operation), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                store, target = self.cached_target(root / "targets")
+                entered, release = threading.Event(), threading.Event()
+                original_hash = tree_hash
+
+                def slow_hash(directory):
+                    if directory == Path(target.directory or ""):
+                        entered.set()
+                        if not release.wait(5):
+                            raise ValueError("Target hashing blocked the event loop")
+                    return original_hash(directory)
+
+                calls = 0
+                async def classify(*args, **kwargs):
+                    nonlocal calls
+                    calls += 1
+                    if calls == 1:
+                        await asyncio.Event().wait()
+                    return ChoiceClassification(
+                        choice="benign", probabilities={"benign": 1.0, "injection": 0.0}, model="test",
+                    )
+
+                classifier = AsyncMock()
+                classifier.configuration_hash = "test"
+                classifier.classify.side_effect = classify
+                scorer = InjectionScreening(classifier)
+                work = store.prepare(target) if operation == "prepare" else store.run_static(target, {}, root / "probe")
+                with patch("issue_review_reproduction.tree_hash", side_effect=slow_hash):
+                    task = asyncio.create_task(work)
+                    try:
+                        self.assertTrue(await asyncio.to_thread(entered.wait, 2))
+                        self.assertFalse(task.done(), "Integrity checking must yield to other issue tasks")
+                        with patch("issue_review_safety.REQUEST_TIMEOUT", 0.01), patch("builtins.print"):
+                            await scorer.check("evidence", root / "screening", "issue:1")
+                        self.assertEqual(calls, 2)
+                        self.assertFalse(task.done())
+                    finally:
+                        release.set()
+                        results = await asyncio.gather(task, return_exceptions=True)
+                self.assertFalse(isinstance(results[0], BaseException), results[0])
+
+    async def test_cancellation_drains_integrity_worker_before_returning(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            store, target = self.cached_target(root / "targets")
+            entered, release, finished = threading.Event(), threading.Event(), threading.Event()
+            original_hash = tree_hash
+
+            def slow_hash(directory):
+                entered.set()
+                try:
+                    if not release.wait(5):
+                        raise ValueError("Integrity worker was not released")
+                    return original_hash(directory)
+                finally:
+                    finished.set()
+
+            with patch("issue_review_reproduction.tree_hash", side_effect=slow_hash):
+                task = asyncio.create_task(store.run_static(target, {}, root / "probe"))
+                try:
+                    self.assertTrue(await asyncio.to_thread(entered.wait, 2))
+                    for _ in range(2):
+                        task.cancel()
+                        await asyncio.sleep(0)
+                    self.assertFalse(task.done())
+                finally:
+                    release.set()
+                    with self.assertRaises(asyncio.CancelledError):
+                        await task
+            self.assertTrue(finished.is_set())
+            self.assertFalse((root / "probe").exists())
+            assert isinstance(store.runner, AsyncMock)
+            store.runner.assert_not_awaited()
+
+    async def test_cancelled_main_copy_finishes_before_owned_directories_are_cleaned(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            entered, release = threading.Event(), threading.Event()
+            original_copy = shutil.copytree
+
+            def slow_copy(source, destination):
+                entered.set()
+                if not release.wait(5):
+                    raise ValueError("Copy worker was not released")
+                return original_copy(source, destination)
+
+            async def runner(command, cwd):
+                if "rev-parse" in command:
+                    return 0, "a" * 40, ""
+                if "webpack" in command:
+                    dist = cwd / "packages" / "pyright" / "dist"
+                    dist.mkdir(parents=True)
+                    (dist / "pyright.js").write_text("// trusted fixture", encoding="utf-8")
+                    (dist.parent / "index.js").write_text("// entrypoint", encoding="utf-8")
+                return 0, "", ""
+
+            store, target = self.cached_target(root / "targets")
+            store._metadata_path(target).unlink()
+            store.runner = runner
+            with (
+                patch("issue_review_reproduction.shutil.which", return_value="trusted-pnpm"),
+                patch("issue_review_reproduction.shutil.copytree", side_effect=slow_copy),
+            ):
+                task = asyncio.create_task(store.prepare(target))
+                try:
+                    self.assertTrue(await asyncio.to_thread(entered.wait, 2))
+                    for _ in range(2):
+                        task.cancel()
+                        await asyncio.sleep(0)
+                    self.assertFalse(task.done())
+                finally:
+                    release.set()
+                    with self.assertRaises(asyncio.CancelledError):
+                        await task
+            receipt = json.loads(next(
+                path for base in store.directory.iterdir() for path in base.glob("preparation-*.json")
+            ).read_bytes())
+            self.assertFalse(receipt["prepared"])
+            self.assertFalse(receipt["work_retained"])
+            self.assertFalse(receipt["runtime_retained"])
+            self.assertFalse(store._metadata_path(target).exists())
+            self.assertTrue((root / "targets" / "runtime" / "index.js").is_file())
+
     async def test_main_build_uses_pinned_upstream_and_isolated_script_free_dependency_install(self):
         with tempfile.TemporaryDirectory() as temporary:
             calls = []

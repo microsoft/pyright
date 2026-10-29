@@ -36,6 +36,8 @@ Follow repository access restrictions. If a tool or discussion is unavailable, p
 5. Explain material differences, evidence that could disprove the match, and the best canonical issue if a match is
    supported. Prefer the most useful maintained report, not automatically the oldest issue. A closed candidate may
    indicate a regression, an incomplete fix, or a different version rather than a reason to dismiss the current report.
+   Record that preference in `canonical_issue_number` for an established duplicate, including the current issue
+   number when it should remain canonical. Leave it null when no canonical preference is established.
 
 Cite precise report, comment, fix, and source links. Do not count previous duplicate assertions as independent
 confirmation. Respect current typing rules if two reports differ in a semantically important way.

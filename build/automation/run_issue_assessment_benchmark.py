@@ -29,7 +29,7 @@ from evaluate_issue_assessment import (
 )
 from issue_review_assessment_models import AssessmentInput, AssessmentReceipt, AssessmentRun, DeclaredClaim, VerificationPlan
 from issue_review_models import Issue, Record, ReproductionTarget, Text
-from issue_review_reproduction import REGISTRIES, TargetStore, fingerprint, observe_claims
+from issue_review_reproduction import REGISTRIES, TargetStore, fingerprint, observe_claims, run_target_io
 from issue_review_safety import InjectionScreening, child_environment
 from issue_review_sources import SettingChoice
 from issue_review_validity import Hash, ValidityAssessment, ValidityEvidence, record_hash
@@ -344,7 +344,7 @@ async def main(args: argparse.Namespace) -> None:
     store = TargetStore(args.target_cache, target_process, registry=args.registry)
     for assignment in assignments:
         for target in assignment.targets:
-            store.verify(target)
+            await run_target_io(store.verify, target)
     async with CopilotClient(
         connection=RuntimeConnection.for_stdio(path=args.cli_path), working_directory=str(ROOT),
         env={**child_environment(), "USE_TGREP": "false"},
