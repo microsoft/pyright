@@ -13,6 +13,7 @@
 
 import { Char } from '../common/charCodes';
 import { appendArray } from '../common/collectionUtils';
+import { cloneStr } from '../common/core';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
@@ -4313,7 +4314,10 @@ export class Parser {
             if (
                 possibleTupleNode.nodeType === ParseNodeType.StringList ||
                 possibleTupleNode.nodeType === ParseNodeType.Comprehension ||
-                possibleTupleNode.nodeType === ParseNodeType.AssignmentExpression
+                possibleTupleNode.nodeType === ParseNodeType.AssignmentExpression ||
+                possibleTupleNode.nodeType === ParseNodeType.Ternary ||
+                possibleTupleNode.nodeType === ParseNodeType.Lambda ||
+                possibleTupleNode.nodeType === ParseNodeType.Number
             ) {
                 possibleTupleNode.d.hasParens = true;
             }
@@ -5299,13 +5303,22 @@ export class Parser {
 
         this._reportStringTokenErrors(startToken);
 
+        const lastToken = endToken ?? this._tokenizerOutput!.tokens.getItemAt(this._tokenIndex - 1);
+        const escapedValue = cloneStr(
+            this._fileContents!.slice(
+                TextRange.getEnd(startToken),
+                lastToken.type === TokenType.FStringEnd ? lastToken.start : TextRange.getEnd(lastToken)
+            )
+        );
+
         return FormatStringNode.create(
             this._getOwnerKey(),
             startToken,
             endToken,
             middleTokens,
             fieldExpressions,
-            formatExpressions
+            formatExpressions,
+            escapedValue
         );
     }
 

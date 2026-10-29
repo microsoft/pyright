@@ -275,10 +275,20 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 value = value.substring(0, value.length - 1);
             }
 
+            // toString prints a whole float below 1e21 as digits only, which
+            // Python reads as an int, and an infinite float as "Infinity".
+            if (!node.d.isInteger) {
+                if (!isFinite(Number(value))) {
+                    value = '1e999';
+                } else if (/^\d+$/.test(value)) {
+                    value += '.0';
+                }
+            }
+
             if (node.d.isImaginary) {
                 value += 'j';
             }
-            return value;
+            return node.d.hasParens ? `(${value})` : value;
         }
 
         case ParseNodeType.StringList: {
@@ -286,11 +296,13 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             if (flags & PrintExpressionFlags.ForwardDeclarations && annotation) {
                 return printExpression(annotation, flags);
             } else {
-                return node.d.strings
+                const stringsStr = node.d.strings
                     .map((str) => {
                         return printExpression(str, flags);
                     })
                     .join(' ');
+
+                return node.d.hasParens ? `(${stringsStr})` : stringsStr;
             }
         }
 
@@ -340,20 +352,20 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.FormatString: {
-            let exprString = 'f';
-
-            let escapedString = '';
-            const itemsToPrint = [...node.d.middleTokens, ...node.d.fieldExprs].sort((a, b) => a.start - b.start);
-
-            while (itemsToPrint.length > 0) {
-                const itemToPrint = itemsToPrint.shift()!;
-
-                if ('nodeType' in itemToPrint) {
-                    escapedString += `{${printExpression(itemToPrint)}}`;
-                } else {
-                    escapedString += itemToPrint.escapedValue;
-                }
+            let exprString = '';
+            if (node.d.token.flags & StringTokenFlags.Raw) {
+                exprString += 'r';
             }
+
+            if (node.d.token.flags & StringTokenFlags.Format) {
+                exprString += 'f';
+            }
+
+            if (node.d.token.flags & StringTokenFlags.Template) {
+                exprString += 't';
+            }
+
+            const escapedString = node.d.escapedValue;
 
             if (node.d.token.flags & StringTokenFlags.Triplicate) {
                 if (node.d.token.flags & StringTokenFlags.SingleQuote) {
@@ -377,7 +389,9 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.AssignmentExpression: {
-            return printExpression(node.d.name, flags) + ' := ' + printExpression(node.d.rightExpr, flags);
+            const exprStr = printExpression(node.d.name, flags) + ' := ' + printExpression(node.d.rightExpr, flags);
+
+            return node.d.hasParens ? `(${exprStr})` : exprStr;
         }
 
         case ParseNodeType.TypeAnnotation: {
@@ -400,13 +414,14 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Ternary: {
-            return (
+            const exprStr =
                 printExpression(node.d.ifExpr, flags) +
                 ' if ' +
                 printExpression(node.d.testExpr, flags) +
                 ' else ' +
-                printExpression(node.d.elseExpr, flags)
-            );
+                printExpression(node.d.elseExpr, flags);
+
+            return node.d.hasParens ? `(${exprStr})` : exprStr;
         }
 
         case ParseNodeType.List: {
@@ -501,7 +516,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Lambda: {
-            return (
+            const exprStr =
                 'lambda ' +
                 node.d.params
                     .map((param) => {
@@ -526,8 +541,9 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                     })
                     .join(', ') +
                 ': ' +
-                printExpression(node.d.expr, flags)
-            );
+                printExpression(node.d.expr, flags);
+
+            return node.d.hasParens ? `(${exprStr})` : exprStr;
         }
 
         case ParseNodeType.Constant: {
