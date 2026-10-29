@@ -2,6 +2,7 @@
 # typed as a Callable (issue 11833).
 
 from collections.abc import Callable
+from typing import Self
 
 
 class C:
@@ -39,6 +40,27 @@ class GenericCallback[T]:
 def test_generic(g: GenericCallback[int]) -> None:
     g.cb = lambda x: None
 
+
+
+class SelfCallbackBase:
+    @property
+    def callback(self) -> Callable[[Self], int]:
+        ...
+
+    @callback.setter
+    def callback(self, value: Callable[[Self], int]) -> None:
+        ...
+
+
+class SelfCallbackChild(SelfCallbackBase):
+    def child_only(self) -> int:
+        return 42
+
+
+def test_self(obj: SelfCallbackChild) -> None:
+    # Self in the setter's value type should be solved to the type of
+    # the object being assigned to, not the class that declares it.
+    obj.callback = lambda other: other.child_only()
 
 def test_errors(c: C) -> None:
     # This should generate an error because lambda takes too many parameters.
