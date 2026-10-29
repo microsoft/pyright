@@ -428,7 +428,7 @@ export function createNamedTupleType(
     return classType;
 }
 
-function synthesizeNamedTupleReplaceMethods(
+export function synthesizeNamedTupleReplaceMethods(
     classFields: Map<string, Symbol>,
     constructorType: FunctionType,
     selfParam: FunctionParam,
