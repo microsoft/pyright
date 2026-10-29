@@ -1563,6 +1563,14 @@ export class TestState {
         assert.strictEqual(report.moduleName, expected.moduleName);
         assert.strictEqual(report.packageName, expected.packageName);
         assert.deepStrictEqual(Array.from(report.symbols.keys()), Array.from(expected.symbols.keys()));
+
+        // Individual tests may also specify the expected type-completeness status
+        // for a symbol. Tests that only check the symbol list can omit this field.
+        expected.symbols.forEach((expectedSymbol, name) => {
+            if (expectedSymbol.typeKnownStatus !== undefined) {
+                assert.strictEqual(report.symbols.get(name)?.typeKnownStatus, expectedSymbol.typeKnownStatus, name);
+            }
+        });
     }
 
     setCancelled(numberOfCalls: number): void {
