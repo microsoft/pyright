@@ -4711,9 +4711,9 @@ export class Binder extends ParseTreeWalker {
     }
 
     // Handles some special-case assignment statements that are found
-    // within the typings.pyi file.
+    // within typing.pyi, and annotation modifiers in typing_extensions.pyi.
     private _handleTypingStubAssignmentOrAnnotation(node: AssignmentNode | TypeAnnotationNode) {
-        if (!this._fileInfo.isTypingStubFile) {
+        if (!this._fileInfo.isTypingStubFile && !this._fileInfo.isTypingExtensionsStubFile) {
             return false;
         }
 
@@ -4757,11 +4757,19 @@ export class Binder extends ParseTreeWalker {
             'LiteralString',
             'OrderedDict',
             'TypeIs',
+            'TypeForm',
+            'Required',
+            'NotRequired',
+            'ReadOnly',
         ]);
 
         const assignedName = assignedNameNode.d.value;
 
-        if (!specialTypes.has(assignedName)) {
+        if (
+            !specialTypes.has(assignedName) ||
+            (!this._fileInfo.isTypingStubFile &&
+                !['TypeForm', 'Required', 'NotRequired', 'ReadOnly'].includes(assignedName))
+        ) {
             return false;
         }
 
