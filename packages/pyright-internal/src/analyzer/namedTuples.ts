@@ -130,6 +130,20 @@ export function createNamedTupleType(
     classType.shared.baseClasses.push(namedTupleType);
     classType.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode, nodeInfo);
 
+    // Make the generated class available while its field annotations are evaluated.
+    // This allows a quoted recursive field type to resolve to the final class rather
+    // than the variable currently being assigned.
+    const assignmentNode = errorNode.parent;
+    if (assignmentNode?.nodeType === ParseNodeType.Assignment && assignmentNode.d.rightExpr === errorNode) {
+        const assignmentTarget =
+            assignmentNode.d.leftExpr.nodeType === ParseNodeType.TypeAnnotation
+                ? assignmentNode.d.leftExpr.d.valueExpr
+                : assignmentNode.d.leftExpr;
+        if (assignmentTarget.nodeType === ParseNodeType.Name) {
+            evaluator.setTypeResultForNode(assignmentTarget, { type: classType });
+        }
+    }
+
     const classFields = ClassType.getSymbolTable(classType);
     classFields.set(
         '__class__',
