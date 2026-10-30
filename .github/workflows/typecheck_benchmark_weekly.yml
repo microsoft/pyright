@@ -92,6 +92,9 @@ jobs:
             checkers+=(pyright-threads)
             extra_args+=(--skip-pyright-build)
           fi
+          if [[ '${{ matrix.checker }}' == 'ty' ]]; then
+            checkers+=(ty-infer)
+          fi
           python build/benchmark/typecheck_benchmark.py \
             -c "${checkers[@]}" -r 3 -w 1 -t 1800 \
             --memory-limit-mb 8192 --os-name linux-x64 \

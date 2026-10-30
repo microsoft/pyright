@@ -157,7 +157,9 @@ def _analyze(
         "node_options",
         "runs_per_package",
         "warmup_runs",
+        "uncounted_validation_runs_per_checker",
         "dependency_isolation",
+        "checker_config_version",
     ):
         if baseline.get(field) != candidate.get(field):
             failures.append(
@@ -168,6 +170,22 @@ def _analyze(
     candidate_metrics = _metrics_by_package(candidate)
     baseline_packages = _packages_by_name(baseline)
     candidate_packages = _packages_by_name(candidate)
+    old_suite = baseline.get("capability_suite")
+    new_suite = candidate.get("capability_suite")
+    if old_suite is not None or new_suite is not None:
+        if old_suite is None or new_suite is None or any(
+            old_suite.get(field) != new_suite.get(field)
+            for field in ("version", "sha256", "cases")
+        ):
+            failures.append("capability suite changed or was not evaluated")
+        else:
+            for checker, old_result in old_suite["results"].items():
+                new_result = new_suite["results"].get(checker, {})
+                if (
+                    old_result.get("ok") != new_result.get("ok")
+                    or old_result.get("cases") != new_result.get("cases")
+                ):
+                    failures.append(f"{checker}: behavioral capability outcomes changed")
 
     for key, old in sorted(baseline_metrics.items()):
         package, checker = key
@@ -257,7 +275,10 @@ def _analyze(
             )
             continue
         scope_changed = False
-        for field in ("check_paths", "exclude_directories"):
+        if old.get("files_selected") != new.get("files_selected"):
+            failures.append(f"{package}/{checker}: native source-file count changed")
+            scope_changed = True
+        for field in ("check_paths", "exclude_directories", "source_manifest_sha256"):
             if old_package.get(field, []) != new_package.get(field, []):
                 failures.append(
                     f"{package}/{checker}: package {field} changed from "

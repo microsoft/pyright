@@ -40,6 +40,17 @@ def merge_results(paths: list[Path]) -> dict[str, Any]:
         metadata = {
             key: value for key, value in data.items() if key not in VARIABLE_FIELDS
         }
+        if "capability_suite" in metadata:
+            suite = metadata["capability_suite"]
+            metadata["capability_suite"] = {
+                **suite,
+                "results": {
+                    checker: {
+                        key: value for key, value in result.items() if key != "evidence"
+                    }
+                    for checker, result in suite["results"].items()
+                },
+            }
         if expected_metadata is None:
             expected_metadata = metadata
             merged = copy.deepcopy(data)

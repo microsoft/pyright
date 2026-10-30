@@ -10,8 +10,9 @@
 
 """Compare type-checker wall time and peak memory on configured Python projects.
 
-This benchmark measures speed and peak RSS only. It does not compare diagnostics
-or type-checking precision. Configured projects are cloned into a temporary
+Corpus timings measure speed and peak RSS, with a separate small behavioral
+capability audit that is not a comprehensive precision comparison.
+Configured projects are cloned into a temporary
 directory and installed into package-specific dependency directories before
 they are checked; --local benchmarks an existing directory without clone or installation.
 """
@@ -19,6 +20,7 @@ they are checked; --local benchmarks an existing directory without clone or inst
 from __future__ import annotations
 
 import argparse
+import configparser
 import json
 import os
 import platform
@@ -31,9 +33,13 @@ import sys
 import tempfile
 import threading
 import time
+import tomllib
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence, TypedDict
+
+from benchmark_capabilities import CapabilityOutput, CapabilitySuite, run_capability_suite
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1]
@@ -43,7 +49,8 @@ PYRIGHT_BUNDLE = PYRIGHT_PACKAGE_DIR / "dist" / "pyright.js"
 PYRIGHT_ENTRY_POINT_ENV = "PYRIGHT_BENCHMARK_ENTRY_POINT"
 
 DEFAULT_TYPE_CHECKERS = ["pyright", "pyrefly", "ty", "mypy", "zuban"]
-AVAILABLE_TYPE_CHECKERS = [*DEFAULT_TYPE_CHECKERS, "pyright-threads", "pyright-pip"]
+AVAILABLE_TYPE_CHECKERS = [*DEFAULT_TYPE_CHECKERS, "pyright-threads", "pyright-pip", "ty-infer"]
+TARGET_PYTHON_VERSION = f"{sys.version_info.major}.{sys.version_info.minor}"
 DEFAULT_TIMEOUT = 300
 DEFAULT_MEMORY_LIMIT_MB = 4096
 CLONE_TIMEOUT = 300
@@ -60,6 +67,7 @@ UPSTREAM_SOURCE = {
 }
 PYRIGHT_DEFAULT_EXCLUDES = ["**/node_modules", "**/__pycache__", "**/.*"]
 DEPENDENCY_ISOLATION = "pip-target-per-package"
+CHECKER_CONFIG_VERSION = 7
 
 
 class BenchmarkError(Exception):
@@ -91,6 +99,10 @@ class TimingMetrics(RequiredTimingMetrics, total=False):
     peak_memories_mb: list[float]
     execution_time_stats: RunStats
     peak_memory_stats: RunStats
+    files_selected: int
+    file_count_verified: bool
+    file_count_audit_time_s: float
+    source_count_mismatch: bool
 
 
 class PackageResult(TypedDict, total=False):
@@ -102,6 +114,10 @@ class PackageResult(TypedDict, total=False):
     local_path: str
     error: str | None
     metrics: dict[str, TimingMetrics]
+    source_files: list[str]
+    source_file_count: int
+    source_manifest_sha256: str
+    repository_configs: list[dict[str, Any]]
 
 
 class AggregateStats(TypedDict):
@@ -157,6 +173,8 @@ def _pyright_command() -> list[str] | None:
 
 
 def _checker_command(checker: str) -> list[str] | None:
+    if checker == "ty-infer":
+        checker = "ty"
     if checker in ("pyright", "pyright-threads"):
         return _pyright_command()
     if checker == "pyright-pip":
@@ -596,7 +614,6 @@ def _relative_check_paths(
 def _resolve_check_paths(
     package_path: Path,
     check_paths: list[str],
-    exclude_directories: list[str],
 ) -> tuple[list[Path], list[str]]:
     configured_paths = [package_path / path for path in check_paths]
     missing = [
@@ -604,28 +621,110 @@ def _resolve_check_paths(
         for path in configured_paths
         if not path.exists()
     ]
-    existing_paths = [path for path in configured_paths if path.exists()]
-    if not exclude_directories:
-        return existing_paths, missing
+    return list(dict.fromkeys(path for path in configured_paths if path.exists())), missing
 
-    excluded_names = set(exclude_directories)
-    resolved_paths: list[Path] = []
-    for path in existing_paths:
-        if path.is_file():
-            resolved_paths.append(path)
-            continue
-        for root, directory_names, file_names in os.walk(path):
-            directory_names[:] = [
-                name for name in directory_names if name not in excluded_names
-            ]
-            directory_names.sort()
-            root_path = Path(root)
-            resolved_paths.extend(
-                root_path / name
-                for name in sorted(file_names)
-                if Path(name).suffix in (".py", ".pyi")
-            )
-    return resolved_paths, missing
+
+def _audit_repository_configs(package_path: Path) -> list[dict[str, Any]]:
+    native_names = {
+        "pyrightconfig.json": ["pyright"],
+        "ty.toml": ["ty"],
+        "pyrefly.toml": ["pyrefly"],
+        "mypy.ini": ["mypy", "zuban"],
+        ".mypy.ini": ["mypy", "zuban"],
+        "zuban.toml": ["zuban"],
+    }
+    tool_names = {
+        "pyright": ["pyright"],
+        "basedpyright": ["basedpyright"],
+        "ty": ["ty"],
+        "pyrefly": ["pyrefly"],
+        "mypy": ["mypy", "zuban"],
+        "zuban": ["zuban"],
+    }
+    records: list[dict[str, Any]] = []
+
+    def walk_error(error: OSError) -> None:
+        raise error
+
+    for root, directories, files in os.walk(package_path, onerror=walk_error):
+        directories[:] = sorted(
+            name for name in directories
+            if name not in {".git", ".hg", ".svn", "node_modules", "__pycache__"}
+        )
+        for name in sorted(files):
+            if name.startswith(".typecheck-benchmark-"):
+                continue
+            path = Path(root) / name
+            checkers = set(native_names.get(name, []))
+            sections: list[str] = []
+            settings: list[str] = []
+            error = None
+
+            def setting_names(data: dict[str, Any], prefix: str) -> None:
+                for key, value in data.items():
+                    setting = f"{prefix}.{key}"
+                    settings.append(setting)
+                    if isinstance(value, dict):
+                        setting_names(value, setting)
+                    elif isinstance(value, list):
+                        for index, item in enumerate(value):
+                            if isinstance(item, dict):
+                                setting_names(item, f"{setting}[{index}]")
+
+            if path.suffix == ".toml":
+                try:
+                    data = tomllib.loads(path.read_text(encoding="utf-8-sig"))
+                except (tomllib.TOMLDecodeError, UnicodeError) as exc:
+                    error = f"{type(exc).__name__}: unable to parse TOML"
+                else:
+                    if name in native_names:
+                        setting_names(data, path.stem)
+                    tools = data.get("tool", {})
+                    if isinstance(tools, dict):
+                        for tool, affected in tool_names.items():
+                            if tool in tools:
+                                sections.append(f"tool.{tool}")
+                                checkers.update(affected)
+                                if isinstance(tools[tool], dict):
+                                    setting_names(tools[tool], f"tool.{tool}")
+                    if isinstance(data.get("project"), dict) and "requires-python" in data["project"]:
+                        sections.append("project.requires-python")
+                        checkers.update(("ty", "pyrefly"))
+                        settings.append("project.requires-python")
+            elif name == "setup.cfg" or name in ("mypy.ini", ".mypy.ini"):
+                parser = configparser.ConfigParser(interpolation=None)
+                try:
+                    parser.read_string(path.read_text(encoding="utf-8-sig"))
+                except (configparser.Error, UnicodeError) as exc:
+                    error = f"{type(exc).__name__}: unable to parse INI"
+                else:
+                    sections = [
+                        section for section in parser.sections()
+                        if section == "mypy" or section.startswith("mypy-")
+                    ]
+                    if sections:
+                        checkers.update(("mypy", "zuban"))
+                        settings.extend(
+                            f"{section}.{key}" for section in sections for key in parser[section]
+                        )
+            if checkers or sections or error:
+                record: dict[str, Any] = {
+                    "path": path.relative_to(package_path).as_posix(),
+                    "checkers": sorted(checkers),
+                    "sections": sections,
+                    "settings": sorted(settings),
+                    "disposition": "not applied: explicit benchmark config",
+                }
+                if error:
+                    record["parse_error"] = error
+                records.append(record)
+    return sorted(records, key=lambda record: record["path"])
+
+
+def _glob_excludes(exclude_directories: list[str] | None) -> list[str]:
+    return [*PYRIGHT_DEFAULT_EXCLUDES, *(
+        f"**/{name}" for name in exclude_directories or []
+    )]
 
 
 def _new_config_path(package_path: Path, checker: str, suffix: str) -> Path:
@@ -638,46 +737,86 @@ def _new_config_path(package_path: Path, checker: str, suffix: str) -> Path:
     return Path(path)
 
 
-def _write_pyright_config(package_path: Path, check_paths: list[str] | None) -> Path:
+def _write_pyright_config(
+    package_path: Path, check_paths: list[str] | None,
+    exclude_directories: list[str] | None = None,
+) -> Path:
     config_path = _new_config_path(package_path, "pyright", ".json")
     config = {
         "include": check_paths or ["."],
-        "exclude": PYRIGHT_DEFAULT_EXCLUDES,
+        "exclude": _glob_excludes(exclude_directories),
         "typeCheckingMode": "basic",
         "useLibraryCodeForTypes": True,
+        "pythonVersion": TARGET_PYTHON_VERSION,
     }
     config_path.write_text(json.dumps(config), encoding="utf-8")
     return config_path
 
 
 def _write_mypy_config(
-    package_path: Path, check_paths: list[str] | None, checker: str
+    package_path: Path, check_paths: list[str] | None, checker: str,
+    exclude_directories: list[str] | None = None,
 ) -> Path:
-    config_path = _new_config_path(package_path, checker, ".ini")
-    lines = ["[mypy]"]
-    if check_paths:
-        lines.append(f"files = {', '.join(check_paths)}")
-    lines.extend(["check_untyped_defs = True", ""])
+    config_path = _new_config_path(package_path, checker, ".toml")
+    lines = [
+        "[tool.mypy]",
+        f"files = {json.dumps(check_paths or ['.'])}",
+        "check_untyped_defs = true",
+        f"python_version = {json.dumps(TARGET_PYTHON_VERSION)}",
+        f"python_executable = {json.dumps(sys.executable)}",
+        "exclude = " + json.dumps([
+            r"(^|[/\\])(?:node_modules|__pycache__|\.[^/\\]+)([/\\]|$)",
+            *(
+                rf"(^|[/\\]){re.escape(name)}([/\\]|$)"
+                for name in exclude_directories or []
+            ),
+        ]),
+    ]
+    if checker == "zuban":
+        lines.append("exclude_gitignore = false")
+    lines.append("")
     config_path.write_text("\n".join(lines), encoding="utf-8")
     return config_path
 
 
-def _write_ty_config(package_path: Path, check_paths: list[str] | None) -> Path:
+def _write_ty_config(
+    package_path: Path, check_paths: list[str] | None, *, infer_returns: bool = False,
+    exclude_directories: list[str] | None = None,
+) -> Path:
     config_path = _new_config_path(package_path, "ty", ".toml")
-    lines: list[str] = []
-    if check_paths:
-        paths = ", ".join(json.dumps(path) for path in check_paths)
-        lines.extend(["[src]", f"include = [{paths}]"])
+    lines = [
+        "[environment]",
+        f"python = {json.dumps(sys.executable)}",
+        f"python-version = {json.dumps(TARGET_PYTHON_VERSION)}",
+        "",
+        "[src]",
+        "respect-ignore-files = false",
+        # These are gitignore-style patterns, not native Windows paths.
+        f"include = {json.dumps([Path(path).as_posix() for path in check_paths or ['.']])}",
+        f"exclude = {json.dumps(['!**', *_glob_excludes(exclude_directories)])}",
+    ]
+    if infer_returns:
+        lines.extend(["", "[analysis]", 'return-type-inference = "always"'])
     config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return config_path
 
 
-def _write_pyrefly_config(package_path: Path, check_paths: list[str] | None) -> Path:
+def _write_pyrefly_config(
+    package_path: Path, check_paths: list[str] | None,
+    exclude_directories: list[str] | None = None,
+) -> Path:
     config_path = _new_config_path(package_path, "pyrefly", ".toml")
-    lines: list[str] = []
-    if check_paths:
-        paths = ", ".join(json.dumps(path) for path in check_paths)
-        lines.append(f"project_includes = [{paths}]")
+    lines = [
+        f"project-includes = {json.dumps(check_paths or ['.'])}",
+        "use-ignore-files = false",
+        "disable-project-excludes-heuristics = true",
+        f"project-excludes = {json.dumps(_glob_excludes(exclude_directories))}",
+        f"python-interpreter-path = {json.dumps(sys.executable)}",
+        f"python-version = {json.dumps(TARGET_PYTHON_VERSION)}",
+        'preset = "all"',
+        "check-unannotated-defs = true",
+        'infer-return-types = "checked"',
+    ]
     config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return config_path
 
@@ -723,10 +862,30 @@ def _parse_pyright_stats(
     )
 
 
+def _parse_source_file_count(checker: str, output: str) -> int | None:
+    if checker in ("ty", "ty-infer"):
+        if not re.search(r"\bDEBUG Checking all files took ", output):
+            return None
+        return len(set(re.findall(
+            r"\bDEBUG Checking file '(.+)'$", output, re.MULTILINE
+        )))
+    if checker in ("pyright", "pyright-pip"):
+        pattern = r"^Total files checked:\s+(\d+)$"
+    elif checker == "pyright-threads":
+        pattern = r"^Found (\d+) files? to analyze$"
+    elif checker == "pyrefly":
+        pattern = r"\bINFO (\d+) modules? \(\d+ dependent modules?\)"
+    else:
+        pattern = r"(?:checked |Success: no issues found in )(\d+) source files?\b"
+    counts = {int(count) for count in re.findall(pattern, output, re.MULTILINE)}
+    return counts.pop() if len(counts) == 1 else None
+
+
 def _build_checker_command(
     checker: str,
     package_path: Path,
     check_paths: list[Path] | None,
+    exclude_directories: list[str] | None = None,
 ) -> tuple[list[str] | None, list[Path]]:
     """Build one checker command and return temporary configs to remove."""
     base_command = _checker_command(checker)
@@ -735,11 +894,13 @@ def _build_checker_command(
 
     relative_paths = _relative_check_paths(package_path, check_paths)
     if checker in ("pyright", "pyright-threads", "pyright-pip"):
-        config_path = _write_pyright_config(package_path, relative_paths)
+        config_path = _write_pyright_config(package_path, relative_paths, exclude_directories)
         command = [
             *base_command,
             "--project",
             str(config_path),
+            "--pythonpath",
+            sys.executable,
         ]
         if checker == "pyright-threads":
             command.append("--threads")
@@ -747,15 +908,18 @@ def _build_checker_command(
             command.append("--stats")
         return command, [config_path]
     if checker == "pyrefly":
-        config_path = _write_pyrefly_config(package_path, relative_paths)
+        config_path = _write_pyrefly_config(package_path, relative_paths, exclude_directories)
         return [
             *base_command,
             "check",
             "--config",
             str(config_path),
         ], [config_path]
-    if checker == "ty":
-        config_path = _write_ty_config(package_path, relative_paths)
+    if checker in ("ty", "ty-infer"):
+        config_path = _write_ty_config(
+            package_path, relative_paths, infer_returns=checker == "ty-infer",
+            exclude_directories=exclude_directories,
+        )
         return [
             *base_command,
             "check",
@@ -763,19 +927,88 @@ def _build_checker_command(
             str(config_path),
         ], [config_path]
     if checker == "mypy":
-        config_path = _write_mypy_config(package_path, relative_paths, "mypy")
+        config_path = _write_mypy_config(package_path, relative_paths, "mypy", exclude_directories)
         command = [
             *base_command,
             "--no-incremental",
             "--config-file",
             str(config_path),
         ]
-        if not relative_paths:
-            command.append(".")
         return command, [config_path]
     if checker == "zuban":
-        return [*base_command, "check", *(relative_paths or ["."])], []
+        config_path = _write_mypy_config(package_path, relative_paths, "zuban", exclude_directories)
+        command = [
+            *base_command,
+            "check",
+            "--mode",
+            "default",
+            "--config-file",
+            str(config_path),
+            "--python-executable",
+            sys.executable,
+        ]
+        return command, [config_path]
     return None, []
+
+
+def _run_checker_process(
+    checker: str,
+    package_path: Path,
+    check_paths: list[Path] | None,
+    timeout: int,
+    memory_limit_mb: int,
+    capture_output: bool = True,
+    environment: dict[str, str] | None = None,
+    audit_files: bool = False,
+    exclude_directories: list[str] | None = None,
+) -> ProcessResult:
+    """Execute a checker with the shared benchmark configuration and isolation."""
+    command, config_paths = _build_checker_command(
+        checker, package_path, check_paths, exclude_directories
+    )
+    if not command:
+        error_message = (
+            "Not installed"
+            if checker in AVAILABLE_TYPE_CHECKERS
+            else f"Unknown checker: {checker}"
+        )
+        raise FileNotFoundError(error_message)
+
+    if audit_files:
+        if checker == "pyright-threads":
+            command.append("--verbose")
+        elif checker == "pyrefly":
+            command.append("--summary=full")
+        elif checker in ("ty", "ty-infer"):
+            command.append("-vv")
+
+    try:
+        # ty merges user configuration even with an explicit project config.
+        with (
+            tempfile.TemporaryDirectory(
+                prefix=".typecheck-benchmark-user-", dir=package_path
+            )
+            if checker in ("ty", "ty-infer")
+            else nullcontext(None)
+        ) as config_home:
+            checker_environment = environment
+            if config_home is not None:
+                checker_environment = (
+                    environment if environment is not None else os.environ
+                ).copy()
+                checker_environment["APPDATA"] = config_home
+                checker_environment["XDG_CONFIG_HOME"] = config_home
+            return run_process_with_timeout(
+                command,
+                cwd=package_path,
+                timeout=timeout,
+                memory_limit_mb=memory_limit_mb,
+                capture_output=capture_output,
+                environment=checker_environment,
+            )
+    finally:
+        for config_path in config_paths:
+            config_path.unlink(missing_ok=True)
 
 
 def run_checker(
@@ -786,46 +1019,24 @@ def run_checker(
     memory_limit_mb: int,
     capture_output: bool = True,
     environment: dict[str, str] | None = None,
+    audit_files: bool = False,
+    exclude_directories: list[str] | None = None,
 ) -> TimingMetrics:
     """Run one checker once using a minimal checker-specific configuration."""
-    command, config_paths = _build_checker_command(
-        checker, package_path, check_paths
-    )
-    if not command:
-        error_message = (
-            "Not installed"
-            if checker in AVAILABLE_TYPE_CHECKERS
-            else f"Unknown checker: {checker}"
+    try:
+        result = _run_checker_process(
+            checker, package_path, check_paths, timeout, memory_limit_mb,
+            capture_output=capture_output, environment=environment, audit_files=audit_files,
+            exclude_directories=exclude_directories,
         )
+    except OSError as exc:
         return {
             "ok": False,
             "execution_time_s": 0.0,
             "peak_memory_mb": 0.0,
             "oom_killed": False,
-            "error_message": error_message,
+            "error_message": f"Unable to start {checker}: {exc}",
         }
-
-    try:
-        try:
-            result = run_process_with_timeout(
-                command,
-                cwd=package_path,
-                timeout=timeout,
-                memory_limit_mb=memory_limit_mb,
-                capture_output=capture_output,
-                environment=environment,
-            )
-        except OSError as exc:
-            return {
-                "ok": False,
-                "execution_time_s": 0.0,
-                "peak_memory_mb": 0.0,
-                "oom_killed": False,
-                "error_message": f"Unable to start {checker}: {exc}",
-            }
-    finally:
-        for config_path in config_paths:
-            config_path.unlink(missing_ok=True)
 
     if result["oom_killed"]:
         memory = result["peak_memory_mb"]
@@ -849,13 +1060,25 @@ def run_checker(
         }
 
     combined_output = f"{result['stderr']}\n{result['stdout']}"
+    if checker == "pyrefly" and re.search(
+        r"^No Python files matched pattern", combined_output, re.MULTILINE
+    ):
+        return {
+            "ok": False,
+            "execution_time_s": result["execution_time_s"],
+            "peak_memory_mb": result["peak_memory_mb"],
+            "oom_killed": False,
+            "error_message": "No Python files matched the configured include patterns",
+        }
     if capture_output and "errors prevented further checking" in combined_output:
         return {
             "ok": False,
             "execution_time_s": result["execution_time_s"],
             "peak_memory_mb": result["peak_memory_mb"],
             "oom_killed": False,
-            "error_message": "Fatal: errors prevented further checking",
+            "error_message": (
+                "Fatal: errors prevented further checking; " + _failure_message(result)
+            ),
         }
 
     # All supported checkers use exit code 1 for ordinary type errors.
@@ -882,6 +1105,12 @@ def run_checker(
             metrics["files_checked"] = files_checked
         if phase_times:
             metrics["phase_times_s"] = phase_times
+    files_selected = _parse_source_file_count(checker, combined_output)
+    if files_selected is not None:
+        metrics["files_selected"] = files_selected
+    elif audit_files:
+        metrics["ok"] = False
+        metrics["error_message"] = f"{checker} did not report a verifiable source-file count"
     return metrics
 
 
@@ -966,7 +1195,37 @@ def _benchmark_directory(
     memory_limit_mb: int,
     local_path: str | None = None,
     environment: dict[str, str] | None = None,
+    exclude_directories: list[str] | None = None,
 ) -> PackageResult:
+    check_roots, missing = _resolve_check_paths(
+        package_path,
+        (_relative_check_paths(package_path, resolved_paths) or [])
+        if resolved_paths is not None else ["."],
+    )
+    if missing or not check_roots:
+        return {
+            "package_name": name,
+            "github_url": github_url,
+            "error": (
+                f"Missing configured source paths: {', '.join(missing)}"
+                if missing else "No Python source files selected"
+            ),
+            "metrics": {},
+        }
+    try:
+        repository_configs = _audit_repository_configs(package_path)
+    except OSError as exc:
+        message = f"Repository configuration audit failed: {exc}"
+        print(f"    {message}")
+        return {
+            "package_name": name, "github_url": github_url,
+            "error": message, "metrics": {},
+        }
+    print(f"    Repository config audit: {len(repository_configs)} candidate files")
+    for config in repository_configs:
+        detail = ", ".join(config["sections"] or config["checkers"]) or "unparsed TOML"
+        status = "parse error" if "parse_error" in config else config["disposition"]
+        print(f"      {config['path']}: {detail} ({status})")
     metrics: dict[str, TimingMetrics] = {}
     for checker in type_checkers:
         if not _checker_command(checker):
@@ -979,6 +1238,27 @@ def _benchmark_directory(
                 "error_message": "Not installed",
             }
             continue
+
+        audit = run_checker(
+            checker, package_path, check_roots, timeout, memory_limit_mb,
+            environment=environment, audit_files=True,
+            exclude_directories=exclude_directories,
+        )
+        selected_count = audit.get("files_selected")
+        if not audit["ok"] or selected_count is None or selected_count == 0:
+            audit["ok"] = False
+            audit["file_count_verified"] = False
+            if not audit.get("error_message"):
+                audit["error_message"] = (
+                    f"No verifiable nonzero native source-file count: {checker} reported {selected_count}"
+                )
+            audit["file_count_audit_time_s"] = audit["execution_time_s"]
+            audit["execution_time_s"] = 0.0
+            audit["peak_memory_mb"] = 0.0
+            metrics[checker] = audit
+            print(f"    {checker} source-file audit failed: {audit['error_message']}")
+            continue
+        print(f"    {checker} source-file audit: {selected_count} native files verified")
 
         if warmup == 0:
             run_description = f"{runs} measured"
@@ -1002,11 +1282,19 @@ def _benchmark_directory(
             metric = run_checker(
                 checker,
                 package_path,
-                resolved_paths,
+                check_roots,
                 timeout,
                 memory_limit_mb,
                 environment=environment,
+                exclude_directories=exclude_directories,
             )
+            run_count = metric.get("files_selected")
+            if metric["ok"] and run_count is not None and run_count != selected_count:
+                metric["ok"] = False
+                metric["error_message"] = (
+                    f"Source-file count changed: expected {selected_count}, "
+                    f"{checker} reported {run_count}"
+                )
             if not metric.get("ok"):
                 print(f"failed: {metric.get('error_message', 'Unknown error')}")
                 failure = metric
@@ -1050,6 +1338,9 @@ def _benchmark_directory(
             "peak_memories_mb": peak_memories,
             "execution_time_stats": compute_run_stats(execution_times),
             "peak_memory_stats": compute_run_stats(peak_memories),
+            "files_selected": selected_count,
+            "file_count_verified": True,
+            "file_count_audit_time_s": audit["execution_time_s"],
         }
         if parsed_file_counts:
             result_metric["files_parsed"] = parsed_file_counts[0]
@@ -1072,11 +1363,26 @@ def _benchmark_directory(
             f"(stddev: {result_metric['execution_time_stats']['stddev']:.3f}s)"
         )
 
+    native_counts = {
+        checker: metric["files_selected"]
+        for checker, metric in metrics.items() if metric.get("file_count_verified")
+    }
+    if len(set(native_counts.values())) > 1:
+        message = f"Native source-file counts differ: {native_counts}; timings are not comparable"
+        print(f"    {message}")
+        for checker in native_counts:
+            metrics[checker]["ok"] = False
+            metrics[checker]["source_count_mismatch"] = True
+            metrics[checker]["error_message"] = message
+
     result: PackageResult = {
         "package_name": name,
         "github_url": github_url,
         "error": None,
         "metrics": metrics,
+        "check_paths": _relative_check_paths(package_path, check_roots) or [],
+        "exclude_directories": exclude_directories or [],
+        "repository_configs": repository_configs,
     }
     if local_path:
         result["local_path"] = local_path
@@ -1125,10 +1431,15 @@ def _benchmark_package(
     resolved_paths: list[Path] | None = None
     if raw_check_paths:
         resolved_paths, missing = _resolve_check_paths(
-            package_path, raw_check_paths, exclude_directories
+            package_path, raw_check_paths
         )
         if missing:
-            print(f"  Warning: missing configured check paths: {', '.join(missing)}")
+            return {
+                **package_metadata,
+                "commit": commit or "unknown",
+                "error": f"Missing configured check paths: {', '.join(missing)}",
+                "metrics": {},
+            }
         if resolved_paths:
             check_text = ", ".join(raw_check_paths)
             if exclude_directories:
@@ -1137,7 +1448,12 @@ def _benchmark_package(
                 ) + ")"
             print(f"  Checking: {check_text}")
         else:
-            print("  Warning: configured check paths do not exist; checking full repo")
+            return {
+                **package_metadata,
+                "commit": commit or "unknown",
+                "error": "No Python source files selected",
+                "metrics": {},
+            }
 
     result = _benchmark_directory(
         name=name,
@@ -1150,6 +1466,7 @@ def _benchmark_package(
         warmup=warmup,
         memory_limit_mb=memory_limit_mb,
         environment=_dependency_environment(dependency_path, package),
+        exclude_directories=exclude_directories,
     )
     result["commit"] = commit or "unknown"
     result.update(package_metadata)
@@ -1168,6 +1485,7 @@ def _save_results(
     memory_limit_mb: int,
     os_name: str | None,
     local_dir: Path | None,
+    capability_suite: CapabilitySuite | None = None,
 ) -> Path:
     timestamp = datetime.now(timezone.utc)
     date = timestamp.strftime("%Y-%m-%d")
@@ -1196,12 +1514,13 @@ def _save_results(
         "memory_limit_mb": memory_limit_mb,
         "node_options": os.environ.get("NODE_OPTIONS", ""),
         "dependency_isolation": DEPENDENCY_ISOLATION,
+        "checker_config_version": CHECKER_CONFIG_VERSION,
         "type_checkers": type_checkers,
         "type_checker_versions": versions,
         "package_count": len(results),
         "runs_per_package": runs,
         "warmup_runs": warmup,
-        "uncounted_validation_runs_per_checker": 0,
+        "uncounted_validation_runs_per_checker": 1,
         "timeout_s": timeout,
         "aggregate": aggregate,
         "results": results,
@@ -1210,6 +1529,8 @@ def _save_results(
         output["os"] = os_name
     if local_dir:
         output["local_directory"] = str(local_dir)
+    if capability_suite is not None:
+        output["capability_suite"] = capability_suite
 
     serialized = json.dumps(output, indent=2) + "\n"
     dated_file.write_text(serialized, encoding="utf-8")
@@ -1340,6 +1661,29 @@ def run_benchmark(
                     )
                 )
 
+    print("\nUntimed behavioral capability audit:")
+
+    def run_capability(
+        checker: str, root: Path, paths: list[Path]
+    ) -> CapabilityOutput:
+        result = _run_checker_process(
+            checker, root, paths, min(timeout, 60), memory_limit_mb, audit_files=True,
+        )
+        return {
+            **result,
+            "files_selected": _parse_source_file_count(
+                checker, result["stdout"] + "\n" + result["stderr"]
+            ),
+        }
+
+    capability_suite = run_capability_suite(type_checkers, run_capability)
+    for checker, result in capability_suite["results"].items():
+        if result["ok"]:
+            passed = sum(case["passed"] for case in result["cases"].values())
+            print(f"  {checker}: {passed}/{len(capability_suite['cases'])} cases passed")
+        else:
+            print(f"  {checker}: not evaluated: {result['error']}")
+
     aggregate = compute_aggregate_stats(results, type_checkers)
     dated_file = _save_results(
         results,
@@ -1353,6 +1697,7 @@ def run_benchmark(
         memory_limit_mb,
         os_name,
         resolved_local_dir,
+        capability_suite,
     )
 
     print("\nBenchmark complete.")

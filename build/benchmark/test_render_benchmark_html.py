@@ -69,6 +69,128 @@ class _SemanticParser(HTMLParser):
 
 
 class RenderBenchmarkHtmlTest(unittest.TestCase):
+    def test_native_count_mismatches_are_not_comparable_or_in_summary_totals(self) -> None:
+        pyright = _result("pyright", 2.0, 200.0)
+        mypy = _result("mypy", 1.0, 100.0)
+        for checker, result, count in (("pyright", pyright, 2), ("mypy", mypy, 1)):
+            result["results"][0]["metrics"][checker].update(
+                files_selected=count, file_count_verified=True
+            )
+        report = render_benchmark_html.render_html({"pyright": pyright, "mypy": mypy})
+        self.assertEqual(report.count("Not comparable"), 2)
+        self.assertIn("2 native source files", report)
+        self.assertIn("1 native source files", report)
+        self.assertNotIn("2.00s", report)
+        self.assertNotIn("1.00s", report)
+        self.assertNotIn("<strong>2.0s</strong>", report)
+        self.assertTrue(pyright["results"][0]["metrics"]["pyright"]["ok"])
+
+    def test_repository_configuration_audit_is_visible_and_escaped(self) -> None:
+        result = _result("ty", 1.0, 100.0)
+        result["results"][0]["repository_configs"] = [
+            {
+                "path": "nested/pyproject.toml", "checkers": ["ty"],
+                "sections": ["tool.ty"], "settings": ["tool.ty.rules.all"],
+                "disposition": "not applied: explicit benchmark config",
+            },
+            {
+                "path": "broken.toml", "checkers": [], "sections": [], "settings": [],
+                "parse_error": "<invalid TOML>",
+            },
+        ]
+        report = render_benchmark_html.render_html({"ty": result})
+        self.assertIn("Repository configuration audit", report)
+        self.assertIn("nested/pyproject.toml", report)
+        self.assertIn("tool.ty.rules.all", report)
+        self.assertIn("not applied: explicit benchmark config", report)
+        self.assertIn("Scan parse error: &lt;invalid TOML&gt;", report)
+        self.assertNotIn("<invalid TOML>", report)
+
+    def test_renders_behavior_matches_without_quality_adjusting_times(self) -> None:
+        pyright = _result("pyright", 2.0, 200.0)
+        ty = _result("ty", 1.0, 100.0)
+        for checker, result in (("pyright", pyright), ("ty", ty)):
+            result["capability_suite"] = {
+                "version": 1,
+                "sha256": "same",
+                "cases": {"returns": "Return inference"},
+                "results": {
+                    checker: {
+                        "ok": True,
+                        "cases": {
+                            "returns": {
+                                "passed": checker == "pyright",
+                                "positive_diagnostic_lines": [] if checker == "pyright" else [3],
+                                "negative_diagnostic_lines": [4] if checker == "pyright" else [],
+                                "expected_error_line": 4,
+                            }
+                        },
+                    }
+                },
+            }
+        report = render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        parser = _SemanticParser()
+        parser.feed(report)
+        self.assertIn("Behavior matches", parser.cells)
+        self.assertIn("1 / 1", parser.cells)
+        self.assertIn("0 / 1", parser.cells)
+        self.assertIn("2.00s", parser.cells)
+        self.assertIn("1.00s", parser.cells)
+        self.assertIn("Behavioral capability probes", parser.headings)
+        self.assertIn("Positive diagnostic lines: [3]", report)
+        self.assertIn("do not certify equivalent analysis", report)
+
+        ty["capability_suite"]["sha256"] = "different"
+        with self.assertRaisesRegex(ValueError, "different capability suites"):
+            render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        ty["capability_suite"]["sha256"] = "same"
+        ty["capability_suite"]["results"]["ty"] = {
+            "ok": False, "error": "<failed audit>",
+        }
+        report = render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        self.assertIn("Not evaluated", report)
+        self.assertIn("&lt;failed audit&gt;", report)
+        self.assertNotIn("<failed audit>", report)
+
+    def test_requires_matching_manifests_and_verified_native_counts(self) -> None:
+        pyright = _result("pyright", 2.0, 200.0)
+        ty = _result("ty", 1.0, 100.0)
+        for checker, result in (("pyright", pyright), ("ty", ty)):
+            result["checker_config_version"] = 4
+            result["results"][0].update(
+                source_file_count=5, source_manifest_sha256="same"
+            )
+            result["results"][0]["metrics"][checker].update(
+                files_selected=5, file_count_verified=True
+            )
+        report = render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        self.assertIn("5 source files selected", report)
+        self.assertEqual(report.count("5 source files verified"), 2)
+
+        ty["checker_config_version"] = 3
+        with self.assertRaisesRegex(ValueError, "different benchmark configuration versions"):
+            render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        ty["checker_config_version"] = 4
+        ty["results"][0]["source_manifest_sha256"] = "different"
+        with self.assertRaisesRegex(ValueError, "different source manifests"):
+            render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        ty["results"][0]["source_manifest_sha256"] = "same"
+        ty["results"][0]["metrics"]["ty"]["files_selected"] = 4
+        with self.assertRaisesRegex(ValueError, "source-file count is not verified"):
+            render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+
+    def test_renders_ty_inference_as_a_separate_profile(self) -> None:
+        report = render_benchmark_html.render_html(
+            {
+                "ty-infer": _result("ty-infer", 2.0, 200.0),
+                "ty": _result("ty", 1.0, 100.0),
+            }
+        )
+        parser = _SemanticParser()
+        parser.feed(report)
+        self.assertLess(parser.cells.index("ty"), parser.cells.index("ty (return inference)"))
+        self.assertIn("do not measure equivalent analysis or time per rule", report)
+
     def test_loads_one_result_per_checker(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

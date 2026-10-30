@@ -5,14 +5,17 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import statistics
 from pathlib import Path
 from typing import Any
 
 
-CHECKER_ORDER = ["pyright", "pyright-threads", "pyrefly", "ty", "mypy", "zuban"]
+CHECKER_ORDER = ["pyright", "pyright-threads", "pyrefly", "ty", "ty-infer", "mypy", "zuban"]
 
 
 def _checker_label(checker: str) -> str:
+    if checker == "ty-infer":
+        return "ty (return inference)"
     return "pyright (threads)" if checker == "pyright-threads" else checker
 
 
@@ -42,7 +45,7 @@ def _ordered_checkers(results: dict[str, dict[str, Any]]) -> list[str]:
 
 def _package_metrics(data: dict[str, Any], checker: str) -> dict[str, dict[str, Any]]:
     return {
-        package["package_name"]: package.get("metrics", {}).get(checker, {})
+        package["package_name"]: package.get("metrics", {}).get(checker, {}).copy()
         for package in data.get("results", [])
         if package.get("package_name")
     }
@@ -56,6 +59,9 @@ def _phase_time(phase_times: dict[str, Any], name: str) -> str:
 def render_html(results: dict[str, dict[str, Any]]) -> str:
     if not results:
         raise ValueError("At least one checker result is required")
+    config_version = next(iter(results.values())).get("checker_config_version")
+    if any(data.get("checker_config_version") != config_version for data in results.values()):
+        raise ValueError("Checker results use different benchmark configuration versions")
     checkers = _ordered_checkers(results)
     packages = sorted(
         {
@@ -68,11 +74,78 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
     metrics = {
         checker: _package_metrics(results[checker], checker) for checker in checkers
     }
+    suites = {
+        checker: data["capability_suite"]
+        for checker, data in results.items() if "capability_suite" in data
+    }
+    identities = {
+        json.dumps(
+            [suite["version"], suite["sha256"], suite["cases"]], sort_keys=True
+        )
+        for suite in suites.values()
+    }
+    if len(identities) > 1:
+        raise ValueError("Checker results use different capability suites")
+    capability_cases = next(iter(suites.values()))["cases"] if suites else {}
+    capabilities = {
+        checker: suite["results"].get(checker, {})
+        for checker, suite in suites.items()
+    }
+    for checker, result in capabilities.items():
+        if result.get("ok") and set(result["cases"]) != set(capability_cases):
+            raise ValueError(f"{checker}: incomplete capability results")
+    source_scopes: dict[str, tuple[int, str]] = {}
+    for checker in checkers:
+        for package in results[checker].get("results", []):
+            manifest_hash = package.get("source_manifest_sha256")
+            if manifest_hash is None:
+                continue
+            name = package["package_name"]
+            scope = (package["source_file_count"], manifest_hash)
+            if name in source_scopes and source_scopes[name] != scope:
+                raise ValueError(f"{name}: checker results use different source manifests")
+            source_scopes[name] = scope
+            metric = metrics[checker].get(name, {})
+            if metric.get("ok") and (
+                not metric.get("file_count_verified")
+                or metric.get("files_selected") != scope[0]
+            ):
+                raise ValueError(f"{name}/{checker}: source-file count is not verified")
+    mismatched_packages = set()
+    for package in packages:
+        native_counts = {
+            metric["files_selected"]
+            for checker in checkers
+            if (metric := metrics[checker].get(package, {})).get("file_count_verified")
+        }
+        if len(native_counts) > 1:
+            mismatched_packages.add(package)
+            for checker in checkers:
+                metric = metrics[checker].get(package, {})
+                if metric.get("file_count_verified"):
+                    metric["ok"] = False
+                    metric["source_count_mismatch"] = True
+    aggregates = {
+        checker: results[checker].get("aggregate", {}).get(checker, {})
+        for checker in checkers
+    }
+    if mismatched_packages:
+        for checker in checkers:
+            accepted = [metric for metric in metrics[checker].values() if metric.get("ok")]
+            aggregates[checker] = {
+                "packages_tested": len(accepted),
+                "packages_failed": len(metrics[checker]) - len(accepted),
+                "total_execution_time_s": sum(metric["execution_time_s"] for metric in accepted),
+                "p50_execution_time_s": statistics.median(
+                    [metric["execution_time_s"] for metric in accepted]
+                ) if accepted else 0,
+                "p50_peak_memory_mb": statistics.median(
+                    [metric.get("peak_memory_mb", 0) for metric in accepted]
+                ) if accepted else 0,
+            }
     totals = {
         checker: float(
-            results[checker].get("aggregate", {})
-            .get(checker, {})
-            .get("total_execution_time_s", 0.0)
+            aggregates[checker].get("total_execution_time_s", 0.0)
         )
         for checker in checkers
     }
@@ -82,12 +155,21 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
 
     summary_rows: list[str] = []
     for checker in checkers:
-        aggregate = results[checker].get("aggregate", {}).get(checker, {})
+        aggregate = aggregates[checker]
         tested = int(aggregate.get("packages_tested", 0))
         failed = int(aggregate.get("packages_failed", 0))
         total = totals[checker]
         share = total / max_total * 100 if max_total else 0.0
         version = results[checker].get("type_checker_versions", {}).get(checker, "unknown")
+        capability_cell = ""
+        if suites:
+            capability = capabilities.get(checker, {})
+            text = (
+                f'{sum(case["passed"] for case in capability["cases"].values())}'
+                f' / {len(capability_cases)}'
+                if capability.get("ok") else "Not evaluated"
+            )
+            capability_cell = f"<td>{text}</td>"
         summary_rows.append(
             "<tr>"
             f"<th scope=\"row\"><span class=\"checker\">{html.escape(_checker_label(checker))}</span>"
@@ -97,7 +179,51 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
             f"<strong>{total:.1f}s</strong></td>"
             f"<td>{float(aggregate.get('p50_execution_time_s', 0.0)):.1f}s</td>"
             f"<td>{float(aggregate.get('p50_peak_memory_mb', 0.0)):.0f} MB</td>"
+            + capability_cell +
             "</tr>"
+        )
+
+    capability_section = ""
+    if suites:
+        rows = []
+        for name, label in capability_cases.items():
+            cells = []
+            for checker in checkers:
+                capability = capabilities.get(checker, {})
+                if not capability.get("ok"):
+                    error = html.escape(capability.get("error", "No capability audit recorded"))
+                    cells.append(f'<td class="failed">Not evaluated<small>{error}</small></td>')
+                    continue
+                case = capability["cases"][name]
+                if case["passed"]:
+                    cells.append('<td class="passed">Match</td>')
+                else:
+                    details = (
+                        f'Positive diagnostic lines: {case["positive_diagnostic_lines"]}; '
+                        f'negative diagnostic lines: {case["negative_diagnostic_lines"]}; '
+                        f'expected negative line: {case["expected_error_line"]}.'
+                    )
+                    cells.append(
+                        f'<td class="failed">Mismatch<small>{html.escape(details)}</small></td>'
+                    )
+            rows.append(
+                f'<tr><th scope="row">{html.escape(label)}</th>{"".join(cells)}</tr>'
+            )
+        headers = "".join(
+            f'<th>{html.escape(_checker_label(checker))}</th>' for checker in checkers
+        )
+        capability_section = (
+            '<section><h2>Behavioral capability probes</h2>'
+            '<p class="legend">Untimed paired probes run after corpus timings with the same '
+            'checker configurations. A match requires accepting the positive example, preserving '
+            'asserted types, and reporting exactly the intended negative diagnostic line. '
+            'The assertion control must also pass. Extra strictness diagnostics can cause a mismatch; '
+            'a mismatch does not necessarily mean less inference. Raw JSON retains diagnostic evidence.</p>'
+            '<p class="legend">These few examples are not a comprehensive conformance or quality score, '
+            'do not certify equivalent analysis on the timed projects, and are not a denominator '
+            'for normalizing runtime. Historical results without probes are not evaluated.</p>'
+            '<div class="table-wrap"><table><thead><tr><th>Behavior</th>'
+            f'{headers}</tr></thead><tbody>{"".join(rows)}</tbody></table></div></section>'
         )
 
     package_rows: list[str] = []
@@ -106,15 +232,72 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
         for checker in checkers:
             metric = metrics[checker].get(package, {})
             if not metric.get("ok"):
-                cells.append('<td class="failed">Not measured</td>')
+                cells.append(
+                    '<td class="failed">Not comparable'
+                    f'<small>{metric["files_selected"]} native source files</small></td>'
+                    if metric.get("source_count_mismatch")
+                    else '<td class="failed">Not measured</td>'
+                )
                 continue
             cells.append(
                 f'<td><strong>{float(metric["execution_time_s"]):.2f}s</strong>'
-                f'<small>{float(metric.get("peak_memory_mb", 0.0)):.0f} MB</small></td>'
+                f'<small>{float(metric.get("peak_memory_mb", 0.0)):.0f} MB</small>'
+                + (
+                    f'<small>{metric["files_selected"]} source files verified</small>'
+                    if metric.get("file_count_verified") else ""
+                ) + '</td>'
             )
-        package_rows.append(
-            f'<tr><th scope="row">{html.escape(package)}</th>{"".join(cells)}</tr>'
+        scope_label = (
+            f'<small>{source_scopes[package][0]} source files selected</small>'
+            if package in source_scopes else ""
         )
+        package_rows.append(
+            f'<tr><th scope="row">{html.escape(package)}{scope_label}</th>{"".join(cells)}</tr>'
+        )
+
+    config_rows = []
+    for package in packages:
+        records = {
+            json.dumps(record, sort_keys=True)
+            for data in results.values()
+            for item in data.get("results", [])
+            if item.get("package_name") == package
+            for record in item.get("repository_configs", [])
+        }
+        audited = any(
+            "repository_configs" in item
+            for data in results.values() for item in data.get("results", [])
+            if item.get("package_name") == package
+        )
+        if not records and audited:
+            config_rows.append(
+                f'<tr><th>{html.escape(package)}</th><td colspan="3">'
+                'No checker configs or TOML settings detected</td></tr>'
+            )
+        for serialized in sorted(records):
+            record = json.loads(serialized)
+            detail = ", ".join(
+                record.get("settings") or record["sections"] or record["checkers"]
+            ) or "Unknown"
+            handling = (
+                f'Scan parse error: {record["parse_error"]}'
+                if "parse_error" in record else record["disposition"]
+            )
+            config_rows.append(
+                f'<tr><th>{html.escape(package)}</th><td>{html.escape(record["path"])}</td>'
+                f'<td>{html.escape(detail)}</td><td>{html.escape(handling)}</td></tr>'
+            )
+    config_section = (
+        '<section><h2>Repository configuration audit</h2>'
+        '<p class="legend">Untimed recursive search of each checkout for native checker configs, '
+        'TOML tool sections, and mypy INI settings. Detected does not mean applied: the harness '
+        'passes explicit benchmark configurations instead. Values are not published. Parse errors '
+        'are shown rather than treated as absence. The search skips VCS metadata, node_modules, '
+        'and __pycache__; source-level ignore comments retain their native semantics.</p>'
+        '<div class="table-wrap"><table><thead><tr><th>Package</th><th>File</th>'
+        '<th>Checker / sections</th><th>Handling</th></tr></thead><tbody>'
+        f'{"".join(config_rows)}</tbody></table></div></section>'
+    ) if config_rows else ""
 
     pyright_stats_rows: list[str] = []
     for package, metric in sorted(metrics.get("pyright", {}).items()):
@@ -232,10 +415,15 @@ small {{ display:block; margin-top:3px; color:var(--muted); font-family:"IBM Ple
 <header><h1>Python type checker benchmark</h1><p>Weekly cross-checker performance on pinned open-source projects.</p></header>
 <main>
 <section><h2>Run summary</h2><p class="legend">Generated {html.escape(timestamp)} · Python {html.escape(str(environment.get('python_version', 'unknown')))} · {html.escape(str(environment.get('platform_details', environment.get('platform', 'unknown'))))}</p>
-<div class="table-wrap"><table><thead><tr><th>Checker</th><th>Measured</th><th>Failed</th><th>Total time</th><th>Median time</th><th>Median RSS</th></tr></thead><tbody>{''.join(summary_rows)}</tbody></table></div></section>
+<div class="table-wrap"><table><thead><tr><th>Checker</th><th>Measured</th><th>Failed</th><th>Total time</th><th>Median time</th><th>Median RSS</th>{'<th>Behavior matches</th>' if suites else ''}</tr></thead><tbody>{''.join(summary_rows)}</tbody></table></div></section>
 <section><h2>Package comparison</h2><p class="legend">Different checker jobs run on separate hosted runners, so timings are independent trends rather than a fastest-checker ranking. The two Pyright modes run sequentially in one job. Cells show wall time and peak RSS.</p>
+<p class="legend">Checker defaults, inference, and diagnostic coverage differ; these timings do not measure equivalent analysis or time per rule. Pyrefly uses its all preset; Pyright uses basic mode. These presets are not equivalent. The two ty modes run sequentially in one job: ty retains its default return inference, while ty (return inference) enables inference for unannotated returns. Neither mode guarantees Pyright-equivalent inference.</p>
+<p class="legend">Linux RSS measures the parent checker process, not its child processes; multi-process memory totals are not comparable.</p>
+<p class="legend">Each checker discovers files natively within the configured roots; the harness does not choose .py over .pyi or vice versa. Untimed audits record native source-file counts, not imported dependencies. Different counts make a package not comparable and exclude its timings from report totals. Equal counts do not prove identical files or analysis. Historical results without audits are not verified.</p>
 <div class="table-wrap"><table><thead><tr><th>Package</th>{checker_headers}</tr></thead><tbody>{''.join(package_rows)}</tbody></table></div></section>
 {threading_section}
+{capability_section}
+{config_section}
 <section><h2>Pyright release history</h2><p class="legend">Track per-package execution time and peak memory across every stable Pyright release from the prior year.</p><p><a href="history/">View Pyright package performance by release</a></p></section>
 {pyright_stats_section}
 </main>
