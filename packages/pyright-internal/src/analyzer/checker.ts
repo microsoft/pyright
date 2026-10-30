@@ -5511,6 +5511,17 @@ export class Checker extends ParseTreeWalker {
         // that are not initialized.
         const diagAddendum = new DiagnosticAddendum();
         abstractSymbols.forEach((member, name) => {
+            // Exclude genuine dataclass KW_ONLY separators, but preserve
+            // diagnostics for inherited dataclass fields with the same name.
+            if (
+                isClass(member.classType) &&
+                ClassType.isDataClass(member.classType) &&
+                member.symbol.isDataClassKeywordOnly() &&
+                !dataClassEntries.some((entry) => entry.name === name)
+            ) {
+                return;
+            }
+
             const decls = member.symbol.getDeclarations();
 
             if (decls.length === 0 || !isClass(member.classType)) {
