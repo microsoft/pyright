@@ -44,6 +44,12 @@ test('Ellipsis1', () => {
     TestUtils.validateResults(analysisResults, 10);
 });
 
+test('NotImplemented1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['notImplemented1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Generator1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generator1.py']);
 

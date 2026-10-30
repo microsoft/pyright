@@ -15611,20 +15611,40 @@ export function createTypeEvaluator(
         let deprecationInfo: MagicMethodDeprecationInfo | undefined;
         const overloadsUsedForCall: FunctionType[] = [];
 
+        const getRuntimeMagicMethodType = (type: Type): Type => {
+            const objectClass = prefetched?.objectClass;
+            if (!objectClass || !isInstantiableClass(objectClass)) {
+                return type;
+            }
+
+            return mapSubtypes(type, (subtype) => {
+                if (isClassInstance(subtype) && subtype.shared.fullName === 'types.NotImplementedType') {
+                    // typeshed models NotImplementedType as deriving from Any so the
+                    // singleton is assignable as a binary-method dispatch signal. Its
+                    // runtime class derives from object, so use object when resolving
+                    // magic methods and their arguments.
+                    return addConditionToType(ClassType.cloneAsInstance(objectClass), getTypeCondition(subtype));
+                }
+
+                return subtype;
+            });
+        };
+
         // Create a helper lambda for object subtypes.
         const handleSubtype = (subtype: ClassType | TypeVarType) => {
             let magicMethodType: Type | undefined;
-            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+            const effectiveSubtype = getRuntimeMagicMethodType(subtype) as ClassType | TypeVarType;
+            const concreteSubtype = makeTopLevelTypeVarsConcrete(effectiveSubtype);
 
             if (isClass(concreteSubtype)) {
-                magicMethodType = getBoundMagicMethod(concreteSubtype, methodName, subtype, errorNode, diag);
+                magicMethodType = getBoundMagicMethod(concreteSubtype, methodName, effectiveSubtype, errorNode, diag);
             }
 
             if (magicMethodType) {
                 const functionArgs: Arg[] = argList.map((arg) => {
                     return {
                         argCategory: ArgCategory.Simple,
-                        typeResult: arg,
+                        typeResult: { ...arg, type: getRuntimeMagicMethodType(arg.type) },
                     };
                 });
 
