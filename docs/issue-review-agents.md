@@ -179,6 +179,14 @@ Their actual diagnostics can inform discussion, but cannot replace a source-chec
 release reproduction statuses or satisfy the independent strict gate. A missing checking mode blocks faithful
 reconstruction independently of whether a checker can execute.
 
+The console shares a bounded source-CLI/mypy version preflight across concurrent issues, records exact setup
+results in `capabilities.json`, and includes them in behavior assignments. Missing mypy is an unperformed
+comparison, not repeated failed analysis or permission to install. Setup probes do not count as semantic
+execution. Unattended runtime Python remains unavailable. Bounded GitHub search is already repository-scoped;
+tool schemas and correction messages prohibit caller scope qualifiers and static-check CLI arguments rather
+than silently repairing them. These operational checks do not supply omitted reporter settings or relax any
+claim, reproduction, screening or publication gate.
+
 The explicit [publication-disabled closure rehearsal](../build/automation/README.md#publication-disabled-closure-rehearsal)
 is separate from ordinary dry-run behavior. `--rehearse-closures` runs real rich-mirror drafting, factual checking
 and final pre-publication eligibility for bounded fixed/by-design/duplicate candidates while the transport denies

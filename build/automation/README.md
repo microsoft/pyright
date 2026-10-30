@@ -98,6 +98,19 @@ not arbitrary commands, package installs or issue-provided scripts. Choose `--re
 when using the approved alternative feed. Source-CLI behavior checks still need the existing local build
 (`pnpm run build:cli:dev`); do not change source or build outputs during a run.
 
+The controller performs one bounded version preflight for the source CLI and isolated controller-interpreter
+mypy, shared across concurrent issues. `capabilities.json` preserves commands, versions, outputs and failures;
+behavior assignments receive the same snapshot. Unavailable mypy stays explicitly unperformed, and requests
+are rejected without repeating the failed subprocess. Preflight never installs dependencies, changes interpreters,
+executes reporter code, or establishes a semantic comparison/reproduction. Runtime Python still needs per-probe
+human approval and is explicitly unavailable unattended.
+
+Bounded tool descriptions and parameter schemas state the calling convention: `github_read` searches are
+already scoped to `microsoft/pyright`, so omit `repo:`, `org:` and `user:`. Pyright and mypy accept no caller CLI
+arguments. Configure Pyright in scratch `pyrightconfig.json`; mypy needs an existing scratch-relative `.py` file.
+Rejected requests retain the original request and actionable correction guidance, never silently rewritten scope
+or arguments. These setup improvements do not relax reproduction, evidence, screening or publication gates.
+
 When strict reproduction is blocked, overnight mode also attempts **separate controller-run diagnostic
 observations**, without another model-planning turn. This bounded fallback checks explicitly labeled Python
 fences and an unambiguous captured setup. Separate snippets run as isolated specimens, never concatenated;

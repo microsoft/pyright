@@ -4,6 +4,8 @@
 import asyncio
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import time
 import tomllib
@@ -69,8 +71,11 @@ from review_issues import (
     AutomationError,
     Console,
     ChunkResult,
+    CheckPreflight,
     GitHub,
+    GitHubRead,
     InvestigationTools,
+    RunCheck,
     atomic_write,
     arguments,
     chunk_table,
@@ -1006,6 +1011,10 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse({"AZURE_CLIENT_SECRET", "AZURE_ENDPOINT", "DEPLOYMENT_NAME"} & child_env.keys())
             self.assertEqual(os.environ["AZURE_CLIENT_SECRET"], "test-only-secret")
             self.assertEqual(os.environ["USE_TGREP"], "true")
+            capabilities = json.loads((args.state_dir / "capabilities.json").read_text())
+            self.assertFalse(capabilities["mypy"]["available"])
+            self.assertEqual(capabilities["mypy"]["stdout"], "test")
+            self.assertIn("Version preflight failed", capabilities["mypy"]["error"])
 
     async def test_invalid_output_gets_only_one_same_session_correction(self):
         valid = '{"approved":true,"problems":[]}'
@@ -1526,11 +1535,17 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             calls.append(agent.name)
             if agent.name == "pyright-issue-by-design-reviewer":
                 tools = options["tools"]
+                self.assertIs(tools.check_preflight, self.console.check_preflight)
+                self.assertIn("One-time controller tool preflight", prompt)
+                self.assertIn("arguments=[]", prompt)
+                self.assertIn("Omit ALL repo:", prompt)
+                self.assertIn("not semantic checks", prompt)
                 tools.log(product_record(audit()))
                 result = ReviewFindings(
                     markdown="# Product findings\n\nThe actual diagnostic follows the rule.", audit=audit(),
                 )
             elif agent.name == "pyright-issue-dupe-investigator":
+                self.assertIn("Omit ALL repo:", prompt)
                 options["tools"].log(search_record())
                 result = DuplicateFindings(
                     markdown="# Duplicate findings\n\nThe search found no shared cause.", report=no_duplicates(),
@@ -2069,12 +2084,190 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(record["data"]["completed"])
 
 
+class CheckPreflightTests(unittest.IsolatedAsyncioTestCase):
+    async def test_parallel_reviews_share_one_probe_per_executable(self):
+        source_cli = ROOT / "packages" / "pyright" / "index.js"
+        preflight = CheckPreflight(source_cli)
+
+        async def execute(command, cwd, **options):
+            self.assertEqual(cwd, ROOT)
+            self.assertEqual(options, {"timeout": 10})
+            return (0, "mypy 1.20.0\n", "") if "-m" in command else (0, "pyright 1.1.414\n", "")
+
+        with patch("review_issues.process", AsyncMock(side_effect=execute)) as run:
+            results = await asyncio.gather(*(preflight.get() for _ in range(10)))
+            self.assertIs(await preflight.get(), results[0])
+        self.assertTrue(all(result is results[0] for result in results))
+        self.assertEqual(run.await_count, 2)
+        commands = [call.args[0] for call in run.await_args_list]
+        self.assertIn(["node", str(source_cli), "--version"], commands)
+        self.assertIn([sys.executable, "-I", "-B", "-m", "mypy", "--version"], commands)
+        self.assertEqual(results[0].pyright.version, "pyright 1.1.414")
+        self.assertEqual(results[0].mypy.version, "mypy 1.20.0")
+        self.assertTrue(results[0].pyright.available)
+        self.assertTrue(results[0].mypy.available)
+        self.assertEqual(
+            results[0].mypy.command,
+            subprocess.list2cmdline([sys.executable, "-I", "-B", "-m", "mypy", "--version"]),
+        )
+
+    async def test_failed_or_unrecognized_version_never_becomes_available(self):
+        for result in ((1, "", "No module named mypy"), (0, "", ""), (0, "another checker 1.0", "")):
+            with self.subTest(result=result), patch("review_issues.process", AsyncMock(return_value=result)) as run:
+                preflight = CheckPreflight(ROOT / "packages" / "pyright" / "index.js")
+                capabilities = await preflight.get()
+                self.assertIs(await preflight.get(), capabilities)
+                self.assertFalse(capabilities.mypy.available)
+                self.assertIsNone(capabilities.mypy.version)
+                self.assertEqual(capabilities.mypy.exit_code, result[0])
+                self.assertEqual(capabilities.mypy.stdout, result[1])
+                self.assertEqual(capabilities.mypy.stderr, result[2])
+                self.assertIn("Version preflight failed", capabilities.mypy.error or "")
+                self.assertEqual(run.await_count, 2)
+
+    async def test_launch_and_timeout_failures_are_explicit_and_cached(self):
+        for error in (FileNotFoundError("node unavailable"), TimeoutError("bounded version probe timed out")):
+            with self.subTest(error=error), patch("review_issues.process", AsyncMock(side_effect=error)) as run:
+                preflight = CheckPreflight(ROOT / "packages" / "pyright" / "index.js")
+                capabilities = await preflight.get()
+                self.assertIs(await preflight.get(), capabilities)
+                for capability in (capabilities.pyright, capabilities.mypy):
+                    self.assertFalse(capability.available)
+                    self.assertIsNone(capability.exit_code)
+                    self.assertEqual(capability.error, str(error))
+                self.assertEqual(run.await_count, 2)
+
+    async def test_cancellation_does_not_cache_a_partial_preflight(self):
+        started = asyncio.Event()
+        calls = 0
+
+        async def wait(*_args, **_options):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                started.set()
+            await asyncio.Event().wait()
+
+        preflight = CheckPreflight(ROOT / "packages" / "pyright" / "index.js")
+        with patch("review_issues.process", AsyncMock(side_effect=wait)):
+            pending = asyncio.create_task(preflight.get())
+            await asyncio.wait_for(started.wait(), 2)
+            pending.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await pending
+        with patch("review_issues.process", AsyncMock(return_value=(0, "mypy 1.20.0\n", ""))) as run:
+            result = await preflight.get()
+        self.assertTrue(result.mypy.available)
+        self.assertEqual(run.await_count, 2)
+
+
 class ToolTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.scratch = Path(self.temporary.name).resolve()
         self.tools = InvestigationTools(FakeGitHub(), self.scratch, ROOT / "packages" / "pyright" / "index.js", {})
+
+    def test_schemas_and_tool_descriptions_expose_scope_and_argument_constraints(self):
+        github_schema = GitHubRead.model_json_schema()["properties"]
+        check_schema = RunCheck.model_json_schema()["properties"]
+        self.assertIn("never include repo:", github_schema["query"]["description"])
+        self.assertIn("Must be []", check_schema["arguments"]["description"])
+        self.assertIn("Existing scratch-relative .py", check_schema["file"]["description"])
+        descriptions = {tool.name: tool.description for tool in self.tools.tools}
+        self.assertIn("Omit ALL repo:", descriptions["github_read"])
+        self.assertIn("arguments=[]", descriptions["run_check"])
+
+    async def test_rejected_search_scopes_are_not_stripped_or_sent_and_retain_correction(self):
+        with patch.object(self.tools.github, "api", AsyncMock()) as api:
+            for scope in ("repo:microsoft/pyright", "ORG:microsoft", "user:rchiodo"):
+                request = {"operation": "search", "query": f"{scope} is:issue ReadOnly"}
+                result = await self.tools.github_read(ToolInvocation(
+                    session_id="test", tool_call_id="call", tool_name="github_read", arguments=request,
+                ))
+                self.assertEqual(result.result_type, "failure")
+                self.assertIn('"query":"is:issue ReadOnly required"', result.text_result_for_llm)
+                saved = json.loads((self.scratch / "checks.jsonl").read_text().splitlines()[-1])
+                self.assertEqual(saved["request"]["query"], request["query"])
+            api.assert_not_awaited()
+
+    async def test_valid_search_gets_exactly_one_controller_owned_repository_scope(self):
+        with patch.object(self.tools.github, "api", AsyncMock(return_value={"items": []})) as api:
+            result = await self.tools.github_read(ToolInvocation(
+                session_id="test", tool_call_id="call", tool_name="github_read",
+                arguments={"operation": "search", "query": "is:issue ReadOnly required"},
+            ))
+        self.assertEqual(result.result_type, "success")
+        self.assertIn("q=repo%3Amicrosoft%2Fpyright+is%3Aissue+ReadOnly+required", api.call_args.args[1])
+        api.assert_awaited_once()
+
+    async def test_static_arguments_remain_rejected_without_execution_or_preflight(self):
+        with patch("review_issues.process", AsyncMock()) as run:
+            for kind in ("pyright", "mypy"):
+                request = {"kind": kind, "arguments": ["--pythonversion", "3.13"]}
+                result = await self.tools.run_check(ToolInvocation(
+                    session_id="test", tool_call_id="call", tool_name="run_check", arguments=request,
+                ))
+                self.assertEqual(result.result_type, "failure")
+                self.assertIn("arguments=[]", result.text_result_for_llm)
+                saved = json.loads((self.scratch / "checks.jsonl").read_text().splitlines()[-1])
+                self.assertEqual(saved["request"]["arguments"], request["arguments"])
+            run.assert_not_awaited()
+
+    async def test_missing_mypy_file_is_rejected_before_preflight(self):
+        with patch("review_issues.process", AsyncMock()) as run:
+            result = await self.tools.run_check(ToolInvocation(
+                session_id="test", tool_call_id="call", tool_name="run_check",
+                arguments={"kind": "mypy", "file": "missing.py"},
+            ))
+        self.assertEqual(result.result_type, "failure")
+        self.assertIn("Create it first", result.text_result_for_llm)
+        run.assert_not_awaited()
+
+    async def test_unavailable_mypy_is_shared_across_roles_without_repeated_analysis_attempts(self):
+        atomic_write(self.scratch / "sample.py", "value: int = 1\n")
+        second = InvestigationTools(
+            FakeGitHub(), self.scratch, ROOT / "packages" / "pyright" / "index.js", {},
+            check_preflight=self.tools.check_preflight,
+        )
+        invocation = ToolInvocation(
+            session_id="test", tool_call_id="call", tool_name="run_check",
+            arguments={"kind": "mypy", "file": "sample.py"},
+        )
+        with patch("review_issues.process", AsyncMock(return_value=(1, "", "No module named mypy"))) as run:
+            results = await asyncio.gather(*(tool.run_check(invocation) for tool in (self.tools, second, self.tools)))
+        self.assertEqual(run.await_count, 2)
+        self.assertTrue(all(call.args[0][-1] == "--version" for call in run.await_args_list))
+        for result in results:
+            self.assertEqual(result.result_type, "failure")
+            self.assertIn("comparison as unperformed", result.text_result_for_llm)
+        self.assertFalse((self.scratch / "empty-mypy.ini").exists())
+        records = [json.loads(line) for line in (self.scratch / "checks.jsonl").read_text().splitlines()]
+        self.assertTrue(all(record.get("tool") == "run_check" and "exit_code" not in record for record in records))
+
+    async def test_available_mypy_uses_the_same_isolated_interpreter_without_caller_arguments(self):
+        atomic_write(self.scratch / "sample.py", "value: int = 'wrong'\n")
+
+        async def execute(command, _cwd, **_options):
+            if command[-1] == "--version":
+                return (0, "mypy 1.20.0\n", "") if "-m" in command else (0, "pyright 1.1.414\n", "")
+            return 1, "sample.py:1: error: Incompatible types in assignment\n", ""
+
+        with patch("review_issues.process", AsyncMock(side_effect=execute)) as run:
+            result = await self.tools.run_check(ToolInvocation(
+                session_id="test", tool_call_id="call", tool_name="run_check",
+                arguments={"kind": "mypy", "file": "sample.py"},
+            ))
+        self.assertEqual(run.await_count, 3)
+        command = run.call_args.args[0]
+        self.assertEqual(command[:5], [sys.executable, "-I", "-B", "-m", "mypy"])
+        self.assertIn("--no-incremental", command)
+        self.assertEqual(command[-1], str(self.scratch / "sample.py"))
+        self.assertEqual(result.result_type, "success")
+        record = json.loads(result.text_result_for_llm)
+        self.assertEqual(record["exit_code"], 1)
+        self.assertIn("Incompatible types", record["stdout"])
+        self.assertEqual((self.scratch / "empty-mypy.ini").read_text(), "[mypy]\n")
 
     async def test_parallel_roles_serialize_approval_prompts_and_pause_deadlines_while_queued(self):
         approval_lock = asyncio.Lock()

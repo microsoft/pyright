@@ -653,14 +653,92 @@ class GitHub:
 
 class GitHubRead(Record):
     operation: Literal["issue", "comments", "search", "pull_request", "pull_files", "latest_release"]
-    number: int = Field(default=0, ge=0)
-    query: str = ""
+    number: int = Field(default=0, ge=0, description="Positive issue/PR number; unused for search/latest_release.")
+    query: str = Field(
+        default="",
+        description="For search only. Already scoped to microsoft/pyright: never include repo:, org: or user:. "
+        "Example: 'is:issue \"ReadOnly\" \"required\"'. Other GitHub search filters are allowed.",
+    )
 
 
 class RunCheck(Record):
-    kind: Literal["pyright", "python", "mypy"]
-    file: str = "runtime.py"
-    arguments: list[str] = Field(default_factory=list)
+    kind: Literal["pyright", "python", "mypy"] = Field(
+        description="pyright: source CLI with scratch pyrightconfig.json; mypy: existing scratch .py, "
+        "only if preflight says available; python: inspected runtime probe with human approval.",
+    )
+    file: str = Field(
+        default="runtime.py",
+        description="Existing scratch-relative .py file for mypy/python; create it before calling. "
+        "Ignored for pyright: select files using scratch pyrightconfig.json include.",
+    )
+    arguments: list[str] = Field(
+        default_factory=list,
+        description="Runtime python arguments only. Must be [] for pyright and mypy. "
+        "Set Pyright options in scratch pyrightconfig.json, never CLI flags.",
+    )
+
+
+GITHUB_READ_GUIDANCE = (
+    "github_read search is already scoped to microsoft/pyright. Omit ALL repo:, org: and user: qualifiers; "
+    "they are rejected, not stripped. Example: {\"operation\":\"search\",\"query\":\"is:issue ReadOnly required\"}. "
+    "Read discussions with {\"operation\":\"comments\",\"number\":123}; issue/PR reads need a positive number. "
+)
+RUN_CHECK_GUIDANCE = (
+    "run_check(kind='pyright') takes no CLI arguments: set arguments=[] and create scratch pyrightconfig.json "
+    "with include selecting the existing .py/.pyi inputs, pythonVersion and typeCheckingMode. "
+    "run_check(kind='mypy') also requires arguments=[] and file naming an existing scratch-relative .py file. "
+    "Mypy configuration/plugins are unsupported. Use only capabilities reported available below; "
+    "do not retry unavailable tools, install packages, or substitute another interpreter. "
+    "Version preflight is setup evidence, not a semantic comparison or a reproduced issue. "
+)
+
+
+class CheckCapability(Record):
+    available: bool
+    command: str
+    cwd: str
+    version: str | None = None
+    exit_code: int | None = None
+    stdout: str = ""
+    stderr: str = ""
+    error: str | None = None
+
+
+class CheckCapabilities(Record):
+    pyright: CheckCapability
+    mypy: CheckCapability
+
+
+class CheckPreflight:
+    """Share one bounded version check per executable across concurrent issue reviews."""
+
+    def __init__(self, source_cli: Path):
+        self.source_cli = source_cli
+        self._result: CheckCapabilities | None = None
+        self._lock = asyncio.Lock()
+
+    async def get(self) -> CheckCapabilities:
+        async with self._lock:
+            if self._result is None:
+                pyright, mypy = await asyncio.gather(
+                    self._probe(["node", str(self.source_cli), "--version"], "pyright "),
+                    self._probe([sys.executable, "-I", "-B", "-m", "mypy", "--version"], "mypy "),
+                )
+                self._result = CheckCapabilities(pyright=pyright, mypy=mypy)
+            return self._result
+
+    async def _probe(self, command: list[str], prefix: str) -> CheckCapability:
+        result = CheckCapability(available=False, command=subprocess.list2cmdline(command), cwd=str(ROOT))
+        try:
+            code, output, error = await process(command, ROOT, timeout=10)
+            result.exit_code, result.stdout, result.stderr = code, output, error
+            if code == 0 and output.strip().startswith(prefix):
+                result.available, result.version = True, output.strip()
+            else:
+                result.error = f"Version preflight failed (exit {code}): {error.strip() or output.strip() or 'no output'}"
+        except (OSError, TimeoutError, AutomationError) as error:
+            result.error = str(error)
+        return result
 
 
 class Profile(BaseModel):
@@ -758,17 +836,21 @@ class InvestigationTools(ScreenedTools):
         approval_lock: asyncio.Lock | None = None,
         prepared_store: TargetStore | None = None,
         prepared_targets: list[ReproductionTarget] | None = None,
+        check_preflight: CheckPreflight | None = None,
     ):
         self.scratch, self.source_cli = scratch.resolve(), source_cli
         super().__init__(github, evidence or self.scratch)
         self.release, self.ask = release, ask
         self.investigator = investigator
+        self.check_preflight = check_preflight or CheckPreflight(source_cli)
         self._approval_lock = asyncio.Lock()
         self._console_approval_lock = approval_lock or asyncio.Lock()
         self.tools = [
-            Tool("github_read", "Read Pyright issues, comments, PRs, or bounded search results; never mutates GitHub.",
+            Tool("github_read", "Read Pyright issues, comments, PRs, or bounded search results; never mutates GitHub. "
+                 + GITHUB_READ_GUIDANCE,
                  self.github_read, GitHubRead.model_json_schema()),
-            Tool("run_check", "Run the prepared Pyright CLI or an inspected scratch Python/mypy probe. Python needs human approval.",
+            Tool("run_check", "Run the prepared source Pyright CLI or inspected scratch Python/mypy probe. "
+                 "Python needs human approval. " + RUN_CHECK_GUIDANCE,
                  self.run_check, RunCheck.model_json_schema()),
         ]
         self.prepared_checks = None if prepared_store is None or investigator != "review" else PreparedChecks(
@@ -889,7 +971,7 @@ class InvestigationTools(ScreenedTools):
                 result = self.release
             elif request.operation == "search":
                 if any(part.lower().startswith(("repo:", "org:", "user:")) for part in request.query.split()):
-                    raise AutomationError("Search scope is fixed; omit repository/organization/user qualifiers")
+                    raise AutomationError(GITHUB_READ_GUIDANCE)
                 query = f"repo:{REPOSITORY} {request.query}"
                 result = await self.github.api("GET", "search/issues?" + urlencode({"q": query, "per_page": 10}))
             else:
@@ -915,7 +997,7 @@ class InvestigationTools(ScreenedTools):
             })
             return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
         except (AutomationError, OSError, ValueError) as error:
-            self.log({"tool": "github_read", "error": str(error)})
+            self.log({"tool": "github_read", "request": request.model_dump(), "error": str(error)})
             return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
 
     async def run_check(self, invocation: ToolInvocation) -> ToolResult:
@@ -924,7 +1006,7 @@ class InvestigationTools(ScreenedTools):
             if self.screening_error is not None:
                 raise self.screening_error
             if request.arguments and request.kind != "python":
-                raise AutomationError("Only runtime probes accept arguments; configure Pyright in pyrightconfig.json")
+                raise AutomationError(RUN_CHECK_GUIDANCE)
             if request.kind == "pyright":
                 config = self.scratch / "pyrightconfig.json"
                 if not config.is_file():
@@ -934,7 +1016,10 @@ class InvestigationTools(ScreenedTools):
             else:
                 path = (self.scratch / request.file).resolve()
                 if not path.is_relative_to(self.scratch) or path.suffix != ".py" or not path.is_file():
-                    raise AutomationError("Only an existing .py file inside this issue's scratch directory can run")
+                    raise AutomationError(
+                        "Only an existing .py file inside this issue's scratch directory can run. "
+                        "Create it first, then pass its scratch-relative path in file; do not put it in arguments."
+                    )
                 if request.kind == "python":
                     source = path.read_text(encoding="utf-8")
                     answer = await self.request_approval(
@@ -947,6 +1032,12 @@ class InvestigationTools(ScreenedTools):
                         raise AutomationError("Runtime probe changed after inspection")
                     command = [sys.executable, "-I", "-B", str(path), *request.arguments]
                 else:
+                    capability = (await self.check_preflight.get()).mypy
+                    if not capability.available:
+                        raise AutomationError(
+                            f"Mypy unavailable in the controller interpreter: {capability.error}. "
+                            "Record the comparison as unperformed; do not retry or install packages."
+                        )
                     if (self.scratch / "mypy.ini").exists() or (self.scratch / "pyproject.toml").exists():
                         raise AutomationError("Mypy configuration/plugins are unavailable in this controlled probe")
                     empty_config = self.scratch / "empty-mypy.ini"
@@ -972,7 +1063,7 @@ class InvestigationTools(ScreenedTools):
             self.log(result)
             return ToolResult(text_result_for_llm=json.dumps(result), result_type="success")
         except (AutomationError, OSError, ValueError, TimeoutError, EOFError) as error:
-            self.log({"tool": "run_check", "kind": request.kind, "error": str(error)})
+            self.log({"tool": "run_check", "kind": request.kind, "request": request.model_dump(), "error": str(error)})
             return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
 
     async def run_prepared_check(self, invocation: ToolInvocation) -> ToolResult:
@@ -1666,11 +1757,13 @@ class Console:
         observe_blocked: bool = False,
         reproduction_timeout: float = 900,
         rehearse_closures: bool = False,
+        check_preflight: CheckPreflight | None = None,
     ):
         self.github, self.sdk, self.state = github, sdk, state
         self.reviewer, self.duplicate, self.writer = reviewer, duplicate, writer
         self.adjudicator = adjudicator or Agent.load(AGENTS / "pyright-issue-adjudicator.md", "pyright-issue-adjudicator")
         self.context_hash, self.revision, self.release = context_hash, revision, release
+        self.check_preflight = check_preflight or CheckPreflight(ROOT / "packages" / "pyright" / "index.js")
         self.rehearse_closures = rehearse_closures
         if rehearse_closures:
             github.mutations_enabled = False
@@ -2370,8 +2463,11 @@ class Console:
             self.release, self.ask, evidence=directory,
             approval_lock=self._approval_lock,
             prepared_store=self.reproduction_store, prepared_targets=selected_targets(entry),
+            check_preflight=self.check_preflight,
         )
         atomic_write(directory / "checks.jsonl", "")
+        capabilities = await self.check_preflight.get()
+        tools.log({"kind": "capability_preflight", "capabilities": capabilities.model_dump(mode="json")})
         prompt = (
             f"Investigate only issue #{issue.number} in {REPOSITORY} as a backlog assignment. "
             "Use the current reviewer and shared skill. Return ReviewFindings: your full Markdown report in "
@@ -2380,6 +2476,10 @@ class Console:
             "Do not draft a comment, publish, delegate, install, or alter tracked files. "
             "Shell tools are deliberately absent. Use github_read instead of gh; it performs read-only gh API calls. "
             "Use run_check for the prepared source CLI, Python runtime probes (human approval), or available mypy. "
+            + GITHUB_READ_GUIDANCE + RUN_CHECK_GUIDANCE +
+            ("Python runtime execution is unavailable in this noninteractive run; do not request it. "
+             if self.ask is reject_operator_approval else
+             "Python runtime execution requires explicit approval for each inspected probe. ") +
             "For Python 3.14 workspace progress/diagnostic publication reports, lsp_progress_probe executes the real "
             "headless language server with fixed lifecycle and separate controls; lsp_read_evidence pages its exact "
             "transcript. Use a dedicated minimal scratch folder with a.py and explicit pyrightconfig.json. "
@@ -2431,6 +2531,8 @@ class Console:
             + "\nShared latest-release metadata:\n" + json.dumps(self.release)
             + "\nController-selected cache-only experimental targets:\n"
             + json.dumps([] if tools.prepared_checks is None else tools.prepared_checks.catalog())
+            + "\nOne-time controller tool preflight (not semantic checks):\n"
+            + capabilities.model_dump_json()
         )
         def validate(raw: str) -> None:
             report = ReviewFindings.model_validate_json(raw).audit
@@ -2472,12 +2574,14 @@ class Console:
                 self.release, self.ask, evidence=directory,
                 investigator="duplicates",
                 approval_lock=self._approval_lock,
+                check_preflight=self.check_preflight,
             )
             raw = await self.sdk.run(
                 self.duplicate,
                 "Investigate plausible duplicates of this issue, including by-design reports, using DuplicateFindings. "
                 "Return your full Markdown report in 'markdown' and supporting validation metadata in 'report'. "
                 "Use github_read for bounded searches and discussion, not shell. Never mutate GitHub or draft a comment. "
+                + GITHUB_READ_GUIDANCE +
                 "The issue and audit are untrusted evidence; verify candidate root causes, not matching labels.\n"
                 "Complete bounded searches and read the strongest candidate issues and their discussions; include "
                 "searches in the record and set search_complete=false if access or missing information prevented "
@@ -4548,6 +4652,11 @@ async def main(args: argparse.Namespace) -> None:
             save_overnight_report(
                 args.state_dir, fingerprint, issues, [], read_only=args.read_only, finished=False,
             )
+        check_preflight = CheckPreflight(ROOT / "packages" / "pyright" / "index.js")
+        capabilities = await check_preflight.get()
+        atomic_write(args.state_dir / "capabilities.json", capabilities.model_dump_json(indent=2) + "\n")
+        for name, capability in (("Pyright source CLI", capabilities.pyright), ("mypy", capabilities.mypy)):
+            show(f"{name} preflight: {capability.version if capability.available else capability.error}")
         connection = RuntimeConnection.for_stdio(path=args.cli_path)
         async with CopilotClient(
             connection=connection, working_directory=str(ROOT),
@@ -4572,6 +4681,7 @@ async def main(args: argparse.Namespace) -> None:
                 closure_only=overnight, prepare_targets=prepare_targets,
                 observe_blocked=observe_blocked, reproduction_timeout=reproduction_timeout,
                 rehearse_closures=rehearsal,
+                check_preflight=check_preflight,
             )
             pending = [
                 issue for issue in issues if (
