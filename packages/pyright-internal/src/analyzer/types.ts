@@ -899,6 +899,9 @@ export interface ClassDetailsPriv {
 
     // Special-case fields for partial class.
     partialCallType?: Type | undefined;
+
+    // The callable object wrapped by a built-in method decorator.
+    decoratedCallableType?: ClassType | undefined;
 }
 
 export interface ClassType extends TypeBase<TypeCategory.Class> {

@@ -7375,7 +7375,8 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         memberName: string,
         usage: EvaluatorUsage,
-        diag: DiagnosticAddendum | undefined
+        diag: DiagnosticAddendum | undefined,
+        bindToClass = false
     ): MemberAccessTypeResult {
         const isAccessedThroughObject = TypeBase.isInstance(classType);
 
@@ -7548,6 +7549,11 @@ export function createTypeEvaluator(
                 classArgType = isAccessedThroughObject ? ClassType.cloneAsInstantiable(classType) : classType;
             }
 
+            if (bindToClass) {
+                // classmethod passes the owner as both "obj" and "owner".
+                argList[0].typeResult = { type: classArgType };
+            }
+
             // Provide "owner" argument.
             argList.push({
                 argCategory: ArgCategory.Simple,
@@ -7602,9 +7608,78 @@ export function createTypeEvaluator(
         }
 
         if (!callResult.argumentErrors) {
+            let descriptorReturnType = callResult.returnType ?? UnknownType.create();
+            // The stored wrapper needs the same specialization as its owning member
+            // so class type arguments apply to its attributes as well as its call.
+            const wrappedCallableType = concreteMemberType.priv.decoratedCallableType
+                ? (partiallySpecializeType(
+                      concreteMemberType.priv.decoratedCallableType,
+                      memberInfo && isClass(memberInfo.classType) ? memberInfo.classType : classType,
+                      getTypeClassType(),
+                      selfType ?? classType
+                  ) as ClassType)
+                : undefined;
+            if (
+                usage.method === 'get' &&
+                wrappedCallableType &&
+                ClassType.isBuiltIn(concreteMemberType, 'staticmethod')
+            ) {
+                // staticmethod returns the wrapped object without binding it. Keep
+                // its original call signatures, including all overloads.
+                descriptorReturnType = wrappedCallableType;
+            }
+            if (
+                usage.method === 'get' &&
+                wrappedCallableType &&
+                ClassType.isBuiltIn(concreteMemberType, 'classmethod')
+            ) {
+                const pythonVersion = nodeInfo.getFileInfo(errorNode).executionEnvironment.pythonVersion;
+                if (
+                    PythonVersion.isGreaterOrEqualTo(pythonVersion, pythonVersion3_9) &&
+                    PythonVersion.isLessThan(pythonVersion, pythonVersion3_13) &&
+                    lookUpClassMember(wrappedCallableType, '__get__')
+                ) {
+                    // Python 3.9-3.12 delegates to the wrapped descriptor with the
+                    // owner class as both arguments, even for instance access.
+                    return applyDescriptorAccessMethod(
+                        wrappedCallableType,
+                        wrappedCallableType,
+                        memberInfo,
+                        classType,
+                        selfType,
+                        flags,
+                        errorNode,
+                        memberName,
+                        usage,
+                        diag,
+                        /* bindToClass */ true
+                    );
+                }
+                const callMember = getTypeOfBoundMember(
+                    errorNode,
+                    wrappedCallableType,
+                    '__call__',
+                    /* usage */ undefined,
+                    /* diag */ undefined,
+                    MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
+                );
+                if (callMember && isFunctionOrOverloaded(callMember.type)) {
+                    // Bind the owner to every original signature, retaining overloads
+                    // and method-scoped type variables along with wrapper attributes.
+                    const ownerType = isInstantiableClass(classType)
+                        ? classType
+                        : ClassType.cloneAsInstantiable(classType);
+                    const callType = mapSignatures(callMember.type, (signature) =>
+                        partiallySpecializeBoundMethod(wrappedCallableType, signature, diag, 0, ownerType)
+                    );
+                    if (callType) {
+                        descriptorReturnType = ClassType.cloneForPartial(wrappedCallableType, callType);
+                    }
+                }
+            }
             return {
                 // For set or delete, always return Any.
-                type: usage.method === 'get' ? callResult.returnType ?? UnknownType.create() : AnyType.create(),
+                type: usage.method === 'get' ? descriptorReturnType : AnyType.create(),
                 isDescriptorApplied: true,
                 isAsymmetricAccessor,
                 memberAccessDeprecationInfo: deprecationInfo,
