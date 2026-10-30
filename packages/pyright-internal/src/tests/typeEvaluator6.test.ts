@@ -971,12 +971,12 @@ test('Comparison1', () => {
 
     configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['comparison1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 16);
+    TestUtils.validateResults(analysisResults2, 21);
 
     // Bytes promotions make two of the identity comparisons assignable.
     configOptions.diagnosticRuleSet.disableBytesTypePromotions = false;
     const analysisResults3 = TestUtils.typeAnalyzeSampleFiles(['comparison1.py'], configOptions);
-    TestUtils.validateResults(analysisResults3, 14);
+    TestUtils.validateResults(analysisResults3, 19);
 });
 
 test('Comparison2', () => {
