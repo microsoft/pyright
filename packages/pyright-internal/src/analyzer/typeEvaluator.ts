@@ -29832,7 +29832,6 @@ export function createTypeEvaluator(
         const overrideOverloads = OverloadedType.getOverloads(overrideMethod).map((overrideOverload) => {
             return partiallySpecializeOverrideMethod(overrideOverload, childClassSelf);
         });
-        const matchedOverloads: FunctionType[] = [];
 
         for (let baseOverload of OverloadedType.getOverloads(baseMethod)) {
             // If the override isn't applicable for this base class, skip the check.
@@ -29867,11 +29866,7 @@ export function createTypeEvaluator(
             // An additional overload ahead of the match must not overlap the
             // base overload and return an incompatible type.
             const isOverlapping = overrideOverloads.some((overrideOverload, index) => {
-                return (
-                    index < matchIndex &&
-                    !matchedOverloads.includes(overrideOverload) &&
-                    isOverrideMethodOverlapping(baseOverload, overrideOverload)
-                );
+                return index < matchIndex && isOverrideMethodOverlapping(baseOverload, overrideOverload);
             });
 
             if (isOverlapping) {
@@ -29879,7 +29874,6 @@ export function createTypeEvaluator(
                 return false;
             }
 
-            matchedOverloads.push(overrideOverloads[matchIndex]);
             previousMatchIndex = matchIndex;
         }
 

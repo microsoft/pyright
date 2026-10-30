@@ -1050,7 +1050,7 @@ test('MethodOverride6', () => {
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['methodOverride6.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 11);
+    TestUtils.validateResults(analysisResults2, 12);
 });
 
 test('MethodOverride7', () => {

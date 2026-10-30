@@ -495,3 +495,25 @@ class Child11_2(Parent11[int]):
     # This should generate an error because the override does not
     # handle all overloads of the base method.
     def m1(self, x: object) -> Any: ...
+
+
+class Parent12:
+    @overload
+    def m1(self, x: int) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    def m1(self, x: int | str) -> int | str: ...
+
+
+class Child12_1(Parent12):
+    @overload
+    def m1(self, x: int | str) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...  # pyright: ignore[reportOverlappingOverload]
+
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
+    def m1(self, x: int | str) -> int | str: ...
