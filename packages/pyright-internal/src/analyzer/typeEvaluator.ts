@@ -30022,7 +30022,9 @@ export function createTypeEvaluator(
         overrideMethod: FunctionType | OverloadedType,
         baseClass: ClassType | undefined,
         diag: DiagnosticAddendum,
-        enforceParamNames = true
+        enforceParamNames = true,
+        baseClassSelf?: ClassType,
+        childClassSelf?: ClassType
     ): boolean {
         // If we're overriding a non-method with a method, report it as an error.
         // This occurs when a non-property overrides a property.
@@ -30032,9 +30034,16 @@ export function createTypeEvaluator(
         }
 
         if (isFunction(baseMethod)) {
+            const specializedBaseMethod = partiallySpecializeOverrideMethod(baseMethod, baseClassSelf);
+
             // Handle the easy case - a simple function overriding another simple function.
             if (isFunction(overrideMethod)) {
-                return validateOverrideMethodInternal(baseMethod, overrideMethod, diag, enforceParamNames);
+                return validateOverrideMethodInternal(
+                    specializedBaseMethod,
+                    partiallySpecializeOverrideMethod(overrideMethod, childClassSelf),
+                    diag,
+                    enforceParamNames
+                );
             }
 
             const overloadsAndImpl = [...OverloadedType.getOverloads(overrideMethod)];
@@ -30048,8 +30057,8 @@ export function createTypeEvaluator(
             if (
                 overloadsAndImpl.some((overrideOverload) => {
                     return validateOverrideMethodInternal(
-                        baseMethod,
-                        overrideOverload,
+                        specializedBaseMethod,
+                        partiallySpecializeOverrideMethod(overrideOverload, childClassSelf),
                         /* diag */ undefined,
                         enforceParamNames
                     );
@@ -30065,6 +30074,8 @@ export function createTypeEvaluator(
         // For a non-overloaded method overriding an overloaded method, the
         // override must match all of the overloads.
         if (isFunction(overrideMethod)) {
+            const specializedOverrideMethod = partiallySpecializeOverrideMethod(overrideMethod, childClassSelf);
+
             return OverloadedType.getOverloads(baseMethod).every((overload) => {
                 // If the override isn't applicable for this base class, skip the check.
                 if (baseClass && !isOverrideMethodApplicable(overload, baseClass)) {
@@ -30072,81 +30083,95 @@ export function createTypeEvaluator(
                 }
 
                 return validateOverrideMethodInternal(
-                    overload,
-                    overrideMethod,
+                    partiallySpecializeOverrideMethod(overload, baseClassSelf),
+                    specializedOverrideMethod,
                     diag?.createAddendum(),
                     enforceParamNames
                 );
             });
         }
 
-        // For an overloaded method overriding an overloaded method, the overrides
-        // must all match and be in the correct order. It is OK if the base method
-        // has additional overloads that are not present in the override.
+        // For an overloaded method overriding an overloaded method, each base
+        // overload must be matched by an override overload, and the matches must
+        // be in the same order. It is OK if the override has additional overloads
+        // that are not present in the base method.
 
         let previousMatchIndex = -1;
-        const baseOverloads = OverloadedType.getOverloads(baseMethod);
+        const overrideOverloads = OverloadedType.getOverloads(overrideMethod).map((overrideOverload) => {
+            return partiallySpecializeOverrideMethod(overrideOverload, childClassSelf);
+        });
 
-        for (const overrideOverload of OverloadedType.getOverloads(overrideMethod)) {
-            let possibleMatchIndex: number | undefined;
+        for (let baseOverload of OverloadedType.getOverloads(baseMethod)) {
+            // If the override isn't applicable for this base class, skip the check.
+            if (baseClass && !isOverrideMethodApplicable(baseOverload, baseClass)) {
+                continue;
+            }
 
-            let matchIndex = baseOverloads.findIndex((baseOverload, index) => {
-                // If the override isn't applicable for this base class, skip the check.
-                if (baseClass && !isOverrideMethodApplicable(baseOverload, baseClass)) {
-                    return false;
-                }
+            baseOverload = partiallySpecializeOverrideMethod(baseOverload, baseClassSelf);
 
-                const isCompatible = validateOverrideMethodInternal(
+            const isCompatible = (overrideOverload: FunctionType) => {
+                return validateOverrideMethodInternal(
                     baseOverload,
                     overrideOverload,
                     /* diag */ undefined,
                     enforceParamNames
                 );
+            };
 
-                // If the override is compatible but the match is one that is below the previous
-                // matched index, keep looking for additional matches. Record the fact that
-                // we found at least one match.
-                if (isCompatible && index <= previousMatchIndex && possibleMatchIndex === undefined) {
-                    possibleMatchIndex = index;
-                    return false;
-                }
-
-                return isCompatible;
+            const matchIndex = overrideOverloads.findIndex((overrideOverload, index) => {
+                return index >= previousMatchIndex && isCompatible(overrideOverload);
             });
 
-            if (matchIndex < 0 && possibleMatchIndex !== undefined) {
-                matchIndex = possibleMatchIndex;
-            }
-
             if (matchIndex < 0) {
-                break;
+                if (overrideOverloads.some((overrideOverload) => isCompatible(overrideOverload))) {
+                    diag.addMessage(LocAddendum.overrideOverloadOrder());
+                } else {
+                    diag.addMessage(LocAddendum.overrideOverloadNoMatch());
+                }
+                return false;
             }
 
-            if (matchIndex < previousMatchIndex) {
-                diag.addMessage(LocAddendum.overrideOverloadOrder());
+            // An additional overload ahead of the match must not overlap the
+            // base overload and return an incompatible type.
+            const isOverlapping = overrideOverloads.some((overrideOverload, index) => {
+                return index < matchIndex && isOverrideMethodOverlapping(baseOverload, overrideOverload);
+            });
+
+            if (isOverlapping) {
+                diag.addMessage(LocAddendum.overrideOverloadNoMatch());
                 return false;
             }
 
             previousMatchIndex = matchIndex;
         }
 
-        if (previousMatchIndex < baseOverloads.length - 1) {
-            const unmatchedOverloads = baseOverloads.slice(previousMatchIndex + 1);
+        return true;
+    }
 
-            // See if all of the remaining overrides are nonapplicable.
-            if (
-                !baseClass ||
-                unmatchedOverloads.some((overload) => {
-                    return isOverrideMethodApplicable(overload, baseClass);
-                })
-            ) {
-                // We didn't find matches for all of the base overloads.
-                diag.addMessage(LocAddendum.overrideOverloadNoMatch());
-                return false;
-            }
+    function isOverrideMethodOverlapping(baseOverload: FunctionType, overrideOverload: FunctionType): boolean {
+        if (assignType(getEffectiveReturnType(baseOverload), getEffectiveReturnType(overrideOverload))) {
+            return false;
         }
 
-        return true;
+        if (
+            FunctionType.isInstanceMethod(overrideOverload) ||
+            FunctionType.isClassMethod(overrideOverload) ||
+            FunctionType.isConstructorMethod(overrideOverload)
+        ) {
+            baseOverload = FunctionType.clone(baseOverload, /* stripFirstParam */ true);
+            overrideOverload = FunctionType.clone(overrideOverload, /* stripFirstParam */ true);
+        }
+
+        let flags = AssignTypeFlags.SkipReturnTypeCheck;
+        if (
+            assignType(baseOverload, overrideOverload, /* diag */ undefined, /* constraints */ undefined, flags) ||
+            assignType(overrideOverload, baseOverload, /* diag */ undefined, /* constraints */ undefined, flags)
+        ) {
+            return true;
+        }
+
+        flags |= AssignTypeFlags.OverloadOverlap | AssignTypeFlags.PartialOverloadOverlap;
+        return assignType(overrideOverload, baseOverload, /* diag */ undefined, /* constraints */ undefined, flags);
     }
 
     // Determines whether a child class override is applicable to a parent
@@ -30190,6 +30215,33 @@ export function createTypeEvaluator(
             /* constraints */ undefined,
             AssignTypeFlags.Default
         );
+    }
+
+    // Solves the TypeVars in an annotated "self" or "cls" parameter against
+    // the class that "self" refers to, as is done when the method is bound.
+    function partiallySpecializeOverrideMethod(method: FunctionType, selfClass: ClassType | undefined): FunctionType {
+        if (
+            !selfClass ||
+            method.shared.parameters.length === 0 ||
+            !FunctionParam.isTypeDeclared(method.shared.parameters[0]) ||
+            !(
+                FunctionType.isInstanceMethod(method) ||
+                FunctionType.isClassMethod(method) ||
+                FunctionType.isConstructorMethod(method)
+            )
+        ) {
+            return method;
+        }
+
+        const constraints = new ConstraintTracker();
+        const selfType = FunctionType.isInstanceMethod(method) ? selfClass : ClassType.cloneAsInstantiable(selfClass);
+
+        if (!assignType(FunctionType.getParamType(method, 0), selfType, /* diag */ undefined, constraints)) {
+            return method;
+        }
+
+        const specializedFunction = solveAndApplyConstraints(method, constraints);
+        return isFunction(specializedFunction) ? specializedFunction : method;
     }
 
     // Determines whether the override method is compatible with the overridden method.
@@ -30593,7 +30645,30 @@ export function createTypeEvaluator(
 
         // Now check the return type.
         const baseReturnType = getEffectiveReturnType(baseMethod);
-        const overrideReturnType = solveAndApplyConstraints(getEffectiveReturnType(overrideMethod), constraints);
+        let overrideReturnType = solveAndApplyConstraints(getEffectiveReturnType(overrideMethod), constraints);
+
+        // Replace unsolved TypeVars of the override in a union with their
+        // default, or eliminate them if they have no default, as is done for
+        // call return types.
+        const overrideScopeIds = getTypeVarScopeIds(overrideMethod);
+        const isUnsolvedTypeVar = (subtype: Type): subtype is TypeVarType => {
+            return isTypeVar(subtype) && !!subtype.priv.scopeId && overrideScopeIds.includes(subtype.priv.scopeId);
+        };
+        if (
+            isUnion(overrideReturnType) &&
+            !overrideReturnType.priv.subtypes.every((subtype) => {
+                return isUnsolvedTypeVar(subtype) && !subtype.shared.isDefaultExplicit;
+            })
+        ) {
+            overrideReturnType = mapSubtypes(overrideReturnType, (subtype) => {
+                if (isUnsolvedTypeVar(subtype)) {
+                    return subtype.shared.isDefaultExplicit
+                        ? solveAndApplyConstraints(subtype.shared.defaultType, constraints)
+                        : undefined;
+                }
+                return subtype;
+            });
+        }
 
         if (
             !assignType(

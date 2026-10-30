@@ -857,7 +857,9 @@ export interface TypeEvaluator {
         overrideMethod: FunctionType | OverloadedType,
         baseClass: ClassType | undefined,
         diag: DiagnosticAddendum,
-        enforceParamNames?: boolean
+        enforceParamNames?: boolean,
+        baseClassSelf?: ClassType,
+        childClassSelf?: ClassType
     ) => boolean;
     validateCallArgs: (
         errorNode: ExpressionNode,
