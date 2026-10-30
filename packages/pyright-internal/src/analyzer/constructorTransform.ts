@@ -33,15 +33,15 @@ import {
     isOverloaded,
     isTypeSame,
     isTypeVar,
-    isUnpacked,
     isUnpackedClass,
     isUnpackedTypeVarTuple,
     OverloadedType,
-    TupleTypeArg,
     Type,
+    TupleTypeArg,
     TypeVarKind,
     TypeVarType,
     TypedDictEntry,
+    isUnpacked,
 } from './types';
 import {
     convertToInstance,
@@ -244,13 +244,18 @@ function applyPartialTransformToFunction(
     // the arguments that map to it are processed separately (see below) because
     // they represent a prefix of the TypeVarTuple's eventual type rather than a
     // complete specialization of it.
+    const isVariadicTypeVarTuple =
+        paramListDetails.argsIndex !== undefined &&
+        isUnpackedTypeVarTuple(
+            FunctionType.getParamType(origFunctionType, paramListDetails.params[paramListDetails.argsIndex].index)
+        );
+
     const variadicParamInfo =
         paramListDetails.argsIndex !== undefined ? paramListDetails.params[paramListDetails.argsIndex] : undefined;
     const variadicParamType = variadicParamInfo
         ? FunctionType.getParamType(origFunctionType, variadicParamInfo.index)
         : undefined;
-    const isVariadicTypeVarTuple = !!variadicParamType && isUnpackedTypeVarTuple(variadicParamType);
-    const variadicBoundArgs: { arg: Arg; type: Type }[] = [];
+    const variadicBoundArgs: { arg: (typeof argList)[number]; type: Type }[] = [];
 
     const remainingArgsList = argList.slice(1);
     remainingArgsList.forEach((arg, argIndex) => {
@@ -270,6 +275,8 @@ function applyPartialTransformToFunction(
                 // TypeVarTuple parameter until all of the arguments have been
                 // processed. These arguments form a prefix of the eventual
                 // TypeVarTuple type.
+                // Collect the bound argument's type; it is solved together with the
+                // constraints contributed by the non-variadic arguments below.
                 const argTypeResult = evaluator.getTypeOfExpression(
                     arg.valueExpression,
                     /* flags */ undefined,
@@ -528,8 +535,7 @@ function applyPartialTransformToFunction(
         } else if (isUnpackedTypeVarTuple(solvedVariadicType) && solvedVariadicType.priv.scopeId) {
             // The TypeVarTuple wasn't solved by the other arguments, so solve it by
             // prepending the bound arguments and deferring the remaining elements to
-            // a new TypeVarTuple that will be solved when the partial object is
-            // called.
+            // a new TypeVarTuple that will be solved when the partial object is called.
             const deferredTypeVarTuple = TypeVarType.cloneForScopeId(
                 TypeVarType.cloneForUnpacked(
                     TypeVarType.createInstance(`${solvedVariadicType.shared.name}2`, TypeVarKind.TypeVarTuple)
@@ -560,6 +566,7 @@ function applyPartialTransformToFunction(
     }
 
     const specializedFunctionType = evaluator.solveAndApplyConstraints(functionTypeToSpecialize, constraints);
+
     if (!isFunction(specializedFunctionType)) {
         return undefined;
     }
@@ -650,14 +657,19 @@ function applyPartialTransformToFunction(
 // Replaces the type of the parameter at the specified index with a new type
 // while retaining the parameter's other attributes.
 function replaceVariadicParamType(funcType: FunctionType, paramIndex: number, newParamType: Type): FunctionType {
-    const paramTypes = funcType.shared.parameters.map((_, index) => FunctionType.getParamType(funcType, index));
-    paramTypes[paramIndex] = newParamType;
-
-    return FunctionType.specialize(funcType, {
-        parameterTypes: paramTypes,
-        parameterDefaultTypes: undefined,
-        returnType: undefined,
-    });
+    const params = [...funcType.shared.parameters];
+    const oldParam = params[paramIndex];
+    params[paramIndex] = FunctionParam.create(
+        oldParam.category,
+        newParamType,
+        oldParam.flags,
+        oldParam.name,
+        oldParam._defaultType,
+        oldParam.defaultExpr
+    );
+    const newFuncType = FunctionType.clone(funcType);
+    newFuncType.shared.parameters = params;
+    return newFuncType;
 }
 
 // Removes the specified number of leading type args from a tuple's type args

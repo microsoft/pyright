@@ -943,7 +943,7 @@ test('Partial9', () => {
 test('Partial10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['partial10.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('TotalOrdering1', () => {

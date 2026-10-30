@@ -92,6 +92,9 @@ variadic_int = partial(variadic_func, 2)
 reveal_type(variadic_int(1), expected_text="tuple[int, int]")
 
 # The deferred TypeVarTuple persists through another partial application.
+# Note: binding arguments on an already-deferred partial pins the deferred
+# tuple, so only the remaining (unbound) elements are still accepted.
 variadic2 = partial(variadic, "b")
+# This should generate an error.
 variadic2(1)
-reveal_type(variadic2(1), expected_text="tuple[str, str, int]")
+reveal_type(variadic2(1), expected_text="tuple[str, str]")
