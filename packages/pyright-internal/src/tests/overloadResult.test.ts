@@ -114,7 +114,7 @@ test('OverloadResult equality does not erase callable defaults, receiver or stri
     const second = signature(strType);
     assert(isTypeSame(first, second));
     assert(!isTypeSame(first, second, { honorCallBehavior: true }));
-    for (const field of ['boundToType', 'strippedFirstParamType'] as const) {
+    for (const field of ['boundToType', 'boundSelfType', 'strippedFirstParamType'] as const) {
         const left = signature(intType);
         const right = signature(intType);
         left.priv[field] = intList;
@@ -174,6 +174,7 @@ test('OverloadResult projects callable parameters, defaults, return and bound pa
     fn.shared.declaredReturnType = alternatives();
     fn.priv.strippedFirstParamType = alternatives();
     fn.priv.boundToType = ClassType.specialize(listType, [alternatives()]);
+    fn.priv.boundSelfType = alternatives();
     const unchanged = signature(intType);
     const implementation = signature(intType);
     const owner = OverloadedType.create([fn, unchanged], implementation);
@@ -185,6 +186,7 @@ test('OverloadResult projects callable parameters, defaults, return and bound pa
     assert.strictEqual(FunctionType.getEffectiveReturnType(projectedFn), intList);
     assert.strictEqual(projectedFn.priv.strippedFirstParamType, intList);
     assert.strictEqual(projectedFn.priv.boundToType!.priv.typeArgs![0], intList);
+    assert.strictEqual(projectedFn.priv.boundSelfType, intList);
     assert.strictEqual(projectedFn.priv.overloaded, result);
     assert.strictEqual(projectedUnchanged.priv.overloaded, result);
     assert.strictEqual(fn.priv.overloaded, owner);

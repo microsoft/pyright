@@ -44,6 +44,8 @@ export interface SpeculativeTypeEntry extends ContextualTypeCacheEntry {
     typeResult: TypeResult;
     incompleteGenerationCount: number;
     dependentTypes?: DependentType[];
+    // Call-site inference can evaluate the same node with different parameter types.
+    typeContext?: object;
 }
 
 export interface SpeculativeModeOptions {
@@ -265,7 +267,8 @@ export class SpeculativeTypeTracker {
         node: ParseNode,
         typeResult: TypeResult,
         incompleteGenerationCount: number,
-        expectedType: Type | undefined
+        expectedType: Type | undefined,
+        typeContext?: object
     ) {
         assert(this._speculativeContextStack.length > 0);
 
@@ -273,6 +276,7 @@ export class SpeculativeTypeTracker {
             typeResult,
             expectedType,
             incompleteGenerationCount,
+            typeContext,
         };
 
         if (this._activeDependentTypes.length > 0) {
@@ -287,7 +291,11 @@ export class SpeculativeTypeTracker {
         this._speculativeTypeCache.set(node.id, cacheEntries);
     }
 
-    getSpeculativeType(node: ParseNode, expectedType: Type | undefined): SpeculativeTypeEntry | undefined {
+    getSpeculativeType(
+        node: ParseNode,
+        expectedType: Type | undefined,
+        typeContext?: object
+    ): SpeculativeTypeEntry | undefined {
         if (
             this._speculativeContextStack.some((context) =>
                 ParseTreeUtils.isNodeContainedWithin(node, context.speculativeRootNode)
@@ -296,7 +304,11 @@ export class SpeculativeTypeTracker {
             const entries = this._speculativeTypeCache.get(node.id);
             if (entries) {
                 for (const entry of entries) {
-                    if (contextualTypeCacheEntryMatches(entry, expectedType) && this._dependentTypesMatch(entry)) {
+                    if (
+                        entry.typeContext === typeContext &&
+                        contextualTypeCacheEntryMatches(entry, expectedType) &&
+                        this._dependentTypesMatch(entry)
+                    ) {
                         return entry;
                     }
                 }

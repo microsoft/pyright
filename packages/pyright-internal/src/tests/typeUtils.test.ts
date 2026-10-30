@@ -8,7 +8,8 @@
 
 import * as assert from 'assert';
 
-import { containsLiteralType, mapSignatures, transformTypePair } from '../analyzer/typeUtils';
+import { ConstraintSolution } from '../analyzer/constraintSolution';
+import { applySolvedTypeVars, containsLiteralType, mapSignatures, transformTypePair } from '../analyzer/typeUtils';
 import {
     AnyType,
     ClassType,
@@ -20,6 +21,7 @@ import {
     isFunction,
     isOverloaded,
     isTypeVar,
+    NeverType,
     OverloadedType,
     OverloadResultType,
     Type,
@@ -32,6 +34,96 @@ import {
 } from '../analyzer/types';
 import { Uri } from '../common/uri/uri';
 import { ParamCategory } from '../parser/parseNodes';
+
+test.each([false, true])('Specializing parameters does not freeze inferred Unknown (incomplete: %s)', (incomplete) => {
+    const typeVar = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('T'),
+        'test-scope',
+        'test',
+        TypeVarScopeType.Function
+    );
+    const value = ClassType.cloneAsInstance(createClass('Value'));
+    const unknown = UnknownType.create();
+    const source = createFunction(typeVar, unknown, unknown);
+    source.shared.declaredReturnType = undefined;
+    source.shared.inferredReturnType = { type: unknown, isIncomplete: incomplete, evaluationCount: 1 };
+    const solution = new ConstraintSolution();
+    solution.setType(typeVar, value);
+
+    const specialized = applySolvedTypeVars(source, solution);
+
+    assert.ok(isFunction(specialized));
+    assert.strictEqual(FunctionType.getParamType(specialized, 0), value);
+    assert.strictEqual(specialized.priv.specializedTypes?.returnType, undefined);
+    source.shared.inferredReturnType = { type: value, isIncomplete: false, evaluationCount: 2 };
+    assert.strictEqual(FunctionType.getEffectiveReturnType(specialized), value);
+});
+
+test.each([false, true])('Specializing parameters preserves inferred NoReturn (incomplete: %s)', (incomplete) => {
+    const typeVar = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('T'),
+        'test-scope',
+        'test',
+        TypeVarScopeType.Function
+    );
+    const value = ClassType.cloneAsInstance(createClass('Value'));
+    const never = NeverType.createNever();
+    const source = createFunction(typeVar, value, never);
+    source.shared.declaredReturnType = undefined;
+    source.shared.inferredReturnType = { type: never, isIncomplete: incomplete, evaluationCount: 1 };
+    const solution = new ConstraintSolution();
+    solution.setType(typeVar, value);
+
+    const specialized = applySolvedTypeVars(source, solution);
+
+    assert.ok(isFunction(specialized));
+    assert.strictEqual(FunctionType.getEffectiveReturnType(specialized, /* includeInferred */ false), never);
+});
+
+test('Specializing parameters preserves known alternatives in an incomplete inferred return', () => {
+    const typeVar = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('T'),
+        'test-scope',
+        'test',
+        TypeVarScopeType.Function
+    );
+    const value = ClassType.cloneAsInstance(createClass('Value'));
+    const union = UnionType.create();
+    union.priv.subtypes = [value, UnknownType.create()];
+    const source = createFunction(typeVar, value, union);
+    source.shared.declaredReturnType = undefined;
+    source.shared.inferredReturnType = { type: union, isIncomplete: true, evaluationCount: 9 };
+    const solution = new ConstraintSolution();
+    solution.setType(typeVar, value);
+
+    const specialized = applySolvedTypeVars(source, solution);
+
+    assert.ok(isFunction(specialized));
+    assert.strictEqual(FunctionType.getEffectiveReturnType(specialized, /* includeInferred */ false), union);
+});
+
+test.each([false, true])('Specializing a return type to Unknown is preserved (declared: %s)', (declared) => {
+    const typeVar = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('T'),
+        'test-scope',
+        'test',
+        TypeVarScopeType.Function
+    );
+    const unknown = UnknownType.create();
+    const source = createFunction(typeVar, unknown, typeVar);
+    if (!declared) {
+        source.shared.declaredReturnType = undefined;
+        source.shared.inferredReturnType = { type: typeVar, isIncomplete: false, evaluationCount: 1 };
+    }
+    const solution = new ConstraintSolution();
+    solution.setType(typeVar, unknown);
+
+    const specialized = applySolvedTypeVars(source, solution);
+
+    assert.ok(isFunction(specialized));
+    assert.strictEqual(specialized.priv.specializedTypes?.returnType, unknown);
+    assert.strictEqual(FunctionType.getEffectiveReturnType(specialized), unknown);
+});
 
 test('Literal detection keeps cancellation and type-argument options local to each walk', () => {
     const plain = ClassType.cloneAsInstance(createClass('Value'));

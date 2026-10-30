@@ -1905,6 +1905,10 @@ export interface FunctionDetailsPriv {
     // the class or object to which the function was bound.
     boundToType?: ClassType | undefined;
 
+    // The actual argument bound to "self" or "cls", including a TypeVar receiver
+    // that would otherwise be reduced to its class bound in boundToType.
+    boundSelfType?: Type | undefined;
+
     // The flags for the function prior to binding
     preBoundFlags?: FunctionTypeFlags;
 
@@ -3676,6 +3680,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                             !isTypeSame(param, functionType2.shared.typeParams[index], recursiveOptions, recursionCount)
                     ) ||
                     !optionalTypesMatch(type1.priv.boundToType, functionType2.priv.boundToType) ||
+                    !optionalTypesMatch(type1.priv.boundSelfType, functionType2.priv.boundSelfType) ||
                     !optionalTypesMatch(type1.priv.strippedFirstParamType, functionType2.priv.strippedFirstParamType) ||
                     params1.some(
                         (param, index) =>

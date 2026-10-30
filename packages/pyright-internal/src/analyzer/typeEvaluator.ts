@@ -539,6 +539,7 @@ interface SymbolResolutionStackEntry {
 interface ReturnTypeInferenceContext {
     functionNode: FunctionNode;
     codeFlowAnalyzer: CodeFlowAnalyzer;
+    speculativeCacheContext: object;
 }
 
 interface ParamSpecArgResult {
@@ -950,7 +951,8 @@ export function createTypeEvaluator(
                     node,
                     typeResult,
                     incompleteGenCount,
-                    inferenceContext?.expectedType
+                    inferenceContext?.expectedType,
+                    getSpeculativeTypeCacheContext(node)
                 );
             }
         }
@@ -1067,6 +1069,12 @@ export function createTypeEvaluator(
         assert(stackSize > 0);
         const contextNode = returnTypeInferenceContextStack[stackSize - 1];
         return contextNode.codeFlowAnalyzer;
+    }
+
+    function getSpeculativeTypeCacheContext(node: ParseNode) {
+        return isNodeInReturnTypeInferenceContext(node)
+            ? returnTypeInferenceContextStack[returnTypeInferenceContextStack.length - 1].speculativeCacheContext
+            : undefined;
     }
 
     function getIndexOfSymbolResolution(symbol: Symbol, declaration: Declaration) {
@@ -1452,7 +1460,11 @@ export function createTypeEvaluator(
         // Is it cached in the speculative type cache?
         const specCacheEntry = useTypeFormCache
             ? undefined
-            : speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
+            : speculativeTypeTracker.getSpeculativeType(
+                  node,
+                  inferenceContext?.expectedType,
+                  getSpeculativeTypeCacheContext(node)
+              );
         if (specCacheEntry) {
             if (
                 !specCacheEntry.typeResult.isIncomplete ||
@@ -25834,7 +25846,7 @@ export function createTypeEvaluator(
         // If the return type has already been lazily evaluated,
         // don't bother computing it again.
         if (type.shared.inferredReturnType && !type.shared.inferredReturnType.isIncomplete) {
-            returnType = type.shared.inferredReturnType.type;
+            returnType = type.priv.specializedTypes?.returnType ?? type.shared.inferredReturnType.type;
         } else if (evalCount > maxReturnTypeInferenceAttempts) {
             // Detect a case where a return type won't converge because of recursion.
             returnType = UnknownType.create();
@@ -26003,6 +26015,7 @@ export function createTypeEvaluator(
             returnTypeInferenceContextStack.push({
                 functionNode,
                 codeFlowAnalyzer: codeFlowEngine.createCodeFlowAnalyzer(),
+                speculativeCacheContext: {},
             });
 
             try {
@@ -26034,7 +26047,11 @@ export function createTypeEvaluator(
                             ) {
                                 if (functionTypeResult.functionType.shared.parameters.length > 0) {
                                     if (functionNode.d.params[0].d.name) {
-                                        paramType = FunctionType.getParamType(functionTypeResult.functionType, 0);
+                                        // Include the bound receiver in both contextual evaluation
+                                        // and its cache key, rather than reverting to the declaration.
+                                        paramType =
+                                            type.priv.boundSelfType ??
+                                            FunctionType.getParamType(functionTypeResult.functionType, 0);
                                     }
                                 }
                             }
@@ -30964,17 +30981,24 @@ export function createTypeEvaluator(
         getEffectiveReturnType(memberType);
 
         const specializedFunction = solveAndApplyConstraints(memberType, constraints);
+        let boundFunction: FunctionType | undefined;
         if (isFunction(specializedFunction)) {
-            return FunctionType.clone(specializedFunction, stripFirstParam, baseType);
-        }
-
-        if (isOverloaded(specializedFunction)) {
+            boundFunction = FunctionType.clone(specializedFunction, stripFirstParam, baseType);
+        } else if (isOverloaded(specializedFunction)) {
             // For overloaded functions, use the first overload. This isn't
             // strictly correct, but this is an extreme edge case.
-            return FunctionType.clone(OverloadedType.getOverloads(specializedFunction)[0], stripFirstParam, baseType);
+            boundFunction = FunctionType.clone(
+                OverloadedType.getOverloads(specializedFunction)[0],
+                stripFirstParam,
+                baseType
+            );
         }
 
-        return undefined;
+        if (boundFunction && stripFirstParam) {
+            boundFunction.priv.boundSelfType = firstParamType;
+        }
+
+        return boundFunction;
     }
 
     function isFinalVariable(symbol: Symbol): boolean {
