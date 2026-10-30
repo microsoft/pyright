@@ -74,6 +74,7 @@ import {
     NeverType,
     OverloadedType,
     Type,
+    TypeBase,
     TypeVarType,
     UnboundType,
     UnknownType,
@@ -1871,12 +1872,24 @@ export function getCodeFlowEngine(
                     if (
                         testExpression.nodeType === ParseNodeType.Call &&
                         testExpression.d.leftExpr.nodeType === ParseNodeType.Name &&
-                        testExpression.d.leftExpr.d.value === 'isinstance' &&
+                        (testExpression.d.leftExpr.d.value === 'isinstance' ||
+                            testExpression.d.leftExpr.d.value === 'issubclass') &&
                         testExpression.d.args.length === 2
                     ) {
                         const arg0Expr = testExpression.d.args[0].d.valueExpr;
 
-                        const arg0Type = evaluator.getTypeOfExpression(arg0Expr).type;
+                        let arg0Type = evaluator.getTypeOfExpression(arg0Expr).type;
+
+                        // An issubclass check against a type[T] parameter narrows the
+                        // instance type T, so remove one instantiable layer before
+                        // comparing it with the constrained TypeVar.
+                        if (
+                            testExpression.d.leftExpr.d.value === 'issubclass' &&
+                            isTypeVar(arg0Type) &&
+                            TypeBase.isInstantiable(arg0Type)
+                        ) {
+                            arg0Type = TypeVarType.cloneAsInstance(arg0Type);
+                        }
 
                         if (isCompatibleWithConstrainedTypeVar(arg0Type, typeVar)) {
                             // Prevent infinite recursion by noting that we've been here before.
