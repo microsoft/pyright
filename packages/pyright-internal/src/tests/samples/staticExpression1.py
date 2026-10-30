@@ -36,6 +36,24 @@ if "posix" == os.name:
 else:
     x = "error!"
 
+if sys.platform != b"linux":
+    x = 1
+else:
+    x = "error!"
+
+if os.name != b"posix":
+    x = 1
+else:
+    x = "error!"
+
+if sys.platform == f"linux":
+    # This should generate an error.
+    x = "error!"
+
+if os.name == f"posix":
+    # This should generate an error.
+    x = "error!"
+
 if True:
     x = 1
 else:

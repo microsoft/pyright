@@ -20,7 +20,7 @@ import {
     StringListNode,
     TupleNode,
 } from '../parser/parseNodes';
-import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 
 const _mirroredComparisonOperators: Map<OperatorType, OperatorType> = new Map([
     [OperatorType.GreaterThan, OperatorType.LessThan],
@@ -185,18 +185,16 @@ function _evaluateStaticBoolOrBoolLikeExpression(
             rightExpr.nodeType === ParseNodeType.StringList
         ) {
             // Handle the special case of "sys.platform != 'X'"
-            const comparisonPlatform = rightExpr.d.strings.map((s) => s.d.value).join('');
-            const expectedPlatformName = _getExpectedPlatformNameFromPlatform(execEnv);
-            return _evaluateStringBinaryOperation(operator, expectedPlatformName, comparisonPlatform);
+            return _evaluateStrComparisonToStringList(
+                operator,
+                rightExpr,
+                _getExpectedPlatformNameFromPlatform(execEnv)
+            );
         }
 
         if (_isOsNameInfoExpression(leftExpr) && rightExpr.nodeType === ParseNodeType.StringList) {
             // Handle the special case of "os.name == 'X'"
-            const comparisonOsName = rightExpr.d.strings.map((s) => s.d.value).join('');
-            const expectedOsName = _getExpectedOsNameFromPlatform(execEnv);
-            if (expectedOsName !== undefined) {
-                return _evaluateStringBinaryOperation(operator, expectedOsName, comparisonOsName);
-            }
+            return _evaluateStrComparisonToStringList(operator, rightExpr, _getExpectedOsNameFromPlatform(execEnv));
         } else {
             // Handle the special case of <definedConstant> == 'X' or <definedConstant> != 'X'.
             if (rightExpr.nodeType === ParseNodeType.StringList) {
@@ -443,6 +441,26 @@ function _evaluateStringBinaryOperation(
     }
 
     return undefined;
+}
+
+function _evaluateStrComparisonToStringList(
+    operator: OperatorType,
+    node: StringListNode,
+    expectedValue: string | undefined
+): boolean | undefined {
+    if (node.d.strings.some((s) => s.nodeType === ParseNodeType.FormatString)) {
+        return undefined;
+    }
+    if (node.d.strings.some((s) => s.d.token.flags & StringTokenFlags.Bytes)) {
+        if (operator === OperatorType.Equals) {
+            return false;
+        } else if (operator === OperatorType.NotEquals) {
+            return true;
+        } else {
+            return undefined;
+        }
+    }
+    return _evaluateStringBinaryOperation(operator, expectedValue, node.d.strings.map((s) => s.d.value).join(''));
 }
 
 function _isStaticComparisonLiteral(node: ExpressionNode): boolean {
