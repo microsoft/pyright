@@ -950,7 +950,7 @@ test('MatchUnnecessary1', () => {
 
 test('List1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['list1.py']);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('List2', () => {
