@@ -1,7 +1,7 @@
 # This sample tests the "reportUnnecessaryContains" diagnostic rule.
 
 from enum import Enum
-from typing import Literal, TypeVar
+from typing import Hashable, Literal, TypeVar
 
 T1 = TypeVar("T1")
 T2 = TypeVar("T2", bound=str)
@@ -63,3 +63,30 @@ class Enum1(Enum):
     @property
     def is_c(self):
         return self not in (Enum1.a, Enum1.b)
+
+
+class Class1: ...
+
+
+class Class2:
+    def __eq__(self, other: object) -> bool:
+        return True
+
+
+def func6(x: object, y: Hashable):
+    if x in (int, str):
+        return
+
+    if y in (int,):
+        return
+
+
+def func7(z: Class1):
+    # This should generate an error if "reportUnnecessaryContains" is enabled.
+    if z in (int,):
+        return
+
+
+def func8(z: Class1, w: Class2):
+    if w in (z,):
+        return
