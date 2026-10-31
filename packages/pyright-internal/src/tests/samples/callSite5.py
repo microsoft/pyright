@@ -84,6 +84,11 @@ def unknown_argument(value: Derived, other: Other, argument):
     reveal_type(value.pick(argument), expected_text="Derived | Unknown")
 
 
+def union_receiver(value: Derived | Other):
+    # This should generate an error because Other.read_label returns int.
+    value.read_label(1).upper()
+
+
 T = TypeVar("T")
 
 

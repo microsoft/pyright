@@ -4401,8 +4401,15 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
             continue;
         }
 
+        // Bound receivers can produce different contextual return types even when
+        // the remaining function signatures are the same.
+        const honorCallBehavior =
+            isFunction(type) &&
+            isFunction(typeToAdd) &&
+            (type.priv.boundSelfType !== undefined || typeToAdd.priv.boundSelfType !== undefined);
+
         // Does this type already exist in the types array?
-        if (isTypeSame(type, typeToAdd, { honorTypeForm: true })) {
+        if (isTypeSame(type, typeToAdd, { honorTypeForm: true, honorCallBehavior })) {
             unionType.priv.subtypes[i] = _mergeInferredTupleLiterals(type, typeToAdd);
             return;
         }
