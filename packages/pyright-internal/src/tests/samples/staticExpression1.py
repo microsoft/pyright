@@ -11,7 +11,17 @@ if sys.platform == "linux":
 else:
     x = "error!"
 
+if "linux" == sys.platform:
+    x = 1
+else:
+    x = "error!"
+
 if sys.version_info >= (3, 9):
+    x = 1
+else:
+    x = "error!"
+
+if (3, 9) <= sys.version_info:
     x = 1
 else:
     x = "error!"
@@ -19,6 +29,29 @@ else:
 if os.name == "posix":
     x = 1
 else:
+    x = "error!"
+
+if "posix" == os.name:
+    x = 1
+else:
+    x = "error!"
+
+if sys.platform != b"linux":
+    x = 1
+else:
+    x = "error!"
+
+if os.name != b"posix":
+    x = 1
+else:
+    x = "error!"
+
+if sys.platform == f"linux":
+    # This should generate an error.
+    x = "error!"
+
+if os.name == f"posix":
+    # This should generate an error.
     x = "error!"
 
 if True:
@@ -51,6 +84,11 @@ if DEFINED_STR == "hi!":
 else:
     x = "error!"
 
+if "hi!" == DEFINED_STR:
+    x = 1
+else:
+    x = "error!"
+
 
 class Dummy:
     DEFINED_FALSE: bool
@@ -71,6 +109,11 @@ else:
     x = "error!"
 
 if dummy.DEFINED_STR == "hi!":
+    x = 1
+else:
+    x = "error!"
+
+if "hi!" == dummy.DEFINED_STR:
     x = 1
 else:
     x = "error!"
