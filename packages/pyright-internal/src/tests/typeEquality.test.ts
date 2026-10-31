@@ -17,6 +17,7 @@ import {
     combineTypes,
     FunctionParam,
     FunctionType,
+    FunctionTypeFlags,
     isClassInstance,
     isTypeSame,
     isUnion,
@@ -167,6 +168,18 @@ test('CombineTypesTypeForms', () => {
     const union = combineTypes([first, unrelated, second]);
     assert.ok(isUnion(union));
     assert.deepStrictEqual(union.priv.subtypes, [first, unrelated, second]);
+});
+
+test('CombineTypesBoundFunctions', () => {
+    const functionType = FunctionType.createInstance('method', 'module.method', 'module', FunctionTypeFlags.None);
+    const first = FunctionType.clone(functionType);
+    const second = FunctionType.clone(functionType);
+    first.priv.boundSelfType = ClassType.cloneAsInstance(createClassType('First'));
+    second.priv.boundSelfType = ClassType.cloneAsInstance(createClassType('Second'));
+
+    const union = combineTypes([first, second]);
+    assert.ok(isUnion(union));
+    assert.deepStrictEqual(union.priv.subtypes, [first, second]);
 });
 
 test('CombineTypesBuiltInBoolAliases', () => {

@@ -1905,6 +1905,10 @@ export interface FunctionDetailsPriv {
     // the class or object to which the function was bound.
     boundToType?: ClassType | undefined;
 
+    // The actual argument bound to "self" or "cls", including a TypeVar receiver
+    // that would otherwise be reduced to its class bound in boundToType.
+    boundSelfType?: Type | undefined;
+
     // The flags for the function prior to binding
     preBoundFlags?: FunctionTypeFlags;
 
@@ -3676,6 +3680,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                             !isTypeSame(param, functionType2.shared.typeParams[index], recursiveOptions, recursionCount)
                     ) ||
                     !optionalTypesMatch(type1.priv.boundToType, functionType2.priv.boundToType) ||
+                    !optionalTypesMatch(type1.priv.boundSelfType, functionType2.priv.boundSelfType) ||
                     !optionalTypesMatch(type1.priv.strippedFirstParamType, functionType2.priv.strippedFirstParamType) ||
                     params1.some(
                         (param, index) =>
@@ -4396,8 +4401,15 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
             continue;
         }
 
+        // Bound receivers can produce different contextual return types even when
+        // the remaining function signatures are the same.
+        const honorCallBehavior =
+            isFunction(type) &&
+            isFunction(typeToAdd) &&
+            (type.priv.boundSelfType !== undefined || typeToAdd.priv.boundSelfType !== undefined);
+
         // Does this type already exist in the types array?
-        if (isTypeSame(type, typeToAdd, { honorTypeForm: true })) {
+        if (isTypeSame(type, typeToAdd, { honorTypeForm: true, honorCallBehavior })) {
             unionType.priv.subtypes[i] = _mergeInferredTupleLiterals(type, typeToAdd);
             return;
         }

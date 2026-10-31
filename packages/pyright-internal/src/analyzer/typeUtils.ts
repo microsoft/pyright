@@ -4102,7 +4102,12 @@ export class TypeVarTransformer {
         return this.doForEachConstraintSet(() => {
             let functionType = sourceType;
 
-            const declaredReturnType = FunctionType.getEffectiveReturnType(functionType);
+            // Don't freeze an inferred Unknown when only the parameters require specialization.
+            const inferredReturnType = functionType.shared.inferredReturnType?.type;
+            const declaredReturnType = FunctionType.getEffectiveReturnType(
+                functionType,
+                /* includeInferred */ !inferredReturnType || !isUnknown(inferredReturnType)
+            );
             const specializedReturnType = declaredReturnType
                 ? this.apply(declaredReturnType, recursionCount)
                 : undefined;
@@ -4190,6 +4195,14 @@ export class TypeVarTransformer {
                 const newBoundToType = this.apply(functionType.priv.boundToType, recursionCount);
                 if (newBoundToType !== functionType.priv.boundToType && isClass(newBoundToType)) {
                     functionType = FunctionType.clone(functionType, /* stripFirstParam */ false, newBoundToType);
+                }
+            }
+
+            if (functionType.priv.boundSelfType) {
+                const newBoundSelfType = this.apply(functionType.priv.boundSelfType, recursionCount);
+                if (newBoundSelfType !== functionType.priv.boundSelfType) {
+                    functionType = TypeBase.cloneType(functionType);
+                    functionType.priv.boundSelfType = newBoundSelfType;
                 }
             }
 

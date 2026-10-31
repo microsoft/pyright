@@ -26,6 +26,32 @@ interface TestCacheEntry extends ContextualTypeCacheEntry {
     value: number;
 }
 
+test('Speculative types are isolated by call-site inference context', () => {
+    const module = parseText('value\n', new DiagnosticSink()).parserOutput.parseTree;
+    const statement = module.d.statements[0];
+    assert.ok(statement.nodeType === ParseNodeType.StatementList);
+    const node = statement.d.statements[0];
+    const tracker = new SpeculativeTypeTracker();
+    const type = TypeVarType.createInstance('T');
+    const firstContext = {};
+    const secondContext = {};
+
+    tracker.enterSpeculativeContext(node);
+    tracker.addSpeculativeType(node, { type }, 0, undefined);
+    assert.ok(tracker.getSpeculativeType(node, undefined));
+    assert.strictEqual(tracker.getSpeculativeType(node, undefined, firstContext), undefined);
+
+    tracker.addSpeculativeType(node, { type }, 0, undefined, firstContext);
+    assert.ok(tracker.getSpeculativeType(node, undefined, firstContext));
+    assert.strictEqual(tracker.getSpeculativeType(node, undefined, secondContext), undefined);
+    assert.strictEqual(tracker.getSpeculativeType(node, undefined), undefined);
+
+    tracker.addSpeculativeType(node, { type }, 0, undefined, secondContext);
+    assert.ok(tracker.getSpeculativeType(node, undefined, secondContext));
+    assert.strictEqual(tracker.getSpeculativeType(node, undefined, firstContext), undefined);
+    tracker.leaveSpeculativeContext();
+});
+
 test.each(['complete', 'error', 'cancel'] as const)(
     'Exact-node isolation preserves disjoint native speculative contexts: %s',
     (outcome) => {
