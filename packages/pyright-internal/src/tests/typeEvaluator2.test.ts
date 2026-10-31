@@ -511,6 +511,12 @@ test('NameBinding5', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('NameBinding6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBinding6.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('ConstrainedTypeVar1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constrainedTypeVar1.py']);
 

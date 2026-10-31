@@ -186,6 +186,8 @@ import {
     contextualTypeCacheEntryMatches,
     findContextualTypeCacheEntry,
     SpeculativeModeOptions,
+    SpeculativeTypeCache,
+    SpeculativeTypeEntry,
     SpeculativeTypeTracker,
     useNodeCacheIsolation,
 } from './typeCacheUtils';
@@ -720,6 +722,7 @@ export function createTypeEvaluator(
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: Map<number, TypeCacheEntry> | undefined;
     let returnTypeInferenceTypeFormTypeCache: Map<number, TypeFormTypeCacheEntry[]> | undefined;
+    let returnTypeInferenceSpeculativeTypeCache: SpeculativeTypeCache | undefined;
     const signatureTrackerStack: SignatureTrackerStackEntry[] = [];
     let prefetched: Partial<PrefetchedTypes> | undefined;
 
@@ -811,6 +814,14 @@ export function createTypeEvaluator(
         }
 
         return typeFormTypeCache;
+    }
+
+    function getReturnTypeInferenceSpeculativeTypeCache(node: ParseNode) {
+        if (returnTypeInferenceSpeculativeTypeCache && isNodeInReturnTypeInferenceContext(node)) {
+            return returnTypeInferenceSpeculativeTypeCache;
+        }
+
+        return undefined;
     }
 
     function readTypeFormTypeCacheEntry(node: ParseNode, expectedType: Type | undefined) {
@@ -950,7 +961,8 @@ export function createTypeEvaluator(
                     node,
                     typeResult,
                     incompleteGenCount,
-                    inferenceContext?.expectedType
+                    inferenceContext?.expectedType,
+                    getReturnTypeInferenceSpeculativeTypeCache(node)
                 );
             }
         }
@@ -1452,7 +1464,11 @@ export function createTypeEvaluator(
         // Is it cached in the speculative type cache?
         const specCacheEntry = useTypeFormCache
             ? undefined
-            : speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
+            : speculativeTypeTracker.getSpeculativeType(
+                  node,
+                  inferenceContext?.expectedType,
+                  getReturnTypeInferenceSpeculativeTypeCache(node)
+              );
         if (specCacheEntry) {
             if (
                 !specCacheEntry.typeResult.isIncomplete ||
@@ -25329,6 +25345,21 @@ export function createTypeEvaluator(
         });
     }
 
+    function isNodeWithinInferredTypeSource(decl: Declaration, node: ParseNode): boolean {
+        if (decl.type !== DeclarationType.Variable || !decl.inferredTypeSource) {
+            return false;
+        }
+
+        let source = decl.inferredTypeSource;
+        if (source.nodeType === ParseNodeType.For || source.nodeType === ParseNodeType.ComprehensionFor) {
+            source = source.d.iterableExpr;
+        }
+
+        // An except clause source contains code that runs after the
+        // assignment, so check only expression sources.
+        return isExpressionNode(source) && ParseTreeUtils.isNodeContainedWithin(node, source);
+    }
+
     function inferTypeOfSymbolForUsage(symbol: Symbol, usageNode?: NameNode, useLastDecl = false): EffectiveTypeResult {
         // Look in the inferred type cache to see if we've computed this already.
         let cacheEntries = effectiveTypeCache.get(symbol.id);
@@ -25435,7 +25466,10 @@ export function createTypeEvaluator(
                     // to determine the type in this context.
                     const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode, nodeInfo);
                     const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node, nodeInfo);
-                    if (usageScope === declScope) {
+                    if (
+                        usageScope === declScope &&
+                        !(decl.type === DeclarationType.Variable && decl.isExplicitBinding)
+                    ) {
                         // Skip declarations that appear after the usage in the source.
                         // Such declarations are typically only reached via loop back-edges,
                         // and including them causes circular evaluation (producing Unknown).
@@ -25448,7 +25482,7 @@ export function createTypeEvaluator(
                         // Note: for the cases filtered out here (decl after usage in same
                         // scope), the code-flow engine handles loop-carried narrowing when
                         // it evaluates the type at the actual usage site.
-                        if (decl.node.start >= usageNode.start) {
+                        if (decl.node.start >= usageNode.start || isNodeWithinInferredTypeSource(decl, usageNode)) {
                             return;
                         }
                     }
@@ -26000,6 +26034,7 @@ export function createTypeEvaluator(
             // the main type cache.
             const prevTypeCache = returnTypeInferenceTypeCache;
             const prevTypeFormTypeCache = returnTypeInferenceTypeFormTypeCache;
+            const prevSpeculativeTypeCache = returnTypeInferenceSpeculativeTypeCache;
             returnTypeInferenceContextStack.push({
                 functionNode,
                 codeFlowAnalyzer: codeFlowEngine.createCodeFlowAnalyzer(),
@@ -26008,6 +26043,7 @@ export function createTypeEvaluator(
             try {
                 returnTypeInferenceTypeCache = new Map<number, TypeCacheEntry>();
                 returnTypeInferenceTypeFormTypeCache = new Map<number, TypeFormTypeCacheEntry[]>();
+                returnTypeInferenceSpeculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
 
                 let allArgTypesAreUnknown = true;
                 functionNode.d.params.forEach((param, index) => {
@@ -26086,6 +26122,7 @@ export function createTypeEvaluator(
                 returnTypeInferenceContextStack.pop();
                 returnTypeInferenceTypeCache = prevTypeCache;
                 returnTypeInferenceTypeFormTypeCache = prevTypeFormTypeCache;
+                returnTypeInferenceSpeculativeTypeCache = prevSpeculativeTypeCache;
             }
         });
 
