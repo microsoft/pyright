@@ -26,6 +26,7 @@ import {
     isAnyOrUnknown,
     isClassInstance,
     isInstantiableClass,
+    isTypeSame,
     isTypeVar,
     isTypeVarTuple,
     isUnion,
@@ -41,6 +42,7 @@ import {
 import {
     convertToInstance,
     doForEachSubtype,
+    expandUnpackedTypeVarsInTupleArgs,
     getContainerDepth,
     InferenceContext,
     isLiteralType,
@@ -351,6 +353,17 @@ export function assignTupleTypeArgs(
                 return true;
             }
 
+            // A bound unpacked TypeVar also accepts a `*tuple[Any, ...]`
+            // source.
+            if (
+                isUnpackedTypeVar(destArgType) &&
+                TypeVarType.isBound(destArgType) &&
+                !TypeVarType.isUnification(destArgType) &&
+                isTupleGradualForm(srcArgType)
+            ) {
+                continue;
+            }
+
             if (
                 !evaluator.assignType(
                     destArgType,
@@ -423,9 +436,47 @@ export function adjustTupleTypeArgs(
     srcTypeArgs: TupleTypeArg[],
     flags: AssignTypeFlags
 ): boolean {
+    // A bound unpacked TypeVar in the dest whose upper bound is an empty
+    // tuple contributes no entries, so remove it unless the source contains
+    // the same TypeVar.
+    const emptyBoundIndex = destTypeArgs.findIndex(
+        (t) =>
+            isUnpackedTypeVar(t.type) &&
+            TypeVarType.isBound(t.type) &&
+            !TypeVarType.isUnification(t.type) &&
+            !!t.type.shared.boundType &&
+            isClassInstance(t.type.shared.boundType) &&
+            isTupleClass(t.type.shared.boundType) &&
+            t.type.shared.boundType.priv.tupleTypeArgs?.length === 0
+    );
+
+    if (emptyBoundIndex >= 0 && !srcTypeArgs.some((t) => isTypeSame(t.type, destTypeArgs[emptyBoundIndex].type))) {
+        destTypeArgs.splice(emptyBoundIndex, 1);
+    }
+
     const destUnboundedOrVariadicIndex = destTypeArgs.findIndex(
         (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
     );
+
+    // An unpacked TypeVar in the source stands for any tuple that matches its
+    // upper bound. Unless it falls within the source entries captured by a
+    // variadic element in the dest, replace it with the entries of its bound.
+    // Skip this for invariance, since the TypeVar may be a narrower tuple
+    // than its bound.
+    if ((flags & (AssignTypeFlags.Contravariant | AssignTypeFlags.Invariant)) === 0) {
+        const srcTypeVarIndex = srcTypeArgs.findIndex((t) => isUnpackedTypeVar(t.type));
+        const capturedByDestVariadic =
+            srcTypeVarIndex >= 0 &&
+            destUnboundedOrVariadicIndex >= 0 &&
+            !destTypeArgs[destUnboundedOrVariadicIndex].isUnbounded &&
+            srcTypeVarIndex >= destUnboundedOrVariadicIndex &&
+            srcTypeVarIndex <= destUnboundedOrVariadicIndex + srcTypeArgs.length - destTypeArgs.length;
+
+        if (!capturedByDestVariadic) {
+            srcTypeArgs.splice(0, srcTypeArgs.length, ...expandUnpackedTypeVarsInTupleArgs(srcTypeArgs));
+        }
+    }
+
     let srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
     const srcVariadicIndex = srcTypeArgs.findIndex((t) => isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type));
 
@@ -516,7 +567,8 @@ export function adjustTupleTypeArgs(
         if (destUnboundedOrVariadicIndex >= 0 && srcArgsToCapture >= 0) {
             // If the dest contains a variadic element, determine which source
             // args map to this element and package them up into an unpacked tuple.
-            if (isTypeVarTuple(destTypeArgs[destUnboundedOrVariadicIndex].type)) {
+            const destVariadicType = destTypeArgs[destUnboundedOrVariadicIndex].type;
+            if (isTypeVarTuple(destVariadicType) || isUnpackedTypeVar(destVariadicType)) {
                 const tupleClass = evaluator.getTupleClassType();
 
                 if (tupleClass && isInstantiableClass(tupleClass)) {
@@ -526,7 +578,10 @@ export function adjustTupleTypeArgs(
 
                     // If we're left with a single unpacked variadic type var, there's no
                     // need to wrap it in a nested tuple.
-                    if (removedArgs.length === 1 && isUnpackedTypeVarTuple(removedArgs[0].type)) {
+                    if (
+                        removedArgs.length === 1 &&
+                        (isUnpackedTypeVarTuple(removedArgs[0].type) || isUnpackedTypeVar(removedArgs[0].type))
+                    ) {
                         variadicTuple = removedArgs[0].type;
                     } else {
                         // Package up the remaining type arguments into a tuple object.
@@ -675,7 +730,7 @@ function getTupleSliceParam(
             return undefined;
         }
         const unboundedIndex = tupleTypeArgs.findIndex(
-            (typeArg) => typeArg.isUnbounded || isTypeVarTuple(typeArg.type)
+            (typeArg) => typeArg.isUnbounded || isTypeVarTuple(typeArg.type) || isUnpackedTypeVar(typeArg.type)
         );
 
         if (value < 0) {
