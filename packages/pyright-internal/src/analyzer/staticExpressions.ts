@@ -139,6 +139,15 @@ function _evaluateStaticBoolOrBoolLikeExpression(
         }
 
         if (
+            node.d.leftExpr.nodeType === ParseNodeType.Tuple &&
+            _isSysVersionInfoExpression(node.d.rightExpr, sysImportAliases)
+        ) {
+            // Handle the special case of "(3, x) <= sys.version_info"
+            const comparisonVersion = _convertTupleToVersion(node.d.leftExpr);
+            return _evaluateVersionBinaryOperation(node.d.operator, comparisonVersion, execEnv.pythonVersion);
+        }
+
+        if (
             node.d.leftExpr.nodeType === ParseNodeType.Index &&
             _isSysVersionInfoExpression(node.d.leftExpr.d.leftExpr, sysImportAliases) &&
             node.d.leftExpr.d.items.length === 1 &&
@@ -161,6 +170,28 @@ function _evaluateStaticBoolOrBoolLikeExpression(
         }
 
         if (
+            node.d.leftExpr.nodeType === ParseNodeType.Number &&
+            node.d.leftExpr.d.isInteger &&
+            typeof node.d.leftExpr.d.value === 'number' &&
+            node.d.rightExpr.nodeType === ParseNodeType.Index &&
+            _isSysVersionInfoExpression(node.d.rightExpr.d.leftExpr, sysImportAliases) &&
+            node.d.rightExpr.d.items.length === 1 &&
+            !node.d.rightExpr.d.trailingComma &&
+            !node.d.rightExpr.d.items[0].d.name &&
+            node.d.rightExpr.d.items[0].d.argCategory === ArgCategory.Simple &&
+            node.d.rightExpr.d.items[0].d.valueExpr.nodeType === ParseNodeType.Number &&
+            !node.d.rightExpr.d.items[0].d.valueExpr.d.isImaginary &&
+            node.d.rightExpr.d.items[0].d.valueExpr.d.value === 0
+        ) {
+            // Handle the special case of "X <= sys.version_info[0]"
+            return _evaluateVersionBinaryOperation(
+                node.d.operator,
+                PythonVersion.create(node.d.leftExpr.d.value, 0),
+                PythonVersion.create(execEnv.pythonVersion.major, 0)
+            );
+        }
+
+        if (
             _isSysPlatformInfoExpression(node.d.leftExpr, sysImportAliases) &&
             node.d.rightExpr.nodeType === ParseNodeType.StringList
         ) {
@@ -170,12 +201,29 @@ function _evaluateStaticBoolOrBoolLikeExpression(
             return _evaluateStringBinaryOperation(node.d.operator, expectedPlatformName, comparisonPlatform);
         }
 
+        if (
+            node.d.leftExpr.nodeType === ParseNodeType.StringList &&
+            _isSysPlatformInfoExpression(node.d.rightExpr, sysImportAliases)
+        ) {
+            // Handle the special case of "'X' != sys.platform"
+            const comparisonPlatform = node.d.leftExpr.d.strings.map((s) => s.d.value).join('');
+            const expectedPlatformName = _getExpectedPlatformNameFromPlatform(execEnv);
+            return _evaluateStringBinaryOperation(node.d.operator, comparisonPlatform, expectedPlatformName);
+        }
+
         if (_isOsNameInfoExpression(node.d.leftExpr) && node.d.rightExpr.nodeType === ParseNodeType.StringList) {
             // Handle the special case of "os.name == 'X'"
             const comparisonOsName = node.d.rightExpr.d.strings.map((s) => s.d.value).join('');
             const expectedOsName = _getExpectedOsNameFromPlatform(execEnv);
             if (expectedOsName !== undefined) {
                 return _evaluateStringBinaryOperation(node.d.operator, expectedOsName, comparisonOsName);
+            }
+        } else if (node.d.leftExpr.nodeType === ParseNodeType.StringList && _isOsNameInfoExpression(node.d.rightExpr)) {
+            // Handle the special case of "'X' == os.name"
+            const comparisonOsName = node.d.leftExpr.d.strings.map((s) => s.d.value).join('');
+            const expectedOsName = _getExpectedOsNameFromPlatform(execEnv);
+            if (expectedOsName !== undefined) {
+                return _evaluateStringBinaryOperation(node.d.operator, comparisonOsName, expectedOsName);
             }
         } else {
             // Handle the special case of <definedConstant> == 'X' or <definedConstant> != 'X'.
