@@ -41,7 +41,7 @@ def func_d() -> None:
 
     class A:
         global d
-        reveal_type(d, expected_text="int")
+        reveal_type(d, expected_text="int | str")
         d = "b"
 
     reveal_type(d, expected_text="Literal['a']")

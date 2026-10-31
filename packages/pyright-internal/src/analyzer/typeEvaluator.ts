@@ -25218,7 +25218,10 @@ export function createTypeEvaluator(
                     // to determine the type in this context.
                     const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode, nodeInfo);
                     const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node, nodeInfo);
-                    if (usageScope === declScope) {
+                    if (
+                        usageScope === declScope &&
+                        !(decl.type === DeclarationType.Variable && decl.isExplicitBinding)
+                    ) {
                         // Skip declarations that appear after the usage in the source.
                         // Such declarations are typically only reached via loop back-edges,
                         // and including them causes circular evaluation (producing Unknown).
