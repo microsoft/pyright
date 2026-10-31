@@ -37,7 +37,13 @@ import {
     Type,
     TypedDictEntry,
 } from './types';
-import { convertToInstance, lookUpObjectMember, makeInferenceContext, MemberAccessFlags } from './typeUtils';
+import {
+    convertToInstance,
+    lookUpObjectMember,
+    makeInferenceContext,
+    MemberAccessFlags,
+    specializeTupleClass,
+} from './typeUtils';
 
 export function hasConstructorTransform(classType: ClassType): boolean {
     if (classType.shared.fullName === 'functools.partial') {
@@ -421,6 +427,24 @@ function applyPartialTransformToFunction(
     // populated already.
     const updatedParamList: FunctionParam[] = specializedFunctionType.shared.parameters.map((param, index) => {
         let newType = FunctionType.getParamType(specializedFunctionType, index);
+
+        // Supplied fixed-tuple arguments are tracked by virtual names
+        // rather than the raw *args parameter name.
+        if (
+            param.category === ParamCategory.ArgsList &&
+            isUnpackedClass(newType) &&
+            newType.priv.tupleTypeArgs &&
+            paramListDetails.params
+                .filter((entry) => entry.index === index)
+                .every((entry) => entry.param.category === ParamCategory.Simple)
+        ) {
+            newType = specializeTupleClass(
+                newType,
+                newType.priv.tupleTypeArgs.filter((_, tupleIndex) => !paramMap.has(`${param.name}[${tupleIndex}]`)),
+                /* isTypeArgExplicit */ true,
+                /* isUnpacked */ true
+            );
+        }
 
         // If this is an **kwargs with an unpacked TypedDict, mark the provided
         // TypedDict entries as provided.

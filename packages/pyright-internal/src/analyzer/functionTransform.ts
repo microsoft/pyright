@@ -154,7 +154,7 @@ function applyTotalOrderingTransform(
 // `.iter_unpack()`) is out of scope: it would require threading the
 // constructor's literal format through to the method calls, so those still
 // infer the declared `tuple[Any, ...]`.
-function getStructUnpackKind(fullName: string): StructUnpackKind | undefined {
+export function getStructUnpackKind(fullName: string): StructUnpackKind | undefined {
     switch (fullName) {
         case '_struct.unpack':
         case '_struct.unpack_from':
@@ -170,7 +170,7 @@ function getStructUnpackKind(fullName: string): StructUnpackKind | undefined {
 
 // To avoid performance issues with very large repeat counts, fall back to
 // the declared return type (a homogeneous `Any` tuple) above this many elements.
-const maxStructUnpackElementCount = 256;
+export const maxStructUnpackElementCount = 256;
 
 function applyStructUnpackTransform(
     evaluator: TypeEvaluator,
@@ -247,7 +247,7 @@ function applyStructUnpackTransform(
 // Parses a struct format string (https://docs.python.org/3/library/struct.html)
 // into the sequence of element types produced by `struct.unpack`. Returns
 // undefined if the format string contains an unrecognized format code.
-function parseStructFormat(format: string): StructElementType[] | undefined {
+export function parseStructFormat(format: string): StructElementType[] | undefined {
     const elements: StructElementType[] = [];
     let index = 0;
 
@@ -368,7 +368,7 @@ function getStructElementType(code: string, isNativeMode: boolean): StructElemen
 
 // The kind of return type synthesized for a dispatched `struct` function:
 // a tuple (`unpack`/`unpack_from`) or an iterator of tuples (`iter_unpack`).
-type StructUnpackKind = 'tuple' | 'iterator';
+export type StructUnpackKind = 'tuple' | 'iterator';
 
 // The synthesized element type produced by a single struct format code.
-type StructElementType = 'int' | 'float' | 'bool' | 'bytes';
+export type StructElementType = 'int' | 'float' | 'bool' | 'bytes';

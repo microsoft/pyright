@@ -852,7 +852,7 @@ function narrowTypeBasedOnLiteralPattern(
     });
 }
 
-function isIntLiteralPatternEqualToBool(patternType: ClassType, subjectType: ClassType): boolean {
+export function isIntLiteralPatternEqualToBool(patternType: ClassType, subjectType: ClassType): boolean {
     // Numeric literal patterns use equality, so 0 and 1 also match False and True.
     // The inverse isn't true because singleton bool patterns use identity.
     if (!ClassType.isBuiltIn(patternType, 'int') || !ClassType.isBuiltIn(subjectType, 'bool')) {
@@ -875,8 +875,8 @@ function isIntLiteralPatternEqualToBool(patternType: ClassType, subjectType: Cla
 // Rather than surfacing Unknown, fall back to each parameter's bound while
 // preserving any argument that was concretely solved. The subject's condition is
 // reapplied to the resulting instance.
-function specializeBoundedMatchTypeParams(
-    evaluator: TypeEvaluator,
+export function specializeBoundedMatchTypeParams(
+    evaluator: Pick<TypeEvaluator, 'getTupleClassType'>,
     matchType: ClassType,
     solvedTypeArgs: Type[] | undefined,
     condition: ReturnType<typeof getTypeCondition>
@@ -1548,7 +1548,7 @@ function narrowTypeBasedOnValuePattern(
 }
 
 // Determines whether implicit equality may use an implementation other than object.__eq__.
-function hasCustomEq(type: Type): boolean {
+export function hasCustomEq(type: Type): boolean {
     if (isInstantiableClass(type)) {
         const metaclass = type.shared.effectiveMetaclass;
         if (!metaclass || !isInstantiableClass(metaclass)) {
