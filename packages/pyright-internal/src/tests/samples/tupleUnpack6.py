@@ -23,49 +23,41 @@ def func4[S: tuple[int, ...]](t: tuple[int, *S, str]) -> S: ...
 def func5[S: tuple[int, ...]](b: Box[tuple[Literal[1], *S, Literal[3]]]) -> Box[S]: ...
 
 
-def test1(b: Box[tuple[Literal[2], Literal[2], Literal[3]]]):
-    reveal_type(func1(b), expected_text="Box[tuple[Literal[2], Literal[2]]]")
+def test1(
+    b1: Box[tuple[Literal[2], Literal[2], Literal[3]]],
+    b2: Box[tuple[Literal[3]]],
+    b3: Box[tuple[Literal[1], Literal[2], Literal[2], Literal[3]]],
+):
+    reveal_type(func1(b1), expected_text="Box[tuple[Literal[2], Literal[2]]]")
+    reveal_type(func1(b2), expected_text="Box[tuple[()]]")
+    reveal_type(func5(b3), expected_text="Box[tuple[Literal[2], Literal[2]]]")
 
 
-def test2(b: Box[tuple[Literal[3]]]):
-    reveal_type(func1(b), expected_text="Box[tuple[()]]")
-
-
-def test3(t1: tuple[int, int, bool], t2: tuple[int], t3: tuple[int, *tuple[int, ...]]):
+def test2(t1: tuple[int, int, bool], t2: tuple[int], t3: tuple[int, *tuple[int, ...]]):
     reveal_type(func2(t1), expected_text="tuple[int, bool]")
     reveal_type(func2(t2), expected_text="tuple[()]")
     reveal_type(func2(t3), expected_text="tuple[int, ...]")
 
 
-def test4(t1: tuple[int, int, str], t2: tuple[str, str]):
-    reveal_type(func3(t1), expected_text="tuple[int, int]")
+def test3(t: tuple[int, int, str]):
+    reveal_type(func3(t), expected_text="tuple[int, int]")
 
+
+def test4(t: tuple[str, str]):
     # This should generate an error because str is not assignable to
     # the upper bound of S.
-    func3(t2)
+    func3(t)
 
 
-def test5(
-    t1: tuple[int, bool, bool, str],
-    t2: tuple[int, str],
-    t3: tuple[int, *tuple[int, ...], str],
-    t4: tuple[int, int],
-):
+def test5(t1: tuple[int, bool, bool, str], t2: tuple[int, str], t3: tuple[int, *tuple[int, ...], str]):
     reveal_type(func4(t1), expected_text="tuple[bool, bool]")
     reveal_type(func4(t2), expected_text="tuple[()]")
     reveal_type(func4(t3), expected_text="tuple[int, ...]")
 
+
+def test6(t: tuple[int, int]):
     # This should generate an error because the last entry isn't a str.
-    func4(t4)
-
-
-def test6(b: Box[tuple[Literal[1], Literal[2], Literal[2], Literal[3]]]):
-    reveal_type(func5(b), expected_text="Box[tuple[Literal[2], Literal[2]]]")
-
-
-def test7[T: tuple[int, ...]](t1: tuple[int, *T], t2: tuple[int, *T, str]):
-    reveal_type(func2(t1), expected_text="T@test7")
-    reveal_type(func4(t2), expected_text="T@test7")
+    func4(t)
 
 
 # This should generate an error because a tuple can contain only one
@@ -88,58 +80,60 @@ def func9[S: tuple[int, ...]](t: tuple[*S, int, *S]) -> None: ...
 def func10[S: tuple[int, ...]](t: tuple[*S, *tuple[int, int]]) -> S: ...
 
 
-def test8(t: tuple[bool, int, int]):
+def test7(t: tuple[bool, int, int]):
     reveal_type(func10(t), expected_text="tuple[bool]")
 
 
 def func11[U: tuple[object, ...]](t: tuple[str, *U]) -> U: ...
 
 
-def test9[S: tuple[str, *tuple[str, ...]]](t: tuple[*S, int]):
+def test8[S: tuple[str, *tuple[str, ...]]](t: tuple[*S, int]):
     reveal_type(func11(t), expected_text="tuple[*tuple[str, ...], int]")
 
 
-def test10[S: tuple[str, int]](t: tuple[*S, int]):
+def test9[S: tuple[str, int]](t: tuple[*S, int]):
     reveal_type(func11(t), expected_text="tuple[int, int]")
     v: tuple[str, int, int] = t
 
 
-def test11[S: tuple[str, int]](t: tuple[*S]):
+def test10[S: tuple[str, int]](t: tuple[*S]):
     # This should generate an error because S has two entries.
     v: tuple[str] = t
 
 
-def test12[T: tuple[str], U: tuple[int]](t1: tuple[*T], u1: tuple[*U], t2: tuple[*T, int], u2: tuple[str, *U]):
+def test11[T1: tuple[str], U1: tuple[int], T2: tuple[str, ...]](
+    t1: tuple[*T1], u1: tuple[*U1], t2: tuple[*T1, int], u2: tuple[str, *U1], t3: tuple[*T2]
+):
     reveal_type(t1 + u1, expected_text="tuple[str, int]")
     reveal_type(t2 + u2, expected_text="tuple[str, int, str, int]")
+    reveal_type(t3 + u1, expected_text="tuple[*tuple[str, ...], int]")
+    reveal_type(t3 + (1,), expected_text="tuple[*T2@test11, Literal[1]]")
 
 
-def test13[T: tuple[str, ...], U: tuple[int]](t: tuple[*T], u: tuple[*U]):
-    reveal_type(t + u, expected_text="tuple[*tuple[str, ...], int]")
-    reveal_type(t + (1,), expected_text="tuple[*T@test13, Literal[1]]")
-
-
-def test14[S: tuple[int, str]](t: list[tuple[*S]]):
+def test12[S: tuple[int, str]](t: list[tuple[*S]]):
     # This should generate an error because list is invariant
     # and S may be narrower than its bound.
-    v1: list[tuple[int, str]] = t
-    v2: list[tuple[*S]] = t
+    v: list[tuple[int, str]] = t
 
 
-def func15[S: tuple[int, str]](t: list[tuple[*S]]) -> S: ...
+def test13[S: tuple[int, str]](t: list[tuple[*S]]):
+    v: list[tuple[*S]] = t
 
 
-def test15(t: list[tuple[bool, str]]):
-    reveal_type(func15(t), expected_text="tuple[bool, str]")
+def func12[S: tuple[int, str]](t: list[tuple[*S]]) -> S: ...
 
 
-def test16[S: tuple[()]](callback: Callable[[tuple[*S]], None], t: list[tuple[*S]]) -> tuple[int, *S]:
+def test14(t: list[tuple[bool, str]]):
+    reveal_type(func12(t), expected_text="tuple[bool, str]")
+
+
+def test15[S: tuple[()]](callback: Callable[[tuple[*S]], None], t: list[tuple[*S]]) -> tuple[int, *S]:
     callback(())
     v: list[tuple[*S]] = t
     return (1,)
 
 
-def test17[S: tuple[int]](callback: Callable[[tuple[*S]], None]):
+def test16[S: tuple[int]](callback: Callable[[tuple[*S]], None]):
     # This should generate an error because S may be narrower than its bound.
     callback((1,))
 
@@ -147,37 +141,42 @@ def test17[S: tuple[int]](callback: Callable[[tuple[*S]], None]):
     callback(())
 
 
-def func18[*Ts](t: tuple[*Ts]) -> tuple[*Ts]: ...
+def func13[*Ts](t: tuple[*Ts]) -> tuple[*Ts]: ...
 
 
-def test18[T: tuple[int, int]](t1: tuple[bytes, *T], t2: tuple[int, int, *T, str]) -> tuple[bytes, *T]:
-    reveal_type(func18(t1), expected_text="tuple[bytes, *T@test18]")
-    reveal_type(func4(t2), expected_text="tuple[int, *T@test18]")
-    return func18(t1)
+def test17[T1: tuple[int, ...], T2: tuple[int, int], T3: tuple[()]](
+    t1: tuple[int, *T1],
+    t2: tuple[int, *T1, str],
+    t3: tuple[bytes, *T2],
+    t4: tuple[int, int, *T2, str],
+    t5: tuple[bytes, *T3],
+):
+    reveal_type(func2(t1), expected_text="T1@test17")
+    reveal_type(func4(t2), expected_text="T1@test17")
+    reveal_type(func13(t3), expected_text="tuple[bytes, *T2@test17]")
+    reveal_type(func4(t4), expected_text="tuple[int, *T2@test17]")
+    reveal_type(func13(t5), expected_text="tuple[bytes, *T3@test17]")
+    v1: tuple[bytes, *T2] = func13(t3)
+    v2: tuple[bytes, *T3] = func13(t5)
 
 
-def test19[T: tuple[()]](t: tuple[bytes, *T]) -> tuple[bytes, *T]:
-    reveal_type(func18(t), expected_text="tuple[bytes, *T@test19]")
-    return func18(t)
-
-
-def test20[S: tuple[int, ...]](t: tuple[Any, ...]):
+def test18[S: tuple[int, ...]](t: tuple[Any, ...]):
     v1: tuple[*S, Literal[3]] = t
     v2: tuple[*S] = t
 
 
-def test21[S: tuple[int, ...]](t: tuple[*tuple[Any, ...], int]):
+def test19[S: tuple[int, ...]](t: tuple[*tuple[Any, ...], int]):
     # This should generate an error.
     v: tuple[*S, str] = t
 
 
-def func22[S: tuple[int, ...]](m: tuple[*S, int, int], v: tuple[*S, int]) -> tuple[*S, str]: ...
+def func14[S: tuple[int, ...]](m: tuple[*S, int, int], v: tuple[*S, int]) -> tuple[*S, str]: ...
 
 
-def test22(t: tuple[int, int, int]):
-    reveal_type(func22(t, t), expected_text="tuple[int, str] | tuple[int, int, str]")
+def test20(t: tuple[int, int, int]):
+    reveal_type(func14(t, t), expected_text="tuple[int, str] | tuple[int, int, str]")
 
 
-def test23(t: tuple[int, int, int]):
+def test21(t: tuple[int, int, int]):
     # This should generate an error.
-    v: tuple[object, str] = func22(t, t)
+    v: tuple[object, str] = func14(t, t)

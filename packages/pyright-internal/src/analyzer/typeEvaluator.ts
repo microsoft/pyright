@@ -12369,11 +12369,19 @@ export function createTypeEvaluator(
                     const unexpandedTypeArgs = combinedArgType.priv.tupleTypeArgs ?? [];
                     const tupleTypeArgs = expandUnpackedTypeVarsInTupleArgs(unexpandedTypeArgs);
 
+                    // A TypeVar with a tuple bound expands like an unpacked TypeVar.
+                    const unpackedArgType =
+                        isTypeVar(argType) && !isTypeVarTuple(argType) ? applyUnpackToTupleLike(argType) : undefined;
+                    const unpackedArgTypeVar: TupleTypeArg | undefined = unpackedArgType
+                        ? { type: unpackedArgType, isUnbounded: false }
+                        : undefined;
+
                     if (tupleTypeArgs.length !== 1 || !tupleTypeArgs[0].isUnbounded) {
                         for (const unexpandedTypeArg of unexpandedTypeArgs) {
                             const expandedTypeArgs = expandUnpackedTypeVarsInTupleArgs([unexpandedTypeArg]);
                             const unpackedTypeVarArg =
-                                expandedTypeArgs[0] !== unexpandedTypeArg ? { ...unexpandedTypeArg } : undefined;
+                                unpackedArgTypeVar ??
+                                (expandedTypeArgs[0] !== unexpandedTypeArg ? { ...unexpandedTypeArg } : undefined);
 
                             for (const tupleTypeArg of expandedTypeArgs) {
                                 const expandedArg: Arg = tupleTypeArg.isUnbounded
@@ -12404,7 +12412,9 @@ export function createTypeEvaluator(
                         continue;
                     }
 
-                    if (tupleTypeArgs[0] !== unexpandedTypeArgs[0]) {
+                    if (unpackedArgTypeVar) {
+                        unpackedTypeVarArgs.set(arg, unpackedArgTypeVar);
+                    } else if (tupleTypeArgs[0] !== unexpandedTypeArgs[0]) {
                         unpackedTypeVarArgs.set(arg, { ...unexpandedTypeArgs[0] });
                     }
                 }
@@ -13436,7 +13446,13 @@ export function createTypeEvaluator(
                     if (tupleTypeArgs.length === 1 && !tupleTypeArgs[0].isUnbounded) {
                         const entryType = tupleTypeArgs[0].type;
 
-                        if (isUnpacked(entryType) && !isUnpackedTypeVar(entryType)) {
+                        // A bound TypeVar parameter isn't solved, so the arguments are
+                        // matched as that TypeVar rather than as a tuple of its entries.
+                        if (
+                            isUnpacked(entryType) &&
+                            (!isUnpackedTypeVar(entryType) ||
+                                (isUnpackedTypeVar(paramType) && TypeVarType.isBound(paramType)))
+                        ) {
                             specializedTuple = makePacked(entryType);
                         }
                     }
