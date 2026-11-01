@@ -170,7 +170,7 @@ import {
 import * as ParseTreeUtils from './parseTreeUtils';
 import { getChildNodes } from './parseTreeWalker';
 import { assignTypeToPatternTargets, checkForUnusedPattern, narrowTypeBasedOnPattern } from './patternMatching';
-import { assignProperty } from './properties';
+import { assignProperty, createProperty } from './properties';
 import { assignClassToProtocol, assignModuleToProtocol } from './protocols';
 import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
@@ -253,6 +253,7 @@ import {
     FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
+    getInferredTupleLiteralBase,
     InheritanceChain,
     isAny,
     isAnyOrUnknown,
@@ -282,6 +283,7 @@ import {
     NeverType,
     OverloadedType,
     ParamSpecType,
+    preserveInferredTupleLiterals,
     removeFromUnion,
     removeUnbound,
     SentinelLiteral,
@@ -1383,6 +1385,18 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfExpression(
+        node: ExpressionNode,
+        flags = EvalFlags.None,
+        inferenceContext?: InferenceContext
+    ): TypeResult {
+        const result = getTypeOfExpressionWithCache(node, flags, inferenceContext);
+        if ((flags & EvalFlags.StripTupleLiterals) !== 0 && result.type.props?.inferredTupleLiteral) {
+            return { ...result, type: getInferredTupleLiteralBase(result.type) };
+        }
+        return result;
+    }
+
+    function getTypeOfExpressionWithCache(
         node: ExpressionNode,
         flags = EvalFlags.None,
         inferenceContext?: InferenceContext
@@ -4210,6 +4224,14 @@ export function createTypeEvaluator(
         let declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol)?.type;
         const fileInfo = nodeInfo.getFileInfo(nameNode);
 
+        // Class-scope aliases need the canonical method type for binding and override checks.
+        if (declaredType === undefined && symbolWithScope.scope.type === ScopeType.Class) {
+            const methodType = getMethodFromDescriptor(typeResult.type);
+            if (methodType) {
+                typeResult = { ...typeResult, type: methodType };
+            }
+        }
+
         // If this is a class scope and there is no type declared for this class variable,
         // see if a parent class has a type declared.
         if (declaredType === undefined && symbolWithScope.scope.type === ScopeType.Class) {
@@ -4938,9 +4960,12 @@ export function createTypeEvaluator(
 
                         // This code path can often produce many duplicate subtypes. We can
                         // reduce the cost of the combineTypes call below by filtering out these
-                        // duplicates proactively.
+                        // duplicates proactively. Equal retained tuple literals can carry
+                        // different inference fallbacks, which combineTypes must reconcile.
                         if (
                             newSubtypes.length === 0 ||
+                            transformedType.props?.inferredTupleLiteral ||
+                            newSubtypes[newSubtypes.length - 1].props?.inferredTupleLiteral ||
                             !isTypeSame(transformedType, newSubtypes[newSubtypes.length - 1])
                         ) {
                             newSubtypes.push(transformedType);
@@ -5564,7 +5589,142 @@ export function createTypeEvaluator(
             }
         }
 
+        // Bare names expose descriptors without changing the canonical types of method declarations.
+        if ((flags & EvalFlags.TypeExpression) === 0) {
+            type = mapSubtypes(type, (subtype) => {
+                if (!isFunctionOrOverloaded(subtype)) {
+                    return subtype;
+                }
+                const signature = isFunction(subtype) ? subtype : OverloadedType.getOverloads(subtype)[0];
+                if (
+                    !signature ||
+                    signature.priv.boundToType ||
+                    (!FunctionType.isClassMethod(signature) && !FunctionType.isStaticMethod(signature))
+                ) {
+                    return subtype;
+                }
+
+                const implementation = isOverloaded(subtype) ? OverloadedType.getImplementation(subtype) : undefined;
+                const declaration =
+                    implementation && isFunction(implementation)
+                        ? implementation.shared.declaration
+                        : signature.shared.declaration;
+                for (const decorator of declaration?.node.d.decorators ?? []) {
+                    const decoratedType = readTypeCache(decorator, /* flags */ undefined);
+                    if (
+                        decoratedType &&
+                        isClassInstance(decoratedType) &&
+                        ClassType.isBuiltIn(decoratedType, ['classmethod', 'staticmethod'])
+                    ) {
+                        return createMethodDescriptor(decoratedType, subtype, decorator);
+                    }
+
+                    // Only look through outer decorators that preserve the original
+                    // callable, rather than a replacement with a similar signature.
+                    if (
+                        !decoratedType ||
+                        !isFunction(decoratedType) ||
+                        decoratedType.shared.declaration !== declaration ||
+                        FunctionType.isClassMethod(decoratedType) !== FunctionType.isClassMethod(signature) ||
+                        FunctionType.isStaticMethod(decoratedType) !== FunctionType.isStaticMethod(signature)
+                    ) {
+                        break;
+                    }
+                }
+                return subtype;
+            });
+        }
+
         return { type, isIncomplete };
+    }
+
+    function createMethodDescriptor(
+        descriptor: ClassType,
+        methodType: FunctionType | OverloadedType,
+        decorator: DecoratorNode
+    ): ClassType {
+        const signature = isFunction(methodType) ? methodType : OverloadedType.getOverloads(methodType)[0];
+        const fileInfo = nodeInfo.getFileInfo(decorator);
+        const descriptorClass = ClassType.createInstantiable(
+            descriptor.shared.name,
+            `${signature.shared.fullName}.__descriptor__`,
+            fileInfo.moduleName,
+            fileInfo.fileUri,
+            ClassTypeFlags.BuiltIn,
+            ParseTreeUtils.getTypeSourceId(decorator),
+            /* declaredMetaclass */ undefined,
+            descriptor.shared.effectiveMetaclass ?? UnknownType.create()
+        );
+        descriptorClass.shared.baseClasses.push(ClassType.cloneAsInstantiable(descriptor));
+        computeMroLinearization(descriptorClass);
+
+        // ParamSpec and return-type arguments cannot represent correlated overloads.
+        // Retain the callable itself rather than reconstructing it from those arguments.
+        const functionType = mapSignatures(methodType, (overload) =>
+            FunctionType.cloneWithNewFlags(
+                overload,
+                overload.shared.flags & ~(FunctionTypeFlags.ClassMethod | FunctionTypeFlags.StaticMethod)
+            )
+        );
+        const getter = FunctionType.createSynthesizedInstance('__func__');
+        FunctionType.addParam(
+            getter,
+            FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
+        );
+        getter.shared.declaredReturnType = functionType;
+        getter.shared.declaration = signature.shared.declaration;
+
+        const propertyType = getBuiltInType(decorator, 'property');
+        assert(isInstantiableClass(propertyType));
+        const functionProperty = createProperty(evaluatorInterface, decorator, propertyType, getter, nodeInfo);
+        const fields = ClassType.getSymbolTable(descriptorClass);
+        fields.set('__func__', Symbol.createWithType(SymbolFlags.ClassMember, functionProperty));
+        fields.set('__wrapped__', Symbol.createWithType(SymbolFlags.ClassMember, functionProperty));
+        if (ClassType.isBuiltIn(descriptor, 'staticmethod')) {
+            fields.set('__call__', Symbol.createWithType(SymbolFlags.ClassMember, methodType));
+        }
+
+        const getMethod = getBoundMagicMethod(descriptor, '__get__');
+        if (getMethod && isFunctionOrOverloaded(getMethod)) {
+            const boundFunction = ClassType.isBuiltIn(descriptor, 'classmethod')
+                ? mapSignatures(methodType, (overload) => FunctionType.clone(overload, /* stripFirstParam */ true))
+                : functionType;
+            const descriptorGet = mapSignatures(getMethod, (overload) => {
+                const specializedGet = FunctionType.clone(overload);
+                specializedGet.shared.declaredReturnType = boundFunction;
+                if (specializedGet.priv.specializedTypes) {
+                    specializedGet.priv.specializedTypes.returnType = boundFunction;
+                }
+                return specializedGet;
+            });
+            assert(descriptorGet);
+            fields.set('__get__', Symbol.createWithType(SymbolFlags.ClassMember, descriptorGet));
+        }
+
+        return ClassType.cloneAsInstance(descriptorClass);
+    }
+
+    function getMethodFromDescriptor(type: Type): FunctionType | OverloadedType | undefined {
+        if (!isClassInstance(type) || !ClassType.isBuiltIn(type, ['classmethod', 'staticmethod'])) {
+            return undefined;
+        }
+        const functionProperty = type.shared.fields.get('__func__')?.getSynthesizedType()?.type;
+        const functionType =
+            functionProperty && isClassInstance(functionProperty)
+                ? getGetterTypeFromProperty(functionProperty)
+                : undefined;
+        if (!functionType || !isFunctionOrOverloaded(functionType)) {
+            return undefined;
+        }
+        return mapSignatures(functionType, (signature) =>
+            FunctionType.cloneWithNewFlags(
+                signature,
+                signature.shared.flags |
+                    (ClassType.isBuiltIn(type, 'classmethod')
+                        ? FunctionTypeFlags.ClassMethod
+                        : FunctionTypeFlags.StaticMethod)
+            )
+        );
     }
 
     const typeFormSpecialFormDiagnosticFactories: [string | string[], () => string][] = [
@@ -8879,25 +9039,39 @@ export function createTypeEvaluator(
         }
 
         const magicMethodName = getIndexAccessMagicMethodName(usage);
-        const itemMethodType = getBoundMagicMethod(baseType, magicMethodName, selfType, node.d.leftExpr);
-
-        if (!itemMethodType) {
-            addDiagnostic(
-                DiagnosticRule.reportIndexIssue,
-                LocMessage.methodNotDefinedOnType().format({
-                    name: magicMethodName,
-                    type: printType(baseType),
-                }),
-                node.d.leftExpr
+        // A full member lookup specializes tuple arguments even if a constant
+        // index can select its answer directly.
+        const nativeItemSymbol =
+            usage.method === 'get' && !selfType && isClassInstance(baseType) && ClassType.isBuiltIn(baseType, 'tuple')
+                ? ClassType.getSymbolTable(baseType).get(magicMethodName)
+                : undefined;
+        const nativeItemType = nativeItemSymbol?.isClassMember()
+            ? getEffectiveTypeOfSymbol(nativeItemSymbol)
+            : undefined;
+        const nativeItemMethods =
+            nativeItemType && isFunctionOrOverloaded(nativeItemType)
+                ? isOverloaded(nativeItemType)
+                    ? OverloadedType.getOverloads(nativeItemType)
+                    : [nativeItemType]
+                : [];
+        const canDeferBinding =
+            nativeItemMethods.length > 0 &&
+            nativeItemMethods.every(
+                (method) =>
+                    FunctionType.isInstanceMethod(method) &&
+                    method.shared.parameters.length > 0 &&
+                    !FunctionParam.isTypeDeclared(method.shared.parameters[0])
             );
-            return { type: UnknownType.create() };
-        }
+        let itemMethodType = canDeferBinding
+            ? undefined
+            : getBoundMagicMethod(baseType, magicMethodName, selfType, node.d.leftExpr);
 
         // Handle the special case where the object is a tuple and
         // the index is a constant number (integer) or a slice with integer
         // start and end values. In these cases, we can determine
         // the exact type by indexing into the tuple type array.
         if (
+            (canDeferBinding || itemMethodType) &&
             node.d.items.length === 1 &&
             !node.d.trailingComma &&
             !node.d.items[0].d.name &&
@@ -8956,6 +9130,36 @@ export function createTypeEvaluator(
                     }
                 }
             }
+        }
+
+        if (canDeferBinding) {
+            const inferredBase = getInferredTupleLiteralBase(baseType);
+            const tupleArgs = baseType.priv.tupleTypeArgs;
+            if (
+                inferredBase !== baseType &&
+                isClassInstance(inferredBase) &&
+                ClassType.isBuiltIn(inferredBase, 'tuple') &&
+                tupleArgs &&
+                tupleArgs.length > 1 &&
+                tupleArgs.some(
+                    (arg) => isUnion(arg.type) || (isClassInstance(arg.type) && ClassType.isBuiltIn(arg.type, 'tuple'))
+                )
+            ) {
+                // Avoid structural union work for optional literals before native method binding.
+                baseType = inferredBase;
+            }
+            itemMethodType = getBoundMagicMethod(baseType, magicMethodName, selfType, node.d.leftExpr);
+        }
+        if (!itemMethodType) {
+            addDiagnostic(
+                DiagnosticRule.reportIndexIssue,
+                LocMessage.methodNotDefinedOnType().format({
+                    name: magicMethodName,
+                    type: printType(baseType),
+                }),
+                node.d.leftExpr
+            );
+            return { type: UnknownType.create() };
         }
 
         const positionalArgs = node.d.items.filter((item) => item.d.argCategory === ArgCategory.Simple);
@@ -14436,6 +14640,34 @@ export function createTypeEvaluator(
                         argParam.errorNode,
                         diag?.getEffectiveTextRange() ?? argParam.errorNode
                     );
+                }
+            }
+
+            // Retain the wrapped signature for inference after an invalid descriptor
+            // argument without treating the descriptor itself as callable.
+            if (requiresSpecialization(argParam.paramType)) {
+                let methodType = getMethodFromDescriptor(argType);
+                if (methodType && isOverloaded(methodType)) {
+                    // Recover the runtime signature, not a single overload's
+                    // parameters selected when the returned decorator is called.
+                    const implementation = OverloadedType.getImplementation(methodType);
+                    if (implementation && isFunction(implementation)) {
+                        methodType = implementation;
+                    }
+                }
+                if (methodType) {
+                    const recoveryConstraints = constraints.clone();
+                    if (
+                        assignType(
+                            argParam.paramType,
+                            methodType,
+                            /* diag */ undefined,
+                            recoveryConstraints,
+                            assignTypeFlags
+                        )
+                    ) {
+                        constraints.copyFromClone(recoveryConstraints);
+                    }
                 }
             }
 
@@ -20623,6 +20855,15 @@ export function createTypeEvaluator(
 
         // See if there are any overloads provided by previous function declarations.
         if (isFunction(decoratedType)) {
+            if (
+                (FunctionType.isClassMethod(decoratedType) || FunctionType.isStaticMethod(decoratedType)) &&
+                decoratedType.shared.declaration !== functionType.shared.declaration
+            ) {
+                // A wrapper can replace the signature without replacing the
+                // declaration that supplies the enclosing method descriptor.
+                decoratedType = FunctionType.clone(decoratedType);
+                decoratedType.shared.declaration = functionType.shared.declaration;
+            }
             decoratedType.shared.deprecatedMessage = functionType.shared.deprecatedMessage;
 
             if (FunctionType.isOverloaded(decoratedType)) {
@@ -29766,7 +30007,14 @@ export function createTypeEvaluator(
             return { type: combineTypes([narrowedType, declaredType]), isIncomplete: assignedTypeResult.isIncomplete };
         }
 
-        return { type: narrowedType, isIncomplete: assignedTypeResult.isIncomplete };
+        return {
+            type:
+                narrowedType.props?.inferredTupleLiteral &&
+                !assignType(declaredType, getInferredTupleLiteralBase(narrowedType))
+                    ? preserveInferredTupleLiterals(narrowedType)
+                    : narrowedType,
+            isIncomplete: assignedTypeResult.isIncomplete,
+        };
     }
 
     function validateOverrideMethod(
