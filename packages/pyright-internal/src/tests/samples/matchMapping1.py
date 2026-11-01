@@ -2,7 +2,7 @@
 # described in PEP 634) that contain mapping patterns.
 
 from enum import Enum
-from typing import Literal, TypedDict
+from typing import Literal, Mapping, TypedDict, TypeVar
 
 from typing_extensions import NotRequired  # pyright: ignore[reportMissingModuleSource]
 
@@ -243,3 +243,39 @@ def test_non_literal_field_negative_narrowing(msg: Reading | None) -> None:
             reveal_type(msg, expected_text="Reading")
         case _:
             reveal_type(msg, expected_text="Reading | None")
+
+
+T = TypeVar("T")
+
+
+def test_typevar_subject(subj: T) -> T:
+    match subj:
+        case {"k": v}:
+            reveal_type(subj, expected_text="T@test_typevar_subject")
+            return subj
+        case _:
+            return subj
+
+
+TUnion = TypeVar("TUnion", bound=int | Mapping[str, int])
+
+
+def test_union_bound_typevar_subject(subj: TUnion) -> TUnion:
+    match subj:
+        case {"k": v}:
+            reveal_type(subj, expected_text="Mapping[str, int]*")
+            reveal_type(v, expected_text="int")
+            return subj
+        case _:
+            reveal_type(subj, expected_text="TUnion@test_union_bound_typevar_subject")
+            return subj
+
+
+def test_union_bound_typevar_subject_expand_entry(subj: TUnion) -> TUnion:
+    match subj:
+        case {**rest}:
+            reveal_type(subj, expected_text="Mapping[str, int]*")
+            return subj
+        case _:
+            reveal_type(subj, expected_text="int*")
+            return subj
