@@ -20,6 +20,8 @@ import {
     AnyType,
     ClassType,
     combineTypes,
+    getInferredTupleLiteralBase,
+    getTupleLiteralTypeComplexity,
     isAny,
     isAnyOrUnknown,
     isClassInstance,
@@ -29,6 +31,8 @@ import {
     isUnion,
     isUnpackedTypeVar,
     isUnpackedTypeVarTuple,
+    maxSubtypesForInferredType,
+    retainInferredTupleLiterals,
     TupleTypeArg,
     Type,
     TypeVarType,
@@ -250,8 +254,20 @@ export function getTypeOfTupleWithContext(
 }
 
 export function getTypeOfTupleInferred(evaluator: TypeEvaluator, node: TupleNode, flags: EvalFlags): TypeResult {
+    const stripLiterals = (flags & EvalFlags.StripTupleLiterals) !== 0;
     const entryTypeResults = node.d.items.map((expr) =>
-        evaluator.getTypeOfExpression(expr, flags | EvalFlags.StripTupleLiterals)
+        evaluator.getTypeOfExpression(
+            expr,
+            !stripLiterals &&
+                node.d.items.length <= maxSubtypesForInferredType &&
+                ((expr.nodeType === ParseNodeType.Tuple &&
+                    !expr.d.items.some((item) => item.nodeType === ParseNodeType.Unpack)) ||
+                    expr.nodeType === ParseNodeType.Name ||
+                    expr.nodeType === ParseNodeType.MemberAccess ||
+                    expr.nodeType === ParseNodeType.Index)
+                ? flags
+                : flags | EvalFlags.StripTupleLiterals
+        )
     );
     const isIncomplete = entryTypeResults.some((result) => result.isIncomplete);
 
@@ -262,14 +278,23 @@ export function getTypeOfTupleInferred(evaluator: TypeEvaluator, node: TupleNode
         return { type: makeTupleObject(evaluator, [{ type: UnknownType.create(), isUnbounded: true }]) };
     }
 
-    const type = makeTupleObject(
-        evaluator,
-        evaluator.buildTupleTypesList(
-            entryTypeResults,
-            (flags & EvalFlags.StripTupleLiterals) !== 0,
+    let typeArgs = evaluator.buildTupleTypesList(entryTypeResults, stripLiterals, /* convertModule */ true);
+    if (!stripLiterals && node.parent?.nodeType === ParseNodeType.Tuple) {
+        const baseTypeArgs = evaluator.buildTupleTypesList(
+            entryTypeResults.map((result) => ({ ...result, type: getInferredTupleLiteralBase(result.type) })),
+            /* stripLiterals */ true,
             /* convertModule */ true
-        )
-    );
+        );
+        const complexity = getTupleLiteralTypeComplexity(typeArgs.map((arg) => arg.type));
+        typeArgs =
+            complexity && complexity.size < maxSubtypesForInferredType
+                ? typeArgs.map((arg, index) => ({
+                      ...arg,
+                      type: retainInferredTupleLiterals(arg.type, baseTypeArgs[index].type),
+                  }))
+                : baseTypeArgs;
+    }
+    const type = makeTupleObject(evaluator, typeArgs);
 
     if (isIncomplete) {
         if (getContainerDepth(type) > maxInferredContainerDepth) {
@@ -296,7 +321,21 @@ export function assignTupleTypeArgs(
     const srcTypeArgs = [...(srcType.priv.tupleTypeArgs ?? [])];
 
     if (adjustTupleTypeArgs(evaluator, destTypeArgs, srcTypeArgs, flags)) {
-        for (let argIndex = 0; argIndex < srcTypeArgs.length; argIndex++) {
+        // Establish the pack before matching callbacks that reference it. Otherwise,
+        // nested generic callbacks can introduce self-expanding pack constraints.
+        const variadicIndex = ((flags & AssignTypeFlags.Contravariant) !== 0 ? srcTypeArgs : destTypeArgs).findIndex(
+            (arg, index) =>
+                isUnpackedTypeVarTuple(arg.type) &&
+                !TypeVarType.isBound(arg.type) &&
+                !isTupleGradualForm(srcTypeArgs[index].type)
+        );
+
+        for (let index = -1; index < srcTypeArgs.length; index++) {
+            const argIndex = index < 0 ? variadicIndex : index;
+            if (argIndex < 0 || (index >= 0 && index === variadicIndex)) {
+                continue;
+            }
+
             const entryDiag = diag?.createAddendum();
             const destArgType = destTypeArgs[argIndex].type;
             const srcArgType = srcTypeArgs[argIndex].type;
