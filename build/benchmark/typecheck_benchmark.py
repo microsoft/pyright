@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import argparse
 import configparser
+import hashlib
+import importlib.metadata
 import json
 import os
 import platform
@@ -67,7 +69,7 @@ UPSTREAM_SOURCE = {
 }
 PYRIGHT_DEFAULT_EXCLUDES = ["**/node_modules", "**/__pycache__", "**/.*"]
 DEPENDENCY_ISOLATION = "pip-target-per-package"
-CHECKER_CONFIG_VERSION = 7
+CHECKER_CONFIG_VERSION = 8
 
 
 class BenchmarkError(Exception):
@@ -118,6 +120,7 @@ class PackageResult(TypedDict, total=False):
     source_file_count: int
     source_manifest_sha256: str
     repository_configs: list[dict[str, Any]]
+    resolved_dependencies: list[dict[str, str]]
 
 
 class AggregateStats(TypedDict):
@@ -548,6 +551,18 @@ def _dependency_environment(
     )
     environment["PYTHONNOUSERSITE"] = "1"
     return environment
+
+
+def _installed_packages(path: Path | None = None) -> list[dict[str, str]]:
+    distributions = (
+        importlib.metadata.distributions(path=[str(path)])
+        if path is not None else importlib.metadata.distributions()
+    )
+    return sorted(
+        ({"name": re.sub(r"[-_.]+", "-", item.metadata["Name"]).lower(), "version": item.version}
+         for item in distributions),
+        key=lambda item: (item["name"], item["version"]),
+    )
 
 
 def install_deps(
@@ -1196,6 +1211,7 @@ def _benchmark_directory(
     local_path: str | None = None,
     environment: dict[str, str] | None = None,
     exclude_directories: list[str] | None = None,
+    repository_configs: list[dict[str, Any]] | None = None,
 ) -> PackageResult:
     check_roots, missing = _resolve_check_paths(
         package_path,
@@ -1213,7 +1229,8 @@ def _benchmark_directory(
             "metrics": {},
         }
     try:
-        repository_configs = _audit_repository_configs(package_path)
+        if repository_configs is None:
+            repository_configs = _audit_repository_configs(package_path)
     except OSError as exc:
         message = f"Repository configuration audit failed: {exc}"
         print(f"    {message}")
@@ -1378,11 +1395,13 @@ def _benchmark_directory(
     result: PackageResult = {
         "package_name": name,
         "github_url": github_url,
+        "commit": get_package_commit(package_path) or "local-unversioned",
         "error": None,
         "metrics": metrics,
         "check_paths": _relative_check_paths(package_path, check_roots) or [],
         "exclude_directories": exclude_directories or [],
         "repository_configs": repository_configs,
+        "resolved_dependencies": [],
     }
     if local_path:
         result["local_path"] = local_path
@@ -1407,6 +1426,7 @@ def _benchmark_package(
         "github_url": github_url,
         "check_paths": raw_check_paths,
         "exclude_directories": exclude_directories,
+        "commit": package.get("commit") or "unknown",
     }
     package_path = clone_package(
         github_url, name, temp_path, package.get("commit")
@@ -1419,6 +1439,14 @@ def _benchmark_package(
         }
 
     commit = get_package_commit(package_path)
+    package_metadata["commit"] = commit or "unknown"
+    try:
+        package_metadata["repository_configs"] = _audit_repository_configs(package_path)
+    except OSError as exc:
+        return {
+            **package_metadata, "error": f"Repository configuration audit failed: {exc}",
+            "metrics": {},
+        }
     dependency_path = temp_path / f"{name}-dependencies"
     if not install_deps(package_path, package, dependency_path):
         return {
@@ -1467,9 +1495,11 @@ def _benchmark_package(
         memory_limit_mb=memory_limit_mb,
         environment=_dependency_environment(dependency_path, package),
         exclude_directories=exclude_directories,
+        repository_configs=package_metadata["repository_configs"],
     )
     result["commit"] = commit or "unknown"
     result.update(package_metadata)
+    result["resolved_dependencies"] = _installed_packages(dependency_path)
     return result
 
 
@@ -1515,6 +1545,11 @@ def _save_results(
         "node_options": os.environ.get("NODE_OPTIONS", ""),
         "dependency_isolation": DEPENDENCY_ISOLATION,
         "checker_config_version": CHECKER_CONFIG_VERSION,
+        "installed_packages": _installed_packages(),
+        "import_path_overrides": {
+            name: hashlib.sha256(os.environ.get(name, "").encode("utf-8")).hexdigest()
+            for name in ("PYTHONPATH", "MYPYPATH")
+        },
         "type_checkers": type_checkers,
         "type_checker_versions": versions,
         "package_count": len(results),
@@ -1664,10 +1699,11 @@ def run_benchmark(
     print("\nUntimed behavioral capability audit:")
 
     def run_capability(
-        checker: str, root: Path, paths: list[Path]
+        checker: str, root: Path, paths: list[Path], dependencies: Path,
     ) -> CapabilityOutput:
         result = _run_checker_process(
             checker, root, paths, min(timeout, 60), memory_limit_mb, audit_files=True,
+            environment=_dependency_environment(dependencies, {}),
         )
         return {
             **result,

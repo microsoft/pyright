@@ -10,6 +10,8 @@ import re
 from pathlib import Path
 from typing import Any, Literal
 
+from benchmark_evidence import validate_evidence
+
 
 CHECKERS = ("pyright", "pyright-pip")
 PALETTE = (
@@ -32,6 +34,15 @@ PROFILE_FIELDS = (
     "dependency_isolation",
     "runs_per_package",
     "warmup_runs",
+    "checker_config_version",
+    "uncounted_validation_runs_per_checker",
+    "installed_packages",
+    "platform",
+    "architecture",
+    "cpu_count",
+    "memory_measurement",
+    "timeout_s",
+    "import_path_overrides",
 )
 COMPARISON_PROFILE_FIELDS = tuple(
     field for field in PROFILE_FIELDS if field not in {"runs_per_package", "warmup_runs"}
@@ -59,6 +70,7 @@ def _package_signature(data: dict[str, Any]) -> list[tuple[Any, ...]]:
             package.get("commit"),
             tuple(package.get("check_paths", [])),
             tuple(package.get("exclude_directories", [])),
+            tuple((item["name"], item["version"]) for item in package.get("resolved_dependencies", [])),
         )
         for package in data.get("results", [])
     )
@@ -71,8 +83,13 @@ def _package_corpus(data: dict[str, Any]) -> list[dict[str, Any]]:
             "commit": commit,
             "check_paths": list(check_paths),
             "exclude_directories": list(exclude_directories),
+            **({
+                "resolved_dependencies": [
+                    {"name": name, "version": version} for name, version in dependencies
+                ],
+            } if any("resolved_dependencies" in item for item in data.get("results", [])) else {}),
         }
-        for package_name, commit, check_paths, exclude_directories in _package_signature(
+        for package_name, commit, check_paths, exclude_directories, dependencies in _package_signature(
             data
         )
     ]
@@ -85,6 +102,7 @@ def _corpus_signature(corpus: list[dict[str, Any]]) -> list[tuple[Any, ...]]:
             package.get("commit"),
             tuple(package.get("check_paths", [])),
             tuple(package.get("exclude_directories", [])),
+            tuple((item["name"], item["version"]) for item in package.get("resolved_dependencies", [])),
         )
         for package in corpus
     )
@@ -119,7 +137,26 @@ def _package_metrics(
             "execution_time_s": float(execution_time),
             "peak_memory_mb": float(peak_memory),
         }
+        if "files_selected" in metric:
+            package_metrics[str(name)]["files_selected"] = metric["files_selected"]
     return package_metrics
+
+
+def _source_counts(data: dict[str, Any], checker: str) -> dict[str, int | None]:
+    return {
+        package["package_name"]: package.get("metrics", {}).get(checker, {}).get("files_selected")
+        for package in data.get("results", [])
+    }
+
+
+def _check_source_counts(
+    expected: dict[str, int | None], actual: dict[str, int | None], path: Path
+) -> None:
+    if expected.keys() != actual.keys() or any(
+        count is not None and actual[name] is not None and count != actual[name]
+        for name, count in expected.items()
+    ):
+        raise ValueError(f"{path} uses different native source counts")
 
 
 def load_history(
@@ -140,9 +177,11 @@ def load_history(
     versions: set[str] = set()
     profile: dict[str, Any] | None = None
     package_signature: list[tuple[Any, ...]] | None = None
+    source_counts: dict[str, int | None] | None = None
 
     for path in paths:
         data = json.loads(path.read_text(encoding="utf-8"))
+        validate_evidence(data)
         checker = _checker(data, path)
         version = str(
             data.get("release_version")
@@ -164,6 +203,16 @@ def load_history(
             package_signature = current_signature
         elif current_signature != package_signature:
             raise ValueError(f"{path} uses a different package corpus")
+        if data.get("checker_config_version", 0) >= 8:
+            current_counts = _source_counts(data, checker)
+            if source_counts is None:
+                source_counts = current_counts
+            else:
+                _check_source_counts(source_counts, current_counts, path)
+                source_counts = {
+                    name: count if count is not None else current_counts[name]
+                    for name, count in source_counts.items()
+                }
 
         releases.append(
             {
@@ -201,6 +250,7 @@ def load_history(
             json.loads(paths[0].read_text(encoding="utf-8"))
         ),
         "releases": releases,
+        **({"source_counts": source_counts} if source_counts is not None else {}),
     }
 
 
@@ -222,6 +272,7 @@ def append_candidates(
         candidate_paths, candidate_labels, strict=True
     ):
         candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+        validate_evidence(candidate)
         checker = _checker(candidate, candidate_path)
         profile = {field: candidate.get(field) for field in PROFILE_FIELDS}
         comparable_profile = {
@@ -233,6 +284,10 @@ def append_candidates(
         }
         if comparable_profile != history_profile:
             raise ValueError(f"{candidate_path} uses a different benchmark profile")
+        if candidate.get("checker_config_version", 0) >= 8:
+            if "source_counts" not in history:
+                raise ValueError(f"{candidate_path} uses different native source counts")
+            _check_source_counts(history["source_counts"], _source_counts(candidate, checker), candidate_path)
         if comparison_profile is None:
             comparison_profile = profile
         elif profile != comparison_profile:

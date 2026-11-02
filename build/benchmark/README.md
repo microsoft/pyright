@@ -121,7 +121,8 @@ mypy and Zuban receive roots through TOML file lists to avoid command-line size 
 Windows INI backslash escaping. ty's source selectors use gitignore-pattern separators even on
 Windows, where native backslashes can silently match no files.
 
-Before checking, an **untimed repository configuration search** recursively inventories native
+Immediately after cloning, before dependency installation, an **untimed repository configuration search**
+recursively inventories native
 `pyrightconfig.json`, `ty.toml`, `pyrefly.toml`, `zuban.toml`, `mypy.ini`, and `.mypy.ini` candidates.
 It also searches TOML files for checker-specific `[tool.*]` settings and `project.requires-python`,
 and INI settings in `setup.cfg` and mypy configs. JSON records `repository_configs` per package;
@@ -129,7 +130,8 @@ console output and the weekly HTML show paths, sections/setting names, and that 
 configs are passed instead. Configuration values are not published, and detected does not mean
 applied. Invalid TOML/INI files produce visible audit parse errors rather than disappearing from
 the inventory. The search skips VCS metadata, `node_modules`, `__pycache__`, and harness-generated
-configs. It does not modify or delete repository configs. The real-binary suppression tests below,
+configs. Preparation failures retain the inventory. It does not modify or delete repository configs.
+The real-binary suppression tests below,
 not discovery alone, provide evidence that conflicting corpus configs cannot override the harness.
 
 Before any warmups or measured runs, each checker performs one **untimed file-count audit** using
@@ -147,6 +149,14 @@ Each successful checker records its native `files_selected`, `file_count_verifie
 across separate weekly checker jobs; its timings are excluded from report totals rather than
 forcing the tools to discover the same files. Raw JSON retains the measurements and differences.
 The regression comparator rejects changed native counts, roots, exclusions, or audit-run settings.
+Configuration version 8 additionally requires successful results to carry positive audited counts,
+source revisions, preparation evidence, and resolved dependency versions. The weekly renderer
+rejects differing package sets/revisions, roots, exclusions, target dependencies, Python/platform/
+runner profiles, and ambient Python distribution versions. It also checks hashes of inherited
+`PYTHONPATH`/`MYPYPATH` overrides without publishing their values.
+Regenerate older baselines and release history rather than mixing pre-contract measurements.
+History now retains native counts and rejects incompatible configuration, audit, import environment,
+and successful native-scope evidence.
 These are source entry-point counts, **not total imported or parsed files**. Equal counts do not
 prove identical file identities, equal dependency work, or equal diagnostic coverage.
 Repository and user configs are tested
@@ -169,19 +179,22 @@ python build/benchmark/typecheck_benchmark.py -c ty ty-infer -r 3 -w 1
 
 After corpus timings finish, the harness runs an **untimed behavioral capability suite** with two
 batch invocations per installed checker, using the same configurations and interpreter.
-Eight paired probes cover an exact-type assertion
+Ten paired probes cover an exact-type assertion
 control, unannotated return inference, unannotated function body checking, generics, overloads,
-protocols, narrowing, and propagation from a local annotated import. The import probe does not
-model all third-party package or stub-resolution behavior.
+protocols, narrowing, propagation from a local annotated import, and installed packages with and
+without a `py.typed` marker. The installed-package fixtures use the same dependency-path mechanism
+as the corpus. These probes do not model all third-party package or stub-resolution behavior.
 
 The positive examples must be accepted, including exact `typing.assert_type` checks; unexpected
 `Any` or `Unknown` therefore cannot satisfy an `int` assertion. Negative examples must report a
-diagnostic at exactly the intended line, with no other diagnostic lines. The assertion control
-must pass before any case can match. Both batches require native file counts covering all eight
+diagnostic in the intended category at exactly the intended line, with no other primary diagnostics.
+Checker-specific adapters read primary diagnostics and rule IDs; notes and source excerpts are
+not diagnostics, and unrelated same-line lint errors cannot satisfy the assertion control.
+The assertion control must pass before any case can match. Both batches require native counts covering all ten
 probe files; crashes, timeouts, missing counts, and unrecognized output are **not evaluated**,
 not zero capability or a successful result.
 
-JSON stores the versioned suite identity, per-case diagnostic lines, and raw process evidence in
+JSON stores the versioned suite identity, per-case diagnostic categories/rule IDs/lines, and raw process evidence in
 `capability_suite`. HTML adds a **Behavior matches** column and a per-case matrix. Mismatches can
 mean a missed error, lost precision, or additional strictness diagnostics: for example, Pyrefly's
 `all` preset also requires return annotations. Do not equate every mismatch with weaker inference.
@@ -198,8 +211,14 @@ Historical results without this audit have no verified behavior-match count.
 
 For defensible cross-checker comparisons, use the same machine, pinned source commits, dependency
 versions, interpreter, target platform, source scope, and resource/thread budgets. The weekly jobs
-currently use separate hosted runners and install dependencies without a shared version lock, so
-their results are independent trends rather than a controlled speed ranking. Repeated fresh
+use separate hosted runners. Every weekly job installs the same pinned checker requirements from
+`checker_requirements.txt`; snapshots of ambient and per-project resolved distribution versions
+detect differing environments, including unlocked transitive dependencies. This is not a shared
+corpus dependency lock, identical physical hardware, or proof of equivalent inference.
+Results remain independent trends rather than a controlled speed ranking. The summary distinguishes
+individual successful-package totals from totals over the shared successful package intersection.
+Never rank individual totals with differing coverage; even shared counts are not equal analysis.
+Repeated fresh
 processes after a warmup measure a warm-filesystem CLI workload, not editor incrementality or a
 cold-disk workload. Alternate run order for paired experiments and report the individual samples
 and dispersion, not only a speedup.
@@ -216,7 +235,8 @@ and curated false-positive/false-negative cases separately from throughput; the
 [Python typing conformance suite](https://github.com/python/typing/tree/main/conformance) is a useful
 shared specification, but not a performance weighting scheme.
 
-Linux peak RSS currently polls only `/proc/<parent-pid>/status`; it does not sum child-process memory.
+Linux peak RSS and memory-limit enforcement currently use only `/proc/<parent-pid>/status`;
+they do not sum child-process memory.
 In particular, Pyright `--threads` RSS must not be interpreted as total worker memory or a memory
 improvement over single-process Pyright. Windows RSS is unavailable. Neither limitation prevents
 wall-time measurements, but neither supports cross-process memory rankings.

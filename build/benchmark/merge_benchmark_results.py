@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import typecheck_benchmark
+from benchmark_evidence import validate_evidence
 
 
 VARIABLE_FIELDS = {
@@ -36,6 +37,7 @@ def merge_results(paths: list[Path]) -> dict[str, Any]:
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             raise ValueError(f"{path} must contain a JSON object")
+        validate_evidence(data)
 
         metadata = {
             key: value for key, value in data.items() if key not in VARIABLE_FIELDS

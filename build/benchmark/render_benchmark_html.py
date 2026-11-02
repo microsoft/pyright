@@ -9,6 +9,8 @@ import statistics
 from pathlib import Path
 from typing import Any
 
+from benchmark_evidence import validate_compatibility, validate_evidence
+
 
 CHECKER_ORDER = ["pyright", "pyright-threads", "pyrefly", "ty", "ty-infer", "mypy", "zuban"]
 
@@ -62,6 +64,18 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
     config_version = next(iter(results.values())).get("checker_config_version")
     if any(data.get("checker_config_version") != config_version for data in results.values()):
         raise ValueError("Checker results use different benchmark configuration versions")
+    reference = next(iter(results.values()))
+    for data in results.values():
+        validate_evidence(data)
+        validate_compatibility(reference, data)
+    if "pyright" in results and "pyright-threads" in results:
+        single, threaded = results["pyright"], results["pyright-threads"]
+        if (
+            single.get("type_checker_versions", {}).get("pyright")
+            != threaded.get("type_checker_versions", {}).get("pyright-threads")
+            or single.get("node_options") != threaded.get("node_options")
+        ):
+            raise ValueError("Pyright threading comparison requires matching versions and Node options")
     checkers = _ordered_checkers(results)
     packages = sorted(
         {
@@ -129,27 +143,29 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
         checker: results[checker].get("aggregate", {}).get(checker, {})
         for checker in checkers
     }
-    if mismatched_packages:
-        for checker in checkers:
-            accepted = [metric for metric in metrics[checker].values() if metric.get("ok")]
-            aggregates[checker] = {
-                "packages_tested": len(accepted),
-                "packages_failed": len(metrics[checker]) - len(accepted),
-                "total_execution_time_s": sum(metric["execution_time_s"] for metric in accepted),
-                "p50_execution_time_s": statistics.median(
-                    [metric["execution_time_s"] for metric in accepted]
-                ) if accepted else 0,
-                "p50_peak_memory_mb": statistics.median(
-                    [metric.get("peak_memory_mb", 0) for metric in accepted]
-                ) if accepted else 0,
-            }
+    for checker in checkers:
+        accepted = [metric for metric in metrics[checker].values() if metric.get("ok")]
+        aggregates[checker] = {
+            "packages_tested": len(accepted),
+            "packages_failed": len(packages) - len(accepted),
+            "total_execution_time_s": sum(metric["execution_time_s"] for metric in accepted),
+            "p50_execution_time_s": statistics.median(
+                [metric["execution_time_s"] for metric in accepted]
+            ) if accepted else 0,
+            "p50_peak_memory_mb": statistics.median(
+                [metric.get("peak_memory_mb", 0) for metric in accepted]
+            ) if accepted else 0,
+        }
+    shared_packages = [
+        package for package in packages
+        if all(metrics[checker].get(package, {}).get("ok") for checker in checkers)
+    ]
     totals = {
         checker: float(
             aggregates[checker].get("total_execution_time_s", 0.0)
         )
         for checker in checkers
     }
-    max_total = max(totals.values(), default=0.0)
     timestamp = max(str(data.get("timestamp", "")) for data in results.values())
     environment = next(iter(results.values()))
 
@@ -159,7 +175,8 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
         tested = int(aggregate.get("packages_tested", 0))
         failed = int(aggregate.get("packages_failed", 0))
         total = totals[checker]
-        share = total / max_total * 100 if max_total else 0.0
+        shared_total = sum(metrics[checker][package]["execution_time_s"] for package in shared_packages)
+        shared_text = f"{shared_total:.1f}s" if shared_packages else "N/A"
         version = results[checker].get("type_checker_versions", {}).get(checker, "unknown")
         capability_cell = ""
         if suites:
@@ -175,8 +192,8 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
             f"<th scope=\"row\"><span class=\"checker\">{html.escape(_checker_label(checker))}</span>"
             f"<small>{html.escape(str(version))}</small></th>"
             f"<td>{tested}</td><td class=\"{'failed' if failed else 'passed'}\">{failed}</td>"
-            f"<td><div class=\"bar\" style=\"--size:{share:.1f}%\"></div>"
-            f"<strong>{total:.1f}s</strong></td>"
+            f"<td><strong>{total:.1f}s</strong></td>"
+            f"<td>{len(shared_packages)}</td><td>{shared_text}</td>"
             f"<td>{float(aggregate.get('p50_execution_time_s', 0.0)):.1f}s</td>"
             f"<td>{float(aggregate.get('p50_peak_memory_mb', 0.0)):.0f} MB</td>"
             + capability_cell +
@@ -203,6 +220,11 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
                         f'negative diagnostic lines: {case["negative_diagnostic_lines"]}; '
                         f'expected negative line: {case["expected_error_line"]}.'
                     )
+                    if "negative_diagnostics" in case:
+                        details += (
+                            f' Positive rules: {[item["rule"] for item in case["positive_diagnostics"]]};'
+                            f' negative rules: {[item["rule"] for item in case["negative_diagnostics"]]}.'
+                        )
                     cells.append(
                         f'<td class="failed">Mismatch<small>{html.escape(details)}</small></td>'
                     )
@@ -216,9 +238,11 @@ def render_html(results: dict[str, dict[str, Any]]) -> str:
             '<section><h2>Behavioral capability probes</h2>'
             '<p class="legend">Untimed paired probes run after corpus timings with the same '
             'checker configurations. A match requires accepting the positive example, preserving '
-            'asserted types, and reporting exactly the intended negative diagnostic line. '
+            'asserted types, and reporting exactly the intended negative diagnostic category and line. '
             'The assertion control must also pass. Extra strictness diagnostics can cause a mismatch; '
-            'a mismatch does not necessarily mean less inference. Raw JSON retains diagnostic evidence.</p>'
+            'a mismatch does not necessarily mean less inference. Installed-package probes separately '
+            'test imports with and without py.typed; matching project-file counts cannot establish '
+            'equal dependency analysis. Raw JSON retains rule IDs and diagnostic evidence.</p>'
             '<p class="legend">These few examples are not a comprehensive conformance or quality score, '
             'do not certify equivalent analysis on the timed projects, and are not a denominator '
             'for normalizing runtime. Historical results without probes are not evaluated.</p>'
@@ -415,10 +439,11 @@ small {{ display:block; margin-top:3px; color:var(--muted); font-family:"IBM Ple
 <header><h1>Python type checker benchmark</h1><p>Weekly cross-checker performance on pinned open-source projects.</p></header>
 <main>
 <section><h2>Run summary</h2><p class="legend">Generated {html.escape(timestamp)} · Python {html.escape(str(environment.get('python_version', 'unknown')))} · {html.escape(str(environment.get('platform_details', environment.get('platform', 'unknown'))))}</p>
-<div class="table-wrap"><table><thead><tr><th>Checker</th><th>Measured</th><th>Failed</th><th>Total time</th><th>Median time</th><th>Median RSS</th>{'<th>Behavior matches</th>' if suites else ''}</tr></thead><tbody>{''.join(summary_rows)}</tbody></table></div></section>
+<p class="legend">Individual totals cover each checker's successful packages and must not be ranked against different coverage. Shared totals cover only packages successful for every displayed profile with matching audited counts. Shared source scope is not equivalent analysis; these remain independent CLI measurements, not an apples-to-apples speed ranking.</p>
+<div class="table-wrap"><table><thead><tr><th>Checker</th><th>Measured</th><th>Failed</th><th>Individual total</th><th>Shared packages</th><th>Shared total</th><th>Median time</th><th>Median RSS</th>{'<th>Behavior matches</th>' if suites else ''}</tr></thead><tbody>{''.join(summary_rows)}</tbody></table></div></section>
 <section><h2>Package comparison</h2><p class="legend">Different checker jobs run on separate hosted runners, so timings are independent trends rather than a fastest-checker ranking. The two Pyright modes run sequentially in one job. Cells show wall time and peak RSS.</p>
 <p class="legend">Checker defaults, inference, and diagnostic coverage differ; these timings do not measure equivalent analysis or time per rule. Pyrefly uses its all preset; Pyright uses basic mode. These presets are not equivalent. The two ty modes run sequentially in one job: ty retains its default return inference, while ty (return inference) enables inference for unannotated returns. Neither mode guarantees Pyright-equivalent inference.</p>
-<p class="legend">Linux RSS measures the parent checker process, not its child processes; multi-process memory totals are not comparable.</p>
+<p class="legend">Linux RSS and the memory cap cover only the parent checker process, not its child processes; process-tree memory budgets and multi-process memory totals are not comparable.</p>
 <p class="legend">Each checker discovers files natively within the configured roots; the harness does not choose .py over .pyi or vice versa. Untimed audits record native source-file counts, not imported dependencies. Different counts make a package not comparable and exclude its timings from report totals. Equal counts do not prove identical files or analysis. Historical results without audits are not verified.</p>
 <div class="table-wrap"><table><thead><tr><th>Package</th>{checker_headers}</tr></thead><tbody>{''.join(package_rows)}</tbody></table></div></section>
 {threading_section}

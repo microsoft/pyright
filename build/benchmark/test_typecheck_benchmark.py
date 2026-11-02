@@ -360,6 +360,7 @@ class TypecheckBenchmarkTest(unittest.TestCase):
         self.assertEqual(packages[0]["name"], "click")
 
     def test_install_failure_is_a_package_failure(self) -> None:
+        (self.root / "pyproject.toml").write_text('[tool.pyrefly]\npreset = "off"\n')
         package = {
             "name": "example",
             "github_url": "https://example.com/example",
@@ -377,6 +378,8 @@ class TypecheckBenchmarkTest(unittest.TestCase):
 
         self.assertEqual(result["error"], "Dependency installation failed")
         self.assertEqual(result["commit"], "abc123")
+        self.assertEqual(result["repository_configs"][0]["path"], "pyproject.toml")
+        self.assertIn("tool.pyrefly.preset", result["repository_configs"][0]["settings"])
         install.assert_called_once_with(
             self.root, package, self.root / "example-dependencies"
         )
@@ -425,6 +428,8 @@ class TypecheckBenchmarkTest(unittest.TestCase):
             {"name": "first", "github_url": "https://example.com/first"},
             {"name": "second", "github_url": "https://example.com/second"},
         ]
+        for package in packages:
+            (self.root / package["name"]).mkdir()
         with (
             patch.object(
                 benchmark,

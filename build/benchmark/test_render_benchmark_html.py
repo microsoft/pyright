@@ -5,6 +5,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import render_benchmark_html
+from test_benchmark_evidence import modern_result
 
 
 def _result(checker: str, time: float, memory: float, ok: bool = True) -> dict:
@@ -69,6 +70,49 @@ class _SemanticParser(HTMLParser):
 
 
 class RenderBenchmarkHtmlTest(unittest.TestCase):
+    def test_threading_speedup_requires_matching_pyright_version_and_heap_options(self) -> None:
+        single = _result("pyright", 2.0, 100.0)
+        threaded = _result("pyright-threads", 1.0, 100.0)
+        threaded["type_checker_versions"]["pyright-threads"] = "different"
+        with self.assertRaisesRegex(ValueError, "matching versions and Node options"):
+            render_benchmark_html.render_html({"pyright": single, "pyright-threads": threaded})
+        threaded["type_checker_versions"]["pyright-threads"] = "1.2.3"
+        threaded["node_options"] = "--max-old-space-size=1000"
+        with self.assertRaisesRegex(ValueError, "matching versions and Node options"):
+            render_benchmark_html.render_html({"pyright": single, "pyright-threads": threaded})
+
+    def test_current_reports_require_evidence_and_matching_source_environment(self) -> None:
+        import copy
+
+        pyright = modern_result()
+        ty = copy.deepcopy(pyright)
+        ty["type_checkers"] = ["ty"]
+        ty["results"][0]["metrics"] = {"ty": ty["results"][0]["metrics"]["pyright"]}
+        ty["results"][0]["commit"] = "different"
+        with self.assertRaisesRegex(ValueError, "commit"):
+            render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        ty["results"][0]["commit"] = "abc"
+        del ty["results"][0]["metrics"]["ty"]["file_count_verified"]
+        with self.assertRaisesRegex(ValueError, "not verified"):
+            render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+
+    def test_shared_totals_exclude_failures_without_hiding_individual_work(self) -> None:
+        import copy
+
+        pyright = _result("pyright", 10.0, 100.0)
+        ty = _result("ty", 1.0, 50.0)
+        for checker, result in (("pyright", pyright), ("ty", ty)):
+            extra = copy.deepcopy(result["results"][0])
+            extra["package_name"] = "failed-for-ty"
+            extra["metrics"][checker]["execution_time_s"] = 20.0
+            if checker == "ty":
+                extra["metrics"][checker]["ok"] = False
+            result["results"].append(extra)
+        report = render_benchmark_html.render_html({"pyright": pyright, "ty": ty})
+        self.assertIn("<strong>30.0s</strong>", report)
+        self.assertIn("<td>1</td><td>10.0s</td>", report)
+        self.assertIn("<td>1</td><td>1.0s</td>", report)
+        self.assertIn("not an apples-to-apples speed ranking", report)
     def test_native_count_mismatches_are_not_comparable_or_in_summary_totals(self) -> None:
         pyright = _result("pyright", 2.0, 200.0)
         mypy = _result("mypy", 1.0, 100.0)
@@ -247,11 +291,12 @@ class RenderBenchmarkHtmlTest(unittest.TestCase):
         self.assertEqual(
             parser.cells,
             [
-                "Checker", "Measured", "Failed", "Total time", "Median time", "Median RSS",
-                "pyright", "1.2.3", "1", "0", "2.0s", "2.0s", "200 MB",
-                "pyright (threads)", "1.2.3", "1", "0", "1.0s", "1.0s", "250 MB",
-                "mypy", "1.2.3", "1", "0", "1.0s", "1.0s", "100 MB",
-                "zuban", "1.2.3", "0", "1", "0.0s", "0.0s", "0 MB",
+                "Checker", "Measured", "Failed", "Individual total", "Shared packages", "Shared total",
+                "Median time", "Median RSS",
+                "pyright", "1.2.3", "1", "0", "2.0s", "0", "N/A", "2.0s", "200 MB",
+                "pyright (threads)", "1.2.3", "1", "0", "1.0s", "0", "N/A", "1.0s", "250 MB",
+                "mypy", "1.2.3", "1", "0", "1.0s", "0", "N/A", "1.0s", "100 MB",
+                "zuban", "1.2.3", "0", "1", "0.0s", "0", "N/A", "0.0s", "0 MB",
                 "Package", "pyright", "pyright (threads)", "mypy", "zuban",
                 "example", "2.00s", "200 MB", "1.00s", "250 MB", "1.00s",
                 "100 MB", "Not measured", "Package", "Single-thread",

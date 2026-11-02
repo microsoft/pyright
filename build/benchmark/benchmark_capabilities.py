@@ -87,7 +87,18 @@ CASES = {
     ),
 }
 SUPPORT_SOURCE = "def typed_value() -> int:\n    return 1\n"
-SUITE_VERSION = 1
+for _name, _label in (
+    ("installed_typed", "Installed typed-package precision"),
+    ("installed_untyped", "Installed untyped-package precision"),
+):
+    CASES[_name] = (
+        _label,
+        "from typing import assert_type\n"
+        f"from capability_{_name} import typed_value\n"
+        "assert_type(typed_value(), int)\n"
+        "bad: str = typed_value()  # expect-error\n",
+    )
+SUITE_VERSION = 2
 SUITE_SHA256 = hashlib.sha256(
     json.dumps([SUITE_VERSION, CASES, SUPPORT_SOURCE], sort_keys=True).encode("utf-8")
 ).hexdigest()
@@ -102,11 +113,20 @@ class CapabilityOutput(TypedDict):
     files_selected: int | None
 
 
+class Diagnostic(TypedDict):
+    file: str
+    line: int
+    rule: str
+    category: str
+
+
 class CaseResult(TypedDict):
     passed: bool
     positive_diagnostic_lines: list[int]
     negative_diagnostic_lines: list[int]
     expected_error_line: int
+    positive_diagnostics: list[Diagnostic]
+    negative_diagnostics: list[Diagnostic]
 
 
 class CheckerResult(TypedDict, total=False):
@@ -123,16 +143,61 @@ class CapabilitySuite(TypedDict):
     results: dict[str, CheckerResult]
 
 
-def _diagnostic_lines(output: str) -> dict[str, set[int]]:
-    locations: dict[str, set[int]] = {}
-    for match in re.finditer(r"([\w.-]+\.pyi?):(\d+)(?::\d+)?", output):
-        locations.setdefault(Path(match[1]).stem, set()).add(int(match[2]))
-    return locations
+def parse_diagnostics(checker: str, output: str) -> list[Diagnostic]:
+    """Read primary diagnostics and rule IDs, never source excerpts or notes."""
+    diagnostics: list[Diagnostic] = []
+    if checker in ("pyright", "pyright-threads", "pyright-pip"):
+        pattern = r"(?m)^\s+([^\n]+\.pyi?):(\d+):\d+ - (?:error|warning|information): "
+        matches = list(re.finditer(pattern, output))
+        for index, match in enumerate(matches):
+            block = output[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(output)]
+            rule = re.search(r"\((report\w+)\)", block)
+            if rule is None:
+                raise ValueError("Pyright diagnostic has no recognized rule ID")
+            diagnostics.append(_diagnostic(match[1], int(match[2]), rule[1]))
+    elif checker in ("ty", "ty-infer", "pyrefly"):
+        pattern = (
+            r"(?m)^(?:error|warning|info)\[([\w-]+)\]:[^\n]*"
+            if checker in ("ty", "ty-infer")
+            else r"(?m)^(?:ERROR|WARN|INFO) [^\n]* \[([\w-]+)\]"
+        )
+        matches = list(re.finditer(pattern, output))
+        for index, match in enumerate(matches):
+            block = output[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(output)]
+            location = re.search(r"(?m)^\s*-->\s+([^\n]+\.pyi?):(\d+):\d+", block)
+            if location is None:
+                raise ValueError(f"{checker} diagnostic has no primary source location")
+            diagnostics.append(_diagnostic(location[1], int(location[2]), match[1]))
+    elif checker in ("mypy", "zuban"):
+        for match in re.finditer(r"(?m)^([^\n]+\.pyi?):(\d+)(?::\d+)?: (?:error|warning): (.+)$", output):
+            rule = re.search(r"\[([\w-]+)\]\s*$", match[3])
+            if rule is None:
+                raise ValueError(f"{checker} diagnostic has no recognized rule ID")
+            code = rule[1]
+            if checker == "zuban" and code == "misc" and match[3].startswith("Expression is of type "):
+                code = "assert-type"
+            diagnostics.append(_diagnostic(match[1], int(match[2]), code))
+    else:
+        raise ValueError(f"No diagnostic adapter for {checker}")
+    return diagnostics
+
+
+def _diagnostic(path: str, line: int, rule: str) -> Diagnostic:
+    categories = {
+        "reportAssertTypeFailure": "assert-type", "type-assertion-failure": "assert-type",
+        "assert-type": "assert-type", "reportAssignmentType": "assignment",
+        "invalid-assignment": "assignment", "bad-assignment": "assignment",
+        "assignment": "assignment", "arg-type": "argument",
+    }
+    return {
+        "file": Path(path.strip()).stem, "line": line, "rule": rule,
+        "category": categories.get(rule, f"other:{rule}"),
+    }
 
 
 def run_capability_suite(
     checkers: list[str],
-    run: Callable[[str, Path, list[Path]], CapabilityOutput],
+    run: Callable[[str, Path, list[Path], Path], CapabilityOutput],
 ) -> CapabilitySuite:
     suite: CapabilitySuite = {
         "version": SUITE_VERSION,
@@ -142,6 +207,13 @@ def run_capability_suite(
     }
     with tempfile.TemporaryDirectory(prefix="typecheck-capabilities-") as directory:
         root = Path(directory)
+        dependencies = root / "dependencies"
+        for name in ("installed_typed", "installed_untyped"):
+            package = dependencies / f"capability_{name}"
+            package.mkdir(parents=True)
+            (package / "__init__.py").write_text(SUPPORT_SOURCE, encoding="utf-8")
+            if name == "installed_typed":
+                (package / "py.typed").write_text("", encoding="utf-8")
         paths: dict[str, list[Path]] = {}
         expected: dict[str, int] = {}
         for phase in ("positive", "negative"):
@@ -164,16 +236,15 @@ def run_capability_suite(
 
         for checker in checkers:
             evidence: dict[str, CapabilityOutput] = {}
-            locations: dict[str, dict[str, set[int]]] = {}
+            locations: dict[str, list[Diagnostic]] = {}
             error = None
             for phase in ("positive", "negative"):
                 try:
-                    output = run(checker, root / phase, paths[phase])
+                    output = run(checker, root / phase, paths[phase], dependencies)
                 except OSError as exc:
                     error = f"{phase}: unable to evaluate capabilities: {exc}"
                     break
                 evidence[phase] = output
-                text = output["stdout"] + "\n" + output["stderr"]
                 if output["timed_out"] or output["oom_killed"]:
                     error = f"{phase}: capability checker timed out or exceeded memory limit"
                 elif output["returncode"] not in (0, 1):
@@ -181,8 +252,12 @@ def run_capability_suite(
                 elif output["files_selected"] != len(CASES):
                     error = f"{phase}: capability source-file count is not verified"
                 else:
-                    locations[phase] = _diagnostic_lines(text)
-                    if set(locations[phase]) - CASES.keys():
+                    try:
+                        locations[phase] = parse_diagnostics(checker, output["stdout"])
+                    except ValueError as exc:
+                        error = f"{phase}: {exc}"
+                        break
+                    if {item["file"] for item in locations[phase]} - CASES.keys():
                         error = f"{phase}: unexpected diagnostics outside capability cases"
                     elif bool(locations[phase]) != (output["returncode"] == 1):
                         error = f"{phase}: unrecognized or inconsistent diagnostic output"
@@ -194,18 +269,32 @@ def run_capability_suite(
                 }
                 continue
             cases: dict[str, CaseResult] = {}
-            control_passed = (
-                not locations["positive"].get("assert_type")
-                and locations["negative"].get("assert_type") == {expected["assert_type"]}
+            def case_diagnostics(phase: str, name: str) -> list[Diagnostic]:
+                return [item for item in locations[phase] if item["file"] == name]
+
+            def expected_diagnostics(name: str, items: list[Diagnostic]) -> bool:
+                category = "assert-type" if name == "assert_type" else "assignment"
+                return (
+                    len(items) == 1 and items[0]["line"] == expected[name]
+                    and (
+                        items[0]["category"] == category
+                        or (name == "generics" and items[0]["category"] == "argument")
+                    )
+                )
+
+            control_passed = not case_diagnostics("positive", "assert_type") and expected_diagnostics(
+                "assert_type", case_diagnostics("negative", "assert_type")
             )
             for name in CASES:
-                positive = locations["positive"].get(name, set())
-                negative = locations["negative"].get(name, set())
+                positive = case_diagnostics("positive", name)
+                negative = case_diagnostics("negative", name)
                 cases[name] = {
-                    "passed": control_passed and not positive and negative == {expected[name]},
-                    "positive_diagnostic_lines": sorted(positive),
-                    "negative_diagnostic_lines": sorted(negative),
+                    "passed": control_passed and not positive and expected_diagnostics(name, negative),
+                    "positive_diagnostic_lines": sorted({item["line"] for item in positive}),
+                    "negative_diagnostic_lines": sorted({item["line"] for item in negative}),
                     "expected_error_line": expected[name],
+                    "positive_diagnostics": positive,
+                    "negative_diagnostics": negative,
                 }
             suite["results"][checker] = {
                 "ok": True, "cases": cases, "evidence": evidence,

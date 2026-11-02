@@ -77,6 +77,14 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
 
 
 class CompareBenchmarksTest(unittest.TestCase):
+    def test_missing_candidate_metric_is_reported_instead_of_crashing(self) -> None:
+        baseline = _result(10.0, 100.0)
+        candidate = _result(5.0, 100.0)
+        candidate["results"][0]["metrics"] = {}
+        failures, rows = compare_benchmarks._analyze(baseline, candidate, 10.0)
+        self.assertIn("example/pyright: candidate result failed or is missing", failures)
+        self.assertEqual(rows[0]["status"], "Missing")
+
     def test_rejects_a_speedup_with_a_smaller_native_file_count(self) -> None:
         baseline = _result(10.0, 100.0)
         candidate = _result(5.0, 100.0)
@@ -572,7 +580,7 @@ Regression threshold: `10.0%`
             {
                 "python-version": "${{ env.PYTHON_VERSION }}",
                 "cache": "pip",
-                "cache-dependency-path": "build/benchmark/install_envs.json\n.github/workflows/typecheck_benchmark_weekly.yml\n",
+                "cache-dependency-path": "build/benchmark/install_envs.json\nbuild/benchmark/checker_requirements.txt\n.github/workflows/typecheck_benchmark_weekly.yml\n",
             },
         )
         self.assertEqual(
@@ -601,8 +609,11 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            weekly_benchmark_steps[3]["if"],
-            "${{ matrix.checker != 'pyright' }}",
+            weekly_benchmark_steps[3],
+            {
+                "name": "Install shared checker environment",
+                "run": "python -m pip install -r build/benchmark/checker_requirements.txt",
+            },
         )
         self.assertEqual(
             weekly_benchmark_steps[4]["if"],

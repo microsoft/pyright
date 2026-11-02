@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
+from benchmark_evidence import validate_evidence
+
 DEFAULT_THRESHOLD_PERCENT = 20.0
 DEFAULT_TIME_NOISE_FLOOR_SECONDS = 1.0
 DEFAULT_MEMORY_NOISE_FLOOR_MB = 100.0
@@ -146,6 +148,11 @@ def _analyze(
     rows: list[ComparisonRow] = []
     if failures:
         return failures, rows
+    try:
+        validate_evidence(baseline)
+        validate_evidence(candidate)
+    except ValueError as exc:
+        return [str(exc)], rows
     for field in (
         "platform",
         "architecture",
@@ -160,6 +167,8 @@ def _analyze(
         "uncounted_validation_runs_per_checker",
         "dependency_isolation",
         "checker_config_version",
+        "installed_packages",
+        "import_path_overrides",
     ):
         if baseline.get(field) != candidate.get(field):
             failures.append(
@@ -274,11 +283,19 @@ def _analyze(
                 }
             )
             continue
+        if not new:
+            failures.append(f"{package}/{checker}: candidate result failed or is missing")
+            rows.append({
+                "package": package, "checker": checker, "execution_time_s": None,
+                "time_delta": None, "peak_memory_mb": None, "memory_delta": None,
+                "status": "Missing",
+            })
+            continue
         scope_changed = False
         if old.get("files_selected") != new.get("files_selected"):
             failures.append(f"{package}/{checker}: native source-file count changed")
             scope_changed = True
-        for field in ("check_paths", "exclude_directories", "source_manifest_sha256"):
+        for field in ("check_paths", "exclude_directories", "source_manifest_sha256", "resolved_dependencies"):
             if old_package.get(field, []) != new_package.get(field, []):
                 failures.append(
                     f"{package}/{checker}: package {field} changed from "
