@@ -24025,7 +24025,13 @@ export function createTypeEvaluator(
             .getDeclarations()
             .some((decl) => decl.type === DeclarationType.TypeAlias);
 
-        if (symbolWithScope && preferGlobalScope && !isTypeAliasStatementTarget) {
+        // PEP 695 annotation scopes retain access to their enclosing class namespace.
+        if (
+            symbolWithScope &&
+            preferGlobalScope &&
+            !isTypeAliasStatementTarget &&
+            !ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeAlias)
+        ) {
             let curSymbolWithScope: SymbolWithScope | undefined = symbolWithScope;
             while (
                 curSymbolWithScope.scope.type !== ScopeType.Module &&
