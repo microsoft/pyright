@@ -838,7 +838,7 @@ function getOrdinaryDiagnostics(checker: CheckerResult, corpus: RenderedCorpus):
 }
 
 function escapeTableCell(value: string): string {
-    return value.replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
+    return value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
 }
 
 function formatDuration(durationMs: number): string {
