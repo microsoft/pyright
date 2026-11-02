@@ -24,6 +24,7 @@ interface GeneratedCase {
     id: string;
     category: string;
     description: string;
+    isAsync?: boolean;
     parameters?: string;
     lines: string[];
     revealExpression: string;
@@ -96,9 +97,9 @@ interface ComparisonRun {
     pyrefly: CheckerResult;
 }
 
-const DEFAULT_CASE_COUNT = 1000;
+const DEFAULT_CASE_COUNT = 10_000;
 const DEFAULT_PYTHON_VERSION = '3.11';
-const SCENARIO_TEMPLATE_COUNT = 16;
+const SCENARIO_TEMPLATE_COUNT = 32;
 const GENERATED_DIRECTORY = path.resolve(
     process.cwd(),
     'src',
@@ -110,11 +111,15 @@ const GENERATED_DIRECTORY = path.resolve(
 
 const commonHeader = `from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
-from typing import Any, Generic, Literal, LiteralString, TypeGuard, TypedDict, TypeVar, overload, reveal_type
+from enum import Enum
+from typing import Any, Generic, Literal, LiteralString, NamedTuple, ParamSpec, Protocol, Self, TypeGuard, TypedDict, TypeVar, overload, reveal_type
 
 T = TypeVar("T")
+C = TypeVar("C", int, str)
+P = ParamSpec("P")
+R = TypeVar("R")
 
 def identity(value: T) -> T:
     return value
@@ -125,8 +130,70 @@ def first(values: Sequence[T]) -> T:
 def is_str(value: object) -> TypeGuard[str]:
     return isinstance(value, str)
 
+def preserve_constrained(value: C) -> C:
+    return value
+
+def preserve_callable(callback: Callable[P, R]) -> Callable[P, R]:
+    return callback
+
 def accepts_literal_string(value: LiteralString) -> None:
     pass
+
+class ValueProtocol(Protocol):
+    value: int
+
+class ProtocolImpl:
+    value = 1
+
+def read_protocol(value: ValueProtocol) -> int:
+    return value.value
+
+class Fluent:
+    def clone(self) -> Self:
+        return self
+
+class FluentChild(Fluent):
+    pass
+
+class Color(Enum):
+    RED = 1
+    BLUE = 2
+
+class Pair(NamedTuple):
+    left: int
+    right: str
+
+class Manager:
+    def __enter__(self) -> int:
+        return 1
+
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+        pass
+
+class Descriptor:
+    def __get__(self, instance: object, owner: type[object]) -> int:
+        return 1
+
+class DescriptorOwner:
+    item = Descriptor()
+
+JsonValue = int | str | list["JsonValue"]
+
+@overload
+def convert(value: Literal[0]) -> Literal["zero"]: ...
+@overload
+def convert(value: int) -> str: ...
+@overload
+def convert(value: str) -> int: ...
+def convert(value: int | str) -> int | str:
+    return str(value) if isinstance(value, int) else len(value)
+
+class Point:
+    __match_args__ = ("x", "y")
+
+    def __init__(self, x: int, y: int) -> None:
+        self.x = x
+        self.y = y
 
 class BenchmarkIntResult:
     def int_only(self) -> int:
@@ -135,6 +202,17 @@ class BenchmarkIntResult:
 class BenchmarkStrResult:
     def str_only(self) -> str:
         return ""
+
+class BehaviorContainer(Generic[T]):
+    @overload
+    def copy(self: "BehaviorContainer[int]") -> "BehaviorContainer[int]": ...
+    @overload
+    def copy(self: "BehaviorContainer[str]") -> "BehaviorContainer[str]": ...
+    def copy(self) -> "BehaviorContainer[Any]":
+        return self
+
+    def item(self) -> T:
+        raise NotImplementedError
 
 class BenchmarkRecord(TypedDict):
     name: str
@@ -350,7 +428,7 @@ function createCase(index: number): GeneratedCase {
                 ],
                 revealExpression: 'value',
             };
-        default:
+        case 15:
             return {
                 id,
                 category: 'higher-order',
@@ -362,6 +440,142 @@ function createCase(index: number): GeneratedCase {
                     `value = apply(lambda item: (item, "${text}"), ${integer})`,
                 ],
                 revealExpression: 'value',
+            };
+        case 16:
+            return {
+                id,
+                category: 'overload',
+                description: 'Literal overload selection',
+                lines: ['value = convert(0)'],
+                revealExpression: 'value',
+            };
+        case 17:
+            return {
+                id,
+                category: 'constrained-typevar',
+                description: 'Constrained TypeVar preservation',
+                lines: [`value = preserve_constrained(${integer})`],
+                revealExpression: 'value',
+            };
+        case 18:
+            return {
+                id,
+                category: 'paramspec',
+                description: 'ParamSpec callable preservation',
+                lines: [
+                    'def callback(left: int, right: str) -> tuple[int, str]:',
+                    '    return left, right',
+                    '',
+                    'value = preserve_callable(callback)',
+                ],
+                revealExpression: 'value',
+            };
+        case 19:
+            return {
+                id,
+                category: 'protocol',
+                description: 'Structural protocol argument',
+                lines: ['value = read_protocol(ProtocolImpl())'],
+                revealExpression: 'value',
+            };
+        case 20:
+            return {
+                id,
+                category: 'self',
+                description: 'Self return specialization',
+                lines: ['value = FluentChild().clone()'],
+                revealExpression: 'value',
+            };
+        case 21:
+            return {
+                id,
+                category: 'typed-dict',
+                description: 'Direct TypedDict literal key',
+                lines: [`record: BenchmarkRecord = {"name": "${text}", "age": ${integer}}`, 'value = record["name"]'],
+                revealExpression: 'value',
+            };
+        case 22:
+            return {
+                id,
+                category: 'enum',
+                description: 'Enum member inference',
+                lines: ['value = Color.RED'],
+                revealExpression: 'value',
+            };
+        case 23:
+            return {
+                id,
+                category: 'named-tuple',
+                description: 'NamedTuple field inference',
+                lines: [`value = Pair(${integer}, "${text}").right`],
+                revealExpression: 'value',
+            };
+        case 24:
+            return {
+                id,
+                category: 'match',
+                description: 'Literal match result inference',
+                parameters: 'tag: Literal["a", "b"]',
+                lines: ['match tag:', '    case "a":', '        value = 1', '    case "b":', '        value = "b"'],
+                revealExpression: 'value',
+            };
+        case 25:
+            return {
+                id,
+                category: 'match',
+                description: 'Class pattern inference',
+                parameters: 'point: Point',
+                lines: ['match point:', '    case Point(x, y):', '        value = x + y'],
+                revealExpression: 'value',
+            };
+        case 26:
+            return {
+                id,
+                category: 'generator',
+                description: 'Generator function return inference',
+                lines: ['def values() -> Iterator[int]:', `    yield ${integer}`, '', 'value = values()'],
+                revealExpression: 'value',
+            };
+        case 27:
+            return {
+                id,
+                category: 'async',
+                description: 'Awaited async function inference',
+                isAsync: true,
+                lines: ['async def get_value() -> int:', `    return ${integer}`, '', 'value = await get_value()'],
+                revealExpression: 'value',
+            };
+        case 28:
+            return {
+                id,
+                category: 'context-manager',
+                description: 'Context manager enter type',
+                lines: ['with Manager() as item:', '    value = item'],
+                revealExpression: 'value',
+            };
+        case 29:
+            return {
+                id,
+                category: 'descriptor',
+                description: 'Descriptor access inference',
+                lines: ['value = DescriptorOwner().item'],
+                revealExpression: 'value',
+            };
+        case 30:
+            return {
+                id,
+                category: 'recursive-alias',
+                description: 'Recursive type alias assignment',
+                lines: [`value: JsonValue = [${integer}, "${text}"]`],
+                revealExpression: 'value',
+            };
+        default:
+            return {
+                id,
+                category: 'assignment-expression',
+                description: 'Assignment expression flow inference',
+                lines: [`if value := identity("${text}"):`, '    result = value.upper()', 'else:', '    result = ""'],
+                revealExpression: 'result',
             };
     }
 }
@@ -449,7 +663,6 @@ function createBehaviorCases(): GeneratedCase[] {
                 '',
                 'value = choose(source)',
                 'value.append(1)  # benchmark: require-accept',
-                'value.append("x")  # benchmark: require-accept',
                 'value.append(3.14)  # benchmark: expect-error',
                 'value.nonexistent()  # benchmark: expect-error',
             ],
@@ -496,6 +709,62 @@ function createBehaviorCases(): GeneratedCase[] {
             lines: ['if item["kind"] == "a":', '    value = item["value"]', 'else:', '    value = item["value"]'],
             revealExpression: 'value',
         },
+        {
+            id: 'behavior_literal_overload',
+            category: 'overload',
+            description: 'Literal-sensitive overload selection after generic inference',
+            lines: [
+                'pair = identity((0, "tag"))',
+                'value = convert(pair[0])',
+                'exact: Literal["zero"] = value  # benchmark: require-accept',
+            ],
+            revealExpression: 'value',
+        },
+        {
+            id: 'behavior_default_overload',
+            category: 'ambiguous-overload',
+            description: 'Ambiguous overload with a default argument',
+            parameters: 'source: list[Any]',
+            lines: [
+                '@overload',
+                'def choose(value: list[int], second: int = 0) -> list[int]: ...',
+                '@overload',
+                'def choose(value: list[str], second: int = 0) -> list[str]: ...',
+                'def choose(value: Any, second: int = 0) -> Any:',
+                '    return value',
+                '',
+                'value = choose(source)',
+                'value.append(1)  # benchmark: require-accept',
+                'value.append(3.14)  # benchmark: expect-error',
+            ],
+            revealExpression: 'value',
+        },
+        {
+            id: 'behavior_method_overload',
+            category: 'ambiguous-overload',
+            description: 'Ambiguous overload on a generic receiver',
+            parameters: 'source: BehaviorContainer[Any]',
+            lines: [
+                'value = source.copy()',
+                'value.item().bit_length()  # benchmark: require-accept',
+                'value.item().upper()  # benchmark: require-accept',
+                'value.item().missing()  # benchmark: expect-error',
+            ],
+            revealExpression: 'value',
+        },
+        {
+            id: 'behavior_paramspec',
+            category: 'paramspec',
+            description: 'ParamSpec callable assignment preservation',
+            lines: [
+                'def callback(left: int, right: str) -> tuple[int, str]:',
+                '    return left, right',
+                '',
+                'value = preserve_callable(callback)',
+                'exact: Callable[[int, str], tuple[int, str]] = value  # benchmark: require-accept',
+            ],
+            revealExpression: 'value',
+        },
     ];
 }
 
@@ -507,7 +776,11 @@ function renderCases(generatedCases: GeneratedCase[]): RenderedCorpus {
 
     for (const generatedCase of generatedCases) {
         output.push(`# ${generatedCase.id}: ${generatedCase.description}`);
-        output.push(`def ${generatedCase.id}(${generatedCase.parameters || ''}) -> None:`);
+        output.push(
+            `${generatedCase.isAsync ? 'async ' : ''}def ${generatedCase.id}(${
+                generatedCase.parameters || ''
+            }) -> None:`
+        );
 
         for (const line of generatedCase.lines) {
             const renderedLine = line ? `    ${line}` : '';
@@ -862,6 +1135,14 @@ function getPyreflyArgument(comparison: CaseComparison): string {
             return 'A gradual fallback avoids committing to one overload result, but it also removes member information and suppresses downstream argument and attribute diagnostics. This is a capability tradeoff rather than display-only widening.';
         case 'typed-dict-key':
             return 'Widening the generic tuple element to str avoids value-sensitive inference, but the widened key can no longer index a TypedDict. The policy therefore creates an observable rejection in otherwise valid code.';
+        case 'overload':
+            return 'Widening the argument selects a broader overload and produces a stable public type, but it can lose literal-specific return information that downstream assignments or overloads rely on.';
+        case 'paramspec':
+            return 'Equivalent callable signatures may be printed differently. The important behavior is whether calls, assignments, parameter names, and return types remain checked.';
+        case 'async':
+            return 'The checkers use different coroutine representations and gradual parameter spellings. This should be adjudicated through await behavior and assignments rather than display text alone.';
+        case 'recursive-alias':
+            return 'Recursive aliases can be displayed either by expansion or by retaining the alias. The comparison should focus on assignability, narrowing, and member checking rather than textual compactness.';
         default:
             if (comparison.reason.includes('Any, Unknown, or object')) {
                 return 'A gradual component may reflect an intentional boundary, unsupported feature, or soundness fallback. It is weaker evidence than a concrete-type disagreement but still needs validation before being called a loss.';

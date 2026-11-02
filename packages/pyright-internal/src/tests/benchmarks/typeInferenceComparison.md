@@ -8,7 +8,7 @@ Run it from `packages/pyright-internal`:
 pnpm run benchmark:type-inference
 ```
 
-The default run generates 1,000 cases and invokes Pyrefly through `uvx`. The generated corpus and report are written under:
+The default run generates 10,000 cases and invokes Pyrefly through `uvx`. The generated corpus and report are written under:
 
 ```text
 src/tests/benchmarks/.generated/type-inference-comparison/
@@ -36,7 +36,7 @@ The corpus contains behavioral markers in addition to `reveal_type` calls:
 - `# benchmark: expect-error` marks an intentionally invalid operation. The report records whether each checker preserves enough information to diagnose it.
 - `# benchmark: require-accept` marks an operation enabled by the inferred type. Rejection indicates a capability difference, but it can still reflect a deliberate widening policy rather than a checker bug.
 
-Behavioral templates cover ambiguous overload results, disjoint result members, `LiteralString`, literal-sensitive generic results, and `TypedDict` keys. They are generated in a separate nine-case corpus so overload-analysis limits and repeated definitions do not interfere with one another. The default 1,000-case precision corpus contains deterministic parameterized variants of 16 scenario templates, not 1,000 independently designed language features.
+Behavioral templates cover ambiguous overload results, disjoint result members, `LiteralString`, literal-sensitive generic results, `ParamSpec`, and `TypedDict` keys. They are generated in a separate 13-case corpus so overload-analysis limits and repeated definitions do not interfere with one another. The default 10,000-case precision corpus contains deterministic parameterized variants of 32 scenario templates, not 10,000 independently designed language features.
 
 Specificity is not the same as correctness. A type checker can produce a narrower but unsound type, so the report deliberately avoids treating every narrower result as a win. A switch decision should combine this report with:
 
