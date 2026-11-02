@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+import asyncio
 import json
 import tempfile
 import unittest
@@ -11,14 +12,14 @@ from unittest.mock import AsyncMock, patch
 from copilot import ToolInvocation
 
 from issue_review_evidence import evidence_json
-from issue_review_models import DraftCheck, DuplicateCandidate, Entry, ReproductionGate, ReproductionScenario
+from issue_review_models import DefaultReproductionScenario, DraftCheck, DuplicateCandidate, Entry, ReproductionGate
 from issue_review_reproduction import ReleaseCatalog
 from issue_review_safety import ScreeningBlocked
 from review_issues import (
     AGENTS, Agent, AutomationError, ChunkResult, ClosureRehearsal, Console, GitHub, arguments, atomic_write,
     digest, import_rehearsal_entry, main, require_run_mode, save_closure_rehearsals,
 )
-from test_issue_review_reproduction import FakeTargets, ReproductionGitHub, catalog, scenario
+from test_issue_review_reproduction import FakeTargets, ReproductionGitHub, catalog, default_scenario
 from test_review_issues import FakeGitHub, audit, issue, save_evidence
 
 
@@ -44,7 +45,7 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
         save_evidence(self.console, self.entry)
 
     def report(self):
-        return ClosureRehearsal.model_validate_json((self.state / "123" / "rehearsal.json").read_text())
+        return ClosureRehearsal.model_validate_json((self.console.directory(123) / "rehearsal.json").read_text())
 
     def duplicate(self):
         assert self.entry.duplicates is not None
@@ -156,8 +157,9 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
         self.sdk.run.assert_not_awaited()
 
     async def test_factual_rejection_preserves_comment_and_problems(self):
+        rejected = DraftCheck(approved=False, problems=["The release was never executed"]).model_dump_json()
         self.sdk.run.side_effect = [
-            self.comment, DraftCheck(approved=False, problems=["The release was never executed"]).model_dump_json(),
+            self.comment, rejected, self.comment, rejected,
         ]
         with self.assertRaisesRegex(AutomationError, "factual checking"):
             await self.console.evaluate(self.entry)
@@ -167,7 +169,138 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report.stages["factual_review"], "rejected")
         self.assertEqual(report.stages["final_eligibility"], "untested")
         self.assertEqual(report.draft_check.problems if report.draft_check else [], ["The release was never executed"])
+        self.assertEqual(self.sdk.run.await_count, 4)
+        for index in ("1", "2"):
+            attempt = self.state / "123" / "comment-attempts" / index
+            self.assertEqual((attempt / "comment.md").read_text(), self.comment)
+            self.assertEqual((attempt / "draft-check.json").read_text(), rejected)
+        with self.assertRaisesRegex(AutomationError, "attempts already exist"):
+            await self.console.prepare_comment(self.entry)
+        self.assertEqual(self.sdk.run.await_count, 4)
         self.assertEqual(self.github.mutations, [])
+
+    async def test_one_correction_uses_same_packet_and_preserves_rejected_attempt(self):
+        self.duplicate()
+        self.github.current.body = "The reporter says another checker rejects it; we did not execute that comparison."
+        self.entry.issue = self.github.current.model_copy(deep=True)
+        self.entry.input_hash = self.console.key(self.entry.issue)
+        rejected = DraftCheck(approved=False, problems=["Do not claim an executed comparison"]).model_dump_json()
+        revised = self.comment + " The comparison is reporter-supplied, not independently executed."
+        self.sdk.run.side_effect = [
+            self.comment, rejected, revised, DraftCheck(approved=True, problems=[]).model_dump_json(),
+        ]
+        await self.console.evaluate(self.entry)
+        report = self.report()
+        self.assertEqual(report.status, "passed")
+        self.assertEqual(report.proposed_comment, revised)
+        self.assertTrue(report.draft_check and report.draft_check.approved)
+        calls = self.sdk.run.await_args_list
+        self.assertEqual([call.args[0].name for call in calls], [
+            "rich-mirror", self.profile.name, "rich-mirror", self.profile.name,
+        ])
+        for call in calls:
+            self.assertIn(self.entry.issue.model_dump_json(), call.args[1])
+            self.assertIn(self.entry.review_markdown, call.args[1])
+            self.assertIn(self.entry.duplicates_markdown, call.args[1])
+            self.assertNotIn("tools", call.kwargs)
+        self.assertIn(rejected, calls[2].args[1])
+        first = self.state / "123" / "comment-attempts" / "1"
+        self.assertEqual((first / "comment.md").read_text(), self.comment)
+        self.assertEqual((first / "draft-check.json").read_text(), rejected)
+        self.assertEqual((first.parent / "2" / "comment.md").read_text(), revised)
+        self.assertFalse(report.publication_ready)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_correction_failure_does_not_mark_rejected_factual_check_passed(self):
+        rejected = DraftCheck(approved=False, problems=["Unverified release"]).model_dump_json()
+        self.sdk.run.side_effect = [self.comment, rejected, TimeoutError("Writer correction timed out")]
+        with self.assertRaises(TimeoutError):
+            await self.console.evaluate(self.entry)
+        report = self.report()
+        self.assertEqual(report.status, "rejected")
+        self.assertEqual(report.stages["writer"], "rejected")
+        self.assertEqual(report.stages["factual_review"], "rejected")
+        self.assertEqual(report.stages["final_eligibility"], "untested")
+        self.assertEqual(report.proposed_comment, self.comment)
+        self.assertFalse(report.draft_check and report.draft_check.approved)
+        first = self.state / "123" / "comment-attempts" / "1"
+        self.assertEqual((first / "draft-check.json").read_text(), rejected)
+        self.assertEqual(self.sdk.run.await_count, 3)
+
+    async def test_corrected_draft_timeout_retains_both_drafts_without_stale_approval(self):
+        rejected = DraftCheck(approved=False, problems=["Unverified release"]).model_dump_json()
+        revised = "This is verified only on main, not a released fix."
+        self.sdk.run.side_effect = [self.comment, rejected, revised, TimeoutError("Second check timed out")]
+        with self.assertRaises(TimeoutError):
+            await self.console.evaluate(self.entry)
+        report = self.report()
+        self.assertEqual(report.proposed_comment, revised)
+        self.assertIsNone(report.draft_check)
+        self.assertIsNone(self.entry.draft_check)
+        self.assertEqual(report.stages["factual_review"], "rejected")
+        self.assertEqual(report.stages["final_eligibility"], "untested")
+        first = self.state / "123" / "comment-attempts" / "1"
+        self.assertEqual((first / "draft-check.json").read_text(), rejected)
+        self.assertEqual((first / "comment.md").read_text(), self.comment)
+        self.assertEqual((first.parent / "2" / "comment.md").read_text(), revised)
+        self.assertEqual(self.sdk.run.await_count, 4)
+
+    async def test_cancelled_correction_preserves_rejection_and_cannot_restart(self):
+        rejected = DraftCheck(approved=False, problems=["Unverified release"]).model_dump_json()
+        self.sdk.run.side_effect = [self.comment, rejected, asyncio.CancelledError()]
+        with self.assertRaises(asyncio.CancelledError):
+            await self.console.evaluate(self.entry)
+        report = self.report()
+        self.assertEqual(report.status, "rejected")
+        self.assertEqual(report.stages["writer"], "rejected")
+        self.assertEqual(report.stages["factual_review"], "rejected")
+        self.assertIn("cancelled", " ".join(report.blocking_reasons))
+        first = self.state / "123" / "comment-attempts" / "1"
+        self.assertEqual((first / "draft-check.json").read_text(), rejected)
+        with self.assertRaisesRegex(AutomationError, "attempts already exist"):
+            await self.console.prepare_comment(self.entry)
+        self.assertEqual(self.sdk.run.await_count, 3)
+
+    async def test_factual_transport_or_schema_failure_never_starts_correction(self):
+        for failure in (ScreeningBlocked("Screening rejected"), "not JSON"):
+            with self.subTest(failure=failure):
+                self.console.state = self.state / ("screening" if isinstance(failure, Exception) else "schema")
+                save_evidence(self.console, self.entry)
+                self.sdk.run.reset_mock()
+                self.sdk.run.side_effect = [self.comment, failure]
+                with self.assertRaises((ScreeningBlocked, ValueError)):
+                    await self.console.evaluate(self.entry)
+                self.assertEqual(self.sdk.run.await_count, 2)
+                self.assertEqual(self.report().stages["factual_review"], "rejected")
+                self.assertFalse((self.console.directory(123) / "comment-attempts" / "2").exists())
+
+    async def test_freshness_failure_after_first_rejection_blocks_correction(self):
+        async def respond(agent, *_args, **_kwargs):
+            if agent.name == "rich-mirror":
+                return self.comment
+            self.github.current.body = "Changed before correction"
+            return DraftCheck(approved=False, problems=["Unverified claim"]).model_dump_json()
+        self.sdk.run.side_effect = respond
+        with self.assertRaisesRegex(AutomationError, "Issue changed"):
+            await self.console.evaluate(self.entry)
+        self.assertEqual(self.sdk.run.await_count, 2)
+        self.assertEqual(self.report().stages["factual_review"], "rejected")
+        self.assertEqual(self.report().stages["final_eligibility"], "untested")
+
+    async def test_missing_settings_reach_rehearsal_scenario_model_with_defaults(self):
+        self.console.reproduction_store = FakeTargets(self.state / "targets", {})
+        self.assertFalse(self.console.observe_blocked)
+        self.assertTrue(self.console.rehearse_closures)
+        self.sdk.run.side_effect = TimeoutError("Scenario model reached its bounded deadline")
+        await self.console.reproduce(self.entry)
+        stage = self.entry.reproduction_stage
+        assert stage is not None
+        self.assertEqual(stage.status, "blocked")
+        self.assertIn("Scenario model reached", stage.error or "")
+        self.assertIsNone(stage.scenario)
+        self.assertEqual(self.sdk.run.await_count, 1)
+        self.assertIs(self.sdk.run.await_args.kwargs["schema"], DefaultReproductionScenario)
+        self.assertIn("DEFAULT-SETTINGS policy", self.sdk.run.await_args.args[1])
 
     async def test_factual_timeout_preserves_draft_without_a_success_claim(self):
         self.sdk.run.side_effect = [self.comment, TimeoutError("Factual reviewer timed out")]
@@ -254,11 +387,14 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
             issue=self.github.current.model_copy(deep=True),
         )
         checked_pages = []
+        check_tools = []
 
         async def respond(agent, _prompt, _directory, **options):
             schema = options.get("schema")
-            if schema is ReproductionScenario:
-                return scenario().model_dump_json()
+            if schema is DefaultReproductionScenario:
+                return default_scenario(reported={
+                    "pythonVersion": "Python 3.10", "typeCheckingMode": "typeCheckingMode=standard",
+                }).model_dump_json()
             if schema is ReproductionGate:
                 raw = ReproductionGate(
                     approved=True, problems=[], claim_ids=["assignment"], receipt_hashes={
@@ -270,6 +406,8 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
                 return raw
             if schema is DraftCheck:
                 tools = options["tools"]
+                check_tools.append(tools)
+                self.assertEqual(tools.delivered, {})
                 for identifier in tools.receipts:
                     offset = 0
                     while True:
@@ -282,7 +420,10 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
                             break
                         offset = page["next_offset"]
                     checked_pages.append(identifier)
-                raw = DraftCheck(approved=True, problems=[]).model_dump_json()
+                approved = len(check_tools) == 2
+                raw = DraftCheck(
+                    approved=approved, problems=[] if approved else ["Preserve the awaiting-release qualification"],
+                ).model_dump_json()
                 options["validate"](raw)
                 return raw
             return "This reproduced historically and is fixed on main, awaiting release."
@@ -301,6 +442,13 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report.status, "passed")
         self.assertEqual(report.proposed_action, "close_fixed")
         self.assertTrue(checked_pages)
+        self.assertEqual(len(check_tools), 2)
+        self.assertIsNot(check_tools[0], check_tools[1])
+        self.assertEqual(stage.comment_hash, digest(report.proposed_comment or ""))
+        first_check = json.loads(
+            (self.console.directory(123) / "comment-attempts" / "1" / "draft-check.json").read_text()
+        )
+        self.assertFalse(first_check["approved"])
         self.assertEqual(frozen, {path: path.read_bytes() for path in original.rglob("*") if path.is_file()})
         self.assertIsNone(self.entry.closure)
         self.assertEqual(self.github.mutations, [])

@@ -176,8 +176,16 @@ upstream main), configuration, inputs, command and output, plus hashes and separ
 Large results have exact paginated `read_prepared_evidence` delivery rather than silently shortened output.
 These reviewer receipts are always experimental, not faithful historical reproduction, and action-ineligible.
 Their actual diagnostics can inform discussion, but cannot replace a source-checkout run, promote the audit's
-release reproduction statuses or satisfy the independent strict gate. A missing checking mode blocks faithful
-reconstruction independently of whether a checker can execute.
+release reproduction statuses or satisfy the independent faithful-comparison gate.
+Ordinary reconstruction continues with defaults when Python/checking settings are omitted: `standard` checking
+and the controller interpreter's Python major/minor target. Reported values take precedence; conflicting or
+unsupported reported settings are not silently replaced. The absence-only preflight records missing markers,
+not a reason to skip planning, including during closure rehearsal or with diagnostic observations disabled.
+The controller hashes the exact defaults into its policy and validates a reported quote or disclosed default
+for each effective setting. Defaulted comparisons execute and feed normal behavioral/duplicate investigation;
+their conditional observations do not independently authorize report-faithful fixed/non-reproducible actions.
+Reports expose the defaults and this qualification. All other source, surface, dependency, precision and
+publication gates remain. Fresh state is required for new investigations; saved scenarios/outcomes are unchanged.
 
 The console shares a bounded source-CLI/mypy version preflight across concurrent issues, records exact setup
 results in `capabilities.json`, and includes them in behavior assignments. Missing mypy is an unperformed
@@ -187,6 +195,12 @@ tool schemas and correction messages prohibit caller scope qualifiers and static
 than silently repairing them. These operational checks do not supply omitted reporter settings or relax any
 claim, reproduction, screening or publication gate.
 
+The console's [SDK timeout diagnostics](../build/automation/README.md#sdk-timeout-diagnostics) explicitly enable
+streaming and record metadata-only generation, retry and model-call activity. Bounded local RPC heartbeats
+distinguish runtime responsiveness from model progress without extending role budgets. A capped, filtered shared
+SDK/CLI log preserves session correlation or explicitly ambiguous candidates; prompts, source, reasoning and
+free-form errors are not copied into these diagnostics. Completion correlation and all evidence gates remain unchanged.
+
 The explicit [publication-disabled closure rehearsal](../build/automation/README.md#publication-disabled-closure-rehearsal)
 is separate from ordinary dry-run behavior. `--rehearse-closures` runs real rich-mirror drafting, factual checking
 and final pre-publication eligibility for bounded fixed/by-design/duplicate candidates while the transport denies
@@ -194,6 +208,12 @@ all GitHub mutations. It saves proposed comments, stage outcomes and rejection r
 uses a distinct derived directory without rewriting or resealing historical evidence; stale context, unresolved
 claims and integrity/freshness failures still block it. Mutation-dependent checks remain untested, and a passed
 rehearsal is never publication authorization.
+Writer and factual reviewer receive the same frozen issue/investigation packet, distinguishing reporter
+assertions from executed results. A valid factual rejection permits one rich-mirror correction and a new check,
+with exact drafts/checks retained per attempt and fresh receipt-delivery accounting for fixed comments.
+A second rejection remains blocked; screening/transport/schema failures, timeouts and missing canonical links
+are not correction opportunities. Interrupted/exhausted attempts cannot restart on resume, and existing final
+eligibility, freshness and publication gates remain mandatory.
 
 Ordinary behavior investigation also has a [bounded headless LSP progress probe](../build/automation/README.md#bounded-headless-language-server-progress-observations),
 even when overnight RCA is disabled. It records actual progress-token creation/begin/report/end and diagnostic
@@ -202,7 +222,7 @@ not switch interpreters, execute arbitrary LSP/editor operations, or turn a time
 into a root-cause claim. These qualified, action-ineligible observations do not relax strict reproduction or
 publication gates; unsupported surfaces and exact historical/environment prerequisites remain blocked.
 
-Strict reconstruction is the default. The explicit `--exploratory-reproduction` mode permits disclosed, bounded
+The separate explicit `--exploratory-reproduction` mode permits disclosed, bounded
 source-compatible choices only for genuinely omitted Python/checking settings. Quoted reported settings and chosen
 experimental values remain separate; pristine source, genuine prerequisites and exact original/control precision
 requirements are unchanged. Routine controller responsibilities belong in limitations, never unmet prerequisites,

@@ -3,6 +3,7 @@
 
 import asyncio
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -18,14 +19,20 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 from copilot import ToolInvocation
+from copilot._jsonrpc import JsonRpcError, ProcessExitedError
 from copilot.generated.rpc import PermissionDecisionApproveOnce, PermissionDecisionReject
 from copilot.generated.session_events import (
     AssistantMessageData,
     AssistantMessageDeltaData,
+    AssistantReasoningData,
     AssistantReasoningDeltaData,
     AssistantTurnEndData,
     AssistantTurnStartData,
+    AssistantTurnRetryData,
     AssistantUsageData,
+    ModelCallFailureData,
+    ModelCallFailureSource,
+    ModelCallStartData,
     PermissionRequestRead,
     PermissionRequestShell,
     PermissionRequestWrite,
@@ -62,6 +69,7 @@ from issue_review_models import (
     RootCauseFindings,
     RootCauseGate,
 )
+from issue_review_sdk_diagnostics import RuntimeDiagnostics
 from review_issues import (
     AGENTS,
     REPOSITORY,
@@ -75,6 +83,7 @@ from review_issues import (
     GitHub,
     GitHubRead,
     InvestigationTools,
+    ReproductionEvidenceTools,
     RunCheck,
     atomic_write,
     arguments,
@@ -1918,6 +1927,8 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
         client = AsyncMock()
 
         async def create(**options):
+            self.assertTrue(options["streaming"])
+            self.assertTrue(options["include_sub_agent_streaming_events"])
             actual.on(options["on_event"])
             return session
 
@@ -1945,6 +1956,10 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
             self.event("assistant.message_delta", AssistantMessageDeltaData(
                 delta_content="private subagent partial content", message_id="child-id",
             ), agent_id="child") for _ in range(10)
+        ] + [
+            self.event("assistant.reasoning", AssistantReasoningData(
+                content="private complete reasoning", reasoning_id="complete-reason",
+            ), agent_id=scope) for scope in (None, "child")
         ]
         sdk, session, actual = await self.installed_wait(events)
         with self.assertRaisesRegex(AutomationError, "timed out"):
@@ -1962,22 +1977,291 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(failure["event_counts"]["root:assistant.message_delta"], 20)
         self.assertEqual(failure["event_counts"]["subagent:assistant.message_delta"], 10)
         self.assertEqual(failure["event_counts"]["root:assistant.reasoning_delta"], 20)
+        self.assertEqual(failure["event_counts"]["root:assistant.reasoning"], 1)
+        self.assertEqual(failure["event_counts"]["subagent:assistant.reasoning"], 1)
         self.assertEqual(failure["event_counts"]["root:assistant.message"], 1)
         self.assertEqual(failure["event_counts"]["root:assistant.usage"], 1)
         self.assertNotIn("root:session.idle", failure["event_counts"])
         self.assertTrue(failure["deadline_expired"])
         self.assertEqual(failure["last_event"]["type"], "assistant.message")
         self.assertEqual(failure["phase"], "response_wait")
+        self.assertEqual(failure["generation_activity"]["root"]["events"], 42)
+        self.assertEqual(failure["generation_activity"]["subagent"]["events"], 11)
+        self.assertGreaterEqual(failure["seconds_since_last_event"], 0)
+        self.assertGreaterEqual(failure["generation_activity"]["root"]["seconds_since_last_generation"], 0)
         self.assertFalse((self.scratch / f"{self.agent.name}-response-1.txt").exists())
         text = (self.scratch / "sdk-events.jsonl").read_text()
         self.assertNotIn("private prompt", text)
         self.assertNotIn("private partial content", text)
         self.assertNotIn("private reasoning", text)
+        self.assertNotIn("private complete reasoning", text)
         self.assertNotIn("private subagent partial content", text)
         self.assertNotIn(content, text)
         self.assertFalse(actual._structured_waits)
         session.abort.assert_awaited_once()
         session.disconnect.assert_awaited_once()
+
+    async def test_retry_and_model_call_diagnostics_are_visible_without_private_payloads(self):
+        sdk, session, _actual = await self.installed_wait([
+            self.event("model.call_start", ModelCallStartData(turn_id="turn-id", model="offline")),
+            self.event("model.call_failure", ModelCallFailureData(
+                source=next(iter(ModelCallFailureSource)), status_code=429, retry_attempt=1,
+                error_message="private provider payload",
+            )),
+            self.event("assistant.turn_retry", AssistantTurnRetryData(
+                turn_id="turn-id", model="offline", reason="private retry explanation",
+            )),
+        ])
+        with self.assertRaisesRegex(AutomationError, "timed out"):
+            await sdk.run(self.agent, "Offline", self.scratch)
+        rows = self.records()
+        failure = next(row["data"] for row in rows if row["type"] == "controller.timeout")
+        self.assertEqual(failure["event_counts"]["root:model.call_start"], 1)
+        self.assertEqual(failure["event_counts"]["root:assistant.turn_retry"], 1)
+        self.assertEqual(failure["generation_activity"], {})
+        model = next(row["data"] for row in rows if row["type"] == "model.call_failure")
+        self.assertEqual(model["status_code"], 429)
+        self.assertEqual(model["retry_attempt"], 1)
+        text = (self.scratch / "sdk-events.jsonl").read_text()
+        self.assertNotIn("private provider payload", text)
+        self.assertNotIn("private retry explanation", text)
+        session.abort.assert_awaited_once()
+
+    async def test_responsive_heartbeat_does_not_imply_generation_or_extend_controller_timeout(self):
+        session, client = self.session(), AsyncMock()
+        async def wait(*_args, **_kwargs):
+            await asyncio.Event().wait()
+        session.send_and_wait.side_effect = wait
+        client.create_session.return_value = session
+        with (
+            patch("review_issues.SDK_HEARTBEAT_SECONDS", 0.01),
+            patch("review_issues.SDK_PING_TIMEOUT_SECONDS", 0.02),
+            self.assertRaisesRegex(AutomationError, "not evidence of model progress"),
+        ):
+            await SDK(client, None, 0.1).run(self.agent, "Offline", self.scratch)
+        failure = next(row["data"] for row in self.records() if row["type"] == "controller.timeout")
+        self.assertTrue(failure["deadline_expired"])
+        self.assertEqual(failure["last_heartbeat"]["rpc_status"], "responsive")
+        self.assertFalse(failure["last_heartbeat"]["proves_model_progress"])
+        self.assertEqual(failure["last_heartbeat"]["scope"], "shared_runtime")
+        self.assertEqual(failure["generation_activity"], {})
+        self.assertIsNone(failure["last_event"])
+        self.assertIsNotNone(failure["seconds_since_last_rpc_success"])
+        self.assertFalse(failure["heartbeat_in_flight"])
+        client.ping.assert_awaited()
+        self.assertFalse([task for task in asyncio.all_tasks() if task.get_name().startswith("sdk-heartbeat-")])
+
+    async def test_ping_failure_or_timeout_is_diagnostic_and_does_not_fail_a_valid_response(self):
+        errors = {
+            "error": RuntimeError("private transport credential"),
+            "rpc_error": JsonRpcError(-32601, "private transport credential"),
+            "process_exit": ProcessExitedError("private transport credential"),
+        }
+        for mode in (*errors, "timeout"):
+            with self.subTest(mode=mode):
+                session, client = self.session(), AsyncMock()
+                ping_finished = asyncio.Event()
+
+                async def ping():
+                    try:
+                        if mode in errors:
+                            raise errors[mode]
+                        await asyncio.Event().wait()
+                    finally:
+                        ping_finished.set()
+
+                async def respond(*_args, **_kwargs):
+                    await ping_finished.wait()
+                    await asyncio.sleep(0)
+                    return SimpleNamespace(data=AssistantMessageData(content="Offline result", message_id="reply"))
+
+                client.ping.side_effect = ping
+                client.create_session.return_value = session
+                session.send_and_wait.side_effect = respond
+                with patch("review_issues.SDK_HEARTBEAT_SECONDS", 0.001), patch("review_issues.SDK_PING_TIMEOUT_SECONDS", 0.01):
+                    result = await SDK(client, None, 1).run(self.agent, "Offline", self.scratch)
+                self.assertEqual(result, "Offline result")
+                probes = [row["data"] for row in self.records() if row["type"] == "controller.heartbeat"]
+                self.assertEqual(probes[-1]["rpc_status"], "timeout" if mode == "timeout" else "error")
+                if mode == "rpc_error":
+                    self.assertEqual(probes[-1]["rpc_error_code"], -32601)
+                self.assertNotIn("private transport credential", (self.scratch / "sdk-events.jsonl").read_text())
+                session.abort.assert_not_awaited()
+                session.disconnect.assert_awaited_once()
+
+    async def test_cancellation_drains_inflight_ping_and_unregisters_runtime_correlation(self):
+        session, client = self.session(), AsyncMock()
+        ping_started, ping_cancelled = asyncio.Event(), asyncio.Event()
+
+        async def ping():
+            ping_started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                ping_cancelled.set()
+
+        async def wait(*_args, **_kwargs):
+            await asyncio.Event().wait()
+
+        client.ping.side_effect = ping
+        client.create_session.return_value = session
+        session.send_and_wait.side_effect = wait
+        async with RuntimeDiagnostics(self.scratch / "runtime.jsonl") as diagnostics:
+            with patch("review_issues.SDK_HEARTBEAT_SECONDS", 0.001):
+                task = asyncio.create_task(SDK(client, None, 30, diagnostics=diagnostics).run(self.agent, "Offline", self.scratch))
+                await asyncio.wait_for(ping_started.wait(), 1)
+                task.cancel()
+                with self.assertRaises(asyncio.CancelledError):
+                    await task
+            self.assertTrue(ping_cancelled.is_set())
+            self.assertEqual(diagnostics._sessions, {})
+        records = self.records()
+        cancelled = next(row["data"] for row in records if row["type"] == "controller.cancelled")
+        self.assertEqual(cancelled["last_heartbeat"]["rpc_status"], "cancelled")
+        self.assertFalse(cancelled["heartbeat_in_flight"])
+        session.abort.assert_awaited_once()
+        session.disconnect.assert_awaited_once()
+        before = (self.scratch / "sdk-events.jsonl").read_bytes()
+        await asyncio.sleep(0.01)
+        self.assertEqual((self.scratch / "sdk-events.jsonl").read_bytes(), before)
+
+    async def test_successful_completion_cancels_an_inflight_ping_without_aborting_the_turn(self):
+        session, client = self.session(), AsyncMock()
+        ping_started, ping_cancelled = asyncio.Event(), asyncio.Event()
+
+        async def ping():
+            ping_started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                ping_cancelled.set()
+
+        async def respond(*_args, **_kwargs):
+            await ping_started.wait()
+            return SimpleNamespace(data=AssistantMessageData(content="Offline result", message_id="reply"))
+
+        client.ping.side_effect = ping
+        client.create_session.return_value = session
+        session.send_and_wait.side_effect = respond
+        with patch("review_issues.SDK_HEARTBEAT_SECONDS", 0.001):
+            result = await SDK(client, None, 1).run(self.agent, "Offline", self.scratch)
+        self.assertEqual(result, "Offline result")
+        self.assertTrue(ping_cancelled.is_set())
+        session.abort.assert_not_awaited()
+        session.disconnect.assert_awaited_once()
+        self.assertFalse([task for task in asyncio.all_tasks() if task.get_name().startswith("sdk-heartbeat-")])
+
+    async def test_heartbeats_run_during_approval_pause_without_changing_the_active_deadline(self):
+        session, client = self.session(), AsyncMock()
+        tools = ReproductionEvidenceTools(FakeGitHub(), self.scratch, [])
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(
+            tools=[SimpleNamespace(name=tool.name) for tool in tools.tools],
+        )
+
+        async def respond(*_args, **_kwargs):
+            deadline = tools.deadline
+            assert deadline is not None
+            when = deadline.when()
+            assert when is not None
+            clock = asyncio.get_running_loop().time
+            remaining = when - clock()
+            deadline.reschedule(None)
+            await asyncio.sleep(0.06)
+            deadline.reschedule(clock() + remaining)
+            return SimpleNamespace(data=AssistantMessageData(content="Offline result", message_id="reply"))
+
+        client.create_session.return_value = session
+        session.send_and_wait.side_effect = respond
+        with patch("review_issues.SDK_HEARTBEAT_SECONDS", 0.005):
+            result = await SDK(client, None, 0.03).run(self.agent, "Offline", self.scratch, tools=tools, native_tools=[])
+        self.assertEqual(result, "Offline result")
+        heartbeats = [row["data"] for row in self.records() if row["type"] == "controller.heartbeat"]
+        self.assertTrue(any(row["deadline_paused"] and row["rpc_status"] == "responsive" for row in heartbeats))
+        self.assertIsNone(tools.deadline)
+        session.abort.assert_not_awaited()
+
+    async def test_correction_resets_generation_activity_but_shares_the_original_deadline(self):
+        session, client = self.session(), AsyncMock()
+        listener = None
+        attempts = 0
+
+        async def create(**options):
+            nonlocal listener
+            listener = options["on_event"]
+            return session
+
+        async def respond(*_args, **_kwargs):
+            nonlocal attempts
+            attempts += 1
+            assert listener is not None
+            if attempts == 1:
+                listener(self.event("assistant.message_delta", AssistantMessageDeltaData(
+                    delta_content="private first attempt", message_id="first",
+                )))
+                return SimpleNamespace(data=AssistantMessageData(content="invalid JSON", message_id="first"))
+            await asyncio.Event().wait()
+
+        client.create_session.side_effect = create
+        session.send_and_wait.side_effect = respond
+        with self.assertRaisesRegex(AutomationError, "timed out"):
+            await SDK(client, None, 0.05).run(self.agent, "Offline", self.scratch, schema=DraftCheck)
+        failure = next(row["data"] for row in self.records() if row["type"] == "controller.timeout")
+        self.assertEqual(failure["attempt"], 2)
+        self.assertEqual(failure["generation_activity"], {})
+        self.assertEqual(failure["event_counts"], {})
+        waits = [row["data"] for row in self.records() if row["type"] == "controller.lifecycle" and row["data"]["phase"] == "response_wait"]
+        self.assertLess(waits[1]["remaining_active_seconds"], waits[0]["remaining_active_seconds"])
+        self.assertNotIn("private first attempt", (self.scratch / "sdk-events.jsonl").read_text())
+
+    async def test_parallel_turn_timeout_does_not_cancel_healthy_sibling_or_misattribute_runtime_logs(self):
+        client = AsyncMock()
+        sessions = {}
+        both_started = asyncio.Event()
+        running = 0
+
+        async def create(**options):
+            nonlocal running
+            key = Path(options["additional_directories"][0]).name
+            session = self.session()
+            session.session_id = "parallel-" + key
+            sessions[key] = session
+
+            async def respond(*_args, **_kwargs):
+                nonlocal running
+                running += 1
+                if running == 2:
+                    logging.getLogger("copilot._jsonrpc").warning("[CLI] %s", "shared transport private payload")
+                    both_started.set()
+                await both_started.wait()
+                if key == "healthy":
+                    return SimpleNamespace(data=AssistantMessageData(content="Offline result", message_id="reply"))
+                await asyncio.sleep(0.01)
+                raise TimeoutError("Offline nested response timeout")
+
+            session.send_and_wait.side_effect = respond
+            return session
+
+        client.create_session.side_effect = create
+        for key in ("healthy", "timeout"):
+            (self.scratch / key).mkdir()
+        async with RuntimeDiagnostics(self.scratch / "runtime.jsonl") as diagnostics:
+            sdk = SDK(client, None, 3, diagnostics=diagnostics)
+            with patch("review_issues.SDK_HEARTBEAT_SECONDS", 0.005):
+                results = await asyncio.gather(*(
+                    sdk.run(self.agent, "Offline", self.scratch / key) for key in ("healthy", "timeout")
+                ), return_exceptions=True)
+            self.assertEqual(diagnostics._sessions, {})
+        self.assertEqual(results[0], "Offline result")
+        self.assertIsInstance(results[1], AutomationError)
+        sessions["healthy"].abort.assert_not_awaited()
+        sessions["timeout"].abort.assert_awaited_once()
+        for session in sessions.values():
+            session.disconnect.assert_awaited_once()
+        rows = [json.loads(line) for line in (self.scratch / "runtime.jsonl").read_text().splitlines()]
+        log = next(row for row in rows if row["type"] == "runtime.log")
+        self.assertEqual(log["correlation"], "active_sessions_only")
+        self.assertEqual({row["session_id"] for row in log["sessions"]}, {"parallel-healthy", "parallel-timeout"})
+        self.assertNotIn("private payload", (self.scratch / "runtime.jsonl").read_text())
 
     async def test_autopilot_idle_is_recorded_but_does_not_complete_structured_output(self):
         sdk, session, _actual = await self.installed_wait([

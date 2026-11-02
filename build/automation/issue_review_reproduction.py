@@ -15,6 +15,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import tarfile
 import tempfile
 import tokenize
@@ -30,7 +31,7 @@ from urllib.request import HTTPRedirectHandler, build_opener
 
 from pydantic import BaseModel, Field, JsonValue
 
-from issue_review_models import ExploratoryReproductionScenario, Issue, ReproductionScenario, ReproductionTarget, Symptom
+from issue_review_models import ConfiguredReproductionScenario, Issue, ReproductionScenario, ReproductionTarget, Symptom
 from issue_review_rca import Runner
 
 VERSION = re.compile(r"1\.[0-9]+\.[0-9]+")
@@ -282,9 +283,19 @@ def relative_path(name: str) -> Path:
 Phase = Literal["original", "control"]
 
 
-def validate_exploratory_settings(scenario: ExploratoryReproductionScenario, report: str) -> None:
+def reproduction_defaults() -> dict[str, str]:
+    return {
+        "pythonVersion": f"{sys.version_info.major}.{sys.version_info.minor}",
+        "typeCheckingMode": "standard",
+    }
+
+
+def validate_exploratory_settings(scenario: ConfiguredReproductionScenario, report: str) -> None:
     if any(
-        item.report_quote not in report or not re.search(rf"(?<![\w.]){re.escape(item.value)}(?![\w.])", item.report_quote)
+        item.report_quote not in report or not re.search(
+            rf"(?<![\w.]){re.escape(item.value)}" + (r"(?:\.\d+)?" if item.setting == "pythonVersion" else "")
+            + r"(?![\w.])", item.report_quote,
+        )
         for item in scenario.reported_configuration
     ):
         raise ValueError("Reported settings need exact report quotes containing their unchanged values")
@@ -298,13 +309,14 @@ def validate_exploratory_settings(scenario: ExploratoryReproductionScenario, rep
         ):
             explicit.setdefault(key, set()).add(value)
     for match in re.finditer(
-        r"(?i)(?:\bPython(?:\s+version)?\s*[:=]?\s+|--pythonversion(?:=|\s+))(3\.\d+)(?![\d.])", report
+        r"(?i)(?:\bC?Python(?:[\s*:_`-]+version)?[\s*:=_`-]*(?:is\s+)?v?"
+        r"|--pythonversion(?:=|\s+))(3\.\d+)(?:\.\d+)?(?![\d.])", report
     ):
         explicit.setdefault("pythonVersion", set()).add(match.group(1))
     assumed = {item.setting for item in scenario.configuration_assumptions}
     for key, values in explicit.items():
         if len(values) != 1 or scenario.configuration.get(key) not in values or key in assumed:
-            raise ValueError(f"Exploration cannot replace or relabel the reported {key} setting")
+            raise ValueError(f"Reproduction cannot replace or relabel the reported {key} setting")
 
 
 class PredicateConflict(ValueError):
@@ -377,9 +389,9 @@ def scenario_inputs(scenario: ReproductionScenario, *, phase: Phase = "original"
     if any(key not in allowed and not key.startswith("report") for key in configuration):
         raise ValueError("Scenario cannot change paths, imports, plugins or analysis scope")
     if configuration.get("typeCheckingMode") not in {"off", "basic", "standard", "strict"}:
-        raise ValueError("An explicit report-faithful typeCheckingMode is required")
+        raise ValueError("An explicit reported or disclosed default typeCheckingMode is required")
     if not re.fullmatch(r"3\.\d+", str(configuration.get("pythonVersion", ""))):
-        raise ValueError("An explicit report-faithful Python version is required")
+        raise ValueError("An explicit reported or disclosed default Python version is required")
     configuration["include"] = [str(relative_path(name)) for name in sorted(files) if name.endswith(".py")]
     for claim in scenario.claims:
         if claim.surface != "cli":

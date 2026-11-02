@@ -534,7 +534,7 @@ class ReportedConfigurationSetting(Record):
     report_quote: Text
 
 
-class ExploratoryReproductionScenario(ReproductionScenario):
+class ConfiguredReproductionScenario(ReproductionScenario):
     configuration_assumptions: list[ConfigurationAssumption]
     reported_configuration: list[ReportedConfigurationSetting]
 
@@ -549,6 +549,23 @@ class ExploratoryReproductionScenario(ReproductionScenario):
         if any(self.configuration.get(item.setting) != item.value for item in settings):
             raise ValueError("Every disclosed setting must match the frozen configuration")
         return self
+
+
+class DefaultReproductionScenario(ConfiguredReproductionScenario):
+    configuration_policy: Literal["defaults"]
+
+    @model_validator(mode="after")
+    def complete_settings(self) -> Self:
+        if not set(EXPLORATORY_SETTINGS).issubset(self.configuration):
+            raise ValueError(
+                "Supply reported values or the controller defaults for both pythonVersion and typeCheckingMode; "
+                "omitted settings are not unmet prerequisites"
+            )
+        return self
+
+
+class ExploratoryReproductionScenario(ConfiguredReproductionScenario):
+    pass
 
 
 class ReproductionTarget(Record):
@@ -603,13 +620,18 @@ class ExploratoryReproductionScenarioTransport(ReproductionScenarioTransport):
     reported_configuration: list[ReportedConfigurationSetting]
 
 
+class DefaultReproductionScenarioTransport(ExploratoryReproductionScenarioTransport):
+    configuration_policy: Literal["defaults"]
+
+
 class ReproductionStage(Record):
     input_hash: Text
     discussion_hash: Text
     directory: Text
     status: Literal["running", "complete", "blocked", "failed"] = "running"
-    scenario: ReproductionScenario | ExploratoryReproductionScenario | None = None
+    scenario: ReproductionScenario | DefaultReproductionScenario | ExploratoryReproductionScenario | None = None
     exploratory: bool = Field(default=False, frozen=True)
+    default_settings: dict[str, str] | None = Field(default=None, frozen=True)
     policy_hash: str | None = None
     targets: list[ReproductionTarget] = Field(default_factory=list)
     receipt_ids: list[str] = Field(default_factory=list)
@@ -623,8 +645,11 @@ class ReproductionStage(Record):
     def observation_only(self) -> bool:
         return self.exploratory or isinstance(self.scenario, ExploratoryReproductionScenario)
 
+    def uses_default_settings(self) -> bool:
+        return isinstance(self.scenario, DefaultReproductionScenario) and bool(self.scenario.configuration_assumptions)
+
     def action(self) -> Literal["fixed", "not_reproducible"] | None:
-        if self.observation_only():
+        if self.observation_only() or self.uses_default_settings():
             return None
         if self.status != "complete" or self.gate is None or not self.gate.approved:
             return None

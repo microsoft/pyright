@@ -64,6 +64,18 @@ and failed investigations leave unreached closure stages untested. An existing p
 reconciliation rather than being resumed by rehearsal. Standalone non-reproduction labels and RCA comments are
 outside closure rehearsal.
 
+Closing-comment factual checks receive the same frozen issue and investigation/comparison packet as the writer.
+Reporter assertions may be attributed, but are never promoted to independently executed observations. After a
+valid factual rejection, `rich-mirror` may make **one** correction using only that packet and the exact objections,
+followed by a new factual check. Fixed-comment checks start with fresh receipt-delivery accounting each time.
+Each writer/check turn retains the existing `--timeout` cap; this one factual correction is separate from the
+SDK's same-turn bounded JSON/schema repair.
+Both attempts retain their exact drafts, writer prompts and returned checks in `comment-attempts/1` and
+`comment-attempts/2`. A second rejection stays blocked. Screening/transport/schema failures, timeouts, missing
+canonical links and freshness failures do not authorize a correction. Interrupted or exhausted attempts cannot
+restart automatically on resume; preserve the artifacts and use fresh state for a new investigation. Final
+eligibility is still required, and a rejected first check is not reported as passed while correction is running.
+
 The GitHub transport rejects every non-GET request and GraphQL in this mode, in addition to the controller's
 read-only publication guards. No comments, issue/repository labels or closures can be sent, and no retry/publication
 ledger is created. Final eligibility reuses the live pre-publication checks after factual review and rechecks the
@@ -131,8 +143,10 @@ over interpreter-version prose while retaining all captured contexts and patch-v
 These profiles do not establish which case was the original, a control or an authoritative correction.
 Conflicting values within one context, unsupported declarations, ambiguous source layouts and unavailable targets
 remain explicit blockers.
-Only genuinely absent settings receive disclosed experimental defaults: `pythonVersion=3.13` and
-`typeCheckingMode=standard`. `--no-observations` disables this fallback.
+Only genuinely absent settings receive the same disclosed defaults as ordinary reconstruction:
+`pythonVersion` is the controller interpreter's major/minor version (for example `3.14`), and
+`typeCheckingMode=standard`. These are explicit static targets, not reporter-environment discovery.
+`--no-observations` disables this separate diagnostic fallback, not ordinary default-based reconstruction.
 The fallback uses the same reported-version reference reader as target selection, including references such
 as `npx pyright@1.1.414`. Ambiguous or unavailable historical versions block that target, not independent
 main/latest experiments. Checker-version references remain captured; this does not relax Python/checking
@@ -143,7 +157,7 @@ substitutes an older main target. It uses the same cache-only/preauthorized-targ
 Missing imports and runtime-dependency differences remain visible in raw diagnostics. Results, source/settings
 capture, target identities and assumptions are saved under `<issue>\diagnostic-observations\<attempt>`, and
 summarized in the morning report. They are **not faithful historical reproduction, fix verification, type-precision
-proof, or independent closure evidence**. The strict comparison and all publication gates remain unchanged.
+proof, or independent closure evidence**. Faithful-comparison and publication requirements remain unchanged.
 
 Target-cache restoration, integrity hashing, archive extraction, main-bundle copying and owned-directory cleanup
 run in worker threads so slow filesystem operations do not block another issue's screening timeouts or retry wait.
@@ -152,10 +166,36 @@ publication revalidation. Cancellation drains the current filesystem operation b
 release; it never leaves a worker writing into a directory that has already been removed. Screening budgets,
 retry limits and fail-closed decisions are unchanged.
 
+The local root `run_overnight.ps1` test launcher now reruns the **same 25 issues** as
+`overnight-20261030-131421-090`, including the two earlier reconstruction timeouts, in a fresh
+`$env:USERPROFILE\.copilot\issue-review\overnight-settings-diagnostics-<timestamp>` directory. Its fixed issue-ID
+selection retains reserved holdout/pilot exclusions; no prior reports, answers or checkpoints are reused.
+It paginates open GitHub issues only to verify the entire cohort is still available, excludes pull requests,
+and fails without substitutions if any matched issue is no longer open. Existing state directories cannot be
+resumed accidentally. GitHub captures and checker targets are fresh, so this is a matched-issue comparison,
+not a frozen-input or pinned-target benchmark.
+It prints the cohort, fresh state and diagnostics paths before starting, keeps two concurrent issues, ordinary
+role budgets at 900 seconds, reconstruction/gate budgets at 300 seconds, and `--overnight --dry-run`. Disclosed
+configuration defaults and the SDK diagnostics below apply automatically. It does not rehearse or publish
+comments. Run this local launcher from PowerShell with `.\run_overnight.ps1`; updating it does not start a batch.
+
 Reconstruction/evidence-gate turns have an independent `--reproduction-timeout` budget (default 900 active
 seconds each, including bounded correction), so shortening `--timeout` for other stages does not accidentally
-starve reconstruction. Clearly absent checking-mode reports skip strict model planning in favor of recording
-that blocker and attempting the separate observation path.
+starve reconstruction. Missing Python/checking settings no longer stop planning in any mode, including closure
+rehearsal and runs without separate diagnostic observations. Ordinary reconstruction uses `standard` checking
+and the controller interpreter's Python major/minor only for omitted settings. Reported configuration,
+playground, source and discussion values take precedence; conflicting or unsupported settings remain unresolved,
+not silently defaulted. `setup-preflight.json` records marker absence without making an eligibility decision.
+The controller freezes the defaults in its hashed policy and requires each effective value to have either an
+exact reported quote or a disclosed default assumption.
+
+Defaulted historical/main/latest comparisons execute normally and feed the behavior/duplicate investigation.
+The JSON and Markdown reports expose assumptions and conditional-result qualifications. They do not establish
+the reporter's environment or independently authorize fixed/non-reproducible actions. Independent by-design and
+duplicate investigations retain their existing evidence gates; this is not the globally observation-only
+exploratory mode. Missing dependencies, unsupported surfaces, pristine-source/precision failures and unavailable
+targets still block the affected checks. Use fresh run state: saved scenarios and historical outcomes are not
+rewritten or upgraded. This change does not diagnose or fix an SDK/model silence timeout.
 
 Missing reported settings are never silently promoted to facts. `--exploratory-reproduction --overnight --dry-run` permits
 the existing disclosed, observation-only experiments, but cannot authorize live closures. Legacy
@@ -494,7 +534,7 @@ neither these distinctions nor correct reference delivery establishes improved m
 
 `pyright-issue-reproducer` reconstructs an inspected static-only scenario from the screened issue and complete
 discussion. It does not execute reporter code/commands or diagnose a cause. The controller freezes pristine
-report-faithful `files`, explicit Python/checking settings, exact original symptom predicates and affirmative
+report-faithful `files`, explicit reported or disclosed default Python/checking settings, exact original symptom predicates and affirmative
 precision controls. Added queries belong only in a separate complete `control_files` tree, with the same file set
 and configuration. Every original target executes before any instrumented controls, in separate immutable probe
 directories with independent raw receipts. Only original executions establish reproduction/resolution; controls
@@ -1047,6 +1087,42 @@ finding; repeating an unsupported conclusion is not a repair. Waiting for operat
 budget, and approval prompts do not block the SDK event loop.
 Product checks still count toward the turn budget and retain their own process timeouts. Timing out aborts
 the turn, records an explicit error and SDK/tool-event timing, and does not manufacture an inconclusive verdict.
+
+### SDK timeout diagnostics
+
+The console enables streaming explicitly, including subagent streaming events, without replacing the SDK's
+correlated final-response/idle completion checks. Per-role `sdk-events.jsonl` records first partial-output events,
+counts and first/last generation timestamps separately for root and subagent activity, plus available model-call,
+retry, usage, warning and error metadata. Subsequent deltas are counted rather than written individually.
+`controller.heartbeat`, `controller.lifecycle` records in the `response_returned` phase and `controller.timeout` summaries expose
+activity counts, time since the last event/generation and the last local RPC result. Runtime diagnostics alone
+are not evidence that a checker executed or that an investigation reached a conclusion.
+
+Every 30 seconds during a turn, a read-only runtime ping has its own three-second limit. A responsive ping
+establishes local SDK/CLI RPC responsiveness, **not model generation or provider health**. Probe timeouts/errors
+are recorded, not silently treated as success, and do not independently fail an otherwise valid investigation.
+The monitor runs during operator-approval pauses, never resets or extends the role deadline, and is cancelled
+and drained on completion, failure or cancellation. No automatic investigation retry or longer role budget is
+introduced. Short turns can finish without a heartbeat; that is `not_observed`, not evidence of failure.
+
+The console also captures SDK debug logging and CLI stderr through the SDK's logging interface into
+`<state>\sdk-runtime.jsonl`. This is a **privacy-filtered diagnostic view, not a verbatim debug transcript**:
+it retains timestamps, severity, known SDK operation names/timings, message sizes/hashes and explicitly marked
+text signals such as retry/connection/timeout. It does not copy raw log messages, prompts, source, partial output,
+reasoning, exception stacks or URLs. Structured session events retain allowlisted numeric/status/model metadata;
+opaque non-UUID request identifiers and free-form error/retry explanations are hashed. Only a known active
+session-ID match attributes a runtime line to that session; otherwise the log lists possible active sessions
+or marks the line runtime-only. Concurrent-session candidates are not proof that a line belongs to one issue.
+
+Runtime capture is capped at 20,000 records or approximately 8 MiB per console invocation, with explicit limit
+and dropped-record summaries. Session event/timeout logs remain separate. The SDK logger configuration is
+restored when the console exits. `run.json` and `sdk-sessions.jsonl` record diagnostics settings and locations.
+This filtering applies to these diagnostic captures, not existing raw reproduction evidence or the runtime's
+own independent storage. Existing frozen runs are not rewritten; new logging cannot reconstruct missing
+provider/transport evidence from an earlier silent timeout.
+
+### Concurrent investigations
+
 Both investigators run for every issue, including
 by-design findings; the old `--duplicates` flag is accepted for compatibility but no longer needed.
 All issues in a chunk run concurrently in separate SDK sessions, scratch directories and RCA runtimes.
@@ -1068,7 +1144,7 @@ remaining active allowance and approval pauses; message/origin/turn IDs, root-ve
 and cancellation/abort/disconnect completion. Only the first delta per kind and root/subagent scope is logged,
 with cumulative counts retained in response/timeout summaries. Final-response metadata records byte size and
 SHA-256, not message content; new metadata never copies prompts, reasoning or delta text. Existing separately
-saved raw responses and usage/error records remain unchanged.
+saved raw responses remain unchanged; new usage/error event records use the filtered metadata policy above.
 Select `controller.timeout` by event type, not by log position: cleanup events can follow it. A final-message or
 usage event alone does not establish structured SDK completion, which also requires the SDK's request correlation
 and root idle signaling. Missing old lifecycle events cannot establish provider silence or a completion defect.

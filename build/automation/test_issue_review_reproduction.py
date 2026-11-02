@@ -25,12 +25,13 @@ from pydantic import JsonValue
 from issue_review_evidence import evidence_json
 from issue_review_classifier import ChoiceClassification
 from issue_review_models import (
-    Closure, DraftCheck, Entry, ExploratoryReproductionScenario, Label, ReproductionGate, ReproductionScenario,
+    Closure, DefaultReproductionScenario, DraftCheck, Entry, ExploratoryReproductionScenario, Label,
+    ReproductionGate, ReproductionScenario, ReviewFindings,
 )
 from issue_review_reproduction import (
     MICROSOFT_FEED, MICROSOFT_REGISTRY, NPM_REGISTRY, UPSTREAM, RegistryRedirects,
     ReleaseCatalog, TargetStore, classify, fingerprint, observe_claims, registry_base, release_wording, scenario_inputs,
-    select_targets, tree_hash, validate_exploratory_settings, validate_registry_url,
+    reproduction_defaults, select_targets, tree_hash, validate_exploratory_settings, validate_registry_url,
 )
 from issue_review_safety import InjectionScreening, ScreeningBlocked
 from review_issues import (
@@ -90,6 +91,25 @@ def exploratory_scenario() -> ExploratoryReproductionScenario:
             for key, value in probe.configuration.items()
         ],
         "reported_configuration": [],
+    })
+
+
+def default_scenario(
+    probe: ReproductionScenario | None = None, *, reported: dict[str, str] | None = None,
+) -> DefaultReproductionScenario:
+    probe, reported = probe or scenario(), reported or {}
+    configuration = {**probe.configuration, **{
+        key: value for key, value in reproduction_defaults().items() if key not in reported
+    }}
+    return DefaultReproductionScenario.model_validate({
+        **probe.model_dump(), "configuration": configuration, "configuration_policy": "defaults",
+        "configuration_assumptions": [
+            {"setting": key, "value": value, "reason": "Controller default for an omitted setting, not a reporter fact"}
+            for key, value in reproduction_defaults().items() if key not in reported
+        ],
+        "reported_configuration": [
+            {"setting": key, "value": configuration[key], "report_quote": quote} for key, quote in reported.items()
+        ],
     })
 
 
@@ -419,6 +439,27 @@ class TransportTests(unittest.TestCase):
         wire["claims"][0]["precision"][0]["present"] = False
         with self.assertRaisesRegex(ValueError, "affirmative"):
             reproduction_response(ExploratoryReproductionScenario, json.dumps(wire))
+
+    def test_default_wire_preserves_policy_disclosures_and_legacy_distinction(self):
+        probe = default_scenario()
+        wire = self.wire_scenario(probe)
+        decoded = DefaultReproductionScenario.model_validate_json(
+            reproduction_response(DefaultReproductionScenario, json.dumps(wire))
+        )
+        self.assertEqual(decoded, probe)
+        for other in (ReproductionScenario, ExploratoryReproductionScenario):
+            with self.subTest(other=other), self.assertRaises(ValueError):
+                reproduction_response(other, json.dumps(wire))
+        wire["configuration_assumptions"] = []
+        with self.assertRaisesRegex(ValueError, "reported quote or assumption"):
+            reproduction_response(DefaultReproductionScenario, json.dumps(wire))
+        wire = self.wire_scenario(probe)
+        wire["configuration"] = [item for item in wire["configuration"] if item["key"] != "pythonVersion"]
+        wire["configuration_assumptions"] = [
+            item for item in wire["configuration_assumptions"] if item["setting"] != "pythonVersion"
+        ]
+        with self.assertRaisesRegex(ValueError, "controller defaults for both"):
+            reproduction_response(DefaultReproductionScenario, json.dumps(wire))
 
     def test_assumptions_are_bounded_complete_unique_and_match_exact_configuration(self):
         valid = exploratory_scenario().model_dump()
@@ -912,6 +953,7 @@ class FakeTargets(TargetStore):
 class ReproductionGitHub(FakeGitHub):
     def __init__(self):
         super().__init__()
+        self.current.body = (self.current.body or "") + "\nPython 3.10; typeCheckingMode=standard"
         self.current.created_at = "2025-02-15T00:00:00Z"
         self.repository_labels = {"bug", "fixed in next version (main)"}
         self.calls: list[tuple[str, JsonValue]] = []
@@ -988,7 +1030,15 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
 
     async def respond(self, agent, prompt, directory, **options):
         schema = options.get("schema")
-        if schema in (ReproductionScenario, ExploratoryReproductionScenario):
+        if schema is DefaultReproductionScenario and not isinstance(self.planned_scenario, DefaultReproductionScenario):
+            report = (self.github.current.body or "") + "\n" + "\n".join(
+                str(comment.get("body", "")) for comment in self.github.discussion if isinstance(comment, dict)
+            )
+            return default_scenario(self.planned_scenario, reported={
+                key: report for key, value in self.planned_scenario.configuration.items()
+                if key in reproduction_defaults() and str(value) in report
+            }).model_dump_json()
+        if schema in (ReproductionScenario, ExploratoryReproductionScenario, DefaultReproductionScenario):
             return self.planned_scenario.model_dump_json()
         if schema is ReproductionGate:
             tools = options["tools"]
@@ -1011,6 +1061,8 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         return self.entry.reproduction_stage
 
     def enable_exploration(self):
+        if self.github.current.body == "A small reproducer\nPython 3.10; typeCheckingMode=standard":
+            self.github.current.body = "A small reproducer"
         previous = self.console
         self.console = Console(
             self.github, self.sdk, previous.state, previous.reviewer, previous.duplicate, previous.writer,
@@ -1130,13 +1182,222 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.entry.issue = self.github.current.model_copy(deep=True)
         self.entry.input_hash = self.console.key(self.entry.issue)
 
-    async def test_missing_mode_short_circuits_planning_and_observes_captured_source_without_sdk(self):
+    async def test_missing_settings_execute_with_disclosed_defaults_with_or_without_observation_fallback(self):
+        for observations in (False, True):
+            for settings, missing in (
+                ("Python 3.10; default configuration", ["typeCheckingMode"]),
+                ("typeCheckingMode=standard", ["pythonVersion"]),
+                ("", ["typeCheckingMode", "pythonVersion"]),
+            ):
+                with self.subTest(observations=observations, settings=settings):
+                    self.entry.reproduction_stage = None
+                    self.github.current.body = "A small reproducer\n" + settings
+                    self.entry.issue = self.github.current.model_copy(deep=True)
+                    self.entry.input_hash = self.console.key(self.entry.issue)
+                    self.sdk.run.reset_mock()
+                    self.console.observe_blocked = observations
+                    stage = await self.ready()
+                    assert isinstance(stage.scenario, DefaultReproductionScenario)
+                    self.assertEqual(self.sdk.run.await_count, 2)
+                    self.assertEqual({item.setting for item in stage.scenario.configuration_assumptions}, set(missing))
+                    for setting in missing:
+                        self.assertEqual(stage.scenario.configuration[setting], reproduction_defaults()[setting])
+                    self.assertIsNone(stage.action())
+                    self.assertFalse(stage.observation_only())
+                    self.assertFalse(self.console.observation_only(self.entry))
+                    self.assertEqual(stage.proposed_labels, [])
+                    preflight = json.loads((Path(stage.directory) / "setup-preflight.json").read_text())
+                    self.assertEqual(preflight["missing_setting_markers"], missing)
+                    self.assertEqual(preflight["status"], "planning_required")
+                    self.assertEqual(preflight["default_settings"], reproduction_defaults())
+                    self.assertTrue(preflight["configuration_assumptions_allowed"])
+                    self.assertEqual(len(preflight["report_sha256"]), 64)
+                    self.assertEqual(
+                        self.console.reproduction_gate_records(stage)[0]["default_settings"], reproduction_defaults(),
+                    )
+                    records = self.console.reproduction_records(stage)
+                    self.assertEqual(len(records), 3)
+                    for record in records:
+                        self.assertEqual(record["policy_hash"], stage.policy_hash)
+                        inputs = record["inputs"]
+                        assert isinstance(inputs, dict)
+                        configuration_text = inputs["pyrightconfig.json"]
+                        assert isinstance(configuration_text, str)
+                        configuration = json.loads(configuration_text)
+                        for setting in missing:
+                            self.assertEqual(configuration[setting], reproduction_defaults()[setting])
+                    restored = self.console.load(self.entry.issue.number)
+                    assert restored is not None and restored.reproduction_stage is not None
+                    self.assertIsInstance(restored.reproduction_stage.scenario, DefaultReproductionScenario)
+                    self.assertIsNone(restored.reproduction_stage.action())
+                    self.console.validate_reproduction_policy(restored)
+                    proposal = dry_run_proposal(ChunkResult(self.entry.issue, self.entry), rca_enabled=False)
+                    self.assertTrue(proposal["reproduction_qualifications"])
+        self.assertEqual(self.targets.executions, 18)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_defaulted_reproduction_continues_fresh_behavior_duplicate_and_adjudication_flow(self):
+        self.github.current.body = "A small reproducer"
+        self.entry.issue = self.github.current.model_copy(deep=True)
+        self.entry.input_hash = self.console.key(self.entry.issue)
+        self.planned_scenario = default_scenario()
+        behavior = []
+
+        async def respond(agent, prompt, directory, **options):
+            if options.get("schema") is ReviewFindings:
+                behavior.append(prompt)
+                packet = json.loads((directory / "controller-reproduction.json").read_text())
+                self.assertEqual(packet["status"], "complete")
+                self.assertEqual(len(packet["scenario"]["configuration_assumptions"]), 2)
+                return ReviewFindings(markdown="Qualified conditional findings.", audit=audit()).model_dump_json()
+            return await self.respond(agent, prompt, directory, **options)
+
+        self.sdk.run.side_effect = respond
+        with (
+            patch.object(self.console, "investigate_duplicates", AsyncMock()) as duplicates,
+            patch.object(self.console, "adjudicate", AsyncMock()) as adjudicate,
+        ):
+            entry = await self.console.review(self.entry.issue, retry_failed=False)
+            duplicates.assert_awaited_once_with(entry)
+            adjudicate.assert_awaited_once_with(entry)
+        self.assertIsNotNone(entry.review)
+        self.assertEqual(len(behavior), 1)
+        self.assertIn("instead of abstaining", behavior[0])
+        self.assertEqual(self.sdk.run.await_count, 3)
+        assert entry.reproduction_stage is not None
+        self.assertIsNone(entry.reproduction_stage.action())
+        save_overnight_report(
+            self.console.state, "context", [entry.issue], [ChunkResult(entry.issue, entry)],
+            read_only=True, finished=True,
+        )
+        markdown = (self.console.state / "overnight-report.md").read_text(encoding="utf-8")
+        self.assertIn("Disclosed reproduction settings defaults (not reporter facts)", markdown)
+        self.assertIn("pythonVersion=" + reproduction_defaults()["pythonVersion"], markdown)
+        self.assertIn("conditional observations", markdown)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_reported_playground_values_and_off_mode_win_over_defaults(self):
+        for mode, quote in (
+            ("strict", "https://pyright-play.net/?pythonVersion=3.10&strict=true"),
+            ("off", 'pythonVersion="3.10"; typeCheckingMode="off"'),
+        ):
+            with self.subTest(mode=mode):
+                self.entry.reproduction_stage = None
+                self.github.current.body = "A small reproducer\n" + quote
+                self.entry.issue = self.github.current.model_copy(deep=True)
+                self.entry.input_hash = self.console.key(self.entry.issue)
+                probe = scenario()
+                probe.configuration["typeCheckingMode"] = mode
+                self.planned_scenario = default_scenario(
+                    probe, reported={"pythonVersion": quote, "typeCheckingMode": quote},
+                )
+                stage = await self.ready()
+                assert isinstance(stage.scenario, DefaultReproductionScenario)
+                self.assertEqual(stage.scenario.configuration, {"pythonVersion": "3.10", "typeCheckingMode": mode})
+                self.assertFalse(stage.uses_default_settings())
+                self.assertEqual(stage.action(), "fixed")
+
+    async def test_defaults_cannot_replace_reported_or_conflicting_settings_or_choose_another_value(self):
+        for settings in (
+            "Python 3.10; typeCheckingMode=strict",
+            "Python 3.10 and Python 3.11",
+            "https://pyright-play.net/?pythonVersion=3.10&strict=true",
+            'pythonVersion="3.10"; typeCheckingMode="unsupported"',
+        ):
+            with self.subTest(settings=settings):
+                self.entry.reproduction_stage = None
+                self.github.current.body = "A small reproducer\n" + settings
+                self.entry.issue = self.github.current.model_copy(deep=True)
+                self.entry.input_hash = self.console.key(self.entry.issue)
+                self.planned_scenario = default_scenario()
+                await self.console.reproduce(self.entry)
+                assert self.entry.reproduction_stage is not None
+                self.assertEqual(self.entry.reproduction_stage.status, "blocked")
+                self.assertIsNone(self.entry.reproduction_stage.action())
+        self.assertEqual(self.targets.executions, 0)
+        self.entry.reproduction_stage = None
+        self.github.current.body = "A small reproducer"
+        self.entry.issue = self.github.current.model_copy(deep=True)
+        self.entry.input_hash = self.console.key(self.entry.issue)
+        raw = default_scenario().model_dump()
+        raw["configuration"]["typeCheckingMode"] = "strict"
+        next(item for item in raw["configuration_assumptions"] if item["setting"] == "typeCheckingMode")["value"] = "strict"
+        self.planned_scenario = DefaultReproductionScenario.model_validate(raw)
+        await self.console.reproduce(self.entry)
+        assert self.entry.reproduction_stage is not None
+        self.assertIn("exact controller-owned defaults", self.entry.reproduction_stage.error or "")
+        self.assertEqual(self.targets.executions, 0)
+
+    async def test_default_policy_cannot_be_removed_on_resume_and_old_blockers_are_not_rewritten(self):
+        self.github.current.body = "A small reproducer"
+        self.entry.issue = self.github.current.model_copy(deep=True)
+        self.entry.input_hash = self.console.key(self.entry.issue)
+        self.planned_scenario = default_scenario()
+        stage = await self.ready()
+        self.sdk.run.reset_mock()
+        policy = Path(stage.directory) / "policy.json"
+        saved = policy.read_bytes()
+        policy.unlink()
+        with self.assertRaisesRegex(AutomationError, "policy"):
+            await self.console.reproduce(self.entry)
+        policy.write_bytes(saved)
+        self.sdk.run.assert_not_awaited()
+        stage.status, stage.error = "blocked", "Legacy missing-settings blocker"
+        stage.evidence_hash = self.console.reproduction_hash(stage)
+        self.console.save(self.entry)
+        before = (Path(stage.directory) / "receipts.jsonl").read_bytes()
+        await self.console.reproduce(self.entry)
+        self.assertEqual(stage.error, "Legacy missing-settings blocker")
+        self.assertEqual((Path(stage.directory) / "receipts.jsonl").read_bytes(), before)
+        self.sdk.run.assert_not_awaited()
+
+    async def test_explicit_setting_forms_are_not_rejected_by_absence_preflight(self):
+        self.planned_scenario.prerequisites = ["Stop after scenario planning"]
+        for settings in (
+            "Python 3.10.15; standard type checking",
+            "CPython v3.10.15; strict type checking",
+            "Python version is 3.10; typeCheckingMode=standard",
+            "### Python version\n\n3.10\n\n### Checking mode\n\nstandard",
+            '```json\n{"pythonVersion": "3.10", "typeCheckingMode": "standard"}\n```',
+            "`pyright --pythonversion 3.10 repro.py` with standard checking",
+            "Configuration clarified in the discussion.",
+        ):
+            with self.subTest(settings=settings):
+                self.entry.reproduction_stage = None
+                self.captured_example(settings)
+                self.console.observe_blocked = False
+                self.github.discussion = (
+                    [{"id": 8, "body": "Python 3.10; typeCheckingMode=standard"}]
+                    if settings.startswith("Configuration clarified") else []
+                )
+                self.sdk.run.reset_mock()
+                await self.console.reproduce(self.entry)
+                stage = self.entry.reproduction_stage
+                assert stage is not None
+                self.assertEqual(self.sdk.run.await_count, 1)
+                self.assertIn("Stop after scenario planning", stage.error or "")
+                preflight = json.loads((Path(stage.directory) / "setup-preflight.json").read_text())
+                self.assertEqual(preflight["missing_setting_markers"], [])
+                self.assertEqual(preflight["status"], "planning_required")
+
+    async def test_exploratory_missing_settings_still_require_disclosed_planning(self):
+        self.enable_exploration()
+        await self.ready()
+        stage = self.entry.reproduction_stage
+        assert stage is not None
+        preflight = json.loads((Path(stage.directory) / "setup-preflight.json").read_text())
+        self.assertEqual(preflight["missing_setting_markers"], ["typeCheckingMode", "pythonVersion"])
+        self.assertEqual(preflight["status"], "planning_required")
+        self.assertTrue(preflight["configuration_assumptions_allowed"])
+        self.assertIsNone(stage.action())
+
+    async def test_other_reconstruction_blockers_still_allow_separate_captured_observations(self):
         self.captured_example("Python 3.10; pyright-1.1.2")
         await self.console.reproduce(self.entry)
         stage = self.entry.reproduction_stage
         assert stage is not None
         self.assertEqual(stage.status, "blocked")
-        self.assertIsNone(stage.scenario)
+        self.assertIsNotNone(stage.scenario)
         await self.console.observe_blocked_reproduction(self.entry)
         observation = self.entry.diagnostic_observations
         assert observation is not None
@@ -1153,7 +1414,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(stage.action())
         with self.assertRaises(AutomationError):
             self.console.require_reproduction_evidence(self.entry)
-        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.sdk.run.await_count, 1)
         self.assertEqual(self.github.mutations, [])
         await self.console.observe_blocked_reproduction(self.entry)
         self.assertEqual(self.targets.executions, 3)
@@ -1168,7 +1429,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Conflicting reported pythonVersion", observation.error or "")
         self.assertNotIn("pythonVersion", [item.setting for item in observation.configuration_assumptions])
         self.assertEqual(self.targets.executions, 0)
-        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.sdk.run.await_count, 1)
 
     async def test_observations_compare_separate_reported_python_targets_without_assuming_version(self):
         self.captured_example(
@@ -1190,7 +1451,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         assert self.entry.reproduction_stage is not None
         self.assertIsNone(self.entry.reproduction_stage.action())
         self.assertTrue(observation.action_ineligible)
-        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.sdk.run.await_count, 1)
         self.assertEqual(self.github.mutations, [])
 
     async def test_observations_keep_complete_configuration_profiles_together(self):
@@ -1275,7 +1536,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Python 3.11", markdown)
         assert self.entry.reproduction_stage is not None
         self.assertIsNone(self.entry.reproduction_stage.action())
-        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.sdk.run.await_count, 1)
         self.assertEqual(self.github.mutations, [])
 
     async def test_discussion_corrections_remain_explicit_unresolved_context_not_historical_proof(self):
@@ -1331,7 +1592,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         markdown = (self.console.state / "overnight-report.md").read_text()
         self.assertIn("specimen 2", markdown)
         self.assertIn(observation.cases[1].source_ids[0], markdown)
-        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.sdk.run.await_count, 1)
         self.assertEqual(self.github.mutations, [])
 
     async def test_explicit_multifile_observations_retain_reported_paths(self):
@@ -1385,7 +1646,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(stage.action())
         with self.assertRaises(ValueError):
             select_targets(catalog(), self.entry.issue, observation, "", "a" * 40)
-        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.sdk.run.await_count, 1)
         self.assertEqual(self.github.mutations, [])
 
     async def test_partial_specimen_failure_keeps_successes_and_separate_retry_artifacts(self):
@@ -1545,12 +1806,15 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_legacy_strict_checkpoint_projection_and_receipts_remain_compatible(self):
         stage = await self.ready()
+        stage = self.entry.reproduction_stage = stage.model_copy(update={"default_settings": None})
         self.assertEqual(self.entry.input_hash, digest("context" + self.entry.issue.model_dump_json()))
         stage.policy_hash = None
         (Path(stage.directory) / "policy.json").unlink()
         records = self.console.reproduction_records(stage)
+        stage.scenario = ReproductionScenario.model_validate(scenario().model_dump())
         for record in records:
             record.pop("policy_hash")
+            record["scenario_hash"] = fingerprint(stage.scenario.model_dump())
         (Path(stage.directory) / "receipts.jsonl").write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
         assert stage.gate is not None
         stage.gate.receipt_hashes = {
@@ -1560,6 +1824,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         raw = json.loads(self.entry.model_dump_json())
         raw["reproduction_stage"].pop("exploratory")
         raw["reproduction_stage"].pop("policy_hash")
+        raw["reproduction_stage"].pop("default_settings")
         restored = Entry.model_validate(raw)
         self.sdk.reset_mock()
         await self.console.reproduce(restored)
@@ -1755,11 +2020,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         probe = scenario()
         probe.reported_version, probe.version_quote = "1.1.2", "Pyright version\n1.1.2"
         probe.claims[0].report_quote = 'A "quoted" reproducer.\nSecond line.'
-        async def respond(agent, prompt, directory, **options):
-            if options.get("schema") is ReproductionScenario:
-                return probe.model_dump_json()
-            return await self.respond(agent, prompt, directory, **options)
-        self.sdk.run.side_effect = respond
+        self.planned_scenario = probe
         stage = await self.ready()
         self.assertEqual(stage.action(), "fixed")
         self.assertFalse(stage.targets[0].approximate)

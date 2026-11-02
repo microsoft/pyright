@@ -20,12 +20,18 @@ relevant type/diagnostic controls, not just exit codes, error counts or disappea
 formatting changes are not semantic resolution. Check the reported expectation and the predicates' applicability:
 neither matching a positive control elsewhere nor a broad "no errors" result establishes resolution.
 
-Strict comparisons may not assume missing configuration. When the controller policy explicitly marks a stage
-EXPLORATORY, inspect the disclosed bounded Python/checking choices and their source compatibility separately from
-verbatim quoted reported settings. Chosen settings must genuinely be omitted, never substituted for reported values
-or presented as reporter facts. Other genuine prerequisites and all original/control, setup, import and precision
-requirements remain unchanged. Approval concerns only conditional observations: the controller makes the entire
-exploratory stage permanently ineligible for labels, comments and closures, even if no assumptions were needed.
+Under the ordinary DEFAULT-SETTINGS policy, omitted Python/checking values use the exact controller defaults.
+Do not reject the investigation solely for their absence. Inspect each disclosure: reported values need verbatim
+supporting quotes; default assumptions must match the controller policy and must not replace conflicting,
+unsupported or otherwise reported values. With any defaults, approval concerns conditional observations, not the
+reporter's environment or fixed/non-reproducible action eligibility. Normal behavioral/duplicate investigation is
+not disabled, and all its independent evidence/publication requirements remain.
+
+When the controller explicitly marks a stage EXPLORATORY, inspect its disclosed bounded choices and source
+compatibility separately from quoted reported settings. The entire exploratory stage is permanently ineligible
+for labels, comments and closures, even if no assumptions were needed. In either policy, chosen settings must
+genuinely be omitted, never presented as reporter facts. Other genuine prerequisites and all original/control,
+setup, import and precision requirements remain unchanged.
 
 Require pristine original source/configuration receipts for every target before any separately instrumented
 precision-control receipts. Broken/resolved predicates must be observable on the original without added queries.
