@@ -1088,7 +1088,7 @@ export function getEvaluationScopeNode(
                 if (prevNode === curNode.d.expr && curNode.d.typeParams) {
                     const scopeNode = curNode.d.typeParams;
                     if (AnalyzerNodeInfo.getScope(scopeNode, nodeInfo) !== undefined) {
-                        return { node: scopeNode };
+                        return { node: scopeNode, useProxyScope: true };
                     }
                 }
                 break;
