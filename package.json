@@ -36,7 +36,7 @@
         "eslint": "^10.12.0",
         "eslint-config-prettier": "^8.10.2",
         "eslint-plugin-simple-import-sort": "^14.0.0",
-        "glob": "^11.1.0",
+        "glob": "^14.0.2",
         "jsonc-parser": "^3.3.1",
         "lerna": "9.0.7",
         "npm-check-updates": "^23.1.0",
