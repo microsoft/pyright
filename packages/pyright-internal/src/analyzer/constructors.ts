@@ -635,13 +635,7 @@ function applyExpectedSubtypeForConstructor(
         return expectedSubtype;
     }
 
-    // The expected type must not let unsolved constructor TypeVars escape.
-    return applySolvedTypeVars(specializedType, new ConstraintSolution(), {
-        replaceUnsolved: {
-            scopeIds: getTypeVarScopeIds(type),
-            tupleClassType: evaluator.getTupleClassType(),
-        },
-    });
+    return specializedType;
 }
 
 // Handles the case where a constructor is a generic type and the type

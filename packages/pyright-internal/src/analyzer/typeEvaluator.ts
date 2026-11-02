@@ -539,7 +539,6 @@ interface SymbolResolutionStackEntry {
 interface ReturnTypeInferenceContext {
     functionNode: FunctionNode;
     codeFlowAnalyzer: CodeFlowAnalyzer;
-    speculativeCacheContext: object;
 }
 
 interface ParamSpecArgResult {
@@ -951,8 +950,7 @@ export function createTypeEvaluator(
                     node,
                     typeResult,
                     incompleteGenCount,
-                    inferenceContext?.expectedType,
-                    getSpeculativeTypeCacheContext(node)
+                    inferenceContext?.expectedType
                 );
             }
         }
@@ -1069,12 +1067,6 @@ export function createTypeEvaluator(
         assert(stackSize > 0);
         const contextNode = returnTypeInferenceContextStack[stackSize - 1];
         return contextNode.codeFlowAnalyzer;
-    }
-
-    function getSpeculativeTypeCacheContext(node: ParseNode) {
-        return isNodeInReturnTypeInferenceContext(node)
-            ? returnTypeInferenceContextStack[returnTypeInferenceContextStack.length - 1].speculativeCacheContext
-            : undefined;
     }
 
     function getIndexOfSymbolResolution(symbol: Symbol, declaration: Declaration) {
@@ -1460,11 +1452,7 @@ export function createTypeEvaluator(
         // Is it cached in the speculative type cache?
         const specCacheEntry = useTypeFormCache
             ? undefined
-            : speculativeTypeTracker.getSpeculativeType(
-                  node,
-                  inferenceContext?.expectedType,
-                  getSpeculativeTypeCacheContext(node)
-              );
+            : speculativeTypeTracker.getSpeculativeType(node, inferenceContext?.expectedType);
         if (specCacheEntry) {
             if (
                 !specCacheEntry.typeResult.isIncomplete ||
@@ -25846,7 +25834,7 @@ export function createTypeEvaluator(
         // If the return type has already been lazily evaluated,
         // don't bother computing it again.
         if (type.shared.inferredReturnType && !type.shared.inferredReturnType.isIncomplete) {
-            returnType = type.priv.specializedTypes?.returnType ?? type.shared.inferredReturnType.type;
+            returnType = type.shared.inferredReturnType.type;
         } else if (evalCount > maxReturnTypeInferenceAttempts) {
             // Detect a case where a return type won't converge because of recursion.
             returnType = UnknownType.create();
@@ -25950,6 +25938,29 @@ export function createTypeEvaluator(
             }
         }
 
+        const methodClass = type.shared.methodClass;
+        if (
+            type.priv.boundToType &&
+            methodClass &&
+            !FunctionType.isStaticMethod(type) &&
+            type.priv.boundToType.shared.mro.some(
+                (base) => isClass(base) && ClassType.isSameGenericClass(base, methodClass)
+            )
+        ) {
+            // A synthesized property's __get__ retains the getter's methodClass but binds
+            // to the descriptor, which must not replace the getter's Self.
+            // Preserve a conditional receiver's original Self rather than its class bound.
+            const selfType = getTypeCondition(type.priv.boundToType)?.find((condition) =>
+                TypeVarType.isSelf(condition.typeVar)
+            )?.typeVar;
+            returnType = partiallySpecializeType(
+                returnType,
+                methodClass,
+                getTypeClassType(),
+                selfType ?? type.priv.boundToType
+            );
+        }
+
         return { type: returnType, isIncomplete };
     }
 
@@ -26015,7 +26026,6 @@ export function createTypeEvaluator(
             returnTypeInferenceContextStack.push({
                 functionNode,
                 codeFlowAnalyzer: codeFlowEngine.createCodeFlowAnalyzer(),
-                speculativeCacheContext: {},
             });
 
             try {
@@ -26047,11 +26057,7 @@ export function createTypeEvaluator(
                             ) {
                                 if (functionTypeResult.functionType.shared.parameters.length > 0) {
                                     if (functionNode.d.params[0].d.name) {
-                                        // Include the bound receiver in both contextual evaluation
-                                        // and its cache key, rather than reverting to the declaration.
-                                        paramType =
-                                            type.priv.boundSelfType ??
-                                            FunctionType.getParamType(functionTypeResult.functionType, 0);
+                                        paramType = FunctionType.getParamType(functionTypeResult.functionType, 0);
                                     }
                                 }
                             }
@@ -30981,24 +30987,17 @@ export function createTypeEvaluator(
         getEffectiveReturnType(memberType);
 
         const specializedFunction = solveAndApplyConstraints(memberType, constraints);
-        let boundFunction: FunctionType | undefined;
         if (isFunction(specializedFunction)) {
-            boundFunction = FunctionType.clone(specializedFunction, stripFirstParam, baseType);
-        } else if (isOverloaded(specializedFunction)) {
+            return FunctionType.clone(specializedFunction, stripFirstParam, baseType);
+        }
+
+        if (isOverloaded(specializedFunction)) {
             // For overloaded functions, use the first overload. This isn't
             // strictly correct, but this is an extreme edge case.
-            boundFunction = FunctionType.clone(
-                OverloadedType.getOverloads(specializedFunction)[0],
-                stripFirstParam,
-                baseType
-            );
+            return FunctionType.clone(OverloadedType.getOverloads(specializedFunction)[0], stripFirstParam, baseType);
         }
 
-        if (boundFunction && stripFirstParam) {
-            boundFunction.priv.boundSelfType = firstParamType;
-        }
-
-        return boundFunction;
+        return undefined;
     }
 
     function isFinalVariable(symbol: Symbol): boolean {

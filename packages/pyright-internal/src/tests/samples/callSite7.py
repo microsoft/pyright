@@ -1,75 +1,86 @@
-# This sample tests concrete transform results forwarded through an inherited mixin.
+# This sample tests receiver Self preservation through inherited factory calls.
 
 from typing import Generic, TypeVar
 
 
-class Transformer:
-    def fit(self, values):
-        return self
+class Base:
+    @classmethod
+    def build(cls, args):
+        if not args:
+            return args
+        return cls()
 
-    def transform(self, values):
-        return values
+    def rebuild(self, *args):
+        return self.build(args)
 
-    def fit_transform(self, values):
-        return self.fit(values).transform(values)
-
-
-class DenseTransformer(Transformer):
-    def transform(self, values) -> list[int]:
-        return [1, 2]
-
-
-class SparseValues:
-    def toarray(self) -> list[float]:
-        return [1.0, 2.0]
+    def pick(self, argument):
+        if argument:
+            return self
+        return argument
 
 
-class SparseTransformer(Transformer):
-    def transform(self, values) -> SparseValues:
-        return SparseValues()
+class Derived(Base):
+    def derived_only(self) -> int:
+        return 42
+
+    def forwarded(self):
+        return self.pick(1)
 
 
-class UnionTransformer(Transformer):
-    def transform(self, values) -> list[int] | str:
-        if isinstance(values, str):
-            return values
-        return [1, 2]
+class Other(Base):
+    pass
 
 
-def transform_results(dense: DenseTransformer, sparse: SparseTransformer, union: UnionTransformer):
-    reveal_type(dense.fit_transform([1]), expected_text="list[int]")
-    reveal_type(sparse.fit_transform([1]), expected_text="SparseValues")
-    reveal_type(dense.fit_transform([1]), expected_text="list[int]")
-    sparse.fit_transform([1]).toarray()
+def demonstrate(value: Derived, other: Other) -> None:
+    reveal_type(value.rebuild(1, 2), expected_text="Unknown | Derived")
+    value.rebuild(1, 2).derived_only()
+    reveal_type(value.build((1, 2)), expected_text="Unknown | Derived")
+    reveal_type(other.rebuild(1, 2), expected_text="Unknown | Other")
+    reveal_type(value.rebuild(1, 2), expected_text="Unknown | Derived")
 
-    result = union.fit_transform([1])
-    reveal_type(result, expected_text="list[int] | str")
 
-    # This should generate an error because the declared str alternative must be retained.
-    result.append(3)
+class Further(Derived):
+    pass
 
-    if isinstance(result, list):
-        result.append(3)
-    else:
-        result.upper()
 
-    reveal_type(sparse.fit_transform([1]), expected_text="SparseValues")
-    reveal_type(dense.fit_transform([1]), expected_text="list[int]")
+def further(value: Further):
+    reveal_type(value.rebuild(1, 2), expected_text="Unknown | Further")
+    reveal_type(value.forwarded(), expected_text="Further")
 
 
 T = TypeVar("T")
 
 
-class GenericTransformer(Transformer, Generic[T]):
-    def __init__(self, value: T):
-        self.value = value
+class GenericBase(Generic[T]):
+    @classmethod
+    def build(cls, args):
+        if not args:
+            return args
+        return cls()
 
-    def transform(self, values) -> list[T]:
-        return [self.value]
+    def rebuild(self, *args):
+        return self.build(args)
 
 
-def generic_transform_results(first: GenericTransformer[int], second: GenericTransformer[str]):
-    reveal_type(first.fit_transform([1]), expected_text="list[int]")
-    reveal_type(second.fit_transform([1]), expected_text="list[str]")
-    reveal_type(first.fit_transform([1]), expected_text="list[int]")
-    reveal_type(second.fit_transform([1]), expected_text="list[str]")
+class GenericDerived(GenericBase[T]):
+    pass
+
+
+def generic_receivers(first: GenericDerived[int], second: GenericDerived[str]):
+    reveal_type(first.rebuild(1, 2), expected_text="Unknown | GenericDerived[int]")
+    reveal_type(second.rebuild(1, 2), expected_text="Unknown | GenericDerived[str]")
+    reveal_type(first.rebuild(1, 2), expected_text="Unknown | GenericDerived[int]")
+
+
+Receiver = TypeVar("Receiver", Derived, Other)
+
+
+def constrained_receiver(value: Receiver) -> Receiver:
+    return value.pick(1)
+
+
+BoundReceiver = TypeVar("BoundReceiver", bound=Derived)
+
+
+def bounded_receiver(value: BoundReceiver) -> BoundReceiver:
+    return value.pick(1)

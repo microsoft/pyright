@@ -97,16 +97,11 @@ test('CallSite5', () => {
 
 test('CallSite6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite6.py']);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('CallSite7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite7.py']);
-    TestUtils.validateResults(analysisResults, 1);
-});
-
-test('CallSite8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite8.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 

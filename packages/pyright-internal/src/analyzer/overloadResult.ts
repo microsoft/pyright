@@ -148,7 +148,6 @@ export function projectOverloadResultBaseline(
                 const inferredReturnType = optional(value.shared.inferredReturnType?.type, depth);
                 const strippedFirstParamType = optional(value.priv.strippedFirstParamType, depth);
                 const boundToType = optional(value.priv.boundToType, depth);
-                const boundSelfType = optional(value.priv.boundSelfType, depth);
                 if (boundToType && !isClass(boundToType)) {
                     throw new ProjectionBlocked('category');
                 }
@@ -160,13 +159,11 @@ export function projectOverloadResultBaseline(
                     returnType !== FunctionType.getEffectiveReturnType(value) ||
                     inferredReturnType !== value.shared.inferredReturnType?.type ||
                     strippedFirstParamType !== value.priv.strippedFirstParamType ||
-                    boundSelfType !== value.priv.boundSelfType ||
                     boundToType !== value.priv.boundToType
                 ) {
                     const clone = FunctionType.specialize(value, { parameterTypes, parameterDefaultTypes, returnType });
                     clone.priv.strippedFirstParamType = strippedFirstParamType;
                     clone.priv.boundToType = boundToType;
-                    clone.priv.boundSelfType = boundSelfType;
                     clone.priv.callSiteReturnTypeCache = undefined;
                     if (value.shared.inferredReturnType && inferredReturnType) {
                         clone.shared = {
