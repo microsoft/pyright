@@ -31,6 +31,13 @@ The report classifies normalized identical types as equivalent. It identifies na
 
 The generated report also groups disagreements into semantic families and gives the strongest Pyrefly-side argument for each. This is important because widening can be an intentional policy: declared annotations can act as abstraction boundaries, mutable generic arguments often should not retain incidental literals, and stable public types may be more useful than value-sensitive local types.
 
+The corpus contains behavioral markers in addition to `reveal_type` calls:
+
+- `# benchmark: expect-error` marks an intentionally invalid operation. The report records whether each checker preserves enough information to diagnose it.
+- `# benchmark: require-accept` marks an operation enabled by the inferred type. Rejection indicates a capability difference, but it can still reflect a deliberate widening policy rather than a checker bug.
+
+Behavioral templates cover ambiguous overload results, disjoint result members, `LiteralString`, literal-sensitive generic results, and `TypedDict` keys. They are generated in a separate nine-case corpus so overload-analysis limits and repeated definitions do not interfere with one another. The default 1,000-case precision corpus contains deterministic parameterized variants of 16 scenario templates, not 1,000 independently designed language features.
+
 Specificity is not the same as correctness. A type checker can produce a narrower but unsound type, so the report deliberately avoids treating every narrower result as a win. A switch decision should combine this report with:
 
 - typing specification and runtime adjudication of concrete differences;

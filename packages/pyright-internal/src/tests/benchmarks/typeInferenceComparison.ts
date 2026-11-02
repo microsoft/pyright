@@ -24,6 +24,7 @@ interface GeneratedCase {
     id: string;
     category: string;
     description: string;
+    parameters?: string;
     lines: string[];
     revealExpression: string;
 }
@@ -31,6 +32,13 @@ interface GeneratedCase {
 interface RenderedCorpus {
     source: string;
     casesByRevealLine: Map<number, GeneratedCase>;
+    expectedErrorsByLine: Map<number, ProbeLocation>;
+    requiredAcceptsByLine: Map<number, ProbeLocation>;
+}
+
+interface ProbeLocation {
+    generatedCase: GeneratedCase;
+    source: string;
 }
 
 interface CheckerDiagnostic {
@@ -74,8 +82,23 @@ interface DifferenceFamily {
     pyreflyArgument: string;
 }
 
+interface BehavioralProbeResult {
+    line: number;
+    location: ProbeLocation;
+    pyrightDiagnostics: CheckerDiagnostic[];
+    pyreflyDiagnostics: CheckerDiagnostic[];
+}
+
+interface ComparisonRun {
+    corpusPath: string;
+    corpus: RenderedCorpus;
+    pyright: CheckerResult;
+    pyrefly: CheckerResult;
+}
+
 const DEFAULT_CASE_COUNT = 1000;
 const DEFAULT_PYTHON_VERSION = '3.11';
+const SCENARIO_TEMPLATE_COUNT = 16;
 const GENERATED_DIRECTORY = path.resolve(
     process.cwd(),
     'src',
@@ -87,9 +110,9 @@ const GENERATED_DIRECTORY = path.resolve(
 
 const commonHeader = `from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Generic, Literal, TypeGuard, TypeVar, overload, reveal_type
+from typing import Any, Generic, Literal, LiteralString, TypeGuard, TypedDict, TypeVar, overload, reveal_type
 
 T = TypeVar("T")
 
@@ -101,6 +124,29 @@ def first(values: Sequence[T]) -> T:
 
 def is_str(value: object) -> TypeGuard[str]:
     return isinstance(value, str)
+
+def accepts_literal_string(value: LiteralString) -> None:
+    pass
+
+class BenchmarkIntResult:
+    def int_only(self) -> int:
+        return 1
+
+class BenchmarkStrResult:
+    def str_only(self) -> str:
+        return ""
+
+class BenchmarkRecord(TypedDict):
+    name: str
+    age: int
+
+class BenchmarkA(TypedDict):
+    kind: Literal["a"]
+    value: int
+
+class BenchmarkB(TypedDict):
+    kind: Literal["b"]
+    value: str
 `;
 
 function parseOptions(args: string[]): Options {
@@ -157,7 +203,7 @@ function createCase(index: number): GeneratedCase {
     const integer = (index % 97) + 1;
     const alternateInteger = ((index * 17) % 89) + 100;
     const text = `value_${index % 53}`;
-    const template = index % 16;
+    const template = index % SCENARIO_TEMPLATE_COUNT;
 
     switch (template) {
         case 0:
@@ -320,17 +366,159 @@ function createCase(index: number): GeneratedCase {
     }
 }
 
-function renderCorpus(caseCount: number): RenderedCorpus {
+function createBehaviorCases(): GeneratedCase[] {
+    return [
+        {
+            id: 'behavior_generic_call',
+            category: 'generic-call',
+            description: 'Literal-sensitive assignment after generic identity',
+            lines: [
+                'value = identity(("tag", 4))',
+                'exact: tuple[Literal["tag"], Literal[4]] = value  # benchmark: require-accept',
+            ],
+            revealExpression: 'value',
+        },
+        {
+            id: 'behavior_narrowing',
+            category: 'narrowing',
+            description: 'Literal union retained across None narrowing',
+            lines: [
+                'value: int | None = 7 if bool(0) else None',
+                'if value is not None:',
+                '    narrowed = value',
+                'else:',
+                '    narrowed = 0',
+                'exact: Literal[7, 0] = narrowed  # benchmark: require-accept',
+            ],
+            revealExpression: 'narrowed',
+        },
+        {
+            id: 'behavior_literal_string',
+            category: 'flow',
+            description: 'LiteralString retained through branch flow',
+            lines: [
+                'candidate: int | str = 11 if bool(1) else "value"',
+                'if isinstance(candidate, str):',
+                '    value = candidate.upper()',
+                'else:',
+                '    value = candidate + 1',
+                'if isinstance(value, str):',
+                '    accepts_literal_string(value)  # benchmark: require-accept',
+            ],
+            revealExpression: 'value',
+        },
+        {
+            id: 'behavior_generic_class',
+            category: 'generic-class',
+            description: 'Literal-sensitive generic class construction',
+            lines: [
+                '@dataclass',
+                'class Box(Generic[T]):',
+                '    value: T',
+                '',
+                'value = Box(("tag", 15))',
+                'exact: Box[tuple[Literal["tag"], Literal[15]]] = value  # benchmark: require-accept',
+            ],
+            revealExpression: 'value',
+        },
+        {
+            id: 'behavior_higher_order',
+            category: 'higher-order',
+            description: 'Literal retained through callback return inference',
+            lines: [
+                'def apply(callback: Callable[[int], T], value: int) -> T:',
+                '    return callback(value)',
+                '',
+                'value = apply(lambda item: (item, "tag"), 16)',
+                'exact: tuple[int, Literal["tag"]] = value  # benchmark: require-accept',
+            ],
+            revealExpression: 'value',
+        },
+        {
+            id: 'behavior_ambiguous_overload',
+            category: 'ambiguous-overload',
+            description: 'Ambiguous overload with invariant Any argument',
+            parameters: 'source: list[Any]',
+            lines: [
+                '@overload',
+                'def choose(value: list[int]) -> list[int]: ...',
+                '@overload',
+                'def choose(value: list[str]) -> list[str]: ...',
+                'def choose(value: Any) -> Any:',
+                '    return value',
+                '',
+                'value = choose(source)',
+                'value.append(1)  # benchmark: require-accept',
+                'value.append("x")  # benchmark: require-accept',
+                'value.append(3.14)  # benchmark: expect-error',
+                'value.nonexistent()  # benchmark: expect-error',
+            ],
+            revealExpression: 'value',
+        },
+        {
+            id: 'behavior_disjoint_overload',
+            category: 'disjoint-overload',
+            description: 'Ambiguous overload with disjoint result members',
+            parameters: 'source: list[Any]',
+            lines: [
+                '@overload',
+                'def choose(value: list[int]) -> BenchmarkIntResult: ...',
+                '@overload',
+                'def choose(value: list[str]) -> BenchmarkStrResult: ...',
+                'def choose(value: Any) -> Any:',
+                '    return BenchmarkIntResult()',
+                '',
+                'value = choose(source)',
+                'value.int_only()  # benchmark: require-accept',
+                'value.str_only()  # benchmark: require-accept',
+                'value.missing()  # benchmark: expect-error',
+            ],
+            revealExpression: 'value',
+        },
+        {
+            id: 'behavior_typed_dict_key',
+            category: 'typed-dict-key',
+            description: 'Literal key retained through a generic tuple',
+            lines: [
+                'record: BenchmarkRecord = {"name": "tag", "age": 19}',
+                'pair = identity(("name", 19))',
+                'key = pair[0]',
+                'value = record[key]  # benchmark: require-accept',
+                'value.upper()  # benchmark: require-accept',
+            ],
+            revealExpression: 'value',
+        },
+        {
+            id: 'behavior_discriminated_union',
+            category: 'discriminated-union',
+            description: 'TypedDict discriminated union narrowing',
+            parameters: 'item: BenchmarkA | BenchmarkB',
+            lines: ['if item["kind"] == "a":', '    value = item["value"]', 'else:', '    value = item["value"]'],
+            revealExpression: 'value',
+        },
+    ];
+}
+
+function renderCases(generatedCases: GeneratedCase[]): RenderedCorpus {
     const output: string[] = [...commonHeader.trimEnd().split('\n'), ''];
     const casesByRevealLine = new Map<number, GeneratedCase>();
+    const expectedErrorsByLine = new Map<number, ProbeLocation>();
+    const requiredAcceptsByLine = new Map<number, ProbeLocation>();
 
-    for (let index = 0; index < caseCount; index++) {
-        const generatedCase = createCase(index);
+    for (const generatedCase of generatedCases) {
         output.push(`# ${generatedCase.id}: ${generatedCase.description}`);
-        output.push(`def ${generatedCase.id}() -> None:`);
+        output.push(`def ${generatedCase.id}(${generatedCase.parameters || ''}) -> None:`);
 
         for (const line of generatedCase.lines) {
-            output.push(line ? `    ${line}` : '');
+            const renderedLine = line ? `    ${line}` : '';
+            output.push(renderedLine);
+
+            const location = { generatedCase, source: line.replace(/\s+# benchmark: .+$/, '').trim() };
+            if (line.includes('# benchmark: expect-error')) {
+                expectedErrorsByLine.set(output.length, location);
+            } else if (line.includes('# benchmark: require-accept')) {
+                requiredAcceptsByLine.set(output.length, location);
+            }
         }
 
         output.push(`    reveal_type(${generatedCase.revealExpression})`);
@@ -338,7 +526,20 @@ function renderCorpus(caseCount: number): RenderedCorpus {
         output.push('');
     }
 
-    return { source: `${output.join('\n')}\n`, casesByRevealLine };
+    return {
+        source: `${output.join('\n')}\n`,
+        casesByRevealLine,
+        expectedErrorsByLine,
+        requiredAcceptsByLine,
+    };
+}
+
+function renderCorpus(caseCount: number): RenderedCorpus {
+    return renderCases(Array.from({ length: caseCount }, (_unused, index) => createCase(index)));
+}
+
+function renderBehaviorCorpus(): RenderedCorpus {
+    return renderCases(createBehaviorCases());
 }
 
 function runProcess(
@@ -606,6 +807,36 @@ function compareCases(corpus: RenderedCorpus, pyright: CheckerResult, pyrefly: C
     return comparisons;
 }
 
+function isBlockingDiagnostic(diagnostic: CheckerDiagnostic): boolean {
+    return diagnostic.severity === 'error' || diagnostic.severity === 'warning' || diagnostic.severity === 'warn';
+}
+
+function getBehavioralProbeResults(
+    probesByLine: Map<number, ProbeLocation>,
+    pyright: CheckerResult,
+    pyrefly: CheckerResult
+): BehavioralProbeResult[] {
+    return [...probesByLine].map(([line, location]) => ({
+        line,
+        location,
+        pyrightDiagnostics: pyright.diagnostics.filter(
+            (diagnostic) => diagnostic.line === line && isBlockingDiagnostic(diagnostic)
+        ),
+        pyreflyDiagnostics: pyrefly.diagnostics.filter(
+            (diagnostic) => diagnostic.line === line && isBlockingDiagnostic(diagnostic)
+        ),
+    }));
+}
+
+function getOrdinaryDiagnostics(checker: CheckerResult, corpus: RenderedCorpus): CheckerDiagnostic[] {
+    return checker.diagnostics.filter(
+        (diagnostic) =>
+            isBlockingDiagnostic(diagnostic) &&
+            !corpus.expectedErrorsByLine.has(diagnostic.line) &&
+            !corpus.requiredAcceptsByLine.has(diagnostic.line)
+    );
+}
+
 function escapeTableCell(value: string): string {
     return value.replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
 }
@@ -626,6 +857,11 @@ function getPyreflyArgument(comparison: CaseComparison): string {
             return 'Constructor inference for a mutable generic class should generally widen incidental literal values. A literal-specialized type argument can be too narrow if the attribute is reassigned later and can make otherwise equivalent instances appear incompatible.';
         case 'higher-order':
             return 'Widening constants in an inferred callback return keeps the callable reusable and prevents captured literal values from leaking into the public result type. The tuple shape is preserved even though its elements are widened.';
+        case 'ambiguous-overload':
+        case 'disjoint-overload':
+            return 'A gradual fallback avoids committing to one overload result, but it also removes member information and suppresses downstream argument and attribute diagnostics. This is a capability tradeoff rather than display-only widening.';
+        case 'typed-dict-key':
+            return 'Widening the generic tuple element to str avoids value-sensitive inference, but the widened key can no longer index a TypedDict. The policy therefore creates an observable rejection in otherwise valid code.';
         default:
             if (comparison.reason.includes('Any, Unknown, or object')) {
                 return 'A gradual component may reflect an intentional boundary, unsupported feature, or soundness fallback. It is weaker evidence than a concrete-type disagreement but still needs validation before being called a loss.';
@@ -659,13 +895,20 @@ function getDifferenceFamilies(comparisons: CaseComparison[]): DifferenceFamily[
     return [...families.values()].sort((left, right) => right.count - left.count);
 }
 
+function describeDiagnostics(diagnostics: CheckerDiagnostic[]): string {
+    if (diagnostics.length === 0) {
+        return '';
+    }
+
+    return diagnostics.map((diagnostic) => diagnostic.rule || diagnostic.message).join('; ');
+}
+
 function writeMarkdownReport(
     outputPath: string,
-    corpusPath: string,
     options: Options,
     comparisons: CaseComparison[],
-    pyright: CheckerResult,
-    pyrefly: CheckerResult
+    precisionRun: ComparisonRun,
+    behaviorRun: ComparisonRun
 ): void {
     const counts = new Map<ComparisonKind, number>();
     for (const comparison of comparisons) {
@@ -678,10 +921,36 @@ function writeMarkdownReport(
     const different = counts.get('different') || 0;
     const missing =
         (counts.get('missing-pyright') || 0) + (counts.get('missing-pyrefly') || 0) + (counts.get('missing-both') || 0);
-    const nonRevealDiagnostics = pyright.diagnostics.length + pyrefly.diagnostics.length;
+    const expectedErrorResults = getBehavioralProbeResults(
+        behaviorRun.corpus.expectedErrorsByLine,
+        behaviorRun.pyright,
+        behaviorRun.pyrefly
+    );
+    const requiredAcceptResults = getBehavioralProbeResults(
+        behaviorRun.corpus.requiredAcceptsByLine,
+        behaviorRun.pyright,
+        behaviorRun.pyrefly
+    );
+    const pyrightCaughtErrors = expectedErrorResults.filter((result) => result.pyrightDiagnostics.length > 0).length;
+    const pyreflyCaughtErrors = expectedErrorResults.filter((result) => result.pyreflyDiagnostics.length > 0).length;
+    const pyrightAccepted = requiredAcceptResults.filter((result) => result.pyrightDiagnostics.length === 0).length;
+    const pyreflyAccepted = requiredAcceptResults.filter((result) => result.pyreflyDiagnostics.length === 0).length;
+    const ordinaryPyrightDiagnostics = [
+        ...getOrdinaryDiagnostics(precisionRun.pyright, precisionRun.corpus),
+        ...getOrdinaryDiagnostics(behaviorRun.pyright, behaviorRun.corpus),
+    ];
+    const ordinaryPyreflyDiagnostics = [
+        ...getOrdinaryDiagnostics(precisionRun.pyrefly, precisionRun.corpus),
+        ...getOrdinaryDiagnostics(behaviorRun.pyrefly, behaviorRun.corpus),
+    ];
+    const ordinaryDiagnosticCount = ordinaryPyrightDiagnostics.length + ordinaryPyreflyDiagnostics.length;
     const assessment =
-        missing > 0 || nonRevealDiagnostics > 0
-            ? 'Not ready for an inference-only switch decision: missing reveals or ordinary diagnostics need triage.'
+        missing > 0 || ordinaryDiagnosticCount > 0
+            ? 'Not ready for an automatic switch decision: missing reveals or unclassified diagnostics need triage.'
+            : pyrightCaughtErrors > pyreflyCaughtErrors || pyrightAccepted > pyreflyAccepted
+            ? 'Pyright preserved more downstream checking or narrow-type capabilities in this corpus; review the behavioral probes separately from display precision.'
+            : pyreflyCaughtErrors > pyrightCaughtErrors || pyreflyAccepted > pyrightAccepted
+            ? 'Pyrefly preserved more downstream checking or narrow-type capabilities in this corpus; review the behavioral probes separately from display precision.'
             : different > 0
             ? 'No automatic switch recommendation: concrete disagreements require typing-spec or runtime adjudication.'
             : pyreflyWins > pyrightWins
@@ -708,10 +977,17 @@ function writeMarkdownReport(
         '| Setting | Value |',
         '|---|---|',
         `| Cases | ${options.caseCount} |`,
+        `| Scenario templates | ${SCENARIO_TEMPLATE_COUNT} |`,
+        `| Behavioral cases | ${behaviorRun.corpus.casesByRevealLine.size} |`,
         `| Python version | ${escapeTableCell(options.pythonVersion)} |`,
-        `| Corpus | \`${escapeTableCell(path.relative(path.dirname(outputPath), corpusPath))}\` |`,
-        `| Pyright | ${escapeTableCell(pyright.version)} |`,
-        `| Pyrefly | ${escapeTableCell(pyrefly.version)} |`,
+        `| Precision corpus | \`${escapeTableCell(
+            path.relative(path.dirname(outputPath), precisionRun.corpusPath)
+        )}\` |`,
+        `| Behavioral corpus | \`${escapeTableCell(
+            path.relative(path.dirname(outputPath), behaviorRun.corpusPath)
+        )}\` |`,
+        `| Pyright | ${escapeTableCell(precisionRun.pyright.version)} |`,
+        `| Pyrefly | ${escapeTableCell(precisionRun.pyrefly.version)} |`,
         '',
         '## Summary',
         '',
@@ -723,24 +999,87 @@ function writeMarkdownReport(
         `| Different concrete types | ${different} | Needs semantic adjudication |`,
         `| Missing reveal results | ${missing} | At least one checker did not produce a result |`,
         '',
-        '| Checker | Reveals | Ordinary diagnostics | Time | Exit code |',
+        '| Checker | Reveals | Non-reveal diagnostics | Time | Exit code |',
         '|---|---:|---:|---:|---:|',
-        `| Pyright | ${pyright.reveals.size} | ${pyright.diagnostics.length} | ${formatDuration(
-            pyright.durationMs
-        )} | ${pyright.exitCode ?? 'none'} |`,
-        `| Pyrefly | ${pyrefly.reveals.size} | ${pyrefly.diagnostics.length} | ${formatDuration(
-            pyrefly.durationMs
-        )} | ${pyrefly.exitCode ?? 'none'} |`,
+        `| Pyright | ${precisionRun.pyright.reveals.size + behaviorRun.pyright.reveals.size} | ${
+            precisionRun.pyright.diagnostics.length + behaviorRun.pyright.diagnostics.length
+        } | ${formatDuration(precisionRun.pyright.durationMs + behaviorRun.pyright.durationMs)} | ${
+            precisionRun.pyright.exitCode ?? 'none'
+        } / ${behaviorRun.pyright.exitCode ?? 'none'} |`,
+        `| Pyrefly | ${precisionRun.pyrefly.reveals.size + behaviorRun.pyrefly.reveals.size} | ${
+            precisionRun.pyrefly.diagnostics.length + behaviorRun.pyrefly.diagnostics.length
+        } | ${formatDuration(precisionRun.pyrefly.durationMs + behaviorRun.pyrefly.durationMs)} | ${
+            precisionRun.pyrefly.exitCode ?? 'none'
+        } / ${behaviorRun.pyrefly.exitCode ?? 'none'} |`,
         '',
         'Timing is a single cold process run and is included only as context, not as a stable performance benchmark.',
+        '',
+        '## Behavioral probes',
+        '',
+        'Behavioral probes distinguish display-only widening from observable checker behavior. `expect-error` probes are intentionally invalid operations that should remain diagnosed. `require-accept` probes exercise capabilities made available by a narrower inferred type; disagreement here can reflect a deliberate inference policy rather than a correctness bug.',
+        '',
+        '| Probe kind | Total | Pyright | Pyrefly |',
+        '|---|---:|---:|---:|',
+        `| Expected errors caught | ${expectedErrorResults.length} | ${pyrightCaughtErrors} | ${pyreflyCaughtErrors} |`,
+        `| Required accepts accepted | ${requiredAcceptResults.length} | ${pyrightAccepted} | ${pyreflyAccepted} |`,
+        '',
+        '### Behavioral differences',
+        '',
+        '| Kind | Case | Probe | Pyright | Pyrefly |',
+        '|---|---|---|---|---|',
+    ];
+
+    const expectedErrorDifferences = expectedErrorResults.filter(
+        (result) => result.pyrightDiagnostics.length > 0 !== result.pyreflyDiagnostics.length > 0
+    );
+    const requiredAcceptDifferences = requiredAcceptResults.filter(
+        (result) => (result.pyrightDiagnostics.length === 0) !== (result.pyreflyDiagnostics.length === 0)
+    );
+
+    if (expectedErrorDifferences.length === 0 && requiredAcceptDifferences.length === 0) {
+        lines.push('| _None_ | | | | |');
+    } else {
+        for (const result of expectedErrorDifferences) {
+            lines.push(
+                `| expect-error | ${result.location.generatedCase.id} | \`${escapeTableCell(
+                    result.location.source
+                )}\` | ${
+                    result.pyrightDiagnostics.length > 0
+                        ? `caught (${escapeTableCell(describeDiagnostics(result.pyrightDiagnostics))})`
+                        : 'missed'
+                } | ${
+                    result.pyreflyDiagnostics.length > 0
+                        ? `caught (${escapeTableCell(describeDiagnostics(result.pyreflyDiagnostics))})`
+                        : 'missed'
+                } |`
+            );
+        }
+        for (const result of requiredAcceptDifferences) {
+            lines.push(
+                `| require-accept | ${result.location.generatedCase.id} | \`${escapeTableCell(
+                    result.location.source
+                )}\` | ${
+                    result.pyrightDiagnostics.length === 0
+                        ? 'accepted'
+                        : `rejected (${escapeTableCell(describeDiagnostics(result.pyrightDiagnostics))})`
+                } | ${
+                    result.pyreflyDiagnostics.length === 0
+                        ? 'accepted'
+                        : `rejected (${escapeTableCell(describeDiagnostics(result.pyreflyDiagnostics))})`
+                } |`
+            );
+        }
+    }
+
+    lines.push(
         '',
         '## Pyrefly-side interpretation',
         '',
         'The narrower-output count is intentionally adversarially reviewed below. These arguments do not prove that Pyrefly is correct; they explain why widening can be a deliberate and useful inference policy rather than a loss of capability.',
         '',
         '| Family | Count | Example | Strongest Pyrefly argument |',
-        '|---|---:|---|---|',
-    ];
+        '|---|---:|---|---|'
+    );
 
     if (differenceFamilies.length === 0) {
         lines.push('| _None_ | 0 | | |');
@@ -778,14 +1117,17 @@ function writeMarkdownReport(
         }
     }
 
-    lines.push('', '## Ordinary diagnostics', '');
-    for (const checker of [pyright, pyrefly]) {
-        lines.push(`### ${checker.name}`, '');
-        if (checker.diagnostics.length === 0) {
+    lines.push('', '## Unclassified diagnostics', '');
+    for (const [checkerName, diagnostics] of [
+        ['Pyright', ordinaryPyrightDiagnostics],
+        ['Pyrefly', ordinaryPyreflyDiagnostics],
+    ] as const) {
+        lines.push(`### ${checkerName}`, '');
+        if (diagnostics.length === 0) {
             lines.push('_None._', '');
         } else {
             lines.push('| Line | Severity | Rule | Message |', '|---:|---|---|---|');
-            for (const diagnostic of checker.diagnostics) {
+            for (const diagnostic of diagnostics) {
                 lines.push(
                     `| ${diagnostic.line} | ${escapeTableCell(diagnostic.severity)} | ${escapeTableCell(
                         diagnostic.rule || ''
@@ -802,16 +1144,20 @@ function writeMarkdownReport(
         '- Equivalent types are compared after removing whitespace and `typing` qualification.',
         '- `Any`, `Unknown`, and `object` are treated as gradual/imprecise components.',
         '- Preserving more `Literal[...]` components is classified as a narrower output, not an automatic quality win.',
+        '- `expect-error` probes measure whether invalid operations remain diagnosed after inference.',
+        '- `require-accept` probes measure whether a narrower result enables an operation; these are capability comparisons rather than automatic correctness judgments.',
         '- All other concrete differences are intentionally left unresolved.',
         '- A production switch should additionally run both checkers over representative repositories and adjudicate error false positives, false negatives, suppression behavior, configuration parity, and IDE features.',
         ''
     );
 
-    if (pyright.stderr) {
-        lines.push('## Pyright stderr', '', '```text', pyright.stderr, '```', '');
+    const pyrightStderr = [precisionRun.pyright.stderr, behaviorRun.pyright.stderr].filter(Boolean).join('\n');
+    const pyreflyStderr = [precisionRun.pyrefly.stderr, behaviorRun.pyrefly.stderr].filter(Boolean).join('\n');
+    if (pyrightStderr) {
+        lines.push('## Pyright stderr', '', '```text', pyrightStderr, '```', '');
     }
-    if (pyrefly.stderr) {
-        lines.push('## Pyrefly stderr', '', '```text', pyrefly.stderr, '```', '');
+    if (pyreflyStderr) {
+        lines.push('## Pyrefly stderr', '', '```text', pyreflyStderr, '```', '');
     }
 
     fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
@@ -821,24 +1167,51 @@ function main(): void {
     const options = parseOptions(process.argv.slice(2));
     fs.mkdirSync(options.outputDirectory, { recursive: true });
 
-    const corpus = renderCorpus(options.caseCount);
-    const corpusPath = path.join(options.outputDirectory, 'generated_type_inference_corpus.py');
+    const precisionCorpus = renderCorpus(options.caseCount);
+    const behaviorCorpus = renderBehaviorCorpus();
+    const precisionCorpusPath = path.join(options.outputDirectory, 'generated_type_inference_corpus.py');
+    const behaviorCorpusPath = path.join(options.outputDirectory, 'generated_behavior_corpus.py');
     const reportPath = path.join(options.outputDirectory, 'type-inference-comparison.md');
-    fs.writeFileSync(corpusPath, corpus.source, 'utf8');
+    fs.writeFileSync(precisionCorpusPath, precisionCorpus.source, 'utf8');
+    fs.writeFileSync(behaviorCorpusPath, behaviorCorpus.source, 'utf8');
 
-    console.log(`Generated ${options.caseCount} cases in ${corpusPath}`);
+    console.log(`Generated ${options.caseCount} precision cases in ${precisionCorpusPath}`);
+    console.log(`Generated ${behaviorCorpus.casesByRevealLine.size} behavioral cases in ${behaviorCorpusPath}`);
     const workingDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'type-inference-comparison-'));
-    const workingCorpusPath = path.join(workingDirectory, path.basename(corpusPath));
-    fs.writeFileSync(workingCorpusPath, corpus.source, 'utf8');
+    const workingPrecisionCorpusPath = path.join(workingDirectory, path.basename(precisionCorpusPath));
+    const workingBehaviorCorpusPath = path.join(workingDirectory, path.basename(behaviorCorpusPath));
+    fs.writeFileSync(workingPrecisionCorpusPath, precisionCorpus.source, 'utf8');
+    fs.writeFileSync(workingBehaviorCorpusPath, behaviorCorpus.source, 'utf8');
 
     try {
-        const pyright = runPyright(workingCorpusPath, options.pythonVersion);
-        console.log(`Pyright: ${pyright.reveals.size} reveals in ${formatDuration(pyright.durationMs)}`);
-        const pyrefly = runPyrefly(workingCorpusPath, options.pythonVersion, options.pyreflyCommand);
-        console.log(`Pyrefly: ${pyrefly.reveals.size} reveals in ${formatDuration(pyrefly.durationMs)}`);
+        const precisionRun: ComparisonRun = {
+            corpusPath: precisionCorpusPath,
+            corpus: precisionCorpus,
+            pyright: runPyright(workingPrecisionCorpusPath, options.pythonVersion),
+            pyrefly: runPyrefly(workingPrecisionCorpusPath, options.pythonVersion, options.pyreflyCommand),
+        };
+        const behaviorRun: ComparisonRun = {
+            corpusPath: behaviorCorpusPath,
+            corpus: behaviorCorpus,
+            pyright: runPyright(workingBehaviorCorpusPath, options.pythonVersion),
+            pyrefly: runPyrefly(workingBehaviorCorpusPath, options.pythonVersion, options.pyreflyCommand),
+        };
+        console.log(
+            `Pyright: ${
+                precisionRun.pyright.reveals.size + behaviorRun.pyright.reveals.size
+            } reveals in ${formatDuration(precisionRun.pyright.durationMs + behaviorRun.pyright.durationMs)}`
+        );
+        console.log(
+            `Pyrefly: ${
+                precisionRun.pyrefly.reveals.size + behaviorRun.pyrefly.reveals.size
+            } reveals in ${formatDuration(precisionRun.pyrefly.durationMs + behaviorRun.pyrefly.durationMs)}`
+        );
 
-        const comparisons = compareCases(corpus, pyright, pyrefly);
-        writeMarkdownReport(reportPath, corpusPath, options, comparisons, pyright, pyrefly);
+        const comparisons = [
+            ...compareCases(precisionRun.corpus, precisionRun.pyright, precisionRun.pyrefly),
+            ...compareCases(behaviorRun.corpus, behaviorRun.pyright, behaviorRun.pyrefly),
+        ];
+        writeMarkdownReport(reportPath, options, comparisons, precisionRun, behaviorRun);
         console.log(`Markdown report written to ${reportPath}`);
     } finally {
         fs.rmSync(workingDirectory, { recursive: true });
