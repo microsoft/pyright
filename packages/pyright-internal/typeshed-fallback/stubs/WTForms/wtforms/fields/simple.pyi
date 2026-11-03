@@ -2,11 +2,13 @@ from collections.abc import Callable, Collection, Sequence
 from typing import Any
 from typing_extensions import Self
 
+from wtforms.datalist import DataList
 from wtforms.fields.core import Field, _Filter, _FormT, _Validator, _Widget
 from wtforms.form import BaseForm
 from wtforms.meta import DefaultMeta, _SupportsGettextAndNgettext
 
 __all__ = (
+    "ButtonField",
     "BooleanField",
     "TextAreaField",
     "PasswordField",
@@ -36,9 +38,11 @@ class BooleanField(Field):
         description: str = "",
         id: str | None = None,
         default: bool | Callable[[], bool] | None = None,
+        invalid_value_message: str | None = None,
         widget: _Widget[Self] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,
+        datalist: DataList | str | None = None,
         _form: BaseForm | None = None,
         _prefix: str = "",
         _translations: _SupportsGettextAndNgettext | None = None,
@@ -56,15 +60,18 @@ class StringField(Field):
         description: str = "",
         id: str | None = None,
         default: str | Callable[[], str] | None = None,
+        invalid_value_message: str | None = None,
         widget: _Widget[Self] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,
+        datalist: DataList | str | None = None,
         _form: BaseForm | None = None,
         _prefix: str = "",
         _translations: _SupportsGettextAndNgettext | None = None,
         _meta: DefaultMeta | None = None,
     ) -> None: ...
 
+class ButtonField(StringField): ...
 class TextAreaField(StringField): ...
 class PasswordField(StringField): ...
 class FileField(Field): ...

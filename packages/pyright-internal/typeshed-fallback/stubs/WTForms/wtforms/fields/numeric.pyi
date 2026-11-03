@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Any, Literal, overload
 from typing_extensions import Self
 
+from wtforms.datalist import DataList
 from wtforms.fields.core import Field, _Filter, _FormT, _Validator, _Widget
 from wtforms.form import BaseForm
 from wtforms.meta import DefaultMeta, _SupportsGettextAndNgettext
@@ -28,9 +29,11 @@ class LocaleAwareNumberField(Field):
         description: str = "",
         id: str | None = None,
         default: object | None = None,
+        invalid_value_message: str | None = None,
         widget: _Widget[Self] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,
+        datalist: DataList | str | None = None,
         _form: BaseForm | None = None,
         _prefix: str = "",
         _translations: _SupportsGettextAndNgettext | None = None,
@@ -46,6 +49,7 @@ class IntegerField(Field):
         self,
         label: str | None = None,
         validators: tuple[_Validator[_FormT, Self], ...] | list[Any] | None = None,
+        invalid_value_message: str | None = None,
         *,
         filters: Sequence[_Filter] = (),
         description: str = "",
@@ -54,6 +58,7 @@ class IntegerField(Field):
         widget: _Widget[Self] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,
+        datalist: DataList | str | None = None,
         _form: BaseForm | None = None,
         _prefix: str = "",
         _translations: _SupportsGettextAndNgettext | None = None,
@@ -76,6 +81,7 @@ class DecimalField(LocaleAwareNumberField):
         *,
         places: UnsetValue = ...,
         rounding: None = None,
+        invalid_value_message: str | None = None,
         use_locale: Literal[True],
         # this accepts a babel.numbers.NumberPattern, but since it
         # is an optional dependency we don't want to depend on it
@@ -88,6 +94,7 @@ class DecimalField(LocaleAwareNumberField):
         widget: _Widget[Self] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,
+        datalist: DataList | str | None = None,
         _form: BaseForm | None = None,
         _prefix: str = "",
         _translations: _SupportsGettextAndNgettext | None = None,
@@ -100,6 +107,7 @@ class DecimalField(LocaleAwareNumberField):
         validators: tuple[_Validator[_FormT, Self], ...] | list[Any] | None = None,
         places: int | UnsetValue | None = ...,
         rounding: str | None = None,
+        invalid_value_message: str | None = None,
         *,
         use_locale: Literal[False] = False,
         # this accepts a babel.numbers.NumberPattern, but since it
@@ -113,6 +121,7 @@ class DecimalField(LocaleAwareNumberField):
         widget: _Widget[Self] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,
+        datalist: DataList | str | None = None,
         _form: BaseForm | None = None,
         _prefix: str = "",
         _translations: _SupportsGettextAndNgettext | None = None,
@@ -128,6 +137,7 @@ class FloatField(Field):
         self,
         label: str | None = None,
         validators: tuple[_Validator[_FormT, Self], ...] | list[Any] | None = None,
+        invalid_value_message: str | None = None,
         *,
         filters: Sequence[_Filter] = (),
         description: str = "",
@@ -136,6 +146,7 @@ class FloatField(Field):
         widget: _Widget[Self] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,
+        datalist: DataList | str | None = None,
         _form: BaseForm | None = None,
         _prefix: str = "",
         _translations: _SupportsGettextAndNgettext | None = None,

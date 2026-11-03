@@ -78,6 +78,7 @@ _T_contra = TypeVar("_T_contra", contravariant=True)
 _R_co = TypeVar("_R_co", covariant=True)
 _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
+_VT_co = TypeVar("_VT_co", covariant=True)
 _S = TypeVar("_S")
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
@@ -1378,7 +1379,7 @@ class dict(MutableMapping[_KT, _VT]):
 
 if sys.version_info >= (3, 15):
     @disjoint_base
-    class frozendict(Mapping[_KT, _VT]):
+    class frozendict(Mapping[_KT, _VT_co]):
         @overload
         def __new__(cls, /) -> frozendict[Any, Any]: ...
         @overload
@@ -1396,7 +1397,7 @@ if sys.version_info >= (3, 15):
             cls: type[frozendict[str, _VT]], iterable: Iterable[tuple[str, _VT]], /, **kwargs: _VT
         ) -> frozendict[str, _VT]: ...
 
-        def copy(self) -> frozendict[_KT, _VT]: ...
+        def copy(self) -> frozendict[_KT, _VT_co]: ...
 
         @overload
         @classmethod
@@ -1406,27 +1407,27 @@ if sys.version_info >= (3, 15):
         def fromkeys(cls, iterable: Iterable[_T], value: _S, /) -> frozendict[_T, _S]: ...
 
         @overload  # type: ignore[override]
-        def get(self, key: _KT, default: None = None, /) -> _VT | None: ...
+        def get(self, key: _KT, default: None = None, /) -> _VT_co | None: ...
         @overload
-        def get(self, key: _KT, default: _VT, /) -> _VT: ...
+        def get(self, key: _KT, default: _VT_co, /) -> _VT_co: ...  # type: ignore[misc] # pyright: ignore[reportGeneralTypeIssues] # Covariant type as parameter  # pyrefly: ignore [invalid-variance]
         @overload
-        def get(self, key: _KT, default: _T, /) -> _VT | _T: ...
+        def get(self, key: _KT, default: _T, /) -> _VT_co | _T: ...
 
-        def keys(self) -> dict_keys[_KT, _VT]: ...
-        def values(self) -> dict_values[_KT, _VT]: ...
-        def items(self) -> dict_items[_KT, _VT]: ...
+        def keys(self) -> dict_keys[_KT, _VT_co]: ...
+        def values(self) -> dict_values[_KT, _VT_co]: ...
+        def items(self) -> dict_items[_KT, _VT_co]: ...
         def __len__(self) -> int: ...
-        def __getitem__(self, key: _KT, /) -> _VT: ...
+        def __getitem__(self, key: _KT, /) -> _VT_co: ...
         def __reversed__(self) -> Iterator[_KT]: ...
         def __iter__(self) -> Iterator[_KT]: ...
         def __hash__(self) -> int: ...
         def __class_getitem__(cls, item: Any, /) -> GenericAlias: ...
-        def __or__(self, value: dict[_T1, _T2] | frozendict[_T1, _T2], /) -> frozendict[_KT | _T1, _VT | _T2]: ...
+        def __or__(self, value: dict[_T1, _T2] | frozendict[_T1, _T2], /) -> frozendict[_KT | _T1, _VT_co | _T2]: ...
 
         @overload
-        def __ror__(self, value: dict[_T1, _T2], /) -> dict[_KT | _T1, _VT | _T2]: ...
+        def __ror__(self, value: dict[_T1, _T2], /) -> dict[_KT | _T1, _VT_co | _T2]: ...
         @overload
-        def __ror__(self, value: frozendict[_T1, _T2], /) -> frozendict[_KT | _T1, _VT | _T2]: ...
+        def __ror__(self, value: frozendict[_T1, _T2], /) -> frozendict[_KT | _T1, _VT_co | _T2]: ...
 
 @disjoint_base
 class set(MutableSet[_T]):
@@ -1477,10 +1478,10 @@ class set(MutableSet[_T]):
     @overload
     def __rsub__(self, value: frozenset[_S], /) -> frozenset[_S]: ...
 
-    def __xor__(self, value: AbstractSet[_S], /) -> set[_T | _S]: ...
+    def __xor__(self, value: set[_S] | frozenset[_S], /) -> set[_T | _S]: ...  # type: ignore[override]
     def __ixor__(self, value: AbstractSet[_T], /) -> Self: ...  # type: ignore[override,misc]
 
-    @overload
+    @overload  # type: ignore[override]
     def __rxor__(self, value: set[_S], /) -> set[_T | _S]: ...
     @overload
     def __rxor__(self, value: frozenset[_S], /) -> frozenset[_T | _S]: ...
@@ -1532,9 +1533,9 @@ class frozenset(AbstractSet[_T_co]):
     @overload
     def __rsub__(self, value: frozenset[_S], /) -> frozenset[_S]: ...
 
-    def __xor__(self, value: AbstractSet[_S], /) -> frozenset[_T_co | _S]: ...
+    def __xor__(self, value: set[_S] | frozenset[_S], /) -> frozenset[_T_co | _S]: ...  # type: ignore[override]
 
-    @overload
+    @overload  # type: ignore[override]
     def __rxor__(self, value: set[_S], /) -> set[_T_co | _S]: ...
     @overload
     def __rxor__(self, value: frozenset[_S], /) -> frozenset[_T_co | _S]: ...
@@ -2355,7 +2356,6 @@ NotImplemented: NotImplementedType
 
 @disjoint_base
 class BaseException:
-    """Common base class for all exceptions"""
     args: tuple[Any, ...]
     __cause__: BaseException | None
     __context__: BaseException | None
@@ -2374,28 +2374,21 @@ class BaseException:
         __notes__: list[str]
         def add_note(self, note: str, /) -> None: ...
 
-class GeneratorExit(BaseException):
-    """Request that a generator exit."""
-
-class KeyboardInterrupt(BaseException):
-    """Program interrupted by user."""
+class GeneratorExit(BaseException): ...
+class KeyboardInterrupt(BaseException): ...
 
 @disjoint_base
 class SystemExit(BaseException):
-    """Request to exit from the interpreter."""
     code: sys._ExitCode
 
-class Exception(BaseException):
-    """Common base class for all non-exit exceptions."""
+class Exception(BaseException): ...
 
 @disjoint_base
 class StopIteration(Exception):
-    """Signal the end from iterator.__next__()."""
     value: Any
 
 @disjoint_base
 class OSError(Exception):
-    """Base class for I/O related errors."""
     errno: int | None
     strerror: str | None
     # filename, filename2 are actually str | bytes | None
@@ -2409,28 +2402,20 @@ IOError = OSError
 if sys.platform == "win32":
     WindowsError = OSError
 
-class ArithmeticError(Exception):
-    """Base class for arithmetic errors."""
-
-class AssertionError(Exception):
-    """Assertion failed."""
+class ArithmeticError(Exception): ...
+class AssertionError(Exception): ...
 
 @disjoint_base
 class AttributeError(Exception):
-    """Attribute not found."""
     def __init__(self, *args: object, name: str | None = None, obj: object = None) -> None: ...
     name: str | None
     obj: object
 
-class BufferError(Exception):
-    """Buffer error."""
-
-class EOFError(Exception):
-    """Read beyond end of file."""
+class BufferError(Exception): ...
+class EOFError(Exception): ...
 
 @disjoint_base
 class ImportError(Exception):
-    """Import can't find module, or can't find name in module."""
     def __init__(self, *args: object, name: str | None = None, path: str | None = None) -> None: ...
     name: str | None
     path: str | None
@@ -2439,33 +2424,22 @@ class ImportError(Exception):
         name_from: str | None  # undocumented
 
 if sys.version_info >= (3, 15):
-    class ImportCycleError(ImportError):
-        """Import produces a cycle."""
+    class ImportCycleError(ImportError): ...
 
-class LookupError(Exception):
-    """Base class for lookup errors."""
-
-class MemoryError(Exception):
-    """Out of memory."""
+class LookupError(Exception): ...
+class MemoryError(Exception): ...
 
 @disjoint_base
 class NameError(Exception):
-    """Name not found globally."""
     def __init__(self, *args: object, name: str | None = None) -> None: ...
     name: str | None
 
-class ReferenceError(Exception):
-    """Weak ref proxy used after referent went away."""
-
-class RuntimeError(Exception):
-    """Unspecified run-time error."""
-
-class StopAsyncIteration(Exception):
-    """Signal the end from iterator.__anext__()."""
+class ReferenceError(Exception): ...
+class RuntimeError(Exception): ...
+class StopAsyncIteration(Exception): ...
 
 @disjoint_base
 class SyntaxError(Exception):
-    """Invalid syntax."""
     msg: str
     filename: str | None
     lineno: int | None
@@ -2492,104 +2466,42 @@ class SyntaxError(Exception):
     # If you provide more than two arguments, it still creates the SyntaxError, but
     # the arguments from the info tuple are not parsed. This form is omitted.
 
-class SystemError(Exception):
-    """Internal error in the Python interpreter.
-
-    Please report this to the Python maintainer, along with the traceback,
-    the Python version, and the hardware/OS platform and version.
-    """
-
-class TypeError(Exception):
-    """Inappropriate argument type."""
-
-class ValueError(Exception):
-    """Inappropriate argument value (of correct type)."""
-
-class FloatingPointError(ArithmeticError):
-    """Floating-point operation failed."""
-
-class OverflowError(ArithmeticError):
-    """Result too large to be represented."""
-
-class ZeroDivisionError(ArithmeticError):
-    """Second argument to a division or modulo operation was zero."""
-
-class ModuleNotFoundError(ImportError):
-    """Module not found."""
-
-class IndexError(LookupError):
-    """Sequence index out of range."""
-
-class KeyError(LookupError):
-    """Mapping key not found."""
-
-class UnboundLocalError(NameError):
-    """Local name referenced but not bound to a value."""
+class SystemError(Exception): ...
+class TypeError(Exception): ...
+class ValueError(Exception): ...
+class FloatingPointError(ArithmeticError): ...
+class OverflowError(ArithmeticError): ...
+class ZeroDivisionError(ArithmeticError): ...
+class ModuleNotFoundError(ImportError): ...
+class IndexError(LookupError): ...
+class KeyError(LookupError): ...
+class UnboundLocalError(NameError): ...
 
 class BlockingIOError(OSError):
-    """I/O operation would block."""
     characters_written: int
 
-class ChildProcessError(OSError):
-    """Child process error."""
-
-class ConnectionError(OSError):
-    """Connection error."""
-
-class BrokenPipeError(ConnectionError):
-    """Broken pipe."""
-
-class ConnectionAbortedError(ConnectionError):
-    """Connection aborted."""
-
-class ConnectionRefusedError(ConnectionError):
-    """Connection refused."""
-
-class ConnectionResetError(ConnectionError):
-    """Connection reset."""
-
-class FileExistsError(OSError):
-    """File already exists."""
-
-class FileNotFoundError(OSError):
-    """File not found."""
-
-class InterruptedError(OSError):
-    """Interrupted by signal."""
-
-class IsADirectoryError(OSError):
-    """Operation doesn't work on directories."""
-
-class NotADirectoryError(OSError):
-    """Operation only works on directories."""
-
-class PermissionError(OSError):
-    """Not enough permissions."""
-
-class ProcessLookupError(OSError):
-    """Process not found."""
-
-class TimeoutError(OSError):
-    """Timeout expired."""
-
-class NotImplementedError(RuntimeError):
-    """Method or function hasn't been implemented yet."""
-
-class RecursionError(RuntimeError):
-    """Recursion limit exceeded."""
-
-class IndentationError(SyntaxError):
-    """Improper indentation."""
-
-class TabError(IndentationError):
-    """Improper mixture of spaces and tabs."""
-
-class UnicodeError(ValueError):
-    """Unicode related error."""
+class ChildProcessError(OSError): ...
+class ConnectionError(OSError): ...
+class BrokenPipeError(ConnectionError): ...
+class ConnectionAbortedError(ConnectionError): ...
+class ConnectionRefusedError(ConnectionError): ...
+class ConnectionResetError(ConnectionError): ...
+class FileExistsError(OSError): ...
+class FileNotFoundError(OSError): ...
+class InterruptedError(OSError): ...
+class IsADirectoryError(OSError): ...
+class NotADirectoryError(OSError): ...
+class PermissionError(OSError): ...
+class ProcessLookupError(OSError): ...
+class TimeoutError(OSError): ...
+class NotImplementedError(RuntimeError): ...
+class RecursionError(RuntimeError): ...
+class IndentationError(SyntaxError): ...
+class TabError(IndentationError): ...
+class UnicodeError(ValueError): ...
 
 @disjoint_base
 class UnicodeDecodeError(UnicodeError):
-    """Unicode decoding error."""
     encoding: str
     object: bytes
     start: int
@@ -2599,7 +2511,6 @@ class UnicodeDecodeError(UnicodeError):
 
 @disjoint_base
 class UnicodeEncodeError(UnicodeError):
-    """Unicode encoding error."""
     encoding: str
     object: str
     start: int
@@ -2609,7 +2520,6 @@ class UnicodeEncodeError(UnicodeError):
 
 @disjoint_base
 class UnicodeTranslateError(UnicodeError):
-    """Unicode translation error."""
     encoding: None
     object: str
     start: int
@@ -2617,41 +2527,18 @@ class UnicodeTranslateError(UnicodeError):
     reason: str
     def __init__(self, object: str, start: int, end: int, reason: str, /) -> None: ...
 
-class Warning(Exception):
-    """Base class for warning categories."""
-
-class UserWarning(Warning):
-    """Base class for warnings generated by user code."""
-
-class DeprecationWarning(Warning):
-    """Base class for warnings about deprecated features."""
-
-class SyntaxWarning(Warning):
-    """Base class for warnings about dubious syntax."""
-
-class RuntimeWarning(Warning):
-    """Base class for warnings about dubious runtime behavior."""
-
-class FutureWarning(Warning):
-    """Base class for warnings about constructs that will change semantically in the future."""
-
-class PendingDeprecationWarning(Warning):
-    """Base class for warnings about features which will be deprecated in the future."""
-
-class ImportWarning(Warning):
-    """Base class for warnings about probable mistakes in module imports"""
-
-class UnicodeWarning(Warning):
-    """Base class for warnings about Unicode related problems, mostly related to conversion problems."""
-
-class BytesWarning(Warning):
-    """Base class for warnings about bytes and buffer related problems, mostly related to conversion from str or comparing to str."""
-
-class ResourceWarning(Warning):
-    """Base class for warnings about resource usage."""
-
-class EncodingWarning(Warning):
-    """Base class for warnings about encodings."""
+class Warning(Exception): ...
+class UserWarning(Warning): ...
+class DeprecationWarning(Warning): ...
+class SyntaxWarning(Warning): ...
+class RuntimeWarning(Warning): ...
+class FutureWarning(Warning): ...
+class PendingDeprecationWarning(Warning): ...
+class ImportWarning(Warning): ...
+class UnicodeWarning(Warning): ...
+class BytesWarning(Warning): ...
+class ResourceWarning(Warning): ...
+class EncodingWarning(Warning): ...
 
 if sys.version_info >= (3, 11):
     _BaseExceptionT_co = TypeVar("_BaseExceptionT_co", bound=BaseException, covariant=True, default=BaseException)
@@ -2662,7 +2549,6 @@ if sys.version_info >= (3, 11):
     # See `check_exception_group.py` for use-cases and comments.
     @disjoint_base
     class BaseExceptionGroup(BaseException, Generic[_BaseExceptionT_co]):
-        """A combination of multiple unrelated exceptions."""
         def __new__(cls, message: str, exceptions: Sequence[_BaseExceptionT_co], /) -> Self: ...
         def __init__(self, message: str, exceptions: Sequence[_BaseExceptionT_co], /) -> None: ...
         @property
@@ -2705,7 +2591,6 @@ if sys.version_info >= (3, 11):
         def __class_getitem__(cls, item: Any, /) -> GenericAlias: ...
 
     class ExceptionGroup(BaseExceptionGroup[_ExceptionT_co], Exception):
-        """A combination of multiple unrelated exceptions."""
         def __new__(cls, message: str, exceptions: Sequence[_ExceptionT_co], /) -> Self: ...
         def __init__(self, message: str, exceptions: Sequence[_ExceptionT_co], /) -> None: ...
         @property
@@ -2731,5 +2616,4 @@ if sys.version_info >= (3, 11):
         ) -> tuple[ExceptionGroup[_ExceptionT_co] | None, ExceptionGroup[_ExceptionT_co] | None]: ...
 
 if sys.version_info >= (3, 13):
-    class PythonFinalizationError(RuntimeError):
-        """Operation blocked during Python finalization."""
+    class PythonFinalizationError(RuntimeError): ...

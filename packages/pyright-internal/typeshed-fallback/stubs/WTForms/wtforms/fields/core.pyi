@@ -4,6 +4,7 @@ from typing import Any, Generic, Protocol, TypeAlias, TypeVar, overload, type_ch
 from typing_extensions import Self
 
 from markupsafe import Markup
+from wtforms.datalist import DataList
 from wtforms.form import BaseForm
 from wtforms.meta import DefaultMeta, _MultiDictLikeWithGetlist, _SupportsGettextAndNgettext
 
@@ -46,6 +47,7 @@ class Field:
     id: str
     type: str
     label: Label
+    invalid_value_message: str | None
     # technically this can return UnboundField, but that is not allowed
     # by type checkers, so we use a descriptor hack to get around this
     # limitation instead
@@ -63,16 +65,26 @@ class Field:
         description: str = "",
         id: str | None = None,
         default: object | None = None,
+        invalid_value_message: str | None = None,
         widget: _Widget[Self] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,
+        datalist: DataList | str | None = None,
         _form: BaseForm | None = None,
         _prefix: str = "",
         _translations: _SupportsGettextAndNgettext | None = None,
         _meta: DefaultMeta | None = None,
     ) -> None: ...
-    def __html__(self) -> str: ...
-    def __call__(self, **kwargs: object) -> Markup: ...
+    def __html__(self) -> Markup: ...
+    # these kwargs get passed to `DefaultMeta.render_field`, which by default invokes
+    # `Widget.__call__` with the same kwargs. Although different meta classes could
+    # choose to special-case some parameters.
+    # see the comment on `wtforms.widgets.core._RenderArg` for a thorough explanation
+    # of the `render_kw` use-case
+    def __call__(self, **kwargs: Any) -> Markup: ...
+    # these kwargs get passed to the `DataListWidget` tied to the bound `DataList`
+    # see the comment on `wtforms.widgets.core._RenderArg` for a thorough explanation
+    def datalist(self, **kwargs: Any) -> Markup: ...
     @classmethod
     def check_validators(cls, validators: Iterable[_Validator[_FormT, Self]] | None) -> None: ...
     def gettext(self, string: str) -> str: ...
@@ -83,6 +95,7 @@ class Field:
     def process(
         self, formdata: _MultiDictLikeWithGetlist | None, data: Any = ..., extra_filters: Sequence[_Filter] | None = None
     ) -> None: ...
+    def post_process(self, formdata: _MultiDictLikeWithGetlist | None = None) -> None: ...
     def process_data(self, value: Any) -> None: ...
     def process_formdata(self, valuelist: list[Any]) -> None: ...
     def populate_obj(self, obj: object, name: str) -> None: ...

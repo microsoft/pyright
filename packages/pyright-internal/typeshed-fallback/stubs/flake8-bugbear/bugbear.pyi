@@ -9,7 +9,11 @@ __version__: Final[str]
 LOG: Logger
 CONTEXTFUL_NODES: Final[tuple[type[ast.AST], ...]]
 FUNCTION_NODES: Final[tuple[type[ast.AST], ...]]
+EAGER_COMPREHENSION_NODES: Final[tuple[type[ast.AST], ...]]
 FUNCTIONS_WITHOUT_SIDE_EFFECTS: Final[tuple[str, ...]]
+B018_ARITHMETIC_OPERATORS: Final[tuple[type[ast.operator], ...]]
+B018_LAZY_FUNCTIONS: Final[tuple[str, ...]]
+B018_RAISING_BLOCKS: Final[tuple[type[ast.stmt], ...]]
 B908_pytest_functions: Final[set[str]]
 B908_unittest_methods: Final[set[str]]
 B902_default_decorators: Final[set[str]]
@@ -193,6 +197,14 @@ class BugBearVisitor(ast.NodeVisitor):
     def check_for_b034(self, node: ast.Call) -> None: ...
     def check_for_b042(self, node: ast.ClassDef) -> None: ...
     def check_for_b044(self, node: ast.Assert) -> None: ...
+    def check_for_b045(self, node: ast.For | ast.AsyncFor) -> None: ...
+    def check_for_b046(self, node: ast.Call) -> None: ...
+    if sys.version_info >= (3, 11):
+        def check_for_b047(self, node: ast.Try | ast.TryStar) -> None: ...
+    else:
+        def check_for_b047(self, node: ast.Try) -> None: ...
+
+    def check_for_b049(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None: ...
     def check_for_b909(self, node: ast.For) -> None: ...
     def check_for_b910(self, node: ast.Call) -> None: ...
     def check_for_b911(self, node: ast.Call) -> None: ...
@@ -233,9 +245,17 @@ class NamedExprFinder(ast.NodeVisitor):
     def visit_NamedExpr(self, node: ast.NamedExpr) -> None: ...
     def visit(self, node: ast.AST | list[ast.AST]) -> Any: ...
 
+class B008NamedExprFinder(NamedExprFinder):
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None: ...
+    def visit_Lambda(self, node: ast.Lambda) -> None: ...
+
 class FunctionDefDefaultsVisitor(ast.NodeVisitor):
     def __init__(
-        self, error_code_calls: Error, error_code_literals: Error, b008_b039_extend_immutable_calls: set[str] | None = None
+        self,
+        error_code_calls: Error,
+        error_code_literals: Error,
+        b008_b039_extend_immutable_calls: set[str] | None = None,
+        imported_names: dict[str, str | None] | None = None,
     ) -> None: ...
     def visit_mutable_literal_or_comprehension(
         self, node: ast.List | ast.Dict | ast.Set | ast.ListComp | ast.DictComp | ast.SetComp
@@ -264,6 +284,9 @@ B006_MUTABLE_CALLS: Final[set[str]]
 B008_IMMUTABLE_CALLS: Final[set[str]]
 B014_REDUNDANT_EXCEPTIONS: Final[dict[Literal["OSError", "ValueError"], set[str]]]
 B019_CACHES: Final[set[str]]
+B046_DICT_TYPES: Final[set[str]]
+B049_DESCRIPTORS: Final[set[str]]
+B049_PROPERTY_ACCESSORS: Final[set[str]]
 B902_IMPLICIT_CLASSMETHODS: Final[set[str]]
 B902_SELF: Final[list[str]]
 B902_CLS: Final[list[str]]

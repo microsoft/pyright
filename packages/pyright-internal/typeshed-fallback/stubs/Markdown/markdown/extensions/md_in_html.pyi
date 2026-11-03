@@ -1,6 +1,6 @@
 from collections.abc import Iterable, Mapping
 from typing import Literal
-from xml.etree.ElementTree import Element, TreeBuilder
+from xml.etree.ElementTree import Element
 
 from markdown.blockprocessors import BlockProcessor
 from markdown.extensions import Extension
@@ -9,15 +9,15 @@ from markdown.postprocessors import RawHtmlPostprocessor
 from markdown.preprocessors import Preprocessor
 
 class HTMLExtractorExtra(HTMLExtractor):
-    block_level_tags: set[str]
     span_tags: set[str]
     raw_tags: set[str]
-    block_tags: set[str]
-    span_and_blocks_tags: set[str]
-    mdstack: list[str]
-    treebuilder: TreeBuilder
-    mdstate: list[Literal["block", "span", "off"] | None]
-    mdstarted: list[bool]
+
+    @property
+    def block_level_tags(self) -> set[str]: ...
+    @property
+    def block_tags(self) -> set[str]: ...
+    @property
+    def span_and_blocks_tags(self) -> set[str]: ...
     def get_element(self) -> Element: ...
     def get_state(self, tag: str, attrs: Mapping[str, str]) -> Literal["block", "span", "off"] | None: ...
     def handle_starttag(self, tag: str, attrs: Iterable[tuple[str, str | None]]) -> None: ...
