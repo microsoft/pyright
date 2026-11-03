@@ -62,6 +62,7 @@ from issue_review_models import (
     Label,
     ReviewFindings,
     ReproductionGate,
+    ReconstructionResponse,
     ReproductionPlan,
     ReproductionScenario,
     RootCause,
@@ -69,12 +70,13 @@ from issue_review_models import (
     RootCauseFindings,
     RootCauseGate,
 )
-from issue_review_sdk_diagnostics import RuntimeDiagnostics
+from issue_review_sdk_diagnostics import RuntimeDiagnostics, WhitespaceStallGuard
 from review_issues import (
     AGENTS,
     REPOSITORY,
     ROOT,
     SDK,
+    SDKRecovery,
     Agent,
     AutomationError,
     Console,
@@ -525,7 +527,7 @@ class ModelTests(unittest.TestCase):
                 check(child)
             if "items" in schema:
                 check(schema["items"])
-        for model in (ReproductionScenario, ExploratoryReproductionScenario, ReproductionGate):
+        for model in (ReproductionScenario, ExploratoryReproductionScenario, ReproductionGate, ReconstructionResponse):
             with self.subTest(model=model.__name__):
                 schema = response_schema(model)
                 self.assertEqual(schema["type"], "object")
@@ -1912,6 +1914,213 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
             agent_id=agent_id,
         )
 
+    def recovery_client(self, *, repeated=False, correction=False, resume_progress=False):
+        client = AsyncMock()
+        sessions = []
+        cancelled = []
+
+        async def create(**options):
+            session = self.session()
+            index = len(sessions)
+            session.session_id = f"offline-recovery-{index}"
+            sessions.append(session)
+            callback = options["on_event"]
+            calls = 0
+
+            async def respond(*_args, **_kwargs):
+                nonlocal calls
+                calls += 1
+                if correction and calls == 1:
+                    return SimpleNamespace(data=AssistantMessageData(content="invalid JSON", message_id="invalid"))
+                if index == 0 or repeated:
+                    for _ in range(2):
+                        callback(self.event("assistant.message_delta", AssistantMessageDeltaData(
+                            delta_content=" ", message_id="reply",
+                        )))
+                    if resume_progress:
+                        callback(self.event("assistant.reasoning_delta", AssistantReasoningDeltaData(
+                            delta_content="private meaningful progress", reasoning_id="reason",
+                        )))
+                        return SimpleNamespace(data=AssistantMessageData(
+                            content='{"approved":true,"problems":[]}', message_id="reply",
+                        ))
+                    try:
+                        await asyncio.Event().wait()
+                    finally:
+                        cancelled.append(index)
+                return SimpleNamespace(data=AssistantMessageData(
+                    content='{"approved":true,"problems":[]}', message_id="reply",
+                ))
+
+            session.send_and_wait.side_effect = respond
+            return session
+
+        client.create_session.side_effect = create
+        return client, sessions, cancelled
+
+    def small_guard(self):
+        return patch("review_issues.WhitespaceStallGuard", side_effect=lambda: WhitespaceStallGuard(
+            min_seconds=0, min_chunks=2, min_bytes=2,
+        ))
+
+    async def test_whitespace_stall_aborts_drains_and_retries_once_in_a_fresh_linked_session(self):
+        client, sessions, cancelled = self.recovery_client()
+        with self.small_guard():
+            result = await SDK(client, None, 10).run(self.agent, "Offline", self.scratch, schema=DraftCheck)
+        self.assertTrue(DraftCheck.model_validate_json(result).approved)
+        self.assertEqual(len(sessions), 2)
+        self.assertEqual(cancelled, [0])
+        sessions[0].abort.assert_awaited_once()
+        sessions[1].abort.assert_not_awaited()
+        for session in sessions:
+            session.disconnect.assert_awaited_once()
+        records = self.records()
+        stall = next(row["data"] for row in records if row["type"] == "controller.whitespace_stall")
+        self.assertTrue(stall["retry_allowed"])
+        self.assertEqual(stall["guard"]["chunks"], 2)
+        metadata = [json.loads(line) for line in (self.scratch / "sdk-sessions.jsonl").read_text().splitlines()]
+        self.assertEqual([row["recovery_index"] for row in metadata], [0, 1])
+        self.assertEqual(metadata[1]["previous_session_id"], sessions[0].session_id)
+        self.assertFalse([task for task in asyncio.all_tasks() if task.get_name().startswith(("sdk-response-", "sdk-whitespace-"))])
+
+    async def test_recurring_whitespace_stall_is_an_explicit_failure_not_an_unbounded_retry(self):
+        client, sessions, cancelled = self.recovery_client(repeated=True)
+        with self.small_guard(), self.assertRaisesRegex(AutomationError, "recovery exhausted"):
+            await SDK(client, None, 10).run(self.agent, "Offline", self.scratch, schema=DraftCheck)
+        self.assertEqual(len(sessions), 2)
+        self.assertEqual(cancelled, [0, 1])
+        for session in sessions:
+            session.abort.assert_awaited_once()
+            session.disconnect.assert_awaited_once()
+        self.assertFalse((self.scratch / f"{self.agent.name}-last-response.txt").exists())
+
+    async def test_fresh_retry_setup_consumes_the_original_deadline(self):
+        client, sessions, _cancelled = self.recovery_client()
+        create = client.create_session.side_effect
+        cleanup_finished = asyncio.Event()
+        recovery = SDKRecovery()
+        original_deadline = None
+
+        async def slow_create(**options):
+            nonlocal original_deadline
+            session = await create(**options)
+            if len(sessions) == 1:
+                async def disconnect():
+                    nonlocal original_deadline
+                    original_deadline = recovery.deadline
+                    await asyncio.sleep(0.01)
+                    cleanup_finished.set()
+                session.disconnect.side_effect = disconnect
+            else:
+                self.assertTrue(cleanup_finished.is_set())
+                self.assertEqual(recovery.deadline, original_deadline)
+                assert recovery.setup_timeout is not None
+                self.assertEqual(recovery.setup_timeout.when(), original_deadline)
+                async def setup():
+                    assert recovery.setup_timeout is not None
+                    recovery.setup_timeout.reschedule(asyncio.get_running_loop().time())
+                    await asyncio.Event().wait()
+                session.rpc.tools.initialize_and_validate.side_effect = setup
+            return session
+
+        client.create_session.side_effect = slow_create
+        with (
+            self.small_guard(), patch("review_issues.SDKRecovery", return_value=recovery),
+            self.assertRaisesRegex(AutomationError, "original SDK deadline"),
+        ):
+            await SDK(client, None, 30).run(self.agent, "Offline", self.scratch, schema=DraftCheck)
+        self.assertEqual(len(sessions), 2)
+        sessions[1].send_and_wait.assert_not_awaited()
+        for session in sessions:
+            session.disconnect.assert_awaited_once()
+        stalls = [row for row in self.records() if row["type"] == "controller.whitespace_stall"]
+        self.assertEqual(len(stalls), 1)
+
+    async def test_validation_correction_cannot_gain_an_extra_fresh_session(self):
+        client, sessions, _cancelled = self.recovery_client(correction=True)
+        with self.small_guard(), self.assertRaisesRegex(AutomationError, "recovery not safe"):
+            await SDK(client, None, 10).run(self.agent, "Offline", self.scratch, schema=DraftCheck)
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual(sessions[0].send_and_wait.await_count, 2)
+        self.assertEqual((self.scratch / f"{self.agent.name}-response-1.txt").read_text(), "invalid JSON")
+        self.assertFalse((self.scratch / f"{self.agent.name}-response-2.txt").exists())
+
+    async def test_meaningful_progress_clears_a_queued_stall_before_it_can_abort(self):
+        client, sessions, _cancelled = self.recovery_client(resume_progress=True)
+        with self.small_guard():
+            result = await SDK(client, None, 10).run(self.agent, "Offline", self.scratch, schema=DraftCheck)
+        self.assertTrue(DraftCheck.model_validate_json(result).approved)
+        self.assertEqual(len(sessions), 1)
+        sessions[0].abort.assert_not_awaited()
+        self.assertNotIn("private meaningful progress", (self.scratch / "sdk-events.jsonl").read_text())
+
+    async def test_unstructured_turns_do_not_enable_whitespace_recovery(self):
+        client, sessions, cancelled = self.recovery_client()
+        with self.small_guard(), self.assertRaisesRegex(AutomationError, "timed out"):
+            await SDK(client, None, 0.2).run(self.agent, "Offline", self.scratch)
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual(cancelled, [0])
+        self.assertFalse([row for row in self.records() if row["type"] == "controller.whitespace_stall"])
+
+    async def test_tool_bearing_structured_turns_never_replay_tools_for_whitespace(self):
+        client, sessions, cancelled = self.recovery_client()
+        create = client.create_session.side_effect
+        tools = ReproductionEvidenceTools(FakeGitHub(), self.scratch, [])
+
+        async def create_tools(**options):
+            session = await create(**options)
+            session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(
+                tools=[SimpleNamespace(name=tool.name) for tool in tools.tools],
+            )
+            return session
+
+        client.create_session.side_effect = create_tools
+        with self.small_guard(), self.assertRaisesRegex(AutomationError, "timed out"):
+            await SDK(client, None, 0.2).run(
+                self.agent, "Offline", self.scratch, schema=DraftCheck, tools=tools, native_tools=[],
+            )
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual(cancelled, [0])
+        self.assertFalse([row for row in self.records() if row["type"] == "controller.whitespace_stall"])
+
+    async def test_subagent_whitespace_never_triggers_root_recovery(self):
+        sdk, session, _actual = await self.installed_wait([
+            self.event("assistant.message_delta", AssistantMessageDeltaData(delta_content=" ", message_id="child"), agent_id="child")
+            for _ in range(10)
+        ])
+        with self.small_guard(), self.assertRaisesRegex(AutomationError, "timed out"):
+            await sdk.run(self.agent, "Offline", self.scratch, schema=DraftCheck)
+        self.assertFalse([row for row in self.records() if row["type"] == "controller.whitespace_stall"])
+        session.abort.assert_awaited_once()
+
+    async def test_cancellation_drains_structured_wait_and_guard_without_recovery(self):
+        client, sessions, cancelled = self.recovery_client()
+        waiting = asyncio.Event()
+        create = client.create_session.side_effect
+
+        async def create_wait(**options):
+            session = await create(**options)
+            async def wait(*_args, **_kwargs):
+                waiting.set()
+                try:
+                    await asyncio.Event().wait()
+                finally:
+                    cancelled.append(0)
+            session.send_and_wait.side_effect = wait
+            return session
+
+        client.create_session.side_effect = create_wait
+        task = asyncio.create_task(SDK(client, None, 30).run(self.agent, "Offline", self.scratch, schema=DraftCheck))
+        await waiting.wait()
+        task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual(cancelled, [0])
+        sessions[0].abort.assert_awaited_once()
+        sessions[0].disconnect.assert_awaited_once()
+        self.assertFalse([item for item in asyncio.all_tasks() if item.get_name().startswith(("sdk-response-", "sdk-whitespace-"))])
+
     async def installed_wait(self, events, *, timeout=0.05):
         transport = AsyncMock()
         actual = CopilotSession("offline-lifecycle", transport)
@@ -1987,6 +2196,10 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(failure["phase"], "response_wait")
         self.assertEqual(failure["generation_activity"]["root"]["events"], 42)
         self.assertEqual(failure["generation_activity"]["subagent"]["events"], 11)
+        self.assertEqual(failure["generation_activity"]["root"]["nonempty_events"], 42)
+        reasoning = failure["stream_activity"]["root:assistant.reasoning_delta"]
+        self.assertEqual(reasoning["utf8_bytes"], 20 * len("private reasoning".encode()))
+        self.assertEqual(reasoning["adjacent_same_stream_repeats"], 19)
         self.assertGreaterEqual(failure["seconds_since_last_event"], 0)
         self.assertGreaterEqual(failure["generation_activity"]["root"]["seconds_since_last_generation"], 0)
         self.assertFalse((self.scratch / f"{self.agent.name}-response-1.txt").exists())
@@ -2026,6 +2239,58 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("private provider payload", text)
         self.assertNotIn("private retry explanation", text)
         session.abort.assert_awaited_once()
+
+    async def test_empty_and_repeated_deltas_are_numeric_metadata_not_completed_output(self):
+        events = [
+            self.event("assistant.message_delta", AssistantMessageDeltaData(delta_content=text, message_id="reply"))
+            for text in ("", " ", " ", "private-chunk", "private-chunk", "")
+        ] + [
+            self.event("assistant.reasoning_delta", AssistantReasoningDeltaData(
+                delta_content="private reasoning", reasoning_id="reason",
+            ), agent_id=scope) for scope in (None, "child")
+        ] + [
+            self.event("assistant.message_delta", AssistantMessageDeltaData(
+                delta_content="private subagent", message_id="child-reply",
+            ), agent_id="child")
+        ]
+        sdk, session, _actual = await self.installed_wait(events)
+        with self.assertRaisesRegex(AutomationError, "timed out"):
+            await sdk.run(self.agent, "Offline", self.scratch)
+        timeout = next(row["data"] for row in self.records() if row["type"] == "controller.timeout")
+        activity = timeout["stream_activity"]["root:assistant.message_delta"]
+        self.assertEqual(activity["events"], 6)
+        self.assertEqual(activity["utf8_bytes"], 2 + 2 * len("private-chunk".encode()))
+        self.assertEqual(activity["empty_events"], 2)
+        self.assertEqual(activity["whitespace_events"], 2)
+        self.assertEqual(activity["adjacent_same_stream_repeats"], 2)
+        self.assertEqual(activity["max_identical_chunk_run"], 2)
+        self.assertEqual(timeout["generation_activity"]["root"]["nonempty_events"], 5)
+        self.assertIsNotNone(timeout["generation_activity"]["root"]["last_nonempty_elapsed_seconds"])
+        self.assertGreaterEqual(timeout["generation_activity"]["root"]["seconds_since_last_nonempty"], 0)
+        self.assertEqual(timeout["stream_activity"]["subagent:assistant.reasoning_delta"]["events"], 1)
+        self.assertEqual(len(timeout["stream_activity"]), 4)
+        metadata = json.loads((self.scratch / "sdk-sessions.jsonl").read_text().splitlines()[-1])
+        self.assertEqual(metadata["diagnostics_schema_version"], 2)
+        text = (self.scratch / "sdk-events.jsonl").read_text()
+        self.assertNotIn("private-chunk", text)
+        self.assertNotIn("private reasoning", text)
+        self.assertNotIn("private subagent", text)
+        session.abort.assert_awaited_once()
+
+    async def test_only_empty_deltas_leave_nonempty_generation_unobserved(self):
+        sdk, _session, _actual = await self.installed_wait([
+            self.event("assistant.message_delta", AssistantMessageDeltaData(delta_content="", message_id="reply"))
+            for _ in range(50)
+        ])
+        with self.assertRaisesRegex(AutomationError, "timed out"):
+            await sdk.run(self.agent, "Offline", self.scratch)
+        timeout = next(row["data"] for row in self.records() if row["type"] == "controller.timeout")
+        self.assertEqual(timeout["generation_activity"]["root"]["events"], 50)
+        self.assertEqual(timeout["generation_activity"]["root"]["nonempty_events"], 0)
+        self.assertIsNone(timeout["generation_activity"]["root"]["last_nonempty_elapsed_seconds"])
+        self.assertIsNone(timeout["generation_activity"]["root"]["seconds_since_last_nonempty"])
+        self.assertEqual(timeout["stream_activity"]["root:assistant.message_delta"]["empty_events"], 50)
+        self.assertEqual(timeout["stream_activity"]["root:assistant.message_delta"]["utf8_bytes"], 0)
 
     async def test_responsive_heartbeat_does_not_imply_generation_or_extend_controller_timeout(self):
         session, client = self.session(), AsyncMock()
@@ -2153,6 +2418,7 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_heartbeats_run_during_approval_pause_without_changing_the_active_deadline(self):
         session, client = self.session(), AsyncMock()
+        active_budget, approval_pause = 0.3, 0.6
         tools = ReproductionEvidenceTools(FakeGitHub(), self.scratch, [])
         session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(
             tools=[SimpleNamespace(name=tool.name) for tool in tools.tools],
@@ -2166,14 +2432,15 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
             clock = asyncio.get_running_loop().time
             remaining = when - clock()
             deadline.reschedule(None)
-            await asyncio.sleep(0.06)
+            await asyncio.sleep(approval_pause)
             deadline.reschedule(clock() + remaining)
             return SimpleNamespace(data=AssistantMessageData(content="Offline result", message_id="reply"))
 
         client.create_session.return_value = session
         session.send_and_wait.side_effect = respond
-        with patch("review_issues.SDK_HEARTBEAT_SECONDS", 0.005):
-            result = await SDK(client, None, 0.03).run(self.agent, "Offline", self.scratch, tools=tools, native_tools=[])
+        with patch("review_issues.SDK_HEARTBEAT_SECONDS", 0.05):
+            result = await SDK(client, None, active_budget).run(self.agent, "Offline", self.scratch, tools=tools, native_tools=[])
+        self.assertGreater(approval_pause, active_budget)
         self.assertEqual(result, "Offline result")
         heartbeats = [row["data"] for row in self.records() if row["type"] == "controller.heartbeat"]
         self.assertTrue(any(row["deadline_paused"] and row["rpc_status"] == "responsive" for row in heartbeats))
@@ -2204,13 +2471,17 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
         client.create_session.side_effect = create
         session.send_and_wait.side_effect = respond
         with self.assertRaisesRegex(AutomationError, "timed out"):
-            await SDK(client, None, 0.05).run(self.agent, "Offline", self.scratch, schema=DraftCheck)
+            await SDK(client, None, 0.5).run(self.agent, "Offline", self.scratch, schema=DraftCheck)
         failure = next(row["data"] for row in self.records() if row["type"] == "controller.timeout")
         self.assertEqual(failure["attempt"], 2)
         self.assertEqual(failure["generation_activity"], {})
+        self.assertEqual(failure["stream_activity"], {})
         self.assertEqual(failure["event_counts"], {})
         waits = [row["data"] for row in self.records() if row["type"] == "controller.lifecycle" and row["data"]["phase"] == "response_wait"]
         self.assertLess(waits[1]["remaining_active_seconds"], waits[0]["remaining_active_seconds"])
+        returned = next(row["data"] for row in self.records() if row["type"] == "controller.lifecycle" and row["data"]["phase"] == "response_returned")
+        self.assertEqual(returned["stream_activity"]["root:assistant.message_delta"]["events"], 1)
+        self.assertEqual(returned["generation_activity"]["root"]["nonempty_events"], 1)
         self.assertNotIn("private first attempt", (self.scratch / "sdk-events.jsonl").read_text())
 
     async def test_parallel_turn_timeout_does_not_cancel_healthy_sibling_or_misattribute_runtime_logs(self):

@@ -128,6 +128,18 @@ The first reconstructs every material claim, report-faithful static inputs/setti
 and affirmative precision controls; the second validates the actual comparison, not its cause. Neither role
 drafts or publishes comments. The controller alone acquires integrity-checked published npm packages and an
 isolated, SHA-pinned upstream main build, never a reporter installer or a similarly versioned feature bundle.
+When an executable scenario cannot honestly be specified, reconstruction instead returns an explicit blocked
+variant retaining every claim's ID, verbatim quote, surface and reason plus genuine prerequisites. It does not
+require fabricated source or observation predicates, weaken the executable schema, or establish behavior/closure
+authority. Missing Python/checking settings alone still use disclosed defaults. The controller validates/seals
+blocked details without selecting targets, running checkers or invoking the comparison gate.
+
+Paired phase records in attempt/cache `timings.jsonl` files separate preparation/acquisition/build, copy/extraction,
+integrity checks, checker waits and controller validation/gating. UTC starts/ends, monotonic wall durations,
+parent/phase IDs and failure/cancellation classes expose unfinished work without storing exception payloads.
+Nested intervals are explicitly non-additive; diagnostic timing files remain outside hashed runtime/input trees.
+Action revalidation logs to the current issue directory, not an imported frozen source attempt.
+
 Main source builds use a uniquely owned system-temporary checkout, separate from the hashed runtime cache, to
 avoid Windows dependency-loader path limits. Work directories are removed on success or failure. Main runtimes
 retain the unchanged upstream `index.js` and `langserver.index.js` alongside the complete built `dist`, including bundled typeshed;
@@ -196,10 +208,22 @@ than silently repairing them. These operational checks do not supply omitted rep
 claim, reproduction, screening or publication gate.
 
 The console's [SDK timeout diagnostics](../build/automation/README.md#sdk-timeout-diagnostics) explicitly enable
-streaming and record metadata-only generation, retry and model-call activity. Bounded local RPC heartbeats
-distinguish runtime responsiveness from model progress without extending role budgets. A capped, filtered shared
-SDK/CLI log preserves session correlation or explicitly ambiguous candidates; prompts, source, reasoning and
-free-form errors are not copied into these diagnostics. Completion correlation and all evidence gates remain unchanged.
+streaming and record metadata-only generation, retry and model-call activity. Numeric delta counters distinguish
+empty delivery, UTF-8 bytes, whitespace and adjacent same-stream repetition without persisting partial text or
+its fingerprints; they do not prove useful model progress or a generation loop. Bounded local RPC heartbeats
+distinguish runtime responsiveness from model progress without extending role budgets. The capped, filtered
+shared SDK/CLI log coalesces per-event dispatch noise and reserves capacity for operations/warnings/errors.
+Structured session IDs take precedence; unregistered IDs and ambiguous candidates are explicit. Prompts, source,
+reasoning and free-form errors are not copied into these diagnostics. Completion correlation and all evidence
+gates remain unchanged.
+
+A conservative sustained-whitespace guard applies only to tool-free structured-output calls: 60 seconds,
+1,024 root message chunks and 16 KiB, without a gap over 10 seconds. Meaningful root message/reasoning output
+resets it; silent reasoning, empty deltas and subagent output do not trigger recovery. The controller drains,
+aborts and disconnects a stalled session before one linked fresh-session retry, only before a completed root
+response. Cleanup and new setup consume the original deadline. Corrections, tool-bearing calls, repeated stalls
+and exhausted budgets receive no fresh retry. This is bounded delivery recovery, not proof of provider cause,
+an issue verdict or a relaxed completion/evidence gate.
 
 The explicit [publication-disabled closure rehearsal](../build/automation/README.md#publication-disabled-closure-rehearsal)
 is separate from ordinary dry-run behavior. `--rehearse-closures` runs real rich-mirror drafting, factual checking

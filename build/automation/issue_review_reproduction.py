@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field, JsonValue
 
 from issue_review_models import ConfiguredReproductionScenario, Issue, ReproductionScenario, ReproductionTarget, Symptom
 from issue_review_rca import Runner
+from issue_review_timing import phase_timing
 
 VERSION = re.compile(r"1\.[0-9]+\.[0-9]+")
 SHA = re.compile(r"[0-9a-f]{40}")
@@ -661,6 +662,10 @@ class TargetStore:
             "--json", "--loglevel=error", "--fetch-retries=0", "--fetch-timeout=60000",
         ]
 
+    async def timed_io(self, phase: str, operation: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+        with phase_timing(self.directory / "timings.jsonl", phase):
+            return await run_target_io(operation, *args, **kwargs)
+
     async def catalog(self) -> ReleaseCatalog:
         self.directory.mkdir(parents=True, exist_ok=True)
         log: list[dict] = []
@@ -668,7 +673,7 @@ class TargetStore:
         error = None
         try:
             if self.registry == NPM_REGISTRY:
-                data = await asyncio.to_thread(download, REGISTRY)
+                data = await self.timed_io("catalog.download", download, REGISTRY)
                 log.append({
                     "method": "GET", "url": REGISTRY, "sha256": hashlib.sha256(data).hexdigest(),
                     "content": data.decode("utf-8"),
@@ -702,22 +707,29 @@ class TargetStore:
                 "catalog_hash": None if catalog is None else fingerprint(catalog.model_dump()),
             }, indent=2), encoding="utf-8")
 
-    async def command(self, command: list[str], cwd: Path, log: list[dict]) -> str:
+    async def command(
+        self, command: list[str], cwd: Path, log: list[dict], *, phase: str = "target.command",
+    ) -> str:
         record: dict[str, JsonValue] = {
             "command": subprocess.list2cmdline(command), "cwd": str(cwd),
         }
         log.append(record)
         try:
-            code, stdout, stderr = await self.runner(command, cwd)
+            with phase_timing(self.directory / "timings.jsonl", phase):
+                code, stdout, stderr = await self.runner(command, cwd)
+                record.update({"exit_code": code, "stdout": stdout, "stderr": stderr})
+                if code:
+                    raise ValueError(f"Target preparation failed ({code}): {stderr or stdout}")
         except (OSError, ValueError, TimeoutError) as error:
             record["error"] = str(error)
             raise
-        record.update({"exit_code": code, "stdout": stdout, "stderr": stderr})
-        if code:
-            raise ValueError(f"Target preparation failed ({code}): {stderr or stdout}")
         return stdout.strip()
 
     def verify(self, target: ReproductionTarget) -> None:
+        with phase_timing(self.directory / "timings.jsonl", "target.integrity", target=target.role):
+            self._verify(target)
+
+    def _verify(self, target: ReproductionTarget) -> None:
         if (
             target.registry != self.registry or target.status != "ready"
             or not target.directory or not target.cli or not target.tree_hash
@@ -730,6 +742,10 @@ class TargetStore:
             raise ValueError("Pinned checker target is unavailable or its integrity changed")
 
     def restore(self, target: ReproductionTarget) -> None:
+        with phase_timing(self.directory / "timings.jsonl", "target.restore", target=target.role):
+            self._restore(target)
+
+    def _restore(self, target: ReproductionTarget) -> None:
         if target.registry != self.registry:
             raise ValueError("Selected target registry differs from the explicit acquisition policy")
         metadata = self._metadata_path(target)
@@ -752,6 +768,10 @@ class TargetStore:
         }) / "target.json"
 
     async def prepare(self, target: ReproductionTarget) -> None:
+        with phase_timing(self.directory / "timings.jsonl", "target.prepare", target=target.role):
+            await self._prepare(target)
+
+    async def _prepare(self, target: ReproductionTarget) -> None:
         async with self.lock:
             if target.registry != self.registry:
                 raise ValueError("Selected target registry differs from the explicit acquisition policy")
@@ -789,11 +809,11 @@ class TargetStore:
                     }
                     acquisitions.append(acquisition)
                     if self.registry == NPM_REGISTRY:
-                        data = await asyncio.to_thread(download, target.source)
+                        data = await self.timed_io("target.download", download, target.source)
                     else:
                         packed = json.loads(await self.command(self._npm_command(
                             "pack", f"pyright@{target.version}", "--pack-destination", str(work),
-                        ), work, log))
+                        ), work, log, phase="target.npm_pack"))
                         name = f"pyright-{target.version}.tgz"
                         if (
                             not isinstance(packed, list) or len(packed) != 1 or not isinstance(packed[0], dict)
@@ -804,7 +824,7 @@ class TargetStore:
                         archive_path = work / name
                         if archive_path.is_symlink() or archive_path.stat().st_size > MAX_DOWNLOAD:
                             raise ValueError("Trusted artifact exceeds the download bound or is a link")
-                        data = await run_target_io(archive_path.read_bytes)
+                        data = await self.timed_io("target.archive_read", archive_path.read_bytes)
                     target.artifact_sha512 = "sha512-" + base64.b64encode(hashlib.sha512(data).digest()).decode()
                     if target.integrity and target.integrity.startswith("sha512-"):
                         observed_integrity = target.artifact_sha512
@@ -817,17 +837,17 @@ class TargetStore:
                     })
                     if observed_integrity != target.integrity:
                         raise ValueError("Published checker package failed integrity verification")
-                    await run_target_io(extract_package, data, runtime)
+                    await self.timed_io("target.extract", extract_package, data, runtime)
                 else:
                     if target.source != UPSTREAM or not SHA.fullmatch(target.identity):
                         raise ValueError("Main target must be the trusted upstream pinned commit")
                     git = ["git", "-c", "core.longpaths=true", "-c", "core.hooksPath=NUL"]
-                    await self.command([*git, "init", str(work)], base, log)
+                    await self.command([*git, "init", str(work)], base, log, phase="main.init")
                     await self.command([
                         *git, "fetch", "--depth=1", UPSTREAM, target.identity,
-                    ], work, log)
-                    await self.command([*git, "checkout", "--detach", "FETCH_HEAD"], work, log)
-                    if await self.command([*git, "rev-parse", "HEAD"], work, log) != target.identity:
+                    ], work, log, phase="main.fetch")
+                    await self.command([*git, "checkout", "--detach", "FETCH_HEAD"], work, log, phase="main.checkout")
+                    if await self.command([*git, "rev-parse", "HEAD"], work, log, phase="main.revision") != target.identity:
                         raise ValueError("Upstream checkout does not match pinned main")
                     pnpm = shutil.which("pnpm")
                     if pnpm is None:
@@ -835,20 +855,23 @@ class TargetStore:
                     await self.command([
                         pnpm, "install", "--frozen-lockfile", "--ignore-scripts",
                         f"--registry={self.registry}", "--config.manage-package-manager-versions=false",
-                    ], work, log)
+                    ], work, log, phase="main.install")
                     # Only this known upstream project script runs, never a reporter-supplied command.
-                    await self.command([pnpm, "--dir", str(Path("packages") / "pyright"), "run", "webpack"], work, log)
-                    await run_target_io(shutil.copytree, work / "packages" / "pyright" / "dist", runtime / "dist")
-                    await run_target_io(shutil.copyfile, work / "packages" / "pyright" / "index.js", runtime / "index.js")
-                    await run_target_io(
-                        shutil.copyfile, work / "packages" / "pyright" / "langserver.index.js",
+                    await self.command(
+                        [pnpm, "--dir", str(Path("packages") / "pyright"), "run", "webpack"],
+                        work, log, phase="main.build",
+                    )
+                    await self.timed_io("target.copy", shutil.copytree, work / "packages" / "pyright" / "dist", runtime / "dist")
+                    await self.timed_io("target.copy", shutil.copyfile, work / "packages" / "pyright" / "index.js", runtime / "index.js")
+                    await self.timed_io(
+                        "target.copy", shutil.copyfile, work / "packages" / "pyright" / "langserver.index.js",
                         runtime / "langserver.index.js",
                     )
                 # The upstream package entrypoint initializes discovery of its bundled typeshed.
                 cli = runtime / "index.js"
                 if not cli.is_file() or not (runtime / "dist" / "pyright.js").is_file():
                     raise ValueError("Target does not contain the supported bundled Pyright CLI")
-                observed = await self.command(["node", str(cli), "--version"], runtime, log)
+                observed = await self.command(["node", str(cli), "--version"], runtime, log, phase="target.version")
                 if not re.fullmatch(r"pyright 1\.\d+\.\d+", observed):
                     raise ValueError("Checker did not return a supported Pyright version")
                 observed = observed.removeprefix("pyright ")
@@ -856,7 +879,7 @@ class TargetStore:
                     raise ValueError("Checker version differs from the integrity-verified package")
                 target.version = observed
                 target.directory, target.cli = str(runtime), str(cli)
-                target.tree_hash, target.status = await run_target_io(tree_hash, runtime), "ready"
+                target.tree_hash, target.status = await self.timed_io("target.initial_integrity", tree_hash, runtime), "ready"
                 metadata.write_text(target.model_dump_json(indent=2), encoding="utf-8")
                 prepared = True
             except (OSError, ValueError, TimeoutError, tarfile.TarError) as error:
@@ -867,11 +890,11 @@ class TargetStore:
             finally:
                 try:
                     if work_created:
-                        await run_target_io(remove_owned_directory, work)
+                        await self.timed_io("target.cleanup", remove_owned_directory, work)
                 finally:
                     try:
                         if runtime_created and not prepared:
-                            await run_target_io(remove_owned_directory, runtime)
+                            await self.timed_io("target.cleanup", remove_owned_directory, runtime)
                     finally:
                         (base / f"preparation-{work.name}.json").write_text(json.dumps({
                             "target": target.model_dump(), "commands": log,
@@ -884,14 +907,15 @@ class TargetStore:
         self, target: ReproductionTarget, inputs: dict[str, str], directory: Path,
     ) -> dict[str, JsonValue]:
         await run_target_io(self.verify, target)
-        directory.mkdir(parents=True, exist_ok=True)
-        if any(directory.iterdir()):
-            raise ValueError("Comparison probe needs a fresh isolated input directory")
-        for name, content in inputs.items():
-            path = directory / relative_path(name)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content, encoding="utf-8", newline="\n")
-        before = await run_target_io(tree_hash, directory)
+        with phase_timing(self.directory / "timings.jsonl", "inputs.materialization", target=target.role):
+            directory.mkdir(parents=True, exist_ok=True)
+            if any(directory.iterdir()):
+                raise ValueError("Comparison probe needs a fresh isolated input directory")
+            for name, content in inputs.items():
+                path = directory / relative_path(name)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8", newline="\n")
+        before = await self.timed_io("inputs.integrity_before", tree_hash, directory)
         command = [
             "node", target.cli or "", "--project", str(directory / "pyrightconfig.json"),
             "--outputjson", "--pythonpath", str(directory / "unavailable-python"),
@@ -903,10 +927,11 @@ class TargetStore:
             "command": subprocess.list2cmdline(command), "cwd": str(directory),
         }
         try:
-            code, stdout, stderr = await self.runner(command, directory)
+            with phase_timing(self.directory / "timings.jsonl", "checker.wait", target=target.role):
+                code, stdout, stderr = await self.runner(command, directory)
             record.update({"exit_code": code, "stdout": stdout, "stderr": stderr})
             await run_target_io(self.verify, target)
-            if await run_target_io(tree_hash, directory) != before:
+            if await self.timed_io("inputs.integrity_after", tree_hash, directory) != before:
                 raise ValueError("Comparison inputs changed during checker execution")
         except (OSError, ValueError, TimeoutError) as error:
             record["error"] = str(error)

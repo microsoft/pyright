@@ -25,7 +25,8 @@ from pydantic import JsonValue
 from issue_review_evidence import evidence_json
 from issue_review_classifier import ChoiceClassification
 from issue_review_models import (
-    Closure, DefaultReproductionScenario, DraftCheck, Entry, ExploratoryReproductionScenario, Label,
+    BlockedReconstruction, Closure, DefaultReproductionScenario, DraftCheck, Entry, ExploratoryReproductionScenario, Label,
+    ReconstructionResponse,
     ReproductionGate, ReproductionScenario, ReviewFindings,
 )
 from issue_review_reproduction import (
@@ -60,6 +61,18 @@ def scenario() -> ReproductionScenario:
             "broken": [symptom], "resolved": [control, {**symptom, "present": False}], "precision": [control],
         }],
         "prerequisites": [], "limitations": ["No causal attribution"],
+    })
+
+
+def blocked_reconstruction() -> BlockedReconstruction:
+    return BlockedReconstruction.model_validate({
+        "summary": "The original source is unavailable",
+        "reason": "unavailable_source",
+        "claims": [{
+            "id": f"claim-{index}", "report_quote": "A small reproducer", "surface": surface,
+            "reason": "The original proprietary source and exact observations were not supplied",
+        } for index, surface in enumerate(("cli", "editor", "lsp", "other"))],
+        "prerequisites": ["Original source and original diagnostic locations"],
     })
 
 
@@ -414,6 +427,39 @@ class TransportTests(unittest.TestCase):
                 for key, value in raw[name].items()
             ]
         return raw
+
+    def test_explicit_blocked_response_needs_no_invented_source_or_predicates(self):
+        blocked = blocked_reconstruction()
+        raw = json.dumps({"scenario": None, "blocked": blocked.model_dump()})
+        decoded = ReconstructionResponse.model_validate_json(reproduction_response(ReconstructionResponse, raw))
+        self.assertEqual(decoded.blocked, blocked)
+        self.assertIsNone(decoded.scenario)
+        assert decoded.blocked is not None
+        self.assertEqual(len(decoded.blocked.claims), 4)
+        for invalid in (
+            {"scenario": None, "blocked": None},
+            {"scenario": default_scenario().model_dump(), "blocked": blocked.model_dump()},
+            {"scenario": None, "blocked": {**blocked.model_dump(), "prerequisites": []}},
+            {"scenario": None, "blocked": {**blocked.model_dump(), "reason": "omitted_settings"}},
+        ):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                ReconstructionResponse.model_validate(invalid)
+
+    def test_ready_envelope_retains_all_predicate_and_transport_validation(self):
+        probe = default_scenario()
+        raw = {"scenario": self.wire_scenario(probe), "blocked": None}
+        decoded = ReconstructionResponse.model_validate_json(
+            reproduction_response(ReconstructionResponse, json.dumps(raw))
+        )
+        self.assertEqual(decoded.scenario, probe)
+        for name in ("broken", "resolved", "precision"):
+            invalid = json.loads(json.dumps(raw))
+            invalid["scenario"]["claims"][0][name] = []
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                reproduction_response(ReconstructionResponse, json.dumps(invalid))
+        raw["scenario"]["files"].append(raw["scenario"]["files"][0])
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            reproduction_response(ReconstructionResponse, json.dumps(raw))
 
     def test_exploratory_wire_preserves_disclosures_and_strict_semantic_validation(self):
         probe = exploratory_scenario()
@@ -1018,6 +1064,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         writer = Agent(reviewer.path, "rich-mirror", "Writer", "Keep the evidence")
         self.sdk = AsyncMock()
         self.planned_scenario = scenario()
+        self.blocked_plan: BlockedReconstruction | None = None
         self.sdk.run.side_effect = self.respond
         self.console = Console(
             self.github, self.sdk, Path(self.temporary.name), reviewer, duplicate, writer,
@@ -1030,6 +1077,15 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
 
     async def respond(self, agent, prompt, directory, **options):
         schema = options.get("schema")
+        if schema is ReconstructionResponse:
+            if self.blocked_plan is not None:
+                response = ReconstructionResponse(scenario=None, blocked=self.blocked_plan)
+            else:
+                model = ExploratoryReproductionScenario if self.console.exploratory_reproduction else DefaultReproductionScenario
+                raw = await self.respond(agent, prompt, directory, **{**options, "schema": model})
+                response = ReconstructionResponse(scenario=model.model_validate_json(raw), blocked=None)
+            options["validate"](response.model_dump_json())
+            return response.model_dump_json()
         if schema is DefaultReproductionScenario and not isinstance(self.planned_scenario, DefaultReproductionScenario):
             report = (self.github.current.body or "") + "\n" + "\n".join(
                 str(comment.get("body", "")) for comment in self.github.discussion if isinstance(comment, dict)
@@ -1053,6 +1109,84 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         if agent.name == "rich-mirror":
             return "This reproduces historically but is fixed on main and awaiting release."
         raise AssertionError(agent.name)
+
+    async def test_blocked_reconstruction_is_sealed_resumable_and_never_executed(self):
+        self.blocked_plan = blocked_reconstruction()
+        with patch.object(self.targets, "prepare", wraps=self.targets.prepare) as prepare:
+            await self.console.reproduce(self.entry)
+            prepare.assert_not_awaited()
+        stage = self.entry.reproduction_stage
+        assert stage is not None
+        self.assertEqual(stage.status, "blocked", stage.error)
+        self.assertEqual(stage.blocked, self.blocked_plan)
+        self.assertIsNone(stage.scenario)
+        self.assertIsNone(stage.gate)
+        self.assertIsNone(stage.action())
+        self.assertEqual(stage.targets, [])
+        self.assertEqual(stage.receipt_ids, [])
+        self.assertEqual(self.targets.phases, [])
+        self.assertEqual(stage.evidence_hash, self.console.reproduction_hash(stage))
+        self.assertEqual(self.sdk.run.await_count, 1)
+        restored = Entry.model_validate_json(self.entry.model_dump_json())
+        await self.console.reproduce(restored)
+        self.assertEqual(self.sdk.run.await_count, 1)
+        assert restored.reproduction_stage and restored.reproduction_stage.blocked
+        restored.reproduction_stage.status = "running"
+        restored.reproduction_stage.evidence_hash = None
+        await self.console.reproduce(restored)
+        self.assertEqual(restored.reproduction_stage.status, "blocked")
+        self.assertEqual(self.sdk.run.await_count, 1)
+        restored.reproduction_stage.blocked.claims[0].reason = "Changed evidence"
+        with self.assertRaisesRegex(AutomationError, "evidence changed"):
+            await self.console.reproduce(restored)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_blocked_reconstruction_requires_real_quotes_and_unique_claim_ids(self):
+        self.blocked_plan = blocked_reconstruction()
+        self.blocked_plan.claims[0].report_quote = "Invented private-source quotation"
+        await self.console.reproduce(self.entry)
+        stage = self.entry.reproduction_stage
+        assert stage is not None
+        self.assertIn("contiguous", stage.error or "")
+        self.assertIsNone(stage.blocked)
+        self.assertEqual(self.targets.phases, [])
+        invalid = blocked_reconstruction().model_dump()
+        invalid["claims"][1]["id"] = invalid["claims"][0]["id"]
+        with self.assertRaisesRegex(ValueError, "unique"):
+            BlockedReconstruction.model_validate(invalid)
+
+    async def test_phase_records_separate_preparation_integrity_checker_and_gate_without_changing_evidence(self):
+        stage = await self.ready()
+        path = Path(stage.directory) / "timings.jsonl"
+        controller = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+        phases = {item["phase"] for item in controller}
+        self.assertTrue({
+            "reconstruction", "scenario.validation", "target.selection", "target.preparation",
+            "comparison.original", "evidence.validation", "evidence.gate",
+        } <= phases)
+        store = [
+            json.loads(line) for line in (self.targets.directory / "timings.jsonl").read_text(encoding="utf-8").splitlines()
+        ]
+        self.assertTrue({"target.integrity", "inputs.integrity_before", "inputs.integrity_after", "checker.wait"} <= {
+            item["phase"] for item in store
+        })
+        starts = {item["id"]: item for item in [*controller, *store] if item["type"] == "phase.start"}
+        ends = {item["id"]: item for item in [*controller, *store] if item["type"] == "phase.end"}
+        self.assertEqual(starts.keys(), ends.keys())
+        self.assertTrue(all(item["status"] == "succeeded" for item in ends.values()))
+        controller_ids = {item["id"] for item in controller}
+        self.assertTrue(any(item["parent_id"] in controller_ids for item in store))
+        before = self.console.reproduction_hash(stage)
+        with path.open("a", encoding="utf-8") as stream:
+            stream.write('{"diagnostic":"timing logs are not comparison evidence"}\n')
+        self.assertEqual(self.console.reproduction_hash(stage), before)
+        self.console.require_reproduction_evidence(self.entry)
+        self.assertIn(
+            '"phase": "evidence.revalidation"',
+            (self.console.directory(self.entry.issue.number) / "timings.jsonl").read_text(encoding="utf-8"),
+        )
+        for receipt in self.console.reproduction_records(stage):
+            self.assertEqual(tree_hash(Path(str(receipt["cwd"]))), receipt["input_hash"])
 
     async def ready(self):
         await self.console.reproduce(self.entry)
@@ -1151,12 +1285,13 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         await self.ready()
         validate = self.sdk.run.await_args_list[0].kwargs["validate"]
         changed = self.planned_scenario.model_copy(deep=True)
+        assert isinstance(changed, ExploratoryReproductionScenario)
         changed.claims[0].report_quote = quote + "\nSecond quoted passage."
         with self.assertRaisesRegex(AutomationError, "exact contiguous span"):
-            validate(changed.model_dump_json())
+            validate(ReconstructionResponse(scenario=changed, blocked=None).model_dump_json())
         changed.claims[0].report_quote = quote
         changed.prerequisites = ["A genuine missing dependency"]
-        validate(changed.model_dump_json())
+        validate(ReconstructionResponse(scenario=changed, blocked=None).model_dump_json())
         self.assertEqual(changed.prerequisites, ["A genuine missing dependency"])
         with self.assertRaisesRegex(ValueError, "Unmet report prerequisites"):
             scenario_inputs(changed)
@@ -1352,7 +1487,15 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.sdk.run.assert_not_awaited()
 
     async def test_explicit_setting_forms_are_not_rejected_by_absence_preflight(self):
-        self.planned_scenario.prerequisites = ["Stop after scenario planning"]
+        self.blocked_plan = BlockedReconstruction.model_validate({
+            "summary": "Preflight-only fixture with no exact symptom predicates",
+            "reason": "unobservable_symptom",
+            "claims": [{
+                "id": "assignment", "report_quote": "The checker rejects this assignment.", "surface": "cli",
+                "reason": "Exact original diagnostic wording and stable controls were not provided",
+            }],
+            "prerequisites": ["Original diagnostic wording and stable precision controls"],
+        })
         for settings in (
             "Python 3.10.15; standard type checking",
             "CPython v3.10.15; strict type checking",
@@ -1375,7 +1518,9 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
                 stage = self.entry.reproduction_stage
                 assert stage is not None
                 self.assertEqual(self.sdk.run.await_count, 1)
-                self.assertIn("Stop after scenario planning", stage.error or "")
+                self.assertIn("Original diagnostic wording and stable precision controls", stage.error or "")
+                self.assertEqual(stage.blocked, self.blocked_plan)
+                self.assertIsNone(stage.scenario)
                 preflight = json.loads((Path(stage.directory) / "setup-preflight.json").read_text())
                 self.assertEqual(preflight["missing_setting_markers"], [])
                 self.assertEqual(preflight["status"], "planning_required")
@@ -1393,11 +1538,22 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_other_reconstruction_blockers_still_allow_separate_captured_observations(self):
         self.captured_example("Python 3.10; pyright-1.1.2")
+        self.blocked_plan = BlockedReconstruction.model_validate({
+            "summary": "The original diagnostic and affirmative control predicates are unavailable",
+            "reason": "unobservable_symptom",
+            "claims": [{
+                "id": "assignment", "report_quote": "The checker rejects this assignment.", "surface": "cli",
+                "reason": "The exact reported diagnostic and stable precision controls cannot be reconstructed",
+            }],
+            "prerequisites": ["Exact original symptom evidence and affirmative precision controls"],
+        })
         await self.console.reproduce(self.entry)
         stage = self.entry.reproduction_stage
         assert stage is not None
         self.assertEqual(stage.status, "blocked")
-        self.assertIsNotNone(stage.scenario)
+        self.assertEqual(stage.blocked, self.blocked_plan)
+        self.assertIsNone(stage.scenario)
+        self.assertEqual(self.targets.executions, 0)
         await self.console.observe_blocked_reproduction(self.entry)
         observation = self.entry.diagnostic_observations
         assert observation is not None

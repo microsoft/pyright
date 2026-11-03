@@ -62,6 +62,8 @@ from issue_review_models import (
     Adjudication,
     Audit,
     BlockedChallenge,
+    ReconstructionResponse,
+    ReconstructionResponseTransport,
     Claim,
     Closure,
     DraftCheck,
@@ -119,8 +121,12 @@ from issue_review_reproduction import (
 )
 from issue_review_safety import ENVIRONMENT as SCORER_ENVIRONMENT
 from issue_review_safety import SCREENING_SCOPE, InjectionScreening, ScreeningBlocked, child_environment
-from issue_review_sdk_diagnostics import DIAGNOSTIC_EVENTS, RuntimeDiagnostics, event_metadata, text_metadata
+from issue_review_sdk_diagnostics import (
+    DIAGNOSTIC_EVENTS, DIAGNOSTICS_SCHEMA_VERSION, DeltaActivity, RuntimeDiagnostics, WhitespaceStallGuard,
+    event_metadata, text_metadata,
+)
 from issue_review_validity import ValidityAssessment, parse_validity_response
+from issue_review_timing import phase_timing, timed_phase
 from issue_review_sources import (
     ReportedSettingSelection, Setting, SettingChoice, SourceAssociation, SourceCapture, diagnostic_setting_profiles,
     diagnostic_source_groups, materialize_setup, reported_setting_qualifications,
@@ -234,6 +240,7 @@ def response_schema(model: type[BaseModel]) -> dict[str, JsonValue]:
         ExploratoryReproductionScenarioTransport if model is ExploratoryReproductionScenario
         else DefaultReproductionScenarioTransport if model is DefaultReproductionScenario
         else ReproductionScenarioTransport if model is ReproductionScenario
+        else ReconstructionResponseTransport if model is ReconstructionResponse
         else ReproductionGateTransport if model is ReproductionGate else model
     )
     schema = portable(transport.model_json_schema())
@@ -273,6 +280,17 @@ def reproduction_response(model: type[BaseModel], content: str) -> str:
         return parse_validity_response(content).model_dump_json()
     if model in (AssessmentDraft, VerificationRefinement):
         return model.model_validate_json(json.dumps(strict_json(content), allow_nan=False)).model_dump_json()
+    if model is ReconstructionResponse:
+        response = ReconstructionResponseTransport.model_validate(strict_json(content))
+        scenario = response.scenario
+        decoded = None
+        if scenario is not None:
+            scenario_model = (
+                DefaultReproductionScenario if isinstance(scenario, DefaultReproductionScenarioTransport)
+                else ExploratoryReproductionScenario
+            )
+            decoded = scenario_model.model_validate_json(reproduction_response(scenario_model, scenario.model_dump_json()))
+        return ReconstructionResponse(scenario=decoded, blocked=response.blocked).model_dump_json()
     if model in (ReproductionScenario, ExploratoryReproductionScenario, DefaultReproductionScenario):
         transport = (
             ExploratoryReproductionScenarioTransport if model is ExploratoryReproductionScenario
@@ -296,7 +314,10 @@ def reproduction_response(model: type[BaseModel], content: str) -> str:
 
 
 def response_transport_guidance(model: type[BaseModel] | None) -> str:
-    if model not in (ReproductionScenario, ExploratoryReproductionScenario, DefaultReproductionScenario, ReproductionGate):
+    if model not in (
+        ReproductionScenario, ExploratoryReproductionScenario, DefaultReproductionScenario, ReproductionGate,
+        ReconstructionResponse,
+    ):
         return ""
     return (
         "\nStructured-output transport: follow the supplied response schema. Represent maps as arrays of "
@@ -1461,6 +1482,20 @@ SDK_PING_TIMEOUT_SECONDS = 3
 GENERATION_EVENTS = {"assistant.message", "assistant.message_delta", "assistant.reasoning", "assistant.reasoning_delta"}
 
 
+@dataclass
+class SDKRecovery:
+    deadline: float | None = None
+    index: int = 0
+    previous_session_id: str | None = None
+    setup_timeout: asyncio.Timeout | None = None
+
+
+class WhitespaceStall(AutomationError):
+    def __init__(self, message: str, session_id: str, retry_allowed: bool):
+        super().__init__(message)
+        self.session_id, self.retry_allowed = session_id, retry_allowed
+
+
 class SDK:
     def __init__(
         self, client: CopilotClient, model: str | None, timeout: float, *,
@@ -1476,6 +1511,34 @@ class SDK:
         native_tools: list[str] | None = None,
         timeout: float | None = None,
     ) -> str:
+        recovery = SDKRecovery()
+        while True:
+            try:
+                if recovery.index:
+                    async with asyncio.timeout_at(recovery.deadline) as setup_timeout:
+                        recovery.setup_timeout = setup_timeout
+                        return await self._run(
+                            agent, prompt, scratch, schema=schema, tools=tools, evidence=evidence,
+                            validate=validate, native_tools=native_tools, timeout=timeout, recovery=recovery,
+                        )
+                return await self._run(
+                    agent, prompt, scratch, schema=schema, tools=tools, evidence=evidence,
+                    validate=validate, native_tools=native_tools, timeout=timeout, recovery=recovery,
+                )
+            except WhitespaceStall as error:
+                if recovery.index or not error.retry_allowed:
+                    raise
+                if recovery.deadline is None or recovery.deadline <= asyncio.get_running_loop().time():
+                    raise AutomationError("Whitespace-stall recovery exhausted the original SDK deadline") from error
+                recovery.index, recovery.previous_session_id = 1, error.session_id
+            except TimeoutError as error:
+                raise AutomationError("Fresh-session recovery timed out within the original SDK deadline") from error
+
+    async def _run(
+        self, agent: Agent, prompt: str, scratch: Path, *, schema: type[T] | None,
+        tools: ScreenedTools | None, evidence: Path | None, validate: Callable[[str], None] | None,
+        native_tools: list[str] | None, timeout: float | None, recovery: SDKRecovery,
+    ) -> str:
         active_timeout = self.timeout if timeout is None else timeout
         if tools is not None and tools.screening_error is not None:
             raise tools.screening_error
@@ -1490,6 +1553,9 @@ class SDK:
             if standard_tools:
                 native_tools = READ_TOOLS
         available = native_tools + [tool.name for tool in custom_tools] if tools else []
+        guard = WhitespaceStallGuard() if schema is not None and tools is None and not available else None
+        guard_signal = asyncio.Event()
+        saw_completed_response = False
         logs = evidence or scratch
         clock = asyncio.get_running_loop().time
         started = clock()
@@ -1500,6 +1566,8 @@ class SDK:
         last_event: dict[str, JsonValue] | None = None
         last_event_at: float | None = None
         generation: dict[str, tuple[float, float, int]] = {}
+        nonempty_generation: dict[str, tuple[float, int]] = {}
+        stream_activity: dict[str, DeltaActivity] = {}
         last_heartbeat: dict[str, JsonValue] | None = None
         last_rpc_success: float | None = None
         ping_started: float | None = None
@@ -1513,8 +1581,12 @@ class SDK:
                     key: {
                         "first_elapsed_seconds": first, "last_elapsed_seconds": last, "events": count,
                         "seconds_since_last_generation": elapsed - last,
+                        "nonempty_events": nonempty_generation.get(key, (0, 0))[1],
+                        "last_nonempty_elapsed_seconds": nonempty_generation[key][0] if key in nonempty_generation else None,
+                        "seconds_since_last_nonempty": elapsed - nonempty_generation[key][0] if key in nonempty_generation else None,
                     } for key, (first, last, count) in generation.items()
                 },
+                "stream_activity": {key: value.snapshot(elapsed) for key, value in stream_activity.items()},
                 "last_heartbeat": last_heartbeat, "heartbeat_in_flight": ping_started is not None,
                 "seconds_since_last_rpc_success": None if last_rpc_success is None else elapsed - last_rpc_success,
                 "runtime_diagnostics": None if self.diagnostics is None else self.diagnostics.summary(),
@@ -1527,6 +1599,7 @@ class SDK:
                     "at": datetime.now(timezone.utc).isoformat(), "type": kind,
                     "data": {
                         "session_id": session_id, "agent": agent.name, "attempt": attempt_number,
+                        "recovery_index": recovery.index, "previous_session_id": recovery.previous_session_id,
                         "phase": phase, "elapsed_seconds": clock() - started,
                         "remaining_active_seconds": None if when is None else max(0, when - clock()),
                         "deadline_paused": active_deadline is not None and when is None, **data,
@@ -1577,7 +1650,7 @@ class SDK:
                     log_event("controller.heartbeat", {**observation, **activity()})
 
         def event(event: SessionEvent) -> None:
-            nonlocal last_event, last_event_at
+            nonlocal last_event, last_event_at, saw_completed_response
             kind = event.type.value
             observed: dict[str, JsonValue] = {
                 "event_id": str(event.id), "event_at": event.timestamp.isoformat(),
@@ -1594,12 +1667,36 @@ class SDK:
                 last_event = {"type": kind, "elapsed_seconds": last_event_at, **observed}
                 if kind in GENERATION_EVENTS:
                     scope = "subagent" if event.agent_id else "root"
-                    first = generation.get(scope, (last_event_at, last_event_at, 0))[0]
-                    generation_count = sum(
-                        event_counts.get(scope + ":" + name, 0)
-                        for name in GENERATION_EVENTS
-                    )
-                    generation[scope] = (first, last_event_at, generation_count)
+                    first, _last, generation_count = generation.get(scope, (last_event_at, last_event_at, 0))
+                    generation[scope] = (first, last_event_at, generation_count + 1)
+                    delta = kind in {"assistant.message_delta", "assistant.reasoning_delta"}
+                    content = getattr(event.data, "delta_content" if delta else "content", None)
+                    if isinstance(content, str):
+                        if event.agent_id is None:
+                            if kind == "assistant.message":
+                                saw_completed_response = True
+                                if guard is not None:
+                                    guard.reset()
+                                    guard_signal.clear()
+                            elif guard is not None:
+                                guard.observe(
+                                    content, getattr(event.data, "message_id", None), last_event_at,
+                                    reasoning=kind != "assistant.message_delta",
+                                )
+                                if guard.stalled():
+                                    guard_signal.set()
+                                else:
+                                    guard_signal.clear()
+                        if content:
+                            nonempty_generation[scope] = (
+                                last_event_at, nonempty_generation.get(scope, (0, 0))[1] + 1,
+                            )
+                        if delta:
+                            identity = getattr(event.data, "message_id" if kind == "assistant.message_delta" else "reasoning_id", None)
+                            deltas = stream_activity.get(key)
+                            if deltas is None:
+                                deltas = stream_activity[key] = DeltaActivity()
+                            deltas.observe(content, (event.agent_id, identity), last_event_at)
                 if kind in {"assistant.message_delta", "assistant.reasoning_delta"} and count > 1:
                     return
                 if kind in DIAGNOSTIC_EVENTS or kind in {
@@ -1651,6 +1748,40 @@ class SDK:
             finally:
                 progress("abort_finished", completed=completed)
 
+        async def wait_response() -> SessionEvent | None:
+            async def send() -> SessionEvent | None:
+                return await session.send_and_wait(
+                    prompt + response_transport_guidance(schema),
+                    response_schema=None if schema is None else response_schema(schema), timeout=float("inf"),
+                )
+            if guard is None:
+                return await send()
+            sender = asyncio.create_task(send(), name=f"sdk-response-{session_id}")
+            signal = asyncio.create_task(guard_signal.wait(), name=f"sdk-whitespace-{session_id}")
+            try:
+                while True:
+                    await asyncio.wait((sender, signal), return_when=asyncio.FIRST_COMPLETED)
+                    if sender.done():
+                        return sender.result()
+                    if guard.stalled():
+                        retry_allowed = attempt_number == 1 and not saw_completed_response
+                        log_event("controller.whitespace_stall", {
+                            "guard": guard.snapshot(), "retry_allowed": retry_allowed and not recovery.index,
+                            **activity(),
+                        })
+                        raise WhitespaceStall(
+                            f"{agent.name} sustained whitespace-only structured-output streaming; "
+                            f"recovery {'exhausted' if recovery.index else 'not safe' if not retry_allowed else 'requested'}. "
+                            f"Details: {logs / 'sdk-events.jsonl'}",
+                            session.session_id, retry_allowed,
+                        )
+                    signal = asyncio.create_task(guard_signal.wait(), name=f"sdk-whitespace-{session_id}")
+            finally:
+                for task in (sender, signal):
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(sender, signal, return_exceptions=True)
+
         try:
             progress("session_setup")
             selected = await session.rpc.agent.get_current()
@@ -1678,15 +1809,25 @@ class SDK:
             with (logs / "sdk-sessions.jsonl").open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps({
                     "session_id": session.session_id, "agent": agent.name, "requested_model": self.model,
+                    "recovery_index": recovery.index, "previous_session_id": recovery.previous_session_id,
+                    "whitespace_guard": None if guard is None else guard.snapshot(),
                     "active_tools": sorted(active),
                     "profile_hash": digest(agent.path.read_text(encoding="utf-8")),
                     "streaming": True, "include_sub_agent_streaming_events": True,
+                    "diagnostics_schema_version": DIAGNOSTICS_SCHEMA_VERSION,
                     "heartbeat_interval_seconds": SDK_HEARTBEAT_SECONDS,
                     "ping_timeout_seconds": SDK_PING_TIMEOUT_SECONDS,
                     "runtime_diagnostics": None if self.diagnostics is None else self.diagnostics.summary(),
                     "started_at": datetime.now(timezone.utc).isoformat(),
                 }) + "\n")
-            async with asyncio.timeout(active_timeout) as deadline:
+            if guard is not None and recovery.deadline is None:
+                recovery.deadline = clock() + active_timeout
+            if recovery.setup_timeout is not None:
+                # The response deadline takes over; abort/disconnect must remain drainable after it expires.
+                recovery.setup_timeout.reschedule(None)
+            async with (
+                asyncio.timeout_at(recovery.deadline) if guard is not None else asyncio.timeout(active_timeout)
+            ) as deadline:
                 active_deadline = deadline
                 if tools is not None:
                     tools.deadline = deadline
@@ -1698,13 +1839,15 @@ class SDK:
                         last_event = None
                         last_event_at = None
                         generation = {}
+                        nonempty_generation = {}
+                        stream_activity = {}
+                        if guard is not None:
+                            guard.reset()
+                            guard_signal.clear()
                         progress("response_wait")
                         # Own the deadline so human approval can pause it without replacing SDK response correlation.
                         try:
-                            response = await session.send_and_wait(
-                                prompt + response_transport_guidance(schema),
-                                response_schema=None if schema is None else response_schema(schema), timeout=float("inf")
-                            )
+                            response = await wait_response()
                         except asyncio.CancelledError:
                             log_event("controller.wait_cancelled", activity())
                             raise
@@ -1722,6 +1865,7 @@ class SDK:
                                 content = reproduction_response(schema, content)
                                 if schema in (
                                     ReproductionScenario, ExploratoryReproductionScenario, DefaultReproductionScenario, ReproductionGate,
+                                    ReconstructionResponse,
                                     AssessmentDraft, VerificationRefinement,
                                     ValidityAssessment,
                                 ):
@@ -1816,6 +1960,9 @@ class SDK:
             })
             await abort()
             raise AutomationError(message) from error
+        except WhitespaceStall:
+            await abort()
+            raise
         except AutomationError:
             raise
         except ScreeningBlocked:
@@ -2017,6 +2164,8 @@ class Console:
             evidence["controller_policy"] = {"exploratory": stage.exploratory, "hash": stage.policy_hash}
         if stage.default_settings is not None:
             evidence["default_settings"] = {**stage.default_settings}
+        if stage.blocked is not None:
+            evidence["blocked"] = stage.blocked.model_dump()
         return reproduction_fingerprint(evidence)
 
     def reproduction_gate_records(self, stage: ReproductionStage) -> list[dict[str, JsonValue]]:
@@ -2049,6 +2198,11 @@ class Console:
         return outcomes
 
     def require_reproduction_evidence(self, entry: Entry) -> ReproductionStage:
+        path = self.directory(entry.issue.number) / "timings.jsonl"
+        with phase_timing(path, "evidence.revalidation"):
+            return self._require_reproduction_evidence(entry)
+
+    def _require_reproduction_evidence(self, entry: Entry) -> ReproductionStage:
         self.require_actionable_mode(entry)
         stage = entry.reproduction_stage
         if (
@@ -2166,7 +2320,7 @@ class Console:
                 if not stage.exploratory and (stage.scenario is None or isinstance(stage.scenario, DefaultReproductionScenario))
                 else None
             )
-            if stage.scenario is None:
+            if stage.scenario is None and stage.blocked is None:
                 missing = [
                     setting for setting, marker in (
                         ("typeCheckingMode", r"(?i)\b(?:typeCheckingMode|strict|standard|basic|off)\b"),
@@ -2186,6 +2340,17 @@ class Console:
                     "discloses defaults only for omitted values; the independent evidence gate remains required.",
                 }, indent=2))
                 scenario_model = ExploratoryReproductionScenario if stage.exploratory else DefaultReproductionScenario
+                def validate_reconstruction(content: str) -> None:
+                    response = ReconstructionResponse.model_validate_json(content)
+                    if response.blocked is not None:
+                        if any(claim.report_quote not in report_text for claim in response.blocked.claims):
+                            raise AutomationError("Blocked claims must quote exact contiguous report/discussion evidence")
+                    else:
+                        if not isinstance(response.scenario, scenario_model):
+                            raise AutomationError("Reconstruction scenario must preserve the controller's settings policy")
+                        validate_reproduction_report(
+                            response.scenario, report_text, defaults=stage.default_settings, capture=capture,
+                        )
                 settings_guidance = (
                     "This controller explicitly enabled EXPLORATORY, OBSERVATION-ONLY reproduction. When Python "
                     "version or checking mode is genuinely omitted, choose a bounded source-compatible value "
@@ -2212,9 +2377,15 @@ class Console:
                     "Disclosed defaults allow conditional comparisons and normal behavioral/duplicate "
                     "investigation, not a report-faithful fixed/not-reproducible action from those comparisons. "
                 )
-                raw = await self.sdk.run(
+                raw = await timed_phase(attempt / "timings.jsonl", "reconstruction", self.sdk.run(
                     self.reproduction_agents[0],
-                    "Reconstruct this report without causal attribution. Return ReproductionScenario only. "
+                    "Reconstruct this report without causal attribution. Return ReconstructionResponse with exactly "
+                    "one of scenario or blocked, setting the other to null. If genuine prerequisites prevent an "
+                    "executable comparison, use blocked: preserve EVERY material claim with its id, verbatim "
+                    "report_quote, surface and reason, plus a summary, reason category and genuine prerequisites. "
+                    "Do not invent source, diagnostic locations, broken/resolved predicates or precision controls "
+                    "to satisfy the executable scenario schema. Missing Python/checking values alone never justify "
+                    "blocked: use the controller policy. A blocked record is not an observation or closure authority. "
                     "Include EVERY material claim from the report and discussion, retaining separate semantic and "
                     "integration claims. Return an explicit unmet prerequisite or unsupported surface instead of "
                     "a CLI proxy. Inputs are statically checked, NEVER executed as Python. files must contain the "
@@ -2238,33 +2409,43 @@ class Console:
                     + settings_guidance
                     + SURFACE_GUIDANCE + "\nUntrusted issue:\n" + entry.issue.model_dump_json()
                     + "\nUntrusted complete discussion:\n" + json.dumps(comments),
-                    attempt, schema=scenario_model, timeout=self.reproduction_timeout,
-                    validate=lambda content: validate_reproduction_report(
-                        scenario_model.model_validate_json(content), report_text,
-                        defaults=stage.default_settings, capture=capture,
-                    ),
-                )
-                stage.scenario = scenario_model.model_validate_json(raw)
+                    attempt, schema=ReconstructionResponse, timeout=self.reproduction_timeout,
+                    validate=validate_reconstruction,
+                ))
+                validate_reconstruction(raw)
+                response = ReconstructionResponse.model_validate_json(raw)
+                stage.scenario, stage.blocked = response.scenario, response.blocked
                 self.save(entry)
+            if stage.blocked is not None:
+                if any(claim.report_quote not in report_text for claim in stage.blocked.claims):
+                    raise AutomationError("Blocked claims must quote exact contiguous report/discussion evidence")
+                raise AutomationError(
+                    f"Reconstruction blocked ({stage.blocked.reason}): {stage.blocked.summary}. "
+                    + "; ".join(stage.blocked.prerequisites)
+                )
             scenario = stage.scenario
-            scenario_inputs(scenario)
-            validate_reproduction_report(
-                scenario, report_text, defaults=stage.default_settings,
-                capture=capture,
-            )
+            if scenario is None:
+                raise AutomationError("No executable reconstruction scenario")
+            with phase_timing(attempt / "timings.jsonl", "scenario.validation"):
+                scenario_inputs(scenario)
+                validate_reproduction_report(
+                    scenario, report_text, defaults=stage.default_settings,
+                    capture=capture,
+                )
             if not stage.targets:
-                async with self._reproduction_metadata_lock:
-                    if self._reproduction_catalog is None:
-                        self._reproduction_catalog = await self.reproduction_store.catalog()
-                    if self._reproduction_main is None:
-                        upstream = await self.github.api("GET", f"repos/{REPOSITORY}/commits/main")
-                        if not isinstance(upstream, dict) or not isinstance(upstream.get("sha"), str):
-                            raise AutomationError("Upstream main identity unavailable")
-                        self._reproduction_main = str(upstream["sha"])
-                    stage.targets = select_targets(
-                        self._reproduction_catalog, entry.issue, scenario, discussion_text(comments), self._reproduction_main,
-                        registry=self.reproduction_store.registry,
-                    )
+                with phase_timing(attempt / "timings.jsonl", "target.selection"):
+                    async with self._reproduction_metadata_lock:
+                        if self._reproduction_catalog is None:
+                            self._reproduction_catalog = await self.reproduction_store.catalog()
+                        if self._reproduction_main is None:
+                            upstream = await self.github.api("GET", f"repos/{REPOSITORY}/commits/main")
+                            if not isinstance(upstream, dict) or not isinstance(upstream.get("sha"), str):
+                                raise AutomationError("Upstream main identity unavailable")
+                            self._reproduction_main = str(upstream["sha"])
+                        stage.targets = select_targets(
+                            self._reproduction_catalog, entry.issue, scenario, discussion_text(comments), self._reproduction_main,
+                            registry=self.reproduction_store.registry,
+                        )
                 atomic_write(attempt / "selection.json", json.dumps({
                     "issue_created_at": entry.issue.created_at, "issue_updated_at": entry.issue.updated_at,
                     "selected_at": datetime.now(timezone.utc).isoformat(),
@@ -2300,17 +2481,26 @@ class Console:
                             raise ValueError(target.error or "Selected target is unavailable")
                         if phase == "original":
                             if self.prepare_targets:
-                                await self.reproduction_store.prepare(target)
+                                await timed_phase(
+                                    attempt / "timings.jsonl", "target.preparation",
+                                    self.reproduction_store.prepare(target), target=target.role,
+                                )
                             else:
-                                await run_target_io(self.reproduction_store.restore, target)
+                                await timed_phase(
+                                    attempt / "timings.jsonl", "target.restoration",
+                                    run_target_io(self.reproduction_store.restore, target), target=target.role,
+                                )
                         elif any(
                             item.get("phase") == "original" and item.get("outcome") == "blocked"
                             for item in records if isinstance(captured := item.get("target"), dict)
                             and captured.get("role") == target.role
                         ):
                             raise ValueError("Original observation was blocked; separate controls cannot replace it")
-                        record = await self.reproduction_store.probe(
-                            target, scenario, attempt / f"{target.role}-{phase}-{uuid.uuid4().hex}", phase=phase,
+                        record = await timed_phase(
+                            attempt / "timings.jsonl", f"comparison.{phase}",
+                            self.reproduction_store.probe(
+                                target, scenario, attempt / f"{target.role}-{phase}-{uuid.uuid4().hex}", phase=phase,
+                            ), target=target.role,
                         )
                     except (OSError, ValueError, TimeoutError) as error:
                         if phase == "original":
@@ -2326,18 +2516,20 @@ class Console:
                     records.append(record)
                     atomic_write(attempt / "receipts.jsonl", "".join(json.dumps(item) + "\n" for item in records))
                     stage.receipt_ids = [str(item["id"]) for item in records]
-                    stage.outcomes = self.reproduction_outcomes(stage)
+                    with phase_timing(attempt / "timings.jsonl", "evidence.classification"):
+                        stage.outcomes = self.reproduction_outcomes(stage)
                     self.save(entry)
             stage.receipt_ids = [str(item["id"]) for item in records]
-            stage.outcomes = self.reproduction_outcomes(stage)
-            gate_records = self.reproduction_gate_records(stage)
+            with phase_timing(attempt / "timings.jsonl", "evidence.validation"):
+                stage.outcomes = self.reproduction_outcomes(stage)
+                gate_records = self.reproduction_gate_records(stage)
             tools = ReproductionEvidenceTools(self.github, attempt, gate_records)
             def validate_gate(raw: str) -> None:
                 gate = ReproductionGate.model_validate_json(raw)
                 self.validate_reproduction_gate(stage, gate)
                 if gate.approved:
                     tools.require_delivery()
-            raw = await self.sdk.run(
+            raw = await timed_phase(attempt / "timings.jsonl", "evidence.gate", self.sdk.run(
                 self.reproduction_agents[1],
                 "Validate report-faithfulness and reproduction evidence, NOT a root cause or semantic verdict. "
                 "Reject omissions of material claims, changed settings, lost dependencies, Any/Unknown degradation, "
@@ -2371,7 +2563,7 @@ class Console:
                 }),
                 attempt, schema=ReproductionGate, tools=tools, native_tools=[],
                 validate=validate_gate, timeout=self.reproduction_timeout,
-            )
+            ))
             stage.gate = ReproductionGate.model_validate_json(raw)
             stage.status = "complete"
             if stage.action() == "not_reproducible":
@@ -4888,7 +5080,9 @@ async def main(args: argparse.Namespace) -> None:
             "context_hash": fingerprint, "runtime": runtime.strip(),
             "sdk": importlib.metadata.version("github-copilot-sdk"),
             "sdk_diagnostics": {
-                "schema_version": 1, "streaming": True, "include_sub_agent_streaming_events": True,
+                "schema_version": DIAGNOSTICS_SCHEMA_VERSION, "streaming": True, "include_sub_agent_streaming_events": True,
+                "stream_counter_policy": "utf8_bytes_empty_whitespace_adjacent_same_stream_repeats",
+                "runtime_capture_policy": "coalesced_dispatch_reserved_important_capacity",
                 "heartbeat_interval_seconds": SDK_HEARTBEAT_SECONDS, "ping_timeout_seconds": SDK_PING_TIMEOUT_SECONDS,
                 "runtime_log_level": "debug", "runtime_log_content_policy": "metadata_only",
                 "runtime_log": str(args.state_dir / "sdk-runtime.jsonl"),

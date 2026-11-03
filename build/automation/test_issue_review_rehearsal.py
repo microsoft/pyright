@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, patch
 from copilot import ToolInvocation
 
 from issue_review_evidence import evidence_json
-from issue_review_models import DefaultReproductionScenario, DraftCheck, DuplicateCandidate, Entry, ReproductionGate
+from issue_review_models import DraftCheck, DuplicateCandidate, Entry, ReconstructionResponse, ReproductionGate
 from issue_review_reproduction import ReleaseCatalog
 from issue_review_safety import ScreeningBlocked
 from review_issues import (
@@ -299,7 +299,7 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Scenario model reached", stage.error or "")
         self.assertIsNone(stage.scenario)
         self.assertEqual(self.sdk.run.await_count, 1)
-        self.assertIs(self.sdk.run.await_args.kwargs["schema"], DefaultReproductionScenario)
+        self.assertIs(self.sdk.run.await_args.kwargs["schema"], ReconstructionResponse)
         self.assertIn("DEFAULT-SETTINGS policy", self.sdk.run.await_args.args[1])
 
     async def test_factual_timeout_preserves_draft_without_a_success_claim(self):
@@ -391,10 +391,11 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
 
         async def respond(agent, _prompt, _directory, **options):
             schema = options.get("schema")
-            if schema is DefaultReproductionScenario:
-                return default_scenario(reported={
+            if schema is ReconstructionResponse:
+                scenario = default_scenario(reported={
                     "pythonVersion": "Python 3.10", "typeCheckingMode": "typeCheckingMode=standard",
-                }).model_dump_json()
+                })
+                return ReconstructionResponse(scenario=scenario, blocked=None).model_dump_json()
             if schema is ReproductionGate:
                 raw = ReproductionGate(
                     approved=True, problems=[], claim_ids=["assignment"], receipt_hashes={

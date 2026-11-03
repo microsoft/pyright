@@ -166,18 +166,23 @@ publication revalidation. Cancellation drains the current filesystem operation b
 release; it never leaves a worker writing into a directory that has already been removed. Screening budgets,
 retry limits and fail-closed decisions are unchanged.
 
-The local root `run_overnight.ps1` test launcher now reruns the **same 25 issues** as
-`overnight-20261030-131421-090`, including the two earlier reconstruction timeouts, in a fresh
-`$env:USERPROFILE\.copilot\issue-review\overnight-settings-diagnostics-<timestamp>` directory. Its fixed issue-ID
+The local root `run_overnight.ps1` test launcher now runs a **focused three-issue comparison** with
+`overnight-settings-diagnostics-20261102-111930-201`: recurring reconstruction timeouts #11513 and #11536,
+plus the successful reconstruction control #11410. Each run uses a fresh
+`$env:USERPROFILE\.copilot\issue-review\focused-stream-diagnostics-<budget>s-<timestamp>` directory. Its fixed issue-ID
 selection retains reserved holdout/pilot exclusions; no prior reports, answers or checkpoints are reused.
 It paginates open GitHub issues only to verify the entire cohort is still available, excludes pull requests,
 and fails without substitutions if any matched issue is no longer open. Existing state directories cannot be
 resumed accidentally. GitHub captures and checker targets are fresh, so this is a matched-issue comparison,
 not a frozen-input or pinned-target benchmark.
 It prints the cohort, fresh state and diagnostics paths before starting, keeps two concurrent issues, ordinary
-role budgets at 900 seconds, reconstruction/gate budgets at 300 seconds, and `--overnight --dry-run`. Disclosed
+role budgets at 900 seconds, reconstruction/gate budgets at 600 seconds, and `--overnight --dry-run`. Disclosed
 configuration defaults and the SDK diagnostics below apply automatically. It does not rehearse or publish
-comments. Run this local launcher from PowerShell with `.\run_overnight.ps1`; updating it does not start a batch.
+comments. Run this local launcher from PowerShell with `.\run_overnight.ps1`, or use
+`.\run_overnight.ps1 -ReproductionTimeout 1200` for a 1,200-second reconstruction/gate budget. Only 600 and
+1,200 are accepted by this launcher. This runs the full issue pipelines, not isolated reconstruction calls.
+The longer allowance tests whether streams can finish; it is not a proven timeout fix or controlled deadline
+benchmark. Updating the launcher does not start a batch.
 
 Reconstruction/evidence-gate turns have an independent `--reproduction-timeout` budget (default 900 active
 seconds each, including bounded correction), so shortening `--timeout` for other stages does not accidentally
@@ -610,6 +615,23 @@ commands, inputs, actual outputs and outcomes) and `reproduction.json` (gate, ha
 Interrupted attempts reuse matching receipts without spending execution attempts; changed inputs/targets are
 rejected before action. `--retry-failed` can retry blocked comparisons in a fresh attempt while retaining old
 artifacts. Use a fresh state directory after changed implementation inputs.
+
+Reconstruction returns exactly one executable `scenario` or explicit `blocked` record. The blocked variant
+preserves every material claim's ID, verbatim report quote, surface and reason, with genuine unmet prerequisites;
+it requires no invented source, locations or diagnostic/precision predicates. Missing Python/checking values alone
+are not blockers. The controller checks quotes and claim-ID uniqueness, seals the blocked details in the checkpoint
+and proposals, and skips target selection, preparation, execution and gating. It is not observed behavior,
+a by-design verdict or closure authority. Executable scenarios retain all original precision/evidence requirements.
+
+Each reconstruction attempt writes `timings.jsonl`; action revalidation writes the current issue directory's
+`timings.jsonl`, never an imported frozen attempt. The trusted target cache writes a separate `timings.jsonl`
+outside hashed runtimes. Paired start/end records use UTC timestamps and monotonic wall durations, phase/parent IDs,
+target-role labels and explicit success/failure/cancellation (exception class only). They separate reconstruction,
+selection, preparation/restoration, acquisition, install/build, extraction/copy, integrity checks, original/control
+comparisons, checker-process waits, evidence validation and gating/revalidation. **Nested intervals are non-additive**;
+a parent can include cache-lock wait and child work. Phase success means the operation returned, not that a checker
+diagnostic or comparison passed. A start without an end identifies an unfinished phase. Timing logs are not comparison
+inputs or sealed evidence and do not weaken integrity verification.
 
 `--dry-run`/`--read-only` disables **all** comment drafting and GitHub mutations, including repository-label creation.
 Proposals preserve exact intended labels and completed-closure reasons plus release wording, target provenance,
@@ -1098,12 +1120,35 @@ retry, usage, warning and error metadata. Subsequent deltas are counted rather t
 activity counts, time since the last event/generation and the last local RPC result. Runtime diagnostics alone
 are not evidence that a checker executed or that an investigation reached a conclusion.
 
+`stream_activity` adds content-free counters for UTF-8 bytes, empty and whitespace-only deltas, adjacent
+identical nonempty chunks/repeated bytes, maximum identical-chunk run, first/last arrival and last nonempty arrival.
+There are at most four buckets: root/subagent message/reasoning deltas. Repetition compares only consecutive
+chunks within a bucket with the same agent and message/reasoning identity; an identity change or empty chunk
+breaks the run. Interleaving can therefore undercount repetition; these are not global loop detectors.
+Only the last identity/fingerprint is retained in memory per bucket; neither partial text nor its fingerprint
+is persisted. Generation summaries separately count nonempty events, which may include both deltas and final
+messages and are not token counts. Empty delivery, nonempty bytes and useful model progress are distinct;
+nonempty output or repeated chunks do not independently prove progress or a generation loop. Correction resets
+these counters for its attempt while sharing the original deadline.
+
 Every 30 seconds during a turn, a read-only runtime ping has its own three-second limit. A responsive ping
 establishes local SDK/CLI RPC responsiveness, **not model generation or provider health**. Probe timeouts/errors
 are recorded, not silently treated as success, and do not independently fail an otherwise valid investigation.
 The monitor runs during operator-approval pauses, never resets or extends the role deadline, and is cancelled
-and drained on completion, failure or cancellation. No automatic investigation retry or longer role budget is
-introduced. Short turns can finish without a heartbeat; that is `not_observed`, not evidence of failure.
+and drained on completion, failure or cancellation. A heartbeat never initiates a retry or deadline extension.
+Short turns can finish without a heartbeat; that is `not_observed`, not evidence of failure.
+
+Tool-free structured-output calls also guard against sustained root message whitespace: at least 60 seconds,
+1,024 chunks and 16 KiB, with no gap over 10 seconds between counted arrivals. Non-whitespace root message or
+reasoning output and message-identity changes reset the guard. Empty deltas, subagent output, quiet reasoning
+and a short burst followed by silence cannot meet these conditions. On a stall, the controller cancels/drains the
+SDK wait, aborts/disconnects the session and permits **one fresh-session retry**, only before any completed root
+response. It shares the original absolute active deadline, including recovery cleanup and new-session setup;
+it never renews the 600/1,200-second allowance. Sessions are linked by recovery index and previous session ID.
+Tool-bearing calls, unstructured calls, stalled validation corrections, exhausted budgets and recurring stalls
+are never automatically retried. Stalls remain explicit operational failures, not issue dispositions or proof of
+a model/provider/runtime root cause. Numeric guard metadata contains no partial output. SDK-correlated completion,
+the existing single validation correction and all evidence/publication gates remain authoritative.
 
 The console also captures SDK debug logging and CLI stderr through the SDK's logging interface into
 `<state>\sdk-runtime.jsonl`. This is a **privacy-filtered diagnostic view, not a verbatim debug transcript**:
@@ -1111,12 +1156,25 @@ it retains timestamps, severity, known SDK operation names/timings, message size
 text signals such as retry/connection/timeout. It does not copy raw log messages, prompts, source, partial output,
 reasoning, exception stacks or URLs. Structured session events retain allowlisted numeric/status/model metadata;
 opaque non-UUID request identifiers and free-form error/retry explanations are hashed. Only a known active
-session-ID match attributes a runtime line to that session; otherwise the log lists possible active sessions
-or marks the line runtime-only. Concurrent-session candidates are not proof that a line belongs to one issue.
+session-ID match attributes a runtime line to that session. Structured SDK session IDs take precedence over
+incidental message-text matches; an unregistered structured ID is explicitly unattributed rather than assigned
+to another active session. When no structured ID is available, message-text matching remains a fallback, or
+the log lists possible active sessions/marks the line runtime-only. Concurrent-session candidates are not proof
+that a line belongs to one issue.
 
-Runtime capture is capped at 20,000 records or approximately 8 MiB per console invocation, with explicit limit
-and dropped-record summaries. Session event/timeout logs remain separate. The SDK logger configuration is
-restored when the console exits. `run.json` and `sdk-sessions.jsonl` record diagnostics settings and locations.
+The installed SDK's per-event DEBUG dispatch timing is coalesced before formatting/hashing into numeric
+`runtime.dispatch_summary` records, at most once per 30 seconds of dispatch activity, plus session-unregister
+and exit flushes. Labels are fixed/allowlisted; unknown event kinds and unregistered sessions use bounded
+unattributed buckets. Per-dispatch timing is not retained. Totals distinguish coalesced events, pending events
+and events whose summary could not be captured.
+
+Runtime capture has a 20,000-record/8-MiB payload budget per console invocation: 75% for ordinary logs and
+dispatch summaries, and a reserved 25% for known client/session operations, warnings/errors and exceptions.
+Each lane stops capturing after its first limit breach, with explicit per-priority dropped counts; important
+capacity is finite too. Start/end records and at most two limit markers add bounded control-record overhead
+outside those budgets. Session event/timeout logs remain separate. The SDK logger configuration is restored
+when the console exits. Diagnostics schema version 2 is recorded in the runtime header, `run.json` and
+`sdk-sessions.jsonl`, alongside settings and locations.
 This filtering applies to these diagnostic captures, not existing raw reproduction evidence or the runtime's
 own independent storage. Existing frozen runs are not rewritten; new logging cannot reconstruct missing
 provider/transport evidence from an earlier silent timeout.

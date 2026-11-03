@@ -624,12 +624,53 @@ class DefaultReproductionScenarioTransport(ExploratoryReproductionScenarioTransp
     configuration_policy: Literal["defaults"]
 
 
+class BlockedReconstructionClaim(Record):
+    id: Text
+    report_quote: Text
+    surface: Literal["cli", "editor", "lsp", "other"]
+    reason: Text
+
+
+class BlockedReconstruction(Record):
+    summary: Text
+    reason: Literal[
+        "unavailable_source", "missing_dependency", "unsupported_surface",
+        "unobservable_symptom", "conflicting_configuration",
+    ]
+    claims: list[BlockedReconstructionClaim] = Field(min_length=1)
+    prerequisites: list[Text] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def unique_claims(self) -> Self:
+        identifiers = [claim.id for claim in self.claims]
+        if len(identifiers) != len(set(identifiers)):
+            raise ValueError("Blocked reconstruction claim IDs must be unique")
+        return self
+
+
+class ReconstructionResponse(Record):
+    scenario: DefaultReproductionScenario | ExploratoryReproductionScenario | None
+    blocked: BlockedReconstruction | None
+
+    @model_validator(mode="after")
+    def exclusive_result(self) -> Self:
+        if (self.scenario is None) == (self.blocked is None):
+            raise ValueError("Return exactly one executable scenario or explicit blocked reconstruction")
+        return self
+
+
+class ReconstructionResponseTransport(Record):
+    scenario: DefaultReproductionScenarioTransport | ExploratoryReproductionScenarioTransport | None
+    blocked: BlockedReconstruction | None
+
+
 class ReproductionStage(Record):
     input_hash: Text
     discussion_hash: Text
     directory: Text
     status: Literal["running", "complete", "blocked", "failed"] = "running"
     scenario: ReproductionScenario | DefaultReproductionScenario | ExploratoryReproductionScenario | None = None
+    blocked: BlockedReconstruction | None = None
     exploratory: bool = Field(default=False, frozen=True)
     default_settings: dict[str, str] | None = Field(default=None, frozen=True)
     policy_hash: str | None = None
@@ -642,6 +683,14 @@ class ReproductionStage(Record):
     proposed_labels: list[str] = Field(default_factory=list)
     comment_hash: str | None = None
 
+    @model_validator(mode="after")
+    def blocked_is_not_execution(self) -> Self:
+        if self.blocked is not None and (
+            self.scenario is not None or self.targets or self.receipt_ids or self.gate is not None or self.status == "complete"
+        ):
+            raise ValueError("A blocked reconstruction cannot contain executable comparison evidence")
+        return self
+
     def observation_only(self) -> bool:
         return self.exploratory or isinstance(self.scenario, ExploratoryReproductionScenario)
 
@@ -649,7 +698,7 @@ class ReproductionStage(Record):
         return isinstance(self.scenario, DefaultReproductionScenario) and bool(self.scenario.configuration_assumptions)
 
     def action(self) -> Literal["fixed", "not_reproducible"] | None:
-        if self.observation_only() or self.uses_default_settings():
+        if self.blocked is not None or self.observation_only() or self.uses_default_settings():
             return None
         if self.status != "complete" or self.gate is None or not self.gate.approved:
             return None
