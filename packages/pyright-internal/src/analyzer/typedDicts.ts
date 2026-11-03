@@ -1213,13 +1213,6 @@ export function assignTypedDictToTypedDict(
         typedDictAssignmentContexts.set(evaluator, context);
     }
 
-    // REVIEW: This predicate handles both completed reuse and the active recursion guard.
-    // isTypeSame treats callbacks with matching parameter types but different argument defaults as equal.
-    // That lets (x: int) -> int reuse success for (x: int = 0) -> int against Callable[[], int].
-    // Recursive specializations can also match the active guard despite different call behavior.
-    // Could both destType and srcType comparisons use honorCallBehavior: true?
-    // It distinguishes the observed pair, but the full repair still needs validation.
-    // We'd need regressions for both completed reuse and active recursion, not just the cache.
     const matches = (entry: TypedDictAssignment) =>
         entry.flags === flags &&
         isTypeSame(entry.destType, destType, { honorIsTypeArgExplicit: true, honorTypeForm: true }) &&
@@ -1247,13 +1240,6 @@ export function assignTypedDictToTypedDict(
                       isTypedDictConstraintTrackerSame(constraints, entry.preConstraints)
               )
         : undefined;
-    // REVIEW: Raw addendum nesting isn't the same as rendered diagnostic depth.
-    // TypedDict checks add empty nodes, but rendering only charges depth for message-bearing nodes.
-    // This skips a cached failure's second leaf explanation even though it fits the display budget.
-    // The assignment still gets rejected at the same location under the same rule.
-    // Could we recompute cached failures whenever diag is requested instead of using raw depth?
-    // That's a local fix, but it could cost more on incompatible shared graphs.
-    // We'd need to check those cases and wide-graph work caps before calling it done.
     if (cached && (cached.isCompatible || !diag || diag.getNestLevel() > defaultMaxDiagnosticDepth)) {
         if (cached.postConstraints) {
             constraints?.copyFromClone(cached.postConstraints);
@@ -1299,13 +1285,6 @@ export function assignTypedDictToTypedDict(
                 postConstraints: constraints?.clone(),
             });
             if (entries.length > maxTypedDictCompatibilityCacheEntries) {
-                // REVIEW: The bound is per source shared class. Cycling over 65 destinations evicts
-                // each result before reuse. The synthetic four-layer case adds full-bucket scans
-                // without reusing those results. Baseline expansion is already a problem here.
-                // This is a stress-case concern, not a demonstrated common-project slowdown.
-                // Could we try bounded non-evicting admission instead of cyclic FIFO replacement?
-                // Keep the bounds and state safeguards; test widths 64/65 and early/late-hot ordering.
-                // Keeping early cold entries can exclude later hot ones, so that needs validation too.
                 entries.shift();
             }
             context.cache.set(srcType.shared, entries);
