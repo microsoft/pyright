@@ -25214,6 +25214,19 @@ export function createTypeEvaluator(
             return true;
         }
 
+        // Calls to functions with explicitly declared return types can be inferred
+        // consistently by type checkers without an annotation on the target variable.
+        if (assignmentNode.d.rightExpr.nodeType === ParseNodeType.Call) {
+            const calleeType = getTypeOfExpression(assignmentNode.d.rightExpr.d.leftExpr).type;
+            if (
+                isFunction(calleeType) &&
+                calleeType.shared.declaredReturnType &&
+                !isPartlyUnknown(calleeType.shared.declaredReturnType)
+            ) {
+                return true;
+            }
+        }
+
         return false;
     }
 
