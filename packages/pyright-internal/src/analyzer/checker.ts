@@ -2267,6 +2267,19 @@ export class Checker extends ParseTreeWalker {
                     }
                 });
 
+                // A bool literal compares equal to the int literal with the
+                // same value (e.g. "True == 1") even though neither literal
+                // type is assignable to the other.
+                if (!isPossiblyTrue && !assumeIsOperator) {
+                    doForEachSubtype(leftType, (leftSubtype) => {
+                        doForEachSubtype(rightType!, (rightSubtype) => {
+                            if (this._isBoolIntLiteralEqual(leftSubtype, rightSubtype)) {
+                                isPossiblyTrue = true;
+                            }
+                        });
+                    });
+                }
+
                 if (!isPossiblyTrue) {
                     this._evaluator.addDiagnostic(
                         DiagnosticRule.reportUnnecessaryComparison,
@@ -2315,6 +2328,30 @@ export class Checker extends ParseTreeWalker {
                 );
             }
         }
+    }
+
+    private _isBoolIntLiteralEqual(leftType: Type, rightType: Type): boolean {
+        if (!isClassInstance(leftType) || !isClassInstance(rightType)) {
+            return false;
+        }
+
+        let boolType = leftType;
+        let intType = rightType;
+        if (ClassType.isBuiltIn(rightType, 'bool')) {
+            boolType = rightType;
+            intType = leftType;
+        }
+
+        if (!ClassType.isBuiltIn(boolType, 'bool') || !ClassType.isBuiltIn(intType, 'int')) {
+            return false;
+        }
+
+        const intValue = intType.priv.literalValue;
+        if (intValue !== 0 && intValue !== 1) {
+            return false;
+        }
+
+        return boolType.priv.literalValue === (intValue === 1);
     }
 
     // If the function is a generator, validates that its annotated return type
