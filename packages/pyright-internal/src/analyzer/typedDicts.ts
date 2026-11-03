@@ -10,7 +10,7 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { DiagnosticAddendum } from '../common/diagnostic';
+import { defaultMaxDiagnosticDepth, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -41,6 +41,7 @@ import {
 } from './typeEvaluatorTypes';
 import {
     AnyType,
+    ClassDetailsShared,
     ClassType,
     ClassTypeFlags,
     combineTypes,
@@ -53,6 +54,7 @@ import {
     isClassInstance,
     isInstantiableClass,
     isNever,
+    isTypeSame,
     maxTypeRecursionCount,
     NeverType,
     OverloadedType,
@@ -75,6 +77,29 @@ import {
     partiallySpecializeType,
     specializeTupleClass,
 } from './typeUtils';
+
+interface TypedDictAssignment {
+    destType: ClassType;
+    srcType: ClassType;
+    flags: AssignTypeFlags;
+}
+
+interface TypedDictCompatibility extends TypedDictAssignment {
+    isCompatible: boolean;
+    recursionCount: number;
+    generation: number;
+    preConstraints: ConstraintTracker | undefined;
+    postConstraints: ConstraintTracker | undefined;
+}
+
+interface TypedDictAssignmentContext {
+    stack: TypedDictAssignment[];
+    cache: Map<ClassDetailsShared, TypedDictCompatibility[]>;
+    generation: number;
+}
+
+const typedDictAssignmentContexts = new WeakMap<TypeEvaluator, TypedDictAssignmentContext>();
+const maxTypedDictCompatibilityCacheEntries = 64;
 
 // Creates a new custom TypedDict "alternate syntax" factory class.
 export function createTypedDictType(
@@ -1181,6 +1206,139 @@ export function assignTypedDictToTypedDict(
     constraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
     recursionCount = 0
+) {
+    let context = typedDictAssignmentContexts.get(evaluator);
+    if (!context) {
+        context = { stack: [], cache: new Map(), generation: 0 };
+        typedDictAssignmentContexts.set(evaluator, context);
+    }
+
+    const matches = (entry: TypedDictAssignment) =>
+        entry.flags === flags &&
+        isTypeSame(entry.destType, destType, { honorIsTypeArgExplicit: true, honorTypeForm: true }) &&
+        isTypeSame(entry.srcType, srcType, { honorIsTypeArgExplicit: true, honorTypeForm: true });
+
+    // Recursive TypedDicts are compatible if all nonrecursive members are
+    // compatible. The enclosing comparison will check those members.
+    if (context.stack.some(matches)) {
+        return true;
+    }
+
+    // Generic comparisons must populate the caller's constraint tracker.
+    const canCache =
+        !constraints || (destType.shared.typeParams.length === 0 && srcType.shared.typeParams.length === 0);
+    // A result obtained near the recursion cutoff cannot establish compatibility
+    // for a shallower comparison that can inspect more of the types.
+    const cached = canCache
+        ? context.cache
+              .get(srcType.shared)
+              ?.find(
+                  (entry) =>
+                      matches(entry) &&
+                      entry.recursionCount === recursionCount &&
+                      (!entry.isCompatible || entry.generation === context.generation) &&
+                      isTypedDictConstraintTrackerSame(constraints, entry.preConstraints)
+              )
+        : undefined;
+    if (cached && (cached.isCompatible || !diag || diag.getNestLevel() > defaultMaxDiagnosticDepth)) {
+        if (cached.postConstraints) {
+            constraints?.copyFromClone(cached.postConstraints);
+        }
+        return cached.isCompatible;
+    }
+
+    // Inline dictionaries can capture type variables without declaring class
+    // type parameters. Preserve their inference effects when reusing a result.
+    const preConstraints = canCache ? constraints?.clone() : undefined;
+    context.stack.push({ destType, srcType, flags });
+
+    try {
+        const isCompatible = assignTypedDictToTypedDictInternal(
+            evaluator,
+            destType,
+            srcType,
+            diag,
+            constraints,
+            flags,
+            recursionCount
+        );
+
+        // A success may depend on an unfinished recursive comparison. Keep it
+        // local to this assignment and discard all such assumptions on failure.
+        // Failures remain valid even when recursive pairs were assumed compatible.
+        if (!isCompatible) {
+            context.generation++;
+        }
+
+        if (canCache && !cached) {
+            const entries = (context.cache.get(srcType.shared) ?? []).filter(
+                (entry) => !entry.isCompatible || entry.generation === context.generation
+            );
+            entries.push({
+                destType,
+                srcType,
+                flags,
+                isCompatible,
+                recursionCount,
+                generation: context.generation,
+                preConstraints,
+                postConstraints: constraints?.clone(),
+            });
+            if (entries.length > maxTypedDictCompatibilityCacheEntries) {
+                entries.shift();
+            }
+            context.cache.set(srcType.shared, entries);
+        }
+
+        return isCompatible;
+    } finally {
+        context.stack.pop();
+        if (context.stack.length === 0) {
+            typedDictAssignmentContexts.delete(evaluator);
+        }
+    }
+}
+
+function isTypedDictConstraintTrackerSame(
+    constraints: ConstraintTracker | undefined,
+    cachedConstraints: ConstraintTracker | undefined
+): boolean {
+    if (!constraints || !cachedConstraints) {
+        return constraints === cachedConstraints;
+    }
+
+    if (!constraints.isSame(cachedConstraints)) {
+        return false;
+    }
+
+    // isSame compares bounds but not signature scopes or literal retention.
+    return constraints.getConstraintSets().every((set, index) => {
+        const cachedSet = cachedConstraints.getConstraintSet(index);
+        const scopeIds = set.getScopeIds();
+        const cachedScopeIds = cachedSet.getScopeIds();
+        if (scopeIds.size !== cachedScopeIds.size || [...scopeIds].some((scopeId) => !cachedScopeIds.has(scopeId))) {
+            return false;
+        }
+
+        return set.getTypeVars().every((entry) => {
+            const cachedEntry = cachedSet.getTypeVar(entry.typeVar);
+            return (
+                cachedEntry !== undefined &&
+                entry.retainLiterals === cachedEntry.retainLiterals &&
+                isTypeSame(entry.typeVar, cachedEntry.typeVar, { honorIsTypeArgExplicit: true, honorTypeForm: true })
+            );
+        });
+    });
+}
+
+function assignTypedDictToTypedDictInternal(
+    evaluator: TypeEvaluator,
+    destType: ClassType,
+    srcType: ClassType,
+    diag: DiagnosticAddendum | undefined,
+    constraints: ConstraintTracker | undefined,
+    flags: AssignTypeFlags,
+    recursionCount: number
 ) {
     let typesAreConsistent = true;
     const destEntries = getTypedDictMembersForClass(evaluator, destType);

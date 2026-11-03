@@ -1070,6 +1070,192 @@ test('ProtocolExplicit3', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('TypedDictRecursive1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictRecursive1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypedDictRecursive2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictRecursive2.py']);
+
+    TestUtils.validateResults(analysisResults, 5);
+    const wrapperDiagnostic = analysisResults[0].errors.find((diag) => diag.message.includes('"StrWrapper"'));
+    assert.ok(wrapperDiagnostic);
+    for (const name of ['parent', 'child', 'again']) {
+        expect(wrapperDiagnostic.message).toContain(`"${name}"`);
+    }
+});
+
+test('TypedDictRecursive3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictRecursive3.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypedDictRecursiveRecursionBudget', () => {
+    const chains = ['A', 'B']
+        .map((prefix) =>
+            Array.from(
+                { length: 19 },
+                (_, index) => `
+//// class ${prefix}Chain${index}(TypedDict):
+////     next: ReadOnly["${prefix}${index === 18 ? 'Leaf' : `Chain${index + 1}`}"]
+////`
+            ).join('\n')
+        )
+        .join('\n');
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+//// from typing_extensions import ReadOnly
+////
+//// class ALeaf(TypedDict):
+////     value: ReadOnly[int]
+////
+//// class BLeaf(TypedDict):
+////     value: ReadOnly[str]
+////
+${chains}
+//// class ARoot(TypedDict):
+////     deep: ReadOnly[AChain0]
+////     shallow: ReadOnly[ALeaf]
+////
+//// class BRoot(TypedDict):
+////     deep: ReadOnly[BChain0]
+////     shallow: ReadOnly[BLeaf]
+////
+//// def check(a: ARoot, b: BRoot):
+////     /*a*/a
+////     /*b*/b
+    `;
+    const state = parseAndGetTestState(code).state;
+    const evaluator = state.program.evaluator!;
+    const [aType, bType] = ['a', 'b'].map((marker) => {
+        const node = getNodeAtMarker(state, marker);
+        assert.strictEqual(node.nodeType, ParseNodeType.Name);
+        return evaluator.getTypeOfExpression(node).type;
+    });
+
+    assert.strictEqual(evaluator.assignType(aType, bType), false);
+    const diagnostics = new DiagnosticAddendum();
+    assert.strictEqual(evaluator.assignType(aType, bType, diagnostics), false);
+    expect(diagnostics.getString()).toContain('"shallow"');
+});
+
+test('TypedDictRecursiveSharedGraph', () => {
+    const width = 64;
+    const layers = 4;
+    const classes = ['A', 'B']
+        .map((prefix) =>
+            Array.from({ length: layers }, (_, layer) =>
+                Array.from({ length: width }, (_, index) => {
+                    const fields = Array.from(
+                        { length: layer === 0 ? 1 : width },
+                        (_, field) =>
+                            `////     field${field}: ReadOnly["${
+                                layer === 0 ? 'Leaf' : `${prefix}${layer - 1}_${field}`
+                            }"]`
+                    ).join('\n');
+                    return `//// class ${prefix}${layer}_${index}(TypedDict):\n${fields}\n////`;
+                }).join('\n')
+            ).join('\n')
+        )
+        .join('\n');
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+//// from typing_extensions import ReadOnly
+////
+//// class Leaf(TypedDict):
+////     value: int
+////
+${classes}
+//// def check(a: A${layers - 1}_0, b: B${layers - 1}_0):
+////     /*a*/a
+////     /*b*/b
+    `;
+    const state = parseAndGetTestState(code).state;
+    const evaluator = state.program.evaluator!;
+    const [aType, bType] = ['a', 'b'].map((marker) => {
+        const node = getNodeAtMarker(state, marker);
+        assert.strictEqual(node.nodeType, ParseNodeType.Name);
+        return evaluator.getTypeOfExpression(node).type;
+    });
+    const assignType = evaluator.assignType;
+    let comparisons = 0;
+    const spy = jest.spyOn(evaluator, 'assignType').mockImplementation((...args) => {
+        assert.ok(++comparisons < 20000, 'Shared TypedDict subgraphs were repeatedly recomputed');
+        return assignType(...args);
+    });
+    try {
+        assert.strictEqual(evaluator.assignType(aType, bType), true);
+    } finally {
+        spy.mockRestore();
+    }
+});
+
+test.each([
+    [false, true],
+    [true, true],
+    [false, false],
+    [true, false],
+])('TypedDictRecursiveWide constraints=%s compatible=%s', (withConstraints, expectedCompatibility) => {
+    const fields = (prefix: string) =>
+        Array.from({ length: 56 }, (_, index) => `////     rel${index}: bool | "${prefix}Args"`).join('\n');
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+////
+//// class AInclude(TypedDict, total=False):
+${fields('A')}
+////     value: int
+////
+//// class AArgs(TypedDict, total=False):
+////     include: "AInclude"
+////
+//// class BInclude(TypedDict, total=False):
+${fields('B')}
+////     value: ${expectedCompatibility ? 'int' : 'str'}
+////
+//// class BArgs(TypedDict, total=False):
+////     include: "BInclude"
+////
+//// def check(a: AInclude, b: BInclude):
+////     /*a*/a
+////     /*b*/b
+    `;
+    const state = parseAndGetTestState(code).state;
+    const evaluator = state.program.evaluator!;
+    const [aType, bType] = ['a', 'b'].map((marker) => {
+        const node = getNodeAtMarker(state, marker);
+        assert.strictEqual(node.nodeType, ParseNodeType.Name);
+        return evaluator.getTypeOfExpression(node).type;
+    });
+
+    const assignType = evaluator.assignType;
+    let comparisons = 0;
+    const spy = jest.spyOn(evaluator, 'assignType').mockImplementation((...args) => {
+        // Bound work rather than wall-clock time, and fail promptly if recursion returns.
+        assert.ok(++comparisons < 2000, 'Recursive TypedDict comparison exceeded its work budget');
+        return assignType(...args);
+    });
+    try {
+        const constraints = withConstraints ? new ConstraintTracker() : undefined;
+        assert.strictEqual(evaluator.assignType(bType, aType, undefined, constraints), expectedCompatibility);
+        const diagnostics = new DiagnosticAddendum();
+        assert.strictEqual(evaluator.assignType(aType, bType, diagnostics, constraints), expectedCompatibility);
+        if (!expectedCompatibility) {
+            expect(diagnostics.getString(undefined, 1000)).toContain('"value"');
+        }
+    } finally {
+        spy.mockRestore();
+    }
+});
+
 test('TypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
 
