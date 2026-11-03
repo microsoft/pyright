@@ -8933,9 +8933,14 @@ export function createTypeEvaluator(
 
         // If this is a recursive type alias, see if we've already recursed
         // seen it once before in the recursion stack. If so, don't recurse
-        // further.
+        // further. Compare only the alias, since its type arguments can grow
+        // with each expansion.
         if (isRecursiveTypeAlias) {
-            const pendingOverlaps = pendingTypes.filter((pendingType) => isTypeSame(pendingType, type));
+            const pendingOverlaps = pendingTypes.filter((pendingType) =>
+                isTypeVar(type) && isTypeVar(pendingType)
+                    ? type.shared.recursiveAlias?.typeVarScopeId === pendingType.shared.recursiveAlias?.typeVarScopeId
+                    : isTypeSame(pendingType, type)
+            );
             if (pendingOverlaps.length > 1) {
                 return;
             }
