@@ -8921,7 +8921,7 @@ export function createTypeEvaluator(
         typeAliasTypeParams: TypeVarType[],
         usageVariances: Variance[],
         varianceContext: Variance,
-        pendingTypes: Type[] = [],
+        pendingTypes: { type: Type; key: string | undefined }[] = [],
         recursionCount = 0
     ) {
         if (recursionCount > maxTypeRecursionCount) {
@@ -8931,31 +8931,17 @@ export function createTypeEvaluator(
         const transformedType = transformPossibleRecursiveTypeAlias(type);
         const isRecursiveTypeAlias = transformedType !== type;
 
-        // If this is a recursive type alias, see if we've already recursed
-        // seen it once before in the recursion stack. If so, don't recurse
-        // further.
-        if (isRecursiveTypeAlias) {
-            const pendingOverlaps = pendingTypes.filter((pendingType) => isTypeSame(pendingType, type));
-            if (pendingOverlaps.length > 1) {
-                return;
-            }
-
-            pendingTypes.push(type);
-        }
-
-        recursionCount++;
-
         // Define a helper function that performs the actual usage variant update.
-        function updateUsageVarianceForType(type: Type, variance: Variance) {
+        function updateUsageVarianceForType(type: Type, variance: Variance, variances = usageVariances) {
             doForEachSubtype(type, (subtype) => {
                 const typeParamIndex = typeAliasTypeParams.findIndex((param) => isTypeSame(param, subtype));
                 if (typeParamIndex >= 0) {
-                    usageVariances[typeParamIndex] = combineVariances(usageVariances[typeParamIndex], variance);
+                    variances[typeParamIndex] = combineVariances(variances[typeParamIndex], variance);
                 } else {
                     updateUsageVariancesRecursive(
                         subtype,
                         typeAliasTypeParams,
-                        usageVariances,
+                        variances,
                         variance,
                         pendingTypes,
                         recursionCount
@@ -8963,6 +8949,34 @@ export function createTypeEvaluator(
                 }
             });
         }
+
+        // If this is a recursive type alias, see if we've already seen it in
+        // the recursion stack. A reference to the alias is keyed by the variance
+        // of the type parameters in each of its type arguments, which stays
+        // finite when the type arguments grow with each expansion.
+        if (isRecursiveTypeAlias) {
+            let key: string | undefined;
+            const typeArgs = type.props?.typeAliasInfo?.typeArgs;
+            if (isTypeVar(type) && type.shared.recursiveAlias && typeArgs) {
+                const argVariances = typeArgs.map((typeArg) => {
+                    const variances = typeAliasTypeParams.map(() => Variance.Unknown);
+                    updateUsageVarianceForType(typeArg, Variance.Covariant, variances);
+                    return variances.join(',');
+                });
+                key = `${type.shared.recursiveAlias.typeVarScopeId}/${varianceContext}/${argVariances.join(';')}`;
+            }
+
+            const pendingOverlaps = pendingTypes.filter((pending) =>
+                key !== undefined ? pending.key === key : isTypeSame(pending.type, type)
+            );
+            if (pendingOverlaps.length > (key !== undefined ? 0 : 1)) {
+                return;
+            }
+
+            pendingTypes.push({ type, key });
+        }
+
+        recursionCount++;
 
         doForEachSubtype(transformedType, (subtype) => {
             if (subtype.category === TypeCategory.Function) {
