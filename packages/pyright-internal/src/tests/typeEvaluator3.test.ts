@@ -916,7 +916,7 @@ test('UnknownRecursiveAliasBranches1', () => {
 test('Classes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes1.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 10);
 });
 
 test('Classes3', () => {

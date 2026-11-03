@@ -19491,7 +19491,7 @@ export function createTypeEvaluator(
 
                     // A union of base classes that includes Any or Unknown acts
                     // as an Any or Unknown base class.
-                    if (isUnion(argType) && !argType.props?.specialForm) {
+                    if (isUnion(argType) && !UnionType.isOrIncludesSpecialForm(argType)) {
                         const baseClasses = argType.priv.subtypes.map((subtype) =>
                             isClassInstance(subtype) && isMetaclassInstance(subtype)
                                 ? subtype.priv.typeArgs?.[0] ?? UnknownType.create()
