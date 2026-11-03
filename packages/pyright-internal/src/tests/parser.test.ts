@@ -14,7 +14,14 @@ import { AliasDeclaration, DeclarationType } from '../analyzer/declaration';
 import { findNodeByOffset, getFirstAncestorOrSelfOfKind } from '../analyzer/parseTreeUtils';
 import { ExecutionEnvironment, getStandardDiagnosticRuleSet } from '../common/configOptions';
 import { DiagnosticSink } from '../common/diagnosticSink';
-import { pythonVersion3_13, pythonVersion3_14, pythonVersion3_15 } from '../common/pythonVersion';
+import {
+    pythonVersion3_7,
+    pythonVersion3_9,
+    pythonVersion3_10,
+    pythonVersion3_13,
+    pythonVersion3_14,
+    pythonVersion3_15,
+} from '../common/pythonVersion';
 import { getStringFingerprint } from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
 import { UriEx } from '../common/uri/uriUtils';
@@ -51,6 +58,47 @@ test('Parser computes the complete content fingerprint for Unicode text when one
         primary: 83559239,
         secondary: -893512024,
     });
+});
+
+test('Assignment expression parser diagnostics are recorded on the node', () => {
+    const cases = [
+        { code: 'value = (item := 1)', version: pythonVersion3_7, message: LocMessage.walrusIllegal() },
+        {
+            code: 'value = [item for item in (items := (1,))]',
+            version: pythonVersion3_14,
+            message: LocMessage.walrusNotAllowedInComprehension(),
+        },
+        { code: 'value = dict(item=meta:=1)', version: pythonVersion3_14, message: LocMessage.walrusNotAllowed() },
+        {
+            code: 'def f(*args: *meta := tuple[int, ...]): pass',
+            version: pythonVersion3_14,
+            message: LocMessage.walrusNotAllowed(),
+        },
+        { code: 'value = {meta := 1: 2}', version: pythonVersion3_14, message: LocMessage.walrusNotAllowed() },
+        { code: 'value = {meta := 1}', version: pythonVersion3_9, message: LocMessage.walrusNotAllowed() },
+        { code: 'value = list[meta := 1]', version: pythonVersion3_9, message: LocMessage.walrusNotAllowed() },
+        { code: 'value = list[meta := 1]', version: pythonVersion3_10, message: undefined },
+        { code: 'value = {(meta := 1): 2}', version: pythonVersion3_14, message: undefined },
+        { code: 'value = (meta := 1)', version: pythonVersion3_14, message: undefined },
+    ];
+
+    for (const { code, version, message } of cases) {
+        const options = new ParseOptions();
+        options.pythonVersion = version;
+        const sink = new DiagnosticSink();
+        const results = new Parser().parseSourceFile(code, options, sink);
+        const node = getFirstAncestorOrSelfOfKind(
+            findNodeByOffset(results.parserOutput.parseTree, code.indexOf(':=')),
+            ParseNodeType.AssignmentExpression
+        );
+        assert.ok(node, code);
+        assert.strictEqual(node.d.isWalrusSyntaxError, message !== undefined, code);
+        assert.deepStrictEqual(
+            sink.getErrors().map((error) => error.message),
+            message ? [message] : [],
+            code
+        );
+    }
 });
 
 test('Parser1', () => {
