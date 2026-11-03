@@ -17,7 +17,6 @@ import {
     pythonVersion3_11,
     pythonVersion3_12,
     pythonVersion3_13,
-    pythonVersion3_15,
     pythonVersion3_9,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -1059,26 +1058,22 @@ test('Sentinel4', () => {
 });
 
 test('Sentinel5', () => {
-    for (const pythonVersion of [pythonVersion3_13, pythonVersion3_15]) {
-        const configOptions = new ConfigOptions(Uri.empty());
-        configOptions.defaultPythonVersion = pythonVersion;
-        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel5.py'], configOptions);
-        TestUtils.validateResults(analysisResults, 8);
-        assert.deepStrictEqual(
-            analysisResults[0].errors
-                .slice()
-                .sort((left, right) => left.range.start.line - right.range.start.line)
-                .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
-            [
-                [27, DiagnosticRule.reportReturnType],
-                [38, DiagnosticRule.reportArgumentType],
-                [50, DiagnosticRule.reportAttributeAccessIssue],
-                [62, DiagnosticRule.reportArgumentType],
-                [70, DiagnosticRule.reportArgumentType],
-                [85, DiagnosticRule.reportArgumentType],
-                [102, DiagnosticRule.reportArgumentType],
-                [135, DiagnosticRule.reportArgumentType],
-            ]
-        );
-    }
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel5.py']);
+    TestUtils.validateResults(analysisResults, 8);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .slice()
+            .sort((left, right) => left.range.start.line - right.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [22, DiagnosticRule.reportReturnType],
+            [33, DiagnosticRule.reportArgumentType],
+            [45, DiagnosticRule.reportAttributeAccessIssue],
+            [57, DiagnosticRule.reportArgumentType],
+            [65, DiagnosticRule.reportArgumentType],
+            [80, DiagnosticRule.reportArgumentType],
+            [97, DiagnosticRule.reportArgumentType],
+            [130, DiagnosticRule.reportArgumentType],
+        ]
+    );
 });

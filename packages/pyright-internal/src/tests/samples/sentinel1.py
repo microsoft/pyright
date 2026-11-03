@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Literal, TypeAlias, assert_type
-from typing_extensions import TypeForm, sentinel  # pyright: ignore[reportMissingModuleSource]
+from typing_extensions import TypeForm, sentinel
 
 # This should generate an error because the names don't match.
 BAD_NAME1 = sentinel("OTHER")
