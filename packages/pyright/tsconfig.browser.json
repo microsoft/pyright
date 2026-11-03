@@ -1,0 +1,11 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "lib": ["es2020", "DOM", "WebWorker", "esnext.disposable"],
+        "rootDir": "../..",
+        "outDir": "./out/browser",
+        "typeRoots": ["./node_modules/@types", "../pyright-internal/node_modules/@types", "../pyright-internal/typings"]
+    },
+    "include": ["src/browser/**/*.ts", "../pyright-internal/src/browser/**/*.ts", "../pyright-internal/typings/promise.d.ts"],
+    "exclude": ["../pyright-internal/src/tests", "../pyright-internal/src/trace"]
+}
