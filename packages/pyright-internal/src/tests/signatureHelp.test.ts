@@ -13,6 +13,123 @@ import { SignatureHelpProvider } from '../languageService/signatureHelpProvider'
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
 import { PyrightDocStringService } from '../common/docStringService';
 
+test('signature help labels decorated definition parameters separately from the callable signature', () => {
+    const code = `
+// @filename: helpers.py
+//// import functools
+//// @functools.cache
+//// def from_module(value: int) -> int: ...
+
+// @filename: test.py
+//// import functools
+//// import helpers
+//// from typing import Callable
+////
+//// @functools.cache
+//// def my_func(foo: int | list) -> str:
+////     return str(foo)
+////
+//// class Wrapper:
+////     __wrapped__: Callable[..., str]
+////
+////     def __call__(self, /, *args: object, **kwargs: object) -> bytes:
+////         """Actual call documentation."""
+////         return b""
+////
+//// def opaque(func: Callable[..., str]) -> Wrapper: ...
+////
+//// @opaque
+//// def decorated(value: int) -> str: ...
+////
+//// def change_signature(func: Callable[..., str]) -> Callable[[bytes], bytes]: ...
+////
+//// @change_signature
+//// def changed(value: int) -> str: ...
+////
+//// class Reporter:
+////     def __call__(self, *args: object, **kwargs: object) -> bytes: ...
+////
+//// def replace(func: Callable[..., str]) -> Reporter: ...
+////
+//// @replace
+//// def unrelated(value: int) -> str: ...
+////
+//// class KeywordOnlyWrapper:
+////     __wrapped__: Callable[..., str]
+////     def __call__(self, **kwargs: object) -> bytes: ...
+////
+//// def keyword_only(func: Callable[..., str]) -> KeywordOnlyWrapper: ...
+////
+//// @keyword_only
+//// def positional(value: int, /) -> str: ...
+////
+//// class Service:
+////     @functools.cache
+////     def cached(self, *, count: int) -> str:
+////         return str(count)
+////
+//// my_func([|/*cache*/|])
+//// decorated([|/*opaque*/|])
+//// changed([|/*changed*/|])
+//// unrelated([|/*unrelated*/|])
+//// positional([|/*keywordOnly*/|])
+//// Service().cached([|/*method*/|])
+//// helpers.from_module([|/*module*/|])
+    `;
+    const state = parseAndGetTestState(code).state;
+    const cache = getSignatureHelpForMarker(state, 'cache');
+    assert(cache);
+    assert.strictEqual(cache.signatures.length, 1);
+    assert.strictEqual(cache.signatures[0].label, '(*args: Hashable, **kwargs: Hashable) -> str');
+    assert.deepStrictEqual(cache.signatures[0].documentation, {
+        kind: MarkupKind.Markdown,
+        value: 'Decorated definition parameters:\n\n    (foo: int | list[Unknown])',
+    });
+    assert.deepStrictEqual(
+        getSignatureHelpForMarker(state, 'cache', MarkupKind.PlainText)?.signatures[0].documentation,
+        {
+            kind: MarkupKind.PlainText,
+            value: 'Decorated definition parameters: (foo: int | list[Unknown])',
+        }
+    );
+
+    const opaque = getSignatureHelpForMarker(state, 'opaque');
+    assert(opaque);
+    assert.strictEqual(opaque.signatures[0].label, '(*args: object, **kwargs: object) -> bytes');
+    assert.deepStrictEqual(opaque.signatures[0].documentation, {
+        kind: MarkupKind.Markdown,
+        value: 'Actual call documentation.\n\nDecorated definition parameters:\n\n    (value: int)',
+    });
+
+    const changed = getSignatureHelpForMarker(state, 'changed');
+    assert(changed);
+    assert.strictEqual(changed.signatures[0].label, '(bytes) -> bytes');
+    assert.strictEqual(changed.signatures[0].documentation, undefined);
+
+    const unrelated = getSignatureHelpForMarker(state, 'unrelated');
+    assert(unrelated);
+    assert.strictEqual(unrelated.signatures[0].label, '(*args: object, **kwargs: object) -> bytes');
+    assert.strictEqual(unrelated.signatures[0].documentation, undefined);
+
+    const keywordOnly = getSignatureHelpForMarker(state, 'keywordOnly');
+    assert(keywordOnly);
+    assert.strictEqual(keywordOnly.signatures[0].label, '(**kwargs: object) -> bytes');
+    assert.strictEqual(keywordOnly.signatures[0].documentation, undefined);
+
+    const method = getSignatureHelpForMarker(state, 'method');
+    assert(method);
+    assert.strictEqual(method.signatures[0].label, '(*args: Hashable, **kwargs: Hashable) -> str');
+    assert.strictEqual(method.signatures[0].documentation, undefined);
+
+    const moduleMember = getSignatureHelpForMarker(state, 'module');
+    assert(moduleMember);
+    assert.strictEqual(moduleMember.signatures[0].label, '(*args: Hashable, **kwargs: Hashable) -> int');
+    assert.deepStrictEqual(moduleMember.signatures[0].documentation, {
+        kind: MarkupKind.Markdown,
+        value: 'Decorated definition parameters:\n\n    (value: int)',
+    });
+});
+
 test('invalid position in format string segment', () => {
     const code = `
 // @filename: test.py
@@ -629,7 +746,11 @@ function checkSignatureHelp(code: string, expects: boolean) {
     assert.strictEqual(!!actual, expects);
 }
 
-function getSignatureHelpForMarker(state: TestState, markerName: string): SignatureHelp | undefined {
+function getSignatureHelpForMarker(
+    state: TestState,
+    markerName: string,
+    format: MarkupKind = MarkupKind.Markdown
+): SignatureHelp | undefined {
     const marker = state.getMarkerByName(markerName);
     const position = state.getPosition(markerName);
 
@@ -637,7 +758,7 @@ function getSignatureHelpForMarker(state: TestState, markerName: string): Signat
         state.workspace.service.test_program,
         marker.fileUri,
         position,
-        MarkupKind.Markdown,
+        format,
         /*hasSignatureLabelOffsetCapability*/ true,
         /*hasActiveParameterCapability*/ true,
         /*context*/ undefined,
