@@ -8,7 +8,14 @@
 
 import * as assert from 'assert';
 
-import { containsLiteralType, mapSignatures, transformTypePair } from '../analyzer/typeUtils';
+import { ConstraintSolution } from '../analyzer/constraintSolution';
+import {
+    applySolvedTypeVars,
+    containsLiteralType,
+    mapSignatures,
+    transformTypePair,
+    UniqueSignatureTracker,
+} from '../analyzer/typeUtils';
 import {
     AnyType,
     ClassType,
@@ -19,6 +26,7 @@ import {
     isClass,
     isFunction,
     isOverloaded,
+    isTypeSame,
     isTypeVar,
     OverloadedType,
     OverloadResultType,
@@ -83,17 +91,57 @@ test('Map signatures preserves replaced overloads and their order', () => {
     const implementation = createFunction(unknown, any, unknown);
     const original = OverloadedType.create([first, second], implementation);
     const replacement = createFunction(unknown, unknown, any);
+    const tracker = new UniqueSignatureTracker();
+    tracker.addSignature(second, 0);
 
     const mapped = mapSignatures(original, (signature) => (signature === first ? replacement : signature));
 
     assert.ok(mapped && isOverloaded(mapped));
-    assert.deepStrictEqual(OverloadedType.getOverloads(mapped), [replacement, second]);
-    assert.strictEqual(OverloadedType.getImplementation(mapped), implementation);
+    assert.strictEqual(tracker.findSignature(second)?.type, original);
+    const mappedSignatures = OverloadedType.getOverloads(mapped);
+    assert.strictEqual(mappedSignatures.length, 2);
+    assert.strictEqual(mappedSignatures[0], replacement);
+    assert.ok(isTypeSame(mappedSignatures[1], second, { honorCallBehavior: true, ignoreOverloadOwner: true }));
+    assert.strictEqual(mappedSignatures[1].priv.overloaded, mapped);
+    const mappedImplementation = OverloadedType.getImplementation(mapped);
+    assert.ok(mappedImplementation && isFunction(mappedImplementation));
+    assert.ok(isTypeSame(mappedImplementation, implementation, { honorCallBehavior: true, ignoreOverloadOwner: true }));
+    assert.strictEqual(mappedImplementation.priv.overloaded, mapped);
+    assert.strictEqual(implementation.priv.overloaded, original);
     assert.deepStrictEqual(OverloadedType.getOverloads(original), [first, second]);
+    assert.strictEqual(
+        mapSignatures(original, (signature) => signature),
+        original
+    );
     assert.strictEqual(
         mapSignatures(first, () => replacement),
         replacement
     );
+});
+
+test('Solving type variables preserves the source overload', () => {
+    const typeVar = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('T'),
+        'scope',
+        'scope',
+        TypeVarScopeType.Class
+    );
+    const unknown = UnknownType.create();
+    const replacement = ClassType.cloneAsInstance(createClass('Value'));
+    const generic = createFunction(typeVar, unknown, typeVar);
+    const nongeneric = createFunction(unknown, unknown, unknown);
+    const implementation = createFunction(unknown, unknown, unknown);
+    const original = OverloadedType.create([generic, nongeneric], implementation);
+    const solution = new ConstraintSolution();
+    solution.setType(typeVar, replacement);
+
+    const specialized = applySolvedTypeVars(original, solution);
+
+    assert.ok(isOverloaded(specialized));
+    assert.strictEqual(FunctionType.getEffectiveReturnType(OverloadedType.getOverloads(specialized)[0]), replacement);
+    assert.strictEqual(nongeneric.priv.overloaded, original);
+    assert.strictEqual(implementation.priv.overloaded, original);
+    assert.strictEqual(OverloadedType.getOverloads(specialized)[1].priv.overloaded, specialized);
 });
 
 test('Transform aligned function types', () => {

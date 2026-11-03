@@ -321,6 +321,7 @@ import {
     convertToInstance,
     convertToInstantiable,
     convertTypeToParamSpecValue,
+    createOverloadedTypeFromBorrowedSignatures,
     derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
     derivesFromStdlibClass,
@@ -10018,7 +10019,9 @@ export function createTypeEvaluator(
                 : undefined;
             typeChanged ||= normalizedImplementation !== implementation;
 
-            return typeChanged ? OverloadedType.create(overloads, normalizedImplementation) : typeToNormalize;
+            return typeChanged
+                ? createOverloadedTypeFromBorrowedSignatures(overloads, normalizedImplementation)
+                : typeToNormalize;
         }
 
         if (!isClass(typeToNormalize) || !typeToNormalize.priv.typeArgs) {
