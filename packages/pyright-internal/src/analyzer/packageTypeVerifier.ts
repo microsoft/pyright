@@ -55,6 +55,7 @@ import {
     TypeBase,
     TypeCategory,
 } from './types';
+import { getInheritedClassDocString, getInheritedMemberDocString } from './typeDocStringUtils';
 import {
     doForEachSubtype,
     getFullNameOfType,
@@ -515,7 +516,8 @@ export class PackageTypeVerifier {
         symbolTable: SymbolTable,
         scopeType: ScopeType,
         publicSymbols: PublicSymbolSet,
-        overrideSymbolCallback?: (name: string, symbol: Symbol) => Type | undefined
+        overrideSymbolCallback?: (name: string, symbol: Symbol) => Type | undefined,
+        enclosingClassType?: ClassType
     ): TypeKnownStatus {
         if (this._shouldIgnoreType(report, scopeName)) {
             return TypeKnownStatus.Known;
@@ -624,7 +626,14 @@ export class PackageTypeVerifier {
                         }
 
                         if (resolvedDecl.type === DeclarationType.Function && isFunction(symbolType)) {
-                            this._reportMissingFunctionDocstring(symbolInfo, symbolType, declRange, declPath, report);
+                            this._reportMissingFunctionDocstring(
+                                symbolInfo,
+                                symbolType,
+                                declRange,
+                                declPath,
+                                report,
+                                enclosingClassType
+                            );
                         }
                     }
 
@@ -689,6 +698,12 @@ export class PackageTypeVerifier {
             return;
         }
 
+        // A class that doesn't have its own docstring inherits the docstring
+        // of its nearest base class, as reported by `inspect.getdoc`.
+        if (getInheritedClassDocString(type)) {
+            return;
+        }
+
         this._addSymbolWarning(
             symbolInfo,
             `No docstring found for class "${symbolInfo.fullName}"`,
@@ -704,7 +719,8 @@ export class PackageTypeVerifier {
         type: FunctionType,
         declRange: Range | undefined,
         declFileUri: Uri | undefined,
-        report: PackageTypeReport
+        report: PackageTypeReport,
+        enclosingClassType?: ClassType
     ) {
         if (
             type.shared.parameters.find((_, index) => {
@@ -735,6 +751,17 @@ export class PackageTypeVerifier {
 
         // Don't require docstrings for overloads.
         if (FunctionType.isOverloaded(type)) {
+            return;
+        }
+
+        // A method that doesn't have its own docstring inherits the docstring of
+        // the same-named method in its nearest base class, as reported by
+        // `inspect.getdoc`.
+        if (
+            enclosingClassType &&
+            this._program.evaluator &&
+            getInheritedMemberDocString(enclosingClassType, type.shared.name, this._program.evaluator)
+        ) {
             return;
         }
 
@@ -1202,7 +1229,8 @@ export class PackageTypeVerifier {
                 }
 
                 return undefined;
-            }
+            },
+            type
         );
 
         symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(
