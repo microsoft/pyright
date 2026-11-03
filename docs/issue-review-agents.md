@@ -134,11 +134,25 @@ require fabricated source or observation predicates, weaken the executable schem
 authority. Missing Python/checking settings alone still use disclosed defaults. The controller validates/seals
 blocked details without selecting targets, running checkers or invoking the comparison gate.
 
+A reported missing diagnostic with a quoted requested `reportX` rule can instead use bounded observation-only
+rule/location predicates at unchanged original locations, without invented future message wording. Such comparisons
+never authorize reproduction-derived labels or closures, even after gate approval. Independent behavior/duplicate
+investigation retains its own gates. Other rule-only predicates and assessment-only context diagnostics remain
+outside the console policy.
+
+Invariant `precision` must hold on broken and resolved targets. Desired repaired-output expectations belong in
+`resolution_precision` and are required only when that claim's pristine original is resolved. Additional queries
+use separate controls matched to the original target/scenario. A broken query's Unknown result does not erase
+reproduction; Unknown/Any, missing output and wrong types never satisfy a repaired-output requirement.
+
 Paired phase records in attempt/cache `timings.jsonl` files separate preparation/acquisition/build, copy/extraction,
 integrity checks, checker waits and controller validation/gating. UTC starts/ends, monotonic wall durations,
 parent/phase IDs and failure/cancellation classes expose unfinished work without storing exception payloads.
 Nested intervals are explicitly non-additive; diagnostic timing files remain outside hashed runtime/input trees.
 Action revalidation logs to the current issue directory, not an imported frozen source attempt.
+Integrity checks still freshly hash all file bytes and preserve the canonical digest. Directory-scoped containment
+validation eliminates repeated per-file ancestor resolution while rejecting links/reparse points, non-regular
+files and observed mutation. No timestamp-only hash cache or before/after-check exemption is introduced.
 
 Main source builds use a uniquely owned system-temporary checkout, separate from the hashed runtime cache, to
 avoid Windows dependency-loader path limits. Work directories are removed on success or failure. Main runtimes
@@ -154,6 +168,11 @@ Registry selection is operator-controlled, never inferred from issue text. Direc
 Explicit Microsoft-feed mode verifies its published checksum, preserving any legacy SHA-1 separately from the
 acquired archive's locally recorded SHA-512. The latter is an execution/cache binding, not a claim that the feed
 published SHA-512. Metadata, acquisition commands and the selected registry remain part of the provenance.
+New attempts freeze successful preparation records in `preparations.jsonl` and deliver them to the gate with
+source digests and exact executed-target/runtime/content-hash bindings. Full paged preparation fields expose
+checksums and pinned checkout/install/build output, not merely version strings. Gate approval covers these raw
+records; publication revalidates their unchanged sources. A prepared-but-later-blocked target remains a blocked
+observation. Legacy frozen attempts are not rewritten or promoted to the new evidence policy.
 
 Pristine report-faithful original source/configuration is frozen separately from any added type-query controls.
 All original target executions precede separate instrumented runs. Only original symptoms establish reproduction

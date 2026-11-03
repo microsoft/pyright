@@ -16,6 +16,7 @@ import unittest
 from argparse import Namespace
 from http.client import HTTPMessage
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from urllib.request import Request
 
@@ -38,7 +39,7 @@ from issue_review_safety import InjectionScreening, ScreeningBlocked
 from review_issues import (
     AGENTS, Agent, AutomationError, ChunkResult, Console, ReproductionEvidenceTools, digest, dry_run_proposal,
     arguments, context_hash, main as review_main, reproduction_response, require_run_mode, save_overnight_report,
-    unfinished_reproduction_publication,
+    unfinished_reproduction_publication, validate_reproduction_report,
 )
 from test_review_issues import FakeGitHub, audit, issue, save_evidence
 
@@ -93,6 +94,15 @@ def missing_diagnostic_scenario() -> ReproductionScenario:
     data["claims"][0]["broken"] = [predicate]
     data["claims"][0]["resolved"] = [{**predicate, "present": True}]
     return ReproductionScenario.model_validate(data)
+
+
+def scenario_with_resolution_controls() -> ReproductionScenario:
+    probe = scenario_with_controls()
+    probe.control_files["sample.py"] += "reveal_type(result)\n"
+    probe.claims[0].resolution_precision = [
+        probe.claims[0].precision[0].model_copy(update={"line": 4, "message": 'Type of "result" is "int"'}),
+    ]
+    return probe
 
 
 def exploratory_scenario() -> ExploratoryReproductionScenario:
@@ -592,6 +602,16 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(decoded.claim_ids, ["assignment"])
         self.assertTrue(decoded.approved)
 
+    def test_wire_preserves_fixed_only_controls_and_missing_diagnostic_predicates(self):
+        for probe in (scenario_with_resolution_controls(), missing_diagnostic_scenario()):
+            decoded = ReproductionScenario.model_validate_json(
+                reproduction_response(ReproductionScenario, json.dumps(self.wire_scenario(probe))),
+            )
+            self.assertEqual(decoded, probe)
+            self.assertEqual(decoded.model_dump(), probe.model_dump())
+        schema = ReproductionScenario.model_json_schema()
+        self.assertIn("resolution_precision", schema["$defs"]["ReproductionClaim"]["properties"])
+
     def test_duplicate_entries_in_every_map_are_rejected_without_overwriting(self):
         for name in ("files", "control_files", "configuration"):
             with self.subTest(map=name):
@@ -651,6 +671,98 @@ class TransportTests(unittest.TestCase):
 
 
 class OutcomeTests(unittest.TestCase):
+    def test_fixed_only_controls_preserve_reproduction_but_require_exact_repaired_output(self):
+        probe = scenario_with_resolution_controls()
+        scenario_inputs(probe)
+        with tempfile.TemporaryDirectory() as temporary:
+            cwd = Path(temporary)
+            for broken in (True, False):
+                original = {**record(cwd, broken=broken, separate_controls=True), "scenario_hash": "frozen"}
+                for value in ("int", "Unknown", "Any", "str", None):
+                    control = {
+                        **record(cwd, broken=False, separate_controls=True, phase="control"), "scenario_hash": "frozen",
+                    }
+                    output = json.loads(control["stdout"])
+                    if value is not None:
+                        output["generalDiagnostics"].append({
+                            **output["generalDiagnostics"][0],
+                            "message": f'Type of "result" is "{value}"', "range": {"start": {"line": 3}},
+                        })
+                    control["stdout"] = json.dumps(output)
+                    with self.subTest(broken=broken, value=value):
+                        self.assertEqual(
+                            classify(probe, original, control),
+                            "reproduced" if broken else "not_reproduced" if value == "int" else "blocked",
+                        )
+                        self.assertEqual(observe_claims(probe, control), {"assignment": "blocked"})
+                changed = {**original, "scenario_hash": "different"}
+                self.assertEqual(observe_claims(probe, control, original=changed), {"assignment": "blocked"})
+
+    def test_fixed_only_precision_does_not_change_legacy_hashes_and_rejects_conflicting_invariants(self):
+        legacy = scenario_with_controls()
+        self.assertNotIn("resolution_precision", legacy.model_dump()["claims"][0])
+        probe = scenario_with_resolution_controls()
+        self.assertEqual(
+            ReproductionScenario.model_validate_json(probe.model_dump_json()).claims[0].resolution_precision,
+            probe.claims[0].resolution_precision,
+        )
+        probe.claims[0].resolution_precision = [
+            probe.claims[0].precision[0].model_copy(update={"message": 'Type of "value" is "str"'}),
+        ]
+        with self.assertRaisesRegex(ValueError, "Contradictory verification predicates"):
+            scenario_inputs(probe)
+        for mutation in ({"message": None, "rule": "reportAssignmentType", "severity": "error"}, {"present": False}):
+            probe = scenario_with_resolution_controls()
+            raw = probe.model_dump()
+            raw["claims"][0]["resolution_precision"][0].update(mutation)
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                ReproductionScenario.model_validate(raw)
+
+    def test_fixed_only_precision_can_use_a_reveal_already_in_the_pristine_original(self):
+        probe = scenario()
+        probe.files["sample.py"] = "value = 1\nreveal_type(value)\ncontrol = 1\nreveal_type(control)\n"
+        broken = probe.claims[0].precision[0].model_copy(update={"message": 'Type of "value" is "Never"'})
+        probe.claims[0].broken = [broken]
+        probe.claims[0].resolved = [broken.model_copy(update={"present": False})]
+        probe.claims[0].resolution_precision = [broken.model_copy(update={"message": 'Type of "value" is "int"'})]
+        probe.claims[0].precision = [broken.model_copy(update={"line": 4, "message": 'Type of "control" is "Literal[1]"'})]
+        scenario_inputs(probe)
+        with tempfile.TemporaryDirectory() as temporary:
+            for value, expected in (("Never", "reproduced"), ("int", "not_reproduced"), ("Unknown", "blocked")):
+                actual = record(Path(temporary), broken=False)
+                output = json.loads(actual["stdout"])
+                diagnostic = output["generalDiagnostics"][0]
+                output["generalDiagnostics"] = [
+                    {**diagnostic, "message": f'Type of "value" is "{value}"'},
+                    {**diagnostic, "message": probe.claims[0].precision[0].message, "range": {"start": {"line": 3}}},
+                ]
+                actual["stdout"] = json.dumps(output)
+                self.assertEqual(classify(probe, actual), expected)
+
+    def test_console_missing_diagnostic_policy_requires_a_quoted_requested_rule_and_matching_locations(self):
+        probe = missing_diagnostic_scenario()
+        probe.claims[0].report_quote = "A small reproducer requests reportAssignmentType"
+        report = probe.claims[0].report_quote
+        validate_reproduction_report(probe, report, allow_missing_diagnostic_predicates=True)
+        with self.assertRaisesRegex(ValueError, "observation-only missing-diagnostic policy"):
+            validate_reproduction_report(probe, report)
+        invented = probe.model_copy(deep=True)
+        invented.claims[0].broken[0].message = invented.claims[0].resolved[0].message = "Invented future message"
+        with self.assertRaisesRegex(ValueError, "not report-grounded"):
+            validate_reproduction_report(invented, report, allow_missing_diagnostic_predicates=True)
+        for mutation in ("unquoted-rule", "positive-broken", "different-location", "different-rule"):
+            changed = probe.model_copy(deep=True)
+            if mutation == "unquoted-rule":
+                changed.claims[0].report_quote = "A small reproducer"
+            elif mutation == "positive-broken":
+                changed.claims[0].broken[0].present = True
+            elif mutation == "different-location":
+                changed.claims[0].resolved[0].line = 1
+            else:
+                changed.claims[0].resolved[0].rule = "reportCallIssue"
+            with self.subTest(mutation=mutation), self.assertRaisesRegex(ValueError, "observation-only"):
+                validate_reproduction_report(changed, report, allow_missing_diagnostic_predicates=True)
+
     def test_original_precision_cannot_require_the_fixed_type_at_a_broken_reveal_query(self):
         for line in ("reveal_type(value)", "typing.reveal_type( value )  # retained", "show(value)"):
             probe = scenario()
@@ -960,6 +1072,134 @@ class OutcomeTests(unittest.TestCase):
             scenario_inputs(probe)
 
 
+class TreeHashTests(unittest.TestCase):
+    def test_digest_is_compatible_and_every_pass_reads_changed_content_despite_preserved_timestamps(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "nested").mkdir()
+            source = root / "nested" / "sample.pyi"
+            source.write_bytes(b"old")
+            expected = fingerprint({str(Path("nested") / "sample.pyi"): hashlib.sha256(b"old").hexdigest()})
+            self.assertEqual(tree_hash(root), expected)
+            before = source.stat()
+            source.write_bytes(b"new")
+            os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
+            self.assertNotEqual(tree_hash(root), expected)
+            source.write_bytes(b"old")
+            self.assertEqual(tree_hash(root), expected)
+            added = root / "added.pyi"
+            added.write_bytes(b"old")
+            self.assertNotEqual(tree_hash(root), expected)
+            added.unlink()
+            self.assertEqual(tree_hash(root), expected)
+            source.rename(source.with_name("renamed.pyi"))
+            self.assertNotEqual(tree_hash(root), expected)
+            source.with_name("renamed.pyi").unlink()
+            self.assertNotEqual(tree_hash(root), expected)
+
+    def test_ancestor_resolution_scales_with_directories_not_file_count(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for index in range(5):
+                directory = root / str(index)
+                directory.mkdir()
+                for file in range(20):
+                    (directory / f"{file}.pyi").write_bytes(b"retained contents")
+            resolve = Path.resolve
+            calls = 0
+            def counted(path, *args, **kwargs):
+                nonlocal calls
+                calls += 1
+                return resolve(path, *args, **kwargs)
+            with patch.object(Path, "resolve", counted):
+                tree_hash(root)
+            self.assertEqual(calls, 13)
+
+    def test_windows_stat_ctime_and_directory_size_differences_do_not_change_content_digest(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "sample.py").write_bytes(b"value = 1")
+            expected = tree_hash(root)
+            path_stat, fstat = Path.stat, os.fstat
+            fields = ("st_dev", "st_ino", "st_mode", "st_size", "st_mtime_ns", "st_ctime_ns", "st_file_attributes")
+            directories: dict[str, int] = {}
+            def descriptor_stat(fd):
+                info = fstat(fd)
+                return SimpleNamespace(**{
+                    **{field: getattr(info, field, 0) for field in fields},
+                    "st_ctime_ns": info.st_ctime_ns + 12345,
+                })
+            def directory_stat(path, *args, **kwargs):
+                info = path_stat(path, *args, **kwargs)
+                if stat.S_ISDIR(info.st_mode):
+                    key = str(path)
+                    directories[key] = directories.get(key, 0) + 1
+                    return SimpleNamespace(**{
+                        **{field: getattr(info, field, 0) for field in fields},
+                        "st_size": directories[key] * 8192,
+                    })
+                return info
+            with patch("issue_review_reproduction.os.fstat", descriptor_stat), patch.object(Path, "stat", directory_stat):
+                self.assertEqual(tree_hash(root), expected)
+
+    def test_file_and_directory_mutations_during_hashing_fail_closed(self):
+        for mutation in ("file", "directory"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                source = root / "sample.py"
+                source.write_bytes(b"old")
+                digest_file = hashlib.file_digest
+                def mutate(stream, algorithm):
+                    result = digest_file(stream, algorithm)
+                    (source if mutation == "file" else root / "added.py").write_bytes(b"changed")
+                    return result
+                with patch("issue_review_reproduction.hashlib.file_digest", side_effect=mutate):
+                    with self.assertRaisesRegex(ValueError, "changed"):
+                        tree_hash(root)
+
+    def test_internal_and_external_file_and_directory_links_are_rejected(self):
+        for external in (False, True):
+            for directory in (False, True):
+                with self.subTest(external=external, directory=directory), tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary) / "tree"
+                    root.mkdir()
+                    target = (Path(temporary) if external else root) / "target"
+                    if directory:
+                        target.mkdir()
+                        (target / "sample.py").write_bytes(b"value = 1")
+                    else:
+                        target.write_bytes(b"value = 1")
+                    try:
+                        (root / "link").symlink_to(target, target_is_directory=directory)
+                    except OSError as error:
+                        if getattr(error, "winerror", None) == 1314:
+                            self.skipTest("Windows does not grant symbolic-link creation")
+                        raise
+                    with self.assertRaisesRegex(ValueError, "link|reparse"):
+                        tree_hash(root)
+
+    @unittest.skipUnless(os.name == "nt", "Windows junctions only")
+    def test_windows_junction_is_rejected_without_following_it(self):
+        import _winapi
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root, target = Path(temporary) / "tree", Path(temporary) / "outside"
+            root.mkdir()
+            target.mkdir()
+            (target / "sample.py").write_bytes(b"value = 1")
+            _winapi.CreateJunction(str(target), str(root / "junction"))
+            with self.assertRaisesRegex(ValueError, "link|reparse"):
+                tree_hash(root)
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "FIFO support required")
+    def test_non_regular_files_are_rejected_without_opening_them(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            getattr(os, "mkfifo")(root / "pipe")
+            with self.assertRaisesRegex(ValueError, "non-regular"):
+                tree_hash(root)
+
+
 class FakeTargets(TargetStore):
     def __init__(self, directory: Path, outcomes: dict[str, str]):
         super().__init__(directory, self.execute)
@@ -969,6 +1209,7 @@ class FakeTargets(TargetStore):
         self.control_outcomes: dict[str, str] = {}
         self.stderr: dict[str, str] = {}
         self.phases: list[tuple[str, str]] = []
+        self.resolution_types: dict[str, str | None] = {}
 
     async def prepare(self, target):
         runtime = self.directory / target.role
@@ -979,6 +1220,23 @@ class FakeTargets(TargetStore):
         target.artifact_sha512 = "sha512-" + base64.b64encode(hashlib.sha512(cli.read_bytes()).digest()).decode()
         if target.role == "main":
             target.version = "1.1.3"
+        metadata = self._metadata_path(target)
+        metadata.parent.mkdir(parents=True, exist_ok=True)
+        metadata.write_text(target.model_dump_json(), encoding="utf-8")
+        (metadata.parent / "preparation-fixture.json").write_text(json.dumps({
+            "target": target.model_dump(),
+            "prepared": True, "error": None, "runtime_directory": str(runtime),
+            "work_directory": str(metadata.parent / "fixture-build"),
+            "commands": [{
+                "command": "git rev-parse HEAD" if target.role == "main" else "node index.js --version",
+                "cwd": str(runtime), "exit_code": 0, "stderr": "",
+                "stdout": target.identity if target.role == "main" else f"pyright {target.version}",
+            }],
+            "acquisitions": [] if target.role == "main" else [{
+                "url": target.source, "registry": target.registry, "expected_integrity": target.integrity,
+                "integrity": target.integrity, "artifact_sha512": target.artifact_sha512,
+            }],
+        }), encoding="utf-8")
 
     async def execute(self, command, cwd):
         self.executions += 1
@@ -993,6 +1251,13 @@ class FakeTargets(TargetStore):
             cwd, broken=outcome == "reproduced", version=version, phase=phase, separate_controls=self.separate_controls,
         )
         result["stderr"] = self.stderr.get(role, "")
+        if phase == "control" and (value := self.resolution_types.get(role)) is not None:
+            output = json.loads(result["stdout"])
+            output["generalDiagnostics"].append({
+                **output["generalDiagnostics"][0],
+                "message": f'Type of "result" is "{value}"', "range": {"start": {"line": 3}},
+            })
+            result["stdout"] = json.dumps(output)
         return result["exit_code"], result["stdout"], result["stderr"]
 
 
@@ -1140,6 +1405,107 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(AutomationError, "evidence changed"):
             await self.console.reproduce(restored)
         self.assertEqual(self.github.mutations, [])
+
+    async def test_missing_diagnostic_reconstructs_but_never_authorizes_reproduction_actions(self):
+        self.planned_scenario = missing_diagnostic_scenario()
+        quote = "A small reproducer requests reportAssignmentType"
+        self.planned_scenario.claims[0].report_quote = quote
+        self.github.current.body = quote + "\nPython 3.10; typeCheckingMode=standard"
+        self.entry.issue = self.github.current.model_copy(deep=True)
+        self.entry.input_hash = self.console.key(self.entry.issue)
+        self.targets.separate_controls = True
+        self.targets.outcomes.update(historical="not_reproduced", main="reproduced", latest="reproduced")
+        stage = await self.ready()
+        self.assertEqual(stage.outcomes, {
+            "historical": "reproduced", "main": "not_reproduced", "latest": "not_reproduced",
+        })
+        self.assertTrue(stage.gate and stage.gate.approved)
+        self.assertTrue(stage.uses_rule_location_predicates())
+        self.assertIsNone(stage.action())
+        self.assertEqual(stage.proposed_labels, [])
+        self.assertFalse(self.console.observation_only(self.entry), "Independent semantic investigation remains eligible")
+        proposal = dry_run_proposal(ChunkResult(self.entry.issue, self.entry), rca_enabled=False)
+        self.assertIn("Missing-diagnostic", str(proposal["reproduction_qualifications"]))
+        self.sdk.reset_mock()
+        await self.console.reproduce(self.entry)
+        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.targets.executions, 6)
+        with self.assertRaises(AutomationError):
+            self.console.require_reproduction_evidence(self.entry)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_resolution_controls_are_wired_through_execution_resume_and_publication_revalidation(self):
+        self.planned_scenario = scenario_with_resolution_controls()
+        self.targets.separate_controls = True
+        self.targets.resolution_types = {"historical": "Unknown", "main": "int", "latest": "Unknown"}
+        stage = await self.ready()
+        self.assertEqual(stage.action(), "fixed")
+        self.console.require_reproduction_evidence(self.entry)
+        stage.status, stage.gate, stage.evidence_hash = "running", None, None
+        await self.console.reproduce(self.entry)
+        self.assertEqual(self.targets.executions, 6)
+        self.console.require_reproduction_evidence(self.entry)
+        self.entry.reproduction_stage = None
+        self.targets.resolution_types["main"] = "Unknown"
+        stage = await self.ready()
+        self.assertEqual(stage.outcomes["historical"], "reproduced")
+        self.assertEqual(stage.outcomes["main"], "blocked")
+        self.assertIsNone(stage.action())
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_gate_receives_frozen_preparation_receipts_and_revalidates_source_digests(self):
+        stage = await self.ready()
+        preparations = self.console.reproduction_preparations(stage)
+        self.assertEqual(len(preparations), 3)
+        assert stage.gate is not None
+        for preparation in preparations:
+            self.assertIn(preparation, self.console.reproduction_gate_records(stage))
+            self.assertEqual(
+                preparation["source_sha256"], hashlib.sha256(Path(str(preparation["source_path"])).read_bytes()).hexdigest(),
+            )
+            self.assertIn(str(preparation["id"]), stage.gate.receipt_hashes)
+        self.console.require_reproduction_evidence(self.entry)
+        source = Path(str(preparations[0]["source_path"]))
+        raw = json.loads(source.read_text(encoding="utf-8"))
+        raw["commands"][0]["stdout"] += "\nchanged"
+        source.write_text(json.dumps(raw), encoding="utf-8")
+        with self.assertRaisesRegex(AutomationError, "provenance changed"):
+            self.console.require_reproduction_evidence(self.entry)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_missing_preparation_evidence_cannot_be_approved_or_silently_downgraded(self):
+        stage = await self.ready()
+        path = Path(stage.directory) / "preparations.jsonl"
+        saved = path.read_bytes()
+        path.unlink()
+        with self.assertRaisesRegex(AutomationError, "preparation provenance"):
+            self.console.validate_reproduction_gate(stage, stage.gate)
+        path.write_bytes(saved)
+        for field in ("missing_diagnostic_policy", "provenance_required"):
+            stage = self.entry.reproduction_stage = stage.model_copy(update={field: False})
+            with self.assertRaisesRegex(AutomationError, "policy is missing or changed"):
+                self.console.validate_reproduction_policy(self.entry)
+            stage = self.entry.reproduction_stage = stage.model_copy(update={field: True})
+        preparation = self.console.reproduction_preparations(stage)[0]
+        source = Path(str(preparation["source_path"]))
+        raw = json.loads(source.read_text(encoding="utf-8"))
+        raw["acquisitions"][0]["integrity"] = "sha512-wrong"
+        source.write_text(json.dumps(raw), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "checksum/provenance"):
+            self.console.require_reproduction_evidence(self.entry)
+
+    async def test_successful_preparation_does_not_turn_a_later_failed_latest_check_into_success(self):
+        probe = self.targets.probe
+        async def fail_latest(target, *args, **kwargs):
+            if target.role == "latest":
+                raise ValueError("Checker unavailable after successful preparation")
+            return await probe(target, *args, **kwargs)
+        with patch.object(self.targets, "probe", side_effect=fail_latest):
+            stage = await self.ready()
+        self.assertEqual(stage.outcomes["latest"], "blocked")
+        self.assertEqual(stage.action(), "fixed")
+        self.assertEqual(len(self.console.reproduction_preparations(stage)), 3)
+        self.console.require_reproduction_evidence(self.entry)
 
     async def test_blocked_reconstruction_requires_real_quotes_and_unique_claim_ids(self):
         self.blocked_plan = blocked_reconstruction()
@@ -1962,7 +2328,9 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_legacy_strict_checkpoint_projection_and_receipts_remain_compatible(self):
         stage = await self.ready()
-        stage = self.entry.reproduction_stage = stage.model_copy(update={"default_settings": None})
+        stage = self.entry.reproduction_stage = stage.model_copy(update={
+            "default_settings": None, "missing_diagnostic_policy": False, "provenance_required": False,
+        })
         self.assertEqual(self.entry.input_hash, digest("context" + self.entry.issue.model_dump_json()))
         stage.policy_hash = None
         (Path(stage.directory) / "policy.json").unlink()
@@ -1981,6 +2349,8 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         raw["reproduction_stage"].pop("exploratory")
         raw["reproduction_stage"].pop("policy_hash")
         raw["reproduction_stage"].pop("default_settings")
+        raw["reproduction_stage"].pop("missing_diagnostic_policy")
+        raw["reproduction_stage"].pop("provenance_required")
         restored = Entry.model_validate(raw)
         self.sdk.reset_mock()
         await self.console.reproduce(restored)
@@ -2289,6 +2659,28 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
             tools.require_delivery()
             self.assertEqual(self.targets.executions, 0)
             self.assertEqual(receipt["stdout"], "x" * 30000)
+
+    async def test_oversized_preparation_requires_complete_exact_provenance_fields(self):
+        receipt: dict[str, JsonValue] = {
+            "id": "preparation-main", "kind": "target_preparation", "target": {"identity": "a" * 40},
+            "preparation": {"commands": [{"stdout": "x" * 30000}], "prepared": True},
+        }
+        tools = ReproductionEvidenceTools(self.github, Path(self.temporary.name), [receipt])
+        with self.assertRaisesRegex(AutomationError, "not completely delivered"):
+            tools.require_delivery()
+        for field in ("target", "preparation"):
+            offset = 0
+            while True:
+                response = await tools.read_receipt(ToolInvocation(
+                    session_id="test", tool_call_id="read", tool_name="rca_read_evidence",
+                    arguments={"evidence_id": "preparation-main", "pointer": "/" + field, "offset": offset, "max_chars": 4096},
+                ))
+                page = json.loads(response.text_result_for_llm)
+                if page["next_offset"] is None:
+                    break
+                offset = page["next_offset"]
+        tools.require_delivery()
+        self.assertEqual(self.targets.executions, 0)
 
     async def test_closure_only_reports_non_reproduction_without_labels_or_comments(self):
             self.console.closure_only, self.console.rca_enabled = True, False

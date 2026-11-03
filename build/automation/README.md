@@ -166,6 +166,11 @@ publication revalidation. Cancellation drains the current filesystem operation b
 release; it never leaves a worker writing into a directory that has already been removed. Screening budgets,
 retry limits and fail-closed decisions are unchanged.
 
+Integrity walks hash every file's bytes on every check; they do not reuse timestamp-based file hashes or skip
+before/after checks. Directory-scoped containment validation avoids repeatedly resolving every ancestor for each
+file. Links, Windows junctions/reparse points, non-regular files and observed file/directory changes during the
+walk are rejected. The canonical content digest is unchanged, so old target/input hashes remain compatible.
+
 The local root `run_overnight.ps1` test launcher now runs a **focused three-issue comparison** with
 `overnight-settings-diagnostics-20261102-111930-201`: recurring reconstruction timeouts #11513 and #11536,
 plus the successful reconstruction control #11410. Each run uses a fresh
@@ -193,6 +198,28 @@ playground, source and discussion values take precedence; conflicting or unsuppo
 not silently defaulted. `setup-preflight.json` records marker absence without making an eligibility decision.
 The controller freezes the defaults in its hashed policy and requires each effective value to have either an
 exact reported quote or a disclosed default assumption.
+
+Missing-diagnostic reports have an explicit observation-only predicate policy. If the report names a requested
+`reportX` rule and supplies the original code/location, reconstruction can use `message=null` for its absence in
+`broken` and presence at the same rule/location in `resolved`, with the requested rule in its verbatim quote.
+Missing future diagnostic wording alone is not an unmet prerequisite. Exact affirmative invariant controls remain
+required, and these comparisons can never authorize reproduction-derived labels or closures. Normal independent
+behavior/duplicate investigation retains its own evidence gates. Arbitrary rule-only rejection predicates and
+assessment-only context diagnostics remain disallowed in this console.
+
+Each claim's `precision` contains stable affirmative invariants on both broken and resolved targets.
+`resolution_precision` separately records exact repaired-output requirements, using `control_files` for additional
+queries. Those additional requirements apply only when the matching pristine original claim is resolved.
+A broken query returning Unknown cannot erase observed reproduction, but Unknown/Any, lost output and incorrect
+types cannot satisfy the repaired-output requirement. Original and control receipts must match target/scenario
+identities; controls never replace original observations.
+
+New attempts freeze successful target acquisition/build receipts in `preparations.jsonl`, separate from checker
+receipts. The gate receives exact paged preparation records, source digests, package checksums, pinned-main checkout/
+install/build commands and runtime/content-hash bindings. Approval must cover their raw hashes as well as comparison
+receipts, and publication rechecks their unchanged source records. Missing/mismatched preparation evidence blocks
+the comparison rather than asking the gate to trust version/hash metadata alone. Legacy frozen attempts are not
+silently upgraded to this new policy; use fresh run state.
 
 Defaulted historical/main/latest comparisons execute normally and feed the behavior/duplicate investigation.
 The JSON and Markdown reports expose assumptions and conditional-result qualifications. They do not establish

@@ -91,12 +91,55 @@ def fingerprint(value: object) -> str:
 
 
 def tree_hash(directory: Path) -> str:
-    files = {}
-    for path in sorted(directory.rglob("*")):
-        if path.is_symlink() or not path.resolve().is_relative_to(directory.resolve()):
-            raise ValueError("Target/input tree contains a link")
-        if path.is_file():
-            files[str(path.relative_to(directory))] = hashlib.sha256(path.read_bytes()).hexdigest()
+    root = directory.resolve(strict=True)
+    files: dict[str, str] = {}
+
+    def state(info: os.stat_result) -> tuple[int, int, int, int, int]:
+        # Windows path stat and fstat can expose different ctime semantics.
+        return info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns
+
+    def reject_link(info: os.stat_result) -> None:
+        if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+            raise ValueError("Target/input tree contains a link or reparse point")
+
+    def visit(path: Path) -> None:
+        before = path.stat(follow_symlinks=False)
+        reject_link(before)
+        if not stat.S_ISDIR(before.st_mode) or not path.resolve(strict=True).is_relative_to(root):
+            raise ValueError("Target/input directory escaped its tree")
+        # Validate ancestors per directory, not twice per file. Every file's bytes are still freshly hashed.
+        with os.scandir(path) as entries:
+            for entry in entries:
+                child = Path(entry.path)
+                info = child.stat(follow_symlinks=False)
+                reject_link(info)
+                if stat.S_ISDIR(info.st_mode):
+                    visit(child)
+                elif stat.S_ISREG(info.st_mode):
+                    with child.open("rb") as stream:
+                        opened = os.fstat(stream.fileno())
+                        if state(opened) != state(info):
+                            raise ValueError("Target/input file changed before hashing")
+                        files[str(child.relative_to(directory))] = hashlib.file_digest(stream, "sha256").hexdigest()
+                        finished = os.fstat(stream.fileno())
+                        if state(finished) != state(opened) or finished.st_ctime_ns != opened.st_ctime_ns:
+                            raise ValueError("Target/input file changed during hashing")
+                    after = child.stat(follow_symlinks=False)
+                    reject_link(after)
+                    if state(after) != state(info) or after.st_ctime_ns != info.st_ctime_ns:
+                        raise ValueError("Target/input file changed after hashing")
+                else:
+                    raise ValueError("Target/input tree contains a non-regular file")
+        after = path.stat(follow_symlinks=False)
+        reject_link(after)
+        if (
+            state(after)[:3] != state(before)[:3] or after.st_mtime_ns != before.st_mtime_ns
+            or after.st_ctime_ns != before.st_ctime_ns
+            or not path.resolve(strict=True).is_relative_to(root)
+        ):
+            raise ValueError("Target/input directory changed during hashing")
+
+    visit(directory)
     return fingerprint(files)
 
 
@@ -355,11 +398,17 @@ def validate_predicates(scenario: ReproductionScenario) -> None:
     for left, right in combinations(precision, 2):
         compatible(left, right, "shared precision", scenario.control_files or scenario.files)
     for claim in scenario.claims:
+        resolved_precision = [*precision, *claim.resolution_precision]
+        for left, right in combinations(resolved_precision, 2):
+            compatible(left, right, f"claim {claim.id} resolved precision", scenario.control_files or scenario.files)
         for state, predicates in (("broken", claim.broken), ("resolved", claim.resolved)):
             for left, right in combinations(predicates, 2):
                 compatible(left, right, f"claim {claim.id} {state}", scenario.files)
             if not scenario.control_files:
-                for left, right in product(predicates, precision):
+                required = list(precision)
+                if state == "resolved":
+                    required.extend(claim.resolution_precision)
+                for left, right in product(predicates, required):
                     compatible(left, right, f"claim {claim.id} {state} with precision", scenario.files)
 
 
@@ -401,7 +450,7 @@ def scenario_inputs(scenario: ReproductionScenario, *, phase: Phase = "original"
             if symptom.file not in scenario.files or symptom.line > len(scenario.files[symptom.file].splitlines()):
                 raise ValueError("Symptom must refer to an actual unmodified original source location")
         precision_files = scenario.control_files or scenario.files
-        for symptom in claim.precision:
+        for symptom in [*claim.precision, *claim.resolution_precision]:
             if symptom.file not in precision_files or symptom.line > len(precision_files[symptom.file].splitlines()):
                 raise ValueError("Precision must refer to an actual original or separate control source location")
         if not any(item.present for item in claim.broken):
@@ -478,6 +527,7 @@ def static_stub_source_warning(
 def observe_claims(
     scenario: ReproductionScenario, record: dict, problems: list[str] | None = None,
     *, static_stub_modules: Collection[str] = (), allow_rule_location_predicates: bool = False,
+    original: dict | None = None,
 ) -> dict[str, Observation]:
     blocked: dict[str, Observation] = {claim.id: "blocked" for claim in scenario.claims}
     def block(reason: str) -> dict[str, Observation]:
@@ -501,6 +551,20 @@ def observe_claims(
     control = record["phase"] == "control"
     if control and not scenario.control_files:
         return block("Control execution has no separate frozen control inputs")
+    original_outcomes: dict[str, Observation] = {}
+    if control and any(claim.resolution_precision for claim in scenario.claims):
+        if (
+            original is None or original.get("phase") != "original"
+            or original.get("target") != record.get("target")
+            or original.get("scenario_hash") != record.get("scenario_hash")
+        ):
+            return block("Resolved-only precision needs the matching pristine original receipt")
+        original_outcomes = observe_claims(
+            scenario, original, static_stub_modules=static_stub_modules,
+            allow_rule_location_predicates=allow_rule_location_predicates,
+        )
+        if "blocked" in original_outcomes.values():
+            return block("Blocked original observations cannot establish resolved-only precision requirements")
     try:
         output = json.loads(record["stdout"])
         diagnostics = output["generalDiagnostics"]
@@ -543,6 +607,10 @@ def observe_claims(
         outcomes: dict[str, Observation] = {}
         for claim in scenario.claims:
             if control:
+                if original_outcomes.get(claim.id) == "not_reproduced" and not all(
+                    matches(item) for item in claim.resolution_precision
+                ):
+                    return block(f"Claim {claim.id}: resolved-only precision failed; output loss is not resolution")
                 outcomes[claim.id] = "verified"
                 continue
             broken = all(matches(item) for item in claim.broken)
@@ -553,6 +621,11 @@ def observe_claims(
             )
             if outcomes[claim.id] == "blocked" and problems is not None:
                 problems.append(f"Claim {claim.id}: broken/resolved predicates do not distinguish the actual symptom")
+            if (
+                precision and outcomes[claim.id] == "not_reproduced"
+                and not all(matches(item) for item in claim.resolution_precision)
+            ):
+                return block(f"Claim {claim.id}: resolved-only precision failed; output loss is not resolution")
         context_diagnostics = [item for claim in scenario.claims for item in claim.context_diagnostics]
         allowed = [
             item for claim in scenario.claims
@@ -560,6 +633,9 @@ def observe_claims(
                 *([*claim.broken, *claim.resolved] if control else
                   claim.broken if outcomes[claim.id] == "reproduced" else claim.resolved),
                 *(claim.precision if precision else []),
+                *(claim.resolution_precision if precision and (
+                    original_outcomes.get(claim.id) if control else outcomes[claim.id]
+                ) == "not_reproduced" else []),
                 *claim.context_diagnostics,
             ] if item.present and item.severity in {"error", "warning"}
         ]
@@ -601,6 +677,7 @@ def classify(
         or not (observations := observe_claims(
             scenario, control, static_stub_modules=static_stub_modules,
             allow_rule_location_predicates=allow_rule_location_predicates,
+            original=record,
         ))
         or any(value != "verified" for value in observations.values())
     ):
@@ -766,6 +843,65 @@ class TargetStore:
             "identity": target.identity, "integrity": target.integrity, "source": target.source,
             "registry": self.registry, "entrypoint": "index.js",
         }) / "target.json"
+
+    def preparation_evidence(self, target: ReproductionTarget) -> dict[str, JsonValue]:
+        base = self._metadata_path(target).parent
+        if not base.resolve().is_relative_to(self.directory):
+            raise ValueError("Target preparation evidence escaped the cache")
+        candidates: list[dict[str, JsonValue]] = []
+        for path in base.glob("preparation-*.json"):
+            if path.is_symlink() or path.stat().st_size > 2 * 1024 * 1024:
+                raise ValueError("Target preparation evidence is a link or exceeds its bound")
+            raw = path.read_bytes()
+            preparation = json.loads(raw)
+            if not isinstance(preparation, dict):
+                raise ValueError("Invalid target preparation evidence")
+            if preparation.get("prepared") is not True:
+                continue
+            captured = ReproductionTarget.model_validate(preparation.get("target"))
+            if any(getattr(captured, field) != getattr(target, field) for field in (
+                "identity", "version", "source", "integrity", "registry", "artifact_sha512",
+                "directory", "cli", "tree_hash", "status",
+            )):
+                raise ValueError("Target preparation evidence disagrees with the executed target")
+            commands = preparation.get("commands")
+            if (
+                preparation.get("error") is not None or not isinstance(commands, list) or not commands
+                or any(
+                    not isinstance(command, dict) or command.get("exit_code") != 0
+                    or command.get("error") is not None or any(
+                        not isinstance(command.get(field), str) for field in ("command", "cwd", "stdout", "stderr")
+                    ) for command in commands
+                )
+            ):
+                raise ValueError("Target preparation did not retain successful acquisition/build commands")
+            if target.role == "main":
+                if not any(
+                    "rev-parse HEAD" in command["command"] and command["stdout"].strip() == target.identity
+                    for command in commands
+                ):
+                    raise ValueError("Main preparation lacks the pinned checkout revision receipt")
+            else:
+                acquisitions = preparation.get("acquisitions")
+                if not isinstance(acquisitions, list) or len(acquisitions) != 1:
+                    raise ValueError("Release preparation lacks its acquisition receipt")
+                acquisition = acquisitions[0]
+                if not isinstance(acquisition, dict) or any(
+                    acquisition.get(field) != expected for field, expected in (
+                        ("url", target.source), ("registry", target.registry),
+                        ("expected_integrity", target.integrity), ("integrity", target.integrity),
+                        ("artifact_sha512", target.artifact_sha512),
+                    )
+                ):
+                    raise ValueError("Release acquisition checksum/provenance disagrees with the executed target")
+            candidates.append({
+                "id": f"preparation-{target.role}", "kind": "target_preparation",
+                "target": target.model_dump(mode="json"), "source_path": str(path),
+                "source_sha256": hashlib.sha256(raw).hexdigest(), "preparation": preparation,
+            })
+        if len(candidates) != 1:
+            raise ValueError("Target needs exactly one successful saved preparation receipt")
+        return candidates[0]
 
     async def prepare(self, target: ReproductionTarget) -> None:
         with phase_timing(self.directory / "timings.jsonl", "target.prepare", target=target.role):
@@ -939,11 +1075,15 @@ class TargetStore:
 
     async def probe(
         self, target: ReproductionTarget, scenario: ReproductionScenario, directory: Path, *, phase: Phase = "original",
+        original: dict | None = None, allow_rule_location_predicates: bool = False,
     ) -> dict[str, JsonValue]:
         record = await self.run_static(target, scenario_inputs(scenario, phase=phase), directory)
         record.update(kind="reproduction", phase=phase, scenario_hash=fingerprint(scenario.model_dump()))
         problems: list[str] = []
-        observations = observe_claims(scenario, record, problems)
+        observations = observe_claims(
+            scenario, record, problems, original=original,
+            allow_rule_location_predicates=allow_rule_location_predicates,
+        )
         record["outcome"] = (
             "blocked" if not observations or "blocked" in observations.values() else
             "verified" if phase == "control" else

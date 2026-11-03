@@ -40,6 +40,14 @@ the original symptom evidence; a reproduced original on main forbids fixed closu
 If the original surface cannot be observed unmodified, abstain. Reject ignored, invalid or inapplicable settings,
 and unverified stderr/setup diagnostics outside JSON, even when exit status, file count and reveals appear valid.
 
+`precision` contains affirmative invariants on broken and resolved targets. `resolution_precision` contains
+additional exact repaired-output requirements, checked only for a claim whose pristine original is resolved.
+Do not demand the repaired type at a known-broken query; do not accept Any/Unknown or missing output as its repair.
+Matching original/control target and scenario identities remain required. Controller-approved missing-diagnostic
+rule/location predicates can establish only observation-only comparisons, never reproduction-derived action
+eligibility. Validate the quoted requested rule and unchanged original location; do not demand invented future
+diagnostic wording. Independent semantic/duplicate publication retains its separate evidence gates.
+
 The historical target may be an explicit reported version or the newest actual publication on/before issue creation.
 Approximation must be disclosed and never presented as the reporter's exact binary. Main must be an actual pinned
 upstream commit, not the feature checkout or a bundle with the same version string. Blocked/missing checks are never
@@ -49,6 +57,12 @@ All material claims must be resolved before an issue-wide action; partial semant
 Require the operator-selected registry and verified package checksum in target provenance. Direct npm requires
 published SHA-512; explicitly selected Microsoft-feed mode may use its published SHA-1 with a separate acquired
 archive SHA-512 receipt. A locally computed SHA-512 is not evidence that the registry published that checksum.
+
+`target_preparation` records contain frozen saved acquisition/build receipts and their source digests, bound to
+the exact executed target, runtime and full-content tree hash. Inspect their `preparation` fields, including commands,
+outputs, package checksums or pinned checkout revision and build/runtime links. Target version/hash fields alone
+are not acquisition proof. Preparation of a target is not a successful symptom observation. A later blocked target
+may retain earlier successful preparation evidence; its failed check is still blocked.
 
 Inspect raw evidence with rca_read_evidence. Oversized receipts use exact saved pages; follow next_offset until the
 relevant input/output fields are complete. Indexes and shortened previews are not successful observations, and saved

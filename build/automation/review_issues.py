@@ -332,6 +332,7 @@ def response_transport_guidance(model: type[BaseModel] | None) -> str:
 def validate_reproduction_report(
     scenario: ReproductionScenario, report: str, *, defaults: dict[str, str] | None = None,
     capture: SourceCapture | None = None,
+    allow_missing_diagnostic_predicates: bool = False,
 ) -> None:
     if isinstance(scenario, (ExploratoryReproductionScenario, DefaultReproductionScenario)):
         validate_exploratory_settings(scenario, report)
@@ -346,6 +347,35 @@ def validate_reproduction_report(
             "Every material claim must quote one exact contiguous span of actual report/discussion evidence; "
             "do not concatenate noncontiguous passages or omit text within a quote"
         )
+    for claim in scenario.claims:
+        if claim.context_diagnostics:
+            raise ValueError("Context diagnostics remain restricted to the separate read-only assessment policy")
+        if allow_missing_diagnostic_predicates and not any(item.present for item in claim.broken) and any(
+            item.severity == "error" and item.message is not None and item.message not in report
+            for item in claim.broken
+        ):
+            raise ValueError(
+                "Missing-diagnostic wording is not report-grounded. Use observation-only message=null only "
+                "for a quoted requested rule; otherwise retain the genuine prerequisite rather than invent wording."
+            )
+        broken = [item for item in claim.broken if item.message is None]
+        resolved = [item for item in claim.resolved if item.message is None]
+        if not broken and not resolved:
+            continue
+        if (
+            not allow_missing_diagnostic_predicates or not broken
+            or any(
+                item.present or item.rule is None or not re.search(r"\b" + re.escape(item.rule) + r"\b", claim.report_quote)
+                for item in broken
+            )
+            or [item.model_dump() for item in resolved] != [
+                item.model_copy(update={"present": True}).model_dump() for item in broken
+            ]
+        ):
+            raise ValueError(
+                "Rule/location predicates require a quoted requested diagnostic rule, matching absent-broken/"
+                "present-resolved original locations, and the controller's observation-only missing-diagnostic policy"
+            )
 
 
 def discussion_hash(comments: list[JsonValue]) -> str:
@@ -1469,7 +1499,7 @@ class ReproductionEvidenceTools(InvestigationTools):
             raw = evidence_response_raw(record)
             if evidence_response(record) == raw or covered(identifier, "", len(raw)):
                 continue
-            for field in ("inputs", "stdout", "stderr", "error", "scenario", "targets"):
+            for field in ("inputs", "stdout", "stderr", "error", "scenario", "targets", "target", "preparation"):
                 if field in record and not covered(identifier, "/" + field, len(evidence_response_raw(record[field]))):
                     raise AutomationError(
                         f"Oversized receipt {identifier}/{field} was not completely delivered. "
@@ -2083,6 +2113,10 @@ class Console:
         elif stage.default_settings is not None:
             policy["default_settings"] = {**stage.default_settings}
             policy["python_default_source"] = "Controller interpreter major/minor; explicit static target, not a reporter environment"
+        if stage.missing_diagnostic_policy:
+            policy["missing_diagnostic_predicates"] = "Quoted rule/original location only; reproduction actions permanently ineligible"
+        if stage.provenance_required:
+            policy["preparation_evidence"] = "Required frozen acquisition/checksum or pinned-main build receipts"
         return policy
 
     def validate_reproduction_policy(self, entry: Entry) -> None:
@@ -2105,6 +2139,7 @@ class Console:
         if (
             stage.policy_hash is None and not path.exists() and not stage.exploratory
             and not isinstance(stage.scenario, DefaultReproductionScenario)
+            and not stage.missing_diagnostic_policy and not stage.provenance_required
         ):
             return
         expected = self.reproduction_policy(entry, stage)
@@ -2149,6 +2184,15 @@ class Console:
             raise AutomationError("Invalid reproduction receipt ledger")
         return [record for record in records if isinstance(record, dict)]
 
+    def reproduction_preparations(self, stage: ReproductionStage) -> list[dict[str, JsonValue]]:
+        path = Path(stage.directory) / "preparations.jsonl"
+        records = [] if not path.exists() else [
+            JSON.validate_json(line) for line in path.read_text(encoding="utf-8").splitlines()
+        ]
+        if not all(isinstance(record, dict) for record in records):
+            raise AutomationError("Invalid target preparation evidence ledger")
+        return [record for record in records if isinstance(record, dict)]
+
     def reproduction_hash(self, stage: ReproductionStage) -> str:
         evidence: dict[str, JsonValue] = {
             "input": stage.input_hash, "discussion": stage.discussion_hash,
@@ -2166,6 +2210,10 @@ class Console:
             evidence["default_settings"] = {**stage.default_settings}
         if stage.blocked is not None:
             evidence["blocked"] = stage.blocked.model_dump()
+        if stage.missing_diagnostic_policy:
+            evidence["missing_diagnostic_policy"] = True
+        if stage.provenance_required:
+            evidence["preparations"] = [record for record in self.reproduction_preparations(stage)]
         return reproduction_fingerprint(evidence)
 
     def reproduction_gate_records(self, stage: ReproductionStage) -> list[dict[str, JsonValue]]:
@@ -2180,7 +2228,31 @@ class Console:
             scenario["controller_policy"] = {"exploratory": stage.exploratory, "hash": stage.policy_hash}
         if stage.default_settings is not None:
             scenario["default_settings"] = {**stage.default_settings}
-        return [scenario, *self.reproduction_records(stage)]
+        if stage.missing_diagnostic_policy:
+            scenario["missing_diagnostic_observation_only"] = stage.uses_rule_location_predicates()
+        preparations = self.reproduction_preparations(stage) if stage.provenance_required else []
+        if stage.provenance_required:
+            ready = {
+                f"preparation-{target.role}": target.model_dump(mode="json")
+                for target in stage.targets if target.status == "ready"
+            }
+            captured = {str(record.get("id")): record.get("target") for record in preparations}
+            selected = {
+                f"preparation-{target.role}": target.model_dump(mode="json", exclude={"status", "error"})
+                for target in stage.targets
+            }
+            if (
+                len(preparations) != len(captured)
+                or not set(ready).issubset(captured) or not set(captured).issubset(selected)
+                or any(captured[identifier] != target for identifier, target in ready.items())
+                or any(
+                    ReproductionTarget.model_validate(target).model_dump(mode="json", exclude={"status", "error"})
+                    != selected[identifier] for identifier, target in captured.items()
+                )
+                or any(record.get("kind") != "target_preparation" for record in preparations)
+            ):
+                raise AutomationError("Every ready target needs matching frozen preparation provenance")
+        return [scenario, *preparations, *self.reproduction_records(stage)]
 
     def reproduction_outcomes(self, stage: ReproductionStage) -> dict[str, Outcome]:
         if stage.scenario is None:
@@ -2194,7 +2266,10 @@ class Console:
             ]
             original = next((record for record in matches if record.get("phase") == "original"), {})
             control = next((record for record in matches if record.get("phase") == "control"), None)
-            outcomes[target.role] = reproduction_outcome(stage.scenario, original, control)
+            outcomes[target.role] = reproduction_outcome(
+                stage.scenario, original, control,
+                allow_rule_location_predicates=stage.missing_diagnostic_policy,
+            )
         return outcomes
 
     def require_reproduction_evidence(self, entry: Entry) -> ReproductionStage:
@@ -2213,6 +2288,11 @@ class Console:
             raise AutomationError("Reproduction action lacks unchanged, gated evidence and implementation identity")
         scenario_inputs(stage.scenario)
         records = self.reproduction_records(stage)
+        if stage.provenance_required and self.reproduction_preparations(stage) != [
+            self.reproduction_store.preparation_evidence(ReproductionTarget.model_validate(record["target"]))
+            for record in self.reproduction_preparations(stage)
+        ]:
+            raise AutomationError("Saved acquisition/build provenance changed")
         if [record.get("id") for record in records] != stage.receipt_ids:
             raise AutomationError("Reproduction receipts disagree with checkpoint")
         self.validate_reproduction_gate(stage, stage.gate)
@@ -2250,7 +2330,13 @@ class Console:
                         or tree_hash(Path(cwd)) != record.get("input_hash")
                     ):
                         raise AutomationError("Executed reproduction inputs changed")
-                    if observe_claims(stage.scenario, record) != record.get("claim_outcomes"):
+                    original = next(
+                        item for item in records if item.get("phase") == "original" and item.get("target") == record.get("target")
+                    )
+                    if observe_claims(
+                        stage.scenario, record, original=original,
+                        allow_rule_location_predicates=stage.missing_diagnostic_policy,
+                    ) != record.get("claim_outcomes"):
                         raise AutomationError("Per-claim original/control observations do not match actual output")
                 elif stage.outcomes.get(target.role) != "blocked":
                     raise AutomationError("Failed checks cannot establish non-reproduction")
@@ -2306,6 +2392,7 @@ class Console:
                 input_hash=entry.input_hash, discussion_hash=discussion, directory=str(attempt),
                 exploratory=self.exploratory_reproduction,
                 default_settings=None if self.exploratory_reproduction else reproduction_defaults(),
+                missing_diagnostic_policy=True, provenance_required=True,
             )
             policy = self.reproduction_policy(entry, stage)
             stage.policy_hash = reproduction_fingerprint(policy)
@@ -2350,6 +2437,7 @@ class Console:
                             raise AutomationError("Reconstruction scenario must preserve the controller's settings policy")
                         validate_reproduction_report(
                             response.scenario, report_text, defaults=stage.default_settings, capture=capture,
+                            allow_missing_diagnostic_predicates=stage.missing_diagnostic_policy,
                         )
                 settings_guidance = (
                     "This controller explicitly enabled EXPLORATORY, OBSERVATION-ONLY reproduction. When Python "
@@ -2400,6 +2488,19 @@ class Console:
                     "For each claim define exact diagnostic/type messages, 1-based source lines, and "
                     "broken/resolved observations. Missing errors alone are insufficient: affirmative precision "
                     "controls must hold across BOTH targets separately, without replacing original observations. "
+                    "For a reported MISSING diagnostic with an explicitly named reportX rule, do not invent future "
+                    "message wording. The controller permits message=null ONLY for that quoted requested rule at "
+                    "an actual original source location: present=false in broken, present=true in resolved. "
+                    "Such comparisons are permanently ineligible for reproduction-derived labels or closures, "
+                    "but still inform independent behavior/duplicate investigation. Other rule-only predicates "
+                    "and context diagnostics are not permitted. Missing future wording alone is not a prerequisite. "
+                    "A supporting analogy or constructed control is not automatically an additional material "
+                    "claim; preserve separately reported faulty scalar behavior. "
+                    "precision contains only stable affirmative invariants on broken AND resolved targets. "
+                    "Put desired repaired-output types in resolution_precision, using separate control_files "
+                    "when additional queries are needed. They are required only when the pristine original "
+                    "claim is resolved; never require a broken query to already have its repaired type. "
+                    "Do not replace exact repaired-output expectations with Any/Unknown. "
                     "Each report_quote must copy one contiguous verbatim span; never join separated passages. "
                     "Quote the reported Pyright version when given (not a Pylance version), otherwise use null. "
                     "Only genuine UNMET report prerequisites belong in prerequisites. Routine controller duties "
@@ -2431,6 +2532,7 @@ class Console:
                 validate_reproduction_report(
                     scenario, report_text, defaults=stage.default_settings,
                     capture=capture,
+                    allow_missing_diagnostic_predicates=stage.missing_diagnostic_policy,
                 )
             if not stage.targets:
                 with phase_timing(attempt / "timings.jsonl", "target.selection"):
@@ -2490,6 +2592,23 @@ class Console:
                                     attempt / "timings.jsonl", "target.restoration",
                                     run_target_io(self.reproduction_store.restore, target), target=target.role,
                                 )
+                            if stage.provenance_required:
+                                preparation = await timed_phase(
+                                    attempt / "timings.jsonl", "evidence.provenance",
+                                    run_target_io(self.reproduction_store.preparation_evidence, target), target=target.role,
+                                )
+                                preparations = self.reproduction_preparations(stage)
+                                prior_preparation = next(
+                                    (item for item in preparations if item.get("id") == preparation["id"]), None,
+                                )
+                                if prior_preparation is not None and prior_preparation != preparation:
+                                    raise AutomationError("Saved target preparation evidence changed")
+                                if prior_preparation is None:
+                                    preparations.append(preparation)
+                                    atomic_write(
+                                        attempt / "preparations.jsonl",
+                                        "".join(json.dumps(item) + "\n" for item in preparations),
+                                    )
                         elif any(
                             item.get("phase") == "original" and item.get("outcome") == "blocked"
                             for item in records if isinstance(captured := item.get("target"), dict)
@@ -2500,6 +2619,11 @@ class Console:
                             attempt / "timings.jsonl", f"comparison.{phase}",
                             self.reproduction_store.probe(
                                 target, scenario, attempt / f"{target.role}-{phase}-{uuid.uuid4().hex}", phase=phase,
+                                original=next((
+                                    item for item in records
+                                    if item.get("phase") == "original" and item.get("target") == target.model_dump(mode="json")
+                                ), None),
+                                allow_rule_location_predicates=stage.missing_diagnostic_policy,
                             ), target=target.role,
                         )
                     except (OSError, ValueError, TimeoutError) as error:
@@ -2543,6 +2667,13 @@ class Console:
                 "complete evidence. Return ReproductionGate with every claim ID and supplied raw receipt hashes. "
                 "A blocked latest-release check does not invalidate a verified historical/main comparison, but "
                 "release availability must stay unverified. No causal attribution, comment draft or publication.\n"
+                "Inspect target_preparation receipts for verified registry/archive checksums and pinned-main "
+                "checkout/install/build/runtime links; target version/hash fields alone are not acquisition proof. "
+                "Read the entire preparation field when paged. precision must hold on all targets; "
+                "resolution_precision must additionally hold for each claim whose pristine original is resolved, "
+                "not for a still-broken claim. Any/Unknown does not satisfy a repaired-output expectation. "
+                "Controller-approved missing-diagnostic rule/location comparisons are observation-only and "
+                "cannot authorize reproduction-derived labels or closures, even if you approve their observations.\n"
                 + (
                     "The controller policy marks this stage EXPLORATORY and permanently ACTION-INELIGIBLE. "
                     "Disclosed bounded settings may be chosen only when genuinely omitted; they are not reporter "
@@ -4444,6 +4575,17 @@ def dry_run_proposal(
     root_cause = None if entry is None else entry.root_cause
     reproduction = None if entry is None else entry.reproduction_stage
     observation_only = reproduction is not None and reproduction.observation_only()
+    qualifications: list[JsonValue] = []
+    if reproduction is not None and reproduction.uses_default_settings():
+        qualifications.append(
+            "Historical/main comparisons used disclosed controller defaults for omitted settings. "
+            "They are conditional observations, not reporter-faithful fixed/not-reproducible action evidence."
+        )
+    if reproduction is not None and reproduction.uses_rule_location_predicates():
+        qualifications.append(
+            "Missing-diagnostic rule/location comparisons are observation-only and cannot authorize "
+            "reproduction-derived labels or closures; independent behavior/duplicate evidence keeps its own gates."
+        )
     blockers: list[JsonValue] = []
     action = "leave_open"
     if observation_only:
@@ -4518,10 +4660,7 @@ def dry_run_proposal(
             ] if reason
         ],
         "reproduction": None if reproduction is None else reproduction.model_dump(mode="json"),
-        "reproduction_qualifications": [
-            "Historical/main comparisons used disclosed controller defaults for omitted settings. "
-            "They are conditional observations, not reporter-faithful fixed/not-reproducible action evidence."
-        ] if reproduction is not None and reproduction.uses_default_settings() else [],
+        "reproduction_qualifications": qualifications,
         "diagnostic_observations": None if entry is None or entry.diagnostic_observations is None
         else entry.diagnostic_observations.model_dump(mode="json"),
         "proposed_labels": [] if reproduction is None or reproduction.action() is None or (
@@ -4774,9 +4913,11 @@ def overnight_markdown(report: dict[str, JsonValue]) -> str:
                     "- `" + cell(str(assumption["setting"])) + "=" + cell(str(assumption["value"])) + "`: "
                     + cell(str(assumption["reason"])) + ".\n"
                 )
-            qualifications = row.get("reproduction_qualifications", [])
-            assert isinstance(qualifications, list)
-            lines.extend("\n" + cell(str(reason)) + "\n" for reason in qualifications)
+            lines.append("\n")
+        qualifications = row.get("reproduction_qualifications", [])
+        assert isinstance(qualifications, list)
+        lines.extend("\n" + cell(str(reason)) + "\n" for reason in qualifications)
+        if qualifications:
             lines.append("\n")
         assert isinstance(reproduction_reasons, list)
         if reproduction_reasons:

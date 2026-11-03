@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, SerializerFunctionWrapHandler, model_serializer, model_validator
 
 Text = Annotated[str, Field(min_length=1)]
 Confidence = Literal["high", "medium", "low"]
@@ -447,7 +447,7 @@ class Symptom(Record):
     line: int = Field(ge=1)
     severity: Literal["error", "warning", "information"]
     message: Text | None = Field(
-        description="Exact wording, or null only for an explicitly approved read-only error rule/location predicate.",
+        description="Exact wording, or null only for a controller-approved observation-only error rule/location predicate.",
     )
     rule: str | None
     present: bool
@@ -471,6 +471,10 @@ class ReproductionClaim(Record):
         min_length=1,
         description="Affirmative invariants required on broken and resolved checker targets, not desired repaired types at a broken query. Use justified unaffected original or separate control queries.",
     )
+    resolution_precision: list[Symptom] = Field(
+        default_factory=list,
+        description="Exact affirmative repaired-output expectations, required only when this claim's pristine original is resolved. These use control_files when present. Never put a desired repaired type in invariant precision or replace it with Any/Unknown.",
+    )
     context_diagnostics: list[Symptom] = Field(
         default_factory=list, max_length=32,
         description="Read-only opt-in only: exact report-grounded historical context diagnostics, not reported symptoms or precision.",
@@ -478,18 +482,26 @@ class ReproductionClaim(Record):
 
     @model_validator(mode="after")
     def affirmative(self) -> Self:
-        if any(item.message is None for item in self.precision):
+        if any(item.message is None for item in [*self.precision, *self.resolution_precision]):
             raise ValueError("Precision requires exact diagnostic/type wording")
         if any(
             item.message is None or not item.present or item.severity == "information"
             for item in self.context_diagnostics
         ):
             raise ValueError("Context diagnostics require exact affirmative error/warning expectations")
-        if not all(item.present for item in self.precision):
+        if not all(item.present for item in [*self.precision, *self.resolution_precision]):
             raise ValueError("Precision requires affirmative diagnostic/type observations")
         if not any(item.present for item in [*self.broken, *self.resolved]):
             raise ValueError("The original symptom must be observable without adding type queries")
         return self
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, JsonValue]:
+        record: dict[str, JsonValue] = handler(self)
+        # Empty new expectations must not change frozen legacy scenario/receipt hashes.
+        if not self.resolution_precision:
+            record.pop("resolution_precision", None)
+        return record
 
 
 class ReproductionScenario(Record):
@@ -673,6 +685,8 @@ class ReproductionStage(Record):
     blocked: BlockedReconstruction | None = None
     exploratory: bool = Field(default=False, frozen=True)
     default_settings: dict[str, str] | None = Field(default=None, frozen=True)
+    missing_diagnostic_policy: bool = Field(default=False, frozen=True)
+    provenance_required: bool = Field(default=False, frozen=True)
     policy_hash: str | None = None
     targets: list[ReproductionTarget] = Field(default_factory=list)
     receipt_ids: list[str] = Field(default_factory=list)
@@ -697,8 +711,16 @@ class ReproductionStage(Record):
     def uses_default_settings(self) -> bool:
         return isinstance(self.scenario, DefaultReproductionScenario) and bool(self.scenario.configuration_assumptions)
 
+    def uses_rule_location_predicates(self) -> bool:
+        return self.scenario is not None and any(
+            item.message is None for claim in self.scenario.claims for item in [*claim.broken, *claim.resolved]
+        )
+
     def action(self) -> Literal["fixed", "not_reproducible"] | None:
-        if self.blocked is not None or self.observation_only() or self.uses_default_settings():
+        if (
+            self.blocked is not None or self.observation_only()
+            or self.uses_default_settings() or self.uses_rule_location_predicates()
+        ):
             return None
         if self.status != "complete" or self.gate is None or not self.gate.approved:
             return None

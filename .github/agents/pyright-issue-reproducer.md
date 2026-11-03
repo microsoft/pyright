@@ -35,6 +35,15 @@ controls when present, otherwise to observations already in the report's origina
 cannot be observed without modification, record an unmet prerequisite and abstain. Controls may mask or introduce
 the original symptom through evaluation order/cache changes; they never replace its original execution.
 
+For a reported missing diagnostic with an explicitly named `reportX` rule, the controller permits observation-only
+rule/location predicates: `message=null`, `present=false` in `broken`, and the same rule/original location with
+`present=true` in `resolved`. Include the requested rule in the verbatim claim quote. Never invent future diagnostic
+wording or block solely because it is unavailable. These comparisons cannot authorize reproduction-derived labels
+or closures, even with an approved gate; independent behavior/duplicate evidence keeps its own gates.
+Other rule-only predicates and context diagnostics are not permitted. A supporting scalar comparison or a
+constructed control is not automatically an additional material report claim requiring a reporter-supplied example.
+Preserve any separately reported faulty scalar behavior as a material claim.
+
 Reconstruct inspected source and explicit effective Python/checking configuration. Under the ordinary controller
 DEFAULT-SETTINGS policy, use its exact defaults only for omitted values: standard checking and the controller
 interpreter's major/minor Python target. Do not stop solely because either setting is absent. Set
@@ -62,8 +71,13 @@ do not confuse Pylance/Python versions or a suggested later fix with the reporte
 the controller uses issue creation (not update) time for an explicitly approximate historical release.
 
 Define exact diagnostic/type predicates at 1-based source locations. A missing error alone cannot establish a fix.
-Include stable affirmative precision controls for every claim (for example separate inspected reveal_type queries
-for relevant inputs and outputs). Preserve valid/invalid neighboring behavior. Any/Unknown,
+Include stable affirmative `precision` controls for every claim (for example separate inspected reveal_type queries
+for unaffected relevant inputs and outputs). They must hold on broken and resolved targets. Put exact desired
+repaired-output expectations in `resolution_precision`, not invariant `precision`: the controller requires those
+additional observations only when that claim's pristine original is resolved. Use separate controls for added
+queries; do not modify the original to observe its symptom. Unknown on a still-broken query does not erase
+reproduction, but Unknown/Any, missing output or a wrong type never satisfies a repaired-output expectation.
+Preserve valid/invalid neighboring behavior. Any/Unknown,
 lost imports, zero analyzed files, output wording differences and changed configuration are not fixes. If precise
 predicates or stable controls cannot be justified before execution, preserve the limitation rather than guessing
 negative evidence. Ignored/invalid/inapplicable settings or other stderr/setup diagnostics invalidate a comparison,

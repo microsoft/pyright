@@ -784,15 +784,21 @@ class AssessmentController:
             raise ValueError("Verification plan/source/setup changed")
         original_inputs(self.claim_setup(plan.claim_id))
         self.save_once(f"verification-{plan.claim_id}/started.json", {"plan_hash": fingerprint(plan.model_dump())})
-        receipts = []
+        receipts: list[AssessmentReceipt] = []
         for phase in ["original", *(["control"] if plan.scenario.control_files else [])]:
             for target in plan.targets:
                 self.require_identity()
+                original = next((
+                    receipt.raw for receipt in receipts
+                    if receipt.kind == "verification_original"
+                    and receipt.raw.get("target") == target.model_dump(mode="json")
+                ), None)
                 try:
                     raw = await store.probe(
                         target, plan.scenario,
                         self.directory / f"verification-{plan.claim_id}" / str(phase) / target.role,
                         phase="control" if phase == "control" else "original",
+                        original=original,
                     )
                     self.require_identity()
                 except (OSError, ValueError, TimeoutError) as error:
@@ -830,6 +836,7 @@ class AssessmentController:
                 observed = observe_claims(
                     plan.scenario, raw, problems, static_stub_modules=support,
                     allow_rule_location_predicates=self.policy.allow_rule_location_predicates,
+                    original=original,
                 )
                 observation = observed.get(plan.claim_id, "blocked")
                 receipt = AssessmentReceipt(
