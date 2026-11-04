@@ -26018,6 +26018,14 @@ export function createTypeEvaluator(
 
         // Suppress diagnostics because we don't want to generate errors.
         suppressDiagnostics(functionNode, () => {
+            // Argument expressions belong to the caller's contextual cache.
+            const argTypes = functionNode.d.params.map((param) => {
+                const arg = args.find((arg) => param.d.name?.d.value === arg.paramName);
+                return arg?.argument.valueExpression
+                    ? getTypeOfExpression(arg.argument.valueExpression).type
+                    : undefined;
+            });
+
             // Allocate a new temporary type cache for the context of just
             // this function so we can analyze it separately without polluting
             // the main type cache.
@@ -26035,11 +26043,9 @@ export function createTypeEvaluator(
                 let allArgTypesAreUnknown = true;
                 functionNode.d.params.forEach((param, index) => {
                     if (param.d.name) {
-                        let paramType: Type | undefined;
-                        const arg = args.find((arg) => param.d.name!.d.value === arg.paramName);
+                        let paramType = argTypes[index];
 
-                        if (arg && arg.argument.valueExpression) {
-                            paramType = getTypeOfExpression(arg.argument.valueExpression).type;
+                        if (paramType) {
                             if (!isUnknown(paramType)) {
                                 allArgTypesAreUnknown = false;
                             }
@@ -26098,10 +26104,14 @@ export function createTypeEvaluator(
                         contextualReturnType = cacheEntry.returnType;
                         isResultFromCache = true;
                     } else {
-                        contextualReturnType = inferFunctionReturnType(
-                            functionNode,
-                            FunctionType.isAbstractMethod(type),
-                            callSiteInfo?.errorNode
+                        // Speculative results also depend on these temporary parameter bindings,
+                        // not just the expected types used during overload resolution.
+                        contextualReturnType = speculativeTypeTracker.useSpeculativeTypeCacheIsolation(() =>
+                            inferFunctionReturnType(
+                                functionNode,
+                                FunctionType.isAbstractMethod(type),
+                                callSiteInfo?.errorNode
+                            )
                         )?.type;
                     }
                 }

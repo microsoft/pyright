@@ -621,7 +621,7 @@ function applyExpectedSubtypeForConstructor(
 ): Type | undefined {
     const specializedType = evaluator.solveAndApplyConstraints(ClassType.cloneAsInstance(type), constraints, {
         replaceUnsolved: {
-            scopeIds: [],
+            scopeIds: getTypeVarScopeIds(type),
             tupleClassType: evaluator.getTupleClassType(),
         },
     });
