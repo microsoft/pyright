@@ -171,7 +171,7 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { getChildNodes } from './parseTreeWalker';
 import { assignTypeToPatternTargets, checkForUnusedPattern, narrowTypeBasedOnPattern } from './patternMatching';
 import { assignProperty, createProperty } from './properties';
-import { assignClassToProtocol, assignModuleToProtocol } from './protocols';
+import { assignClassToProtocol, assignModuleToProtocol, noteAssignTypeRecursionLimit } from './protocols';
 import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { createSentinelType } from './sentinel';
@@ -27014,6 +27014,7 @@ export function createTypeEvaluator(
         }
 
         if (recursionCount > maxTypeRecursionCount) {
+            noteAssignTypeRecursionLimit();
             return true;
         }
         recursionCount++;
