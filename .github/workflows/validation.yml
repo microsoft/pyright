@@ -92,9 +92,7 @@ jobs:
         id: mac_tests
         if: matrix.os == 'macos-latest'
         shell: bash
-        # Avoid swapping on the 7 GiB hosted macOS runners.
-        env:
-          NODE_OPTIONS: --max-old-space-size-percentage=50
+        # Parallel workers cause swapping on the 7 GiB hosted macOS runners.
         run: |
           set -o pipefail
           /usr/bin/time -lp pnpm test --maxWorkers=1 --json --outputFile=mac-test-results.json 2>&1 | tee mac-test.log
