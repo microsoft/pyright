@@ -25952,6 +25952,29 @@ export function createTypeEvaluator(
             }
         }
 
+        const methodClass = type.shared.methodClass;
+        if (
+            type.priv.boundToType &&
+            methodClass &&
+            !FunctionType.isStaticMethod(type) &&
+            type.priv.boundToType.shared.mro.some(
+                (base) => isClass(base) && ClassType.isSameGenericClass(base, methodClass)
+            )
+        ) {
+            // A synthesized property's __get__ retains the getter's methodClass but binds
+            // to the descriptor, which must not replace the getter's Self.
+            // Preserve a conditional receiver's original Self rather than its class bound.
+            const selfType = getTypeCondition(type.priv.boundToType)?.find((condition) =>
+                TypeVarType.isSelf(condition.typeVar)
+            )?.typeVar;
+            returnType = partiallySpecializeType(
+                returnType,
+                methodClass,
+                getTypeClassType(),
+                selfType ?? type.priv.boundToType
+            );
+        }
+
         return { type: returnType, isIncomplete };
     }
 
@@ -26009,6 +26032,14 @@ export function createTypeEvaluator(
 
         // Suppress diagnostics because we don't want to generate errors.
         suppressDiagnostics(functionNode, () => {
+            // Argument expressions belong to the caller's contextual cache.
+            const argTypes = functionNode.d.params.map((param) => {
+                const arg = args.find((arg) => param.d.name?.d.value === arg.paramName);
+                return arg?.argument.valueExpression
+                    ? getTypeOfExpression(arg.argument.valueExpression).type
+                    : undefined;
+            });
+
             // Allocate a new temporary type cache for the context of just
             // this function so we can analyze it separately without polluting
             // the main type cache.
@@ -26026,11 +26057,9 @@ export function createTypeEvaluator(
                 let allArgTypesAreUnknown = true;
                 functionNode.d.params.forEach((param, index) => {
                     if (param.d.name) {
-                        let paramType: Type | undefined;
-                        const arg = args.find((arg) => param.d.name!.d.value === arg.paramName);
+                        let paramType = argTypes[index];
 
-                        if (arg && arg.argument.valueExpression) {
-                            paramType = getTypeOfExpression(arg.argument.valueExpression).type;
+                        if (paramType) {
                             if (!isUnknown(paramType)) {
                                 allArgTypesAreUnknown = false;
                             }
@@ -26089,10 +26118,14 @@ export function createTypeEvaluator(
                         contextualReturnType = cacheEntry.returnType;
                         isResultFromCache = true;
                     } else {
-                        contextualReturnType = inferFunctionReturnType(
-                            functionNode,
-                            FunctionType.isAbstractMethod(type),
-                            callSiteInfo?.errorNode
+                        // Speculative results also depend on these temporary parameter bindings,
+                        // not just the expected types used during overload resolution.
+                        contextualReturnType = speculativeTypeTracker.useSpeculativeTypeCacheIsolation(() =>
+                            inferFunctionReturnType(
+                                functionNode,
+                                FunctionType.isAbstractMethod(type),
+                                callSiteInfo?.errorNode
+                            )
                         )?.type;
                     }
                 }
@@ -27100,7 +27133,8 @@ export function createTypeEvaluator(
 
             if (isUnion(srcType)) {
                 const srcWithoutAny = removeFromUnion(srcType, (type) => isAnyOrUnknown(type));
-                if (isTypeSame(destType, srcWithoutAny)) {
+                // TypeForm metadata can keep equivalent TypeVars as separate union arms.
+                if (!someSubtypes(srcWithoutAny, (subtype) => !isTypeSame(destTypeVar, subtype))) {
                     return true;
                 }
             }
