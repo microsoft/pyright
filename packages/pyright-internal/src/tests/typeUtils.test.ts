@@ -8,7 +8,8 @@
 
 import * as assert from 'assert';
 
-import { containsLiteralType, mapSignatures, transformTypePair } from '../analyzer/typeUtils';
+import { ConstraintSolution } from '../analyzer/constraintSolution';
+import { applySolvedTypeVars, containsLiteralType, mapSignatures, transformTypePair } from '../analyzer/typeUtils';
 import {
     AnyType,
     ClassType,
@@ -23,6 +24,7 @@ import {
     OverloadedType,
     OverloadResultType,
     Type,
+    TypeBase,
     TypeCategory,
     TypeVarScopeType,
     TypeVarType,
@@ -94,6 +96,53 @@ test('Map signatures preserves replaced overloads and their order', () => {
         mapSignatures(first, () => replacement),
         replacement
     );
+});
+
+test('Solved generic aliases retain identity unless an argument changes', () => {
+    const typeParams = ['T', 'U'].map((name) =>
+        TypeVarType.cloneForScopeId(
+            TypeVarType.createInstance(name),
+            'alias-scope',
+            'Alias',
+            TypeVarScopeType.TypeAlias
+        )
+    );
+    const plain = ClassType.cloneAsInstance(createClass('Plain'));
+    const replacement = ClassType.cloneAsInstance(createClass('Replacement'));
+    const unrelatedSolution = new ConstraintSolution();
+    unrelatedSolution.setType(typeParams[0], replacement);
+    const solution = new ConstraintSolution();
+    solution.setType(typeParams[1], replacement);
+
+    for (const value of [plain, createFunction(typeParams[1], plain, plain)]) {
+        const source = TypeBase.cloneForTypeAlias(value, {
+            shared: {
+                name: 'Alias',
+                fullName: 'test.Alias',
+                moduleName: 'test',
+                fileUri: Uri.empty(),
+                typeVarScopeId: 'alias-scope',
+                isTypeAliasType: true,
+                typeParams,
+                computedVariance: undefined,
+            },
+            typeArgs: [plain, typeParams[1]],
+        });
+
+        assert.strictEqual(applySolvedTypeVars(source, unrelatedSolution), source);
+
+        const result = applySolvedTypeVars(source, solution);
+        assert.notStrictEqual(result, source);
+        assert.strictEqual(result.props?.typeAliasInfo?.shared, source.props?.typeAliasInfo?.shared);
+        assert.strictEqual(result.props?.typeAliasInfo?.typeArgs?.[0], plain);
+        assert.strictEqual(result.props?.typeAliasInfo?.typeArgs?.[1], replacement);
+        assert.strictEqual(source.props?.typeAliasInfo?.typeArgs?.[1], typeParams[1]);
+        if (isFunction(result)) {
+            assert.strictEqual(FunctionType.getParamType(result, 0), replacement);
+            assert.ok(isFunction(source));
+            assert.strictEqual(FunctionType.getParamType(source, 0), typeParams[1]);
+        }
+    }
 });
 
 test('Transform aligned function types', () => {
