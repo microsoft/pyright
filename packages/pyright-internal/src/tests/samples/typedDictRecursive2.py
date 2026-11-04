@@ -1,8 +1,7 @@
 # This sample tests rejection of incompatible recursive TypedDicts, including
 # read-only cycles whose inner comparison depends on an unfinished outer one.
 
-from typing import Generic, TypeVar, TypedDict
-from typing_extensions import ReadOnly
+from typing import Generic, ReadOnly, TypeVar, TypedDict
 
 
 class ReadOnlyInt(TypedDict):

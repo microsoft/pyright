@@ -10,7 +10,7 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { defaultMaxDiagnosticDepth, DiagnosticAddendum } from '../common/diagnostic';
+import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -94,11 +94,12 @@ interface TypedDictCompatibility extends TypedDictAssignment {
 
 interface TypedDictAssignmentContext {
     stack: TypedDictAssignment[];
-    cache: Map<ClassDetailsShared, TypedDictCompatibility[]>;
+    cache: Map<ClassDetailsShared, Map<ClassDetailsShared, TypedDictCompatibility[]>>;
     generation: number;
 }
 
 const typedDictAssignmentContexts = new WeakMap<TypeEvaluator, TypedDictAssignmentContext>();
+// Bound specialized comparisons within each nominal source/destination pair.
 const maxTypedDictCompatibilityCacheEntries = 64;
 
 // Creates a new custom TypedDict "alternate syntax" factory class.
@@ -1237,20 +1238,23 @@ export function assignTypedDictToTypedDict(
     // Generic comparisons must populate the caller's constraint tracker.
     const canCache =
         !constraints || (destType.shared.typeParams.length === 0 && srcType.shared.typeParams.length === 0);
+    // Keep distinct nominal destination classes out of the same specialization
+    // budget and avoid scanning their unrelated comparison results.
+    const pairEntries = context.cache.get(srcType.shared)?.get(destType.shared);
     // A result obtained near the recursion cutoff cannot establish compatibility
     // for a shallower comparison that can inspect more of the types.
     const cached = canCache
-        ? context.cache
-              .get(srcType.shared)
-              ?.find(
-                  (entry) =>
-                      matches(entry) &&
-                      entry.recursionCount === recursionCount &&
-                      (!entry.isCompatible || entry.generation === context.generation) &&
-                      isTypedDictConstraintTrackerSame(constraints, entry.preConstraints)
-              )
+        ? pairEntries?.find(
+              (entry) =>
+                  matches(entry) &&
+                  entry.recursionCount === recursionCount &&
+                  (!entry.isCompatible || entry.generation === context.generation) &&
+                  isTypedDictConstraintTrackerSame(constraints, entry.preConstraints)
+          )
         : undefined;
-    if (cached && (cached.isCompatible || !diag || diag.getNestLevel() > defaultMaxDiagnosticDepth)) {
+    // Raw addendum nesting does not determine rendered depth. Rebuild failures
+    // whenever their diagnostic details are requested.
+    if (cached && (cached.isCompatible || !diag)) {
         if (cached.postConstraints) {
             constraints?.copyFromClone(cached.postConstraints);
         }
@@ -1281,7 +1285,9 @@ export function assignTypedDictToTypedDict(
         }
 
         if (canCache && !cached) {
-            const entries = (context.cache.get(srcType.shared) ?? []).filter(
+            const sourceCache =
+                context.cache.get(srcType.shared) ?? new Map<ClassDetailsShared, TypedDictCompatibility[]>();
+            const entries = (sourceCache.get(destType.shared) ?? []).filter(
                 (entry) => !entry.isCompatible || entry.generation === context.generation
             );
             entries.push({
@@ -1297,7 +1303,8 @@ export function assignTypedDictToTypedDict(
             if (entries.length > maxTypedDictCompatibilityCacheEntries) {
                 entries.shift();
             }
-            context.cache.set(srcType.shared, entries);
+            sourceCache.set(destType.shared, entries);
+            context.cache.set(srcType.shared, sourceCache);
         }
 
         return isCompatible;
