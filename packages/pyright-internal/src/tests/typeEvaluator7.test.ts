@@ -1070,6 +1070,103 @@ test('ProtocolExplicit3', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test.each(
+    (['cache', 'recursiveArgument', 'recursiveReturn'] as const).flatMap((path) =>
+        (['standard', 'positionalOnly', 'keywordOnly'] as const).flatMap((kind) =>
+            (
+                [
+                    ['optional', 'required', false],
+                    ['required', 'optional', false],
+                    ['optional', 'optional', true],
+                ] as const
+            ).map(([first, second, compatible]) => ({ path, kind, first, second, compatible }))
+        )
+    )
+)('TypedDictCallableIdentity $path $kind $first/$second', ({ path, kind, first, second, compatible }) => {
+    const suffix = kind === 'positionalOnly' ? ', /' : '';
+    const prefix = kind === 'keywordOnly' ? '*, ' : '';
+    const recursive = path !== 'cache';
+    const code = `
+// @filename: test.py
+//// from typing import Callable, ReadOnly, TypedDict
+////
+//// def optional(${prefix}x: int = 0${suffix}) -> None:
+////     pass
+////
+//// def required(${prefix}x: int${suffix}) -> None:
+////     pass
+////
+${
+    recursive
+        ? `//// class A[T](TypedDict, total=False):
+////     next: ReadOnly["A[T]"]
+////     value: ReadOnly[T]
+////
+//// class B[T, U](TypedDict, total=False):
+////     next: ReadOnly["B[U, T]"]
+////     value: ReadOnly[T]
+////     other: ReadOnly[U]
+////
+//// def source[T, U](t: T, u: U) -> B[T, U]:
+////     child: B[U, T] = {"value": u, "other": t}
+////     return {"value": t, "other": u, "next": child}
+////
+//// def consume(result: A[Callable[[], None]]) -> None:
+////     if "next" in result and "value" in result["next"]:
+////         result["next"]["value"]()
+////
+${
+    path === 'recursiveReturn'
+        ? `//// def bad() -> A[Callable[[], None]]:
+////     /*error*/return source(${first}, ${second})
+////
+//// consume(bad())`
+        : `//// /*error*/consume(source(${first}, ${second}))`
+}`
+        : `//// class A(TypedDict):
+////     value: ReadOnly[Callable[[], None]]
+////
+//// class B[T](TypedDict):
+////     value: ReadOnly[T]
+////
+//// class Source[T, U](TypedDict):
+////     first: ReadOnly[B[T]]
+////     second: ReadOnly[B[U]]
+////
+//// class Dest(TypedDict):
+////     first: ReadOnly[A]
+////     second: ReadOnly[A]
+////
+//// def source[T, U](t: T, u: U) -> Source[T, U]:
+////     return {"first": {"value": t}, "second": {"value": u}}
+////
+//// def bad() -> Dest:
+////     /*error*/return source(${first}, ${second})
+////
+//// bad()["second"]["value"]()`
+}
+    `;
+    const state = parseAndGetTestState(code).state;
+    state.configOptions.defaultPythonVersion = pythonVersion3_13;
+    const file = state.testData.files[0];
+    const results = TestUtils.getAnalysisResults(state.program, [file.fileUri], state.configOptions);
+    TestUtils.validateResults(results, compatible ? 0 : 1);
+    if (!compatible) {
+        const diagnostic = results[0].errors[0];
+        assert.strictEqual(
+            diagnostic.getRule(),
+            path === 'recursiveArgument' ? DiagnosticRule.reportArgumentType : DiagnosticRule.reportReturnType
+        );
+        const marker = state.getMarkerByName('error');
+        const line = file.content.slice(0, marker.position).split('\n').length - 1;
+        assert.strictEqual(diagnostic.range.start.line, line);
+        expect(diagnostic.message).toContain(kind === 'positionalOnly' ? '(x: int' : '"x"');
+        if (path === 'cache') {
+            expect(diagnostic.message).toContain(first === 'required' ? '"first"' : '"second"');
+        }
+    }
+});
+
 test('TypedDictRecursive1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictRecursive1.py']);
 

@@ -1213,10 +1213,20 @@ export function assignTypedDictToTypedDict(
         typedDictAssignmentContexts.set(evaluator, context);
     }
 
+    // Both early exits must preserve callable defaults and other call behavior
+    // within specialized type arguments.
     const matches = (entry: TypedDictAssignment) =>
         entry.flags === flags &&
-        isTypeSame(entry.destType, destType, { honorIsTypeArgExplicit: true, honorTypeForm: true }) &&
-        isTypeSame(entry.srcType, srcType, { honorIsTypeArgExplicit: true, honorTypeForm: true });
+        isTypeSame(entry.destType, destType, {
+            honorIsTypeArgExplicit: true,
+            honorTypeForm: true,
+            honorCallBehavior: true,
+        }) &&
+        isTypeSame(entry.srcType, srcType, {
+            honorIsTypeArgExplicit: true,
+            honorTypeForm: true,
+            honorCallBehavior: true,
+        });
 
     // Recursive TypedDicts are compatible if all nonrecursive members are
     // compatible. The enclosing comparison will check those members.
