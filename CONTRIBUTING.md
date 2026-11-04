@@ -57,6 +57,8 @@ its sources, or use `pnpm test` to rebuild it automatically.
 CI limits macOS tests to one Jest worker and a Node.js heap of half the runner's RAM to avoid swapping
 on the 7 GiB hosted runners. The percentage-based heap limit overrides the test script's fixed 8 GiB
 limit; local runs and other CI platforms retain their existing defaults.
+Mac CI uploads test output and JSON results as `macos-test-logs-<attempt>` artifacts and publishes
+timing and failure summaries in workflow annotations.
 See [building and debugging](docs/build-debug.md) for CLI builds, extension packaging, and VS Code debugging.
 
 ## Measuring performance changes

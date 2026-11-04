@@ -84,11 +84,68 @@ jobs:
       - uses: ./.github/actions/choose-npm-install
 
       - name: pnpm test (pyright-internal)
+        if: matrix.os != 'macos-latest'
+        run: pnpm test
+        working-directory: packages/pyright-internal
+
+      - name: pnpm test (pyright-internal, macOS)
+        id: mac_tests
+        if: matrix.os == 'macos-latest'
+        shell: bash
         # Avoid swapping on the 7 GiB hosted macOS runners.
         env:
-          NODE_OPTIONS: ${{ matrix.os == 'macos-latest' && '--max-old-space-size-percentage=50' || env.NODE_OPTIONS }}
-        run: pnpm test ${{ matrix.os == 'macos-latest' && '--maxWorkers=1' || '' }}
+          NODE_OPTIONS: --max-old-space-size-percentage=50
+        run: |
+          set -o pipefail
+          /usr/bin/time -lp pnpm test --maxWorkers=1 --json --outputFile=mac-test-results.json 2>&1 | tee mac-test.log
         working-directory: packages/pyright-internal
+
+      - name: Report macOS test timings
+        if: always() && matrix.os == 'macos-latest' && steps.mac_tests.outcome != 'skipped'
+        shell: bash
+        working-directory: packages/pyright-internal
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const notice = (title, text) => console.log(`::notice title=${title}::${text.slice(0, 12000).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')}`);
+          const log = fs.readFileSync('mac-test.log', 'utf8');
+          notice('Mac test log tail', log.split('\n').slice(-40).join('\n').slice(-6000));
+          if (!fs.existsSync('mac-test-results.json')) {
+              throw new Error('Mac tests did not produce JSON results; see the Mac test log tail.');
+          }
+          const results = JSON.parse(fs.readFileSync('mac-test-results.json', 'utf8'));
+          notice('Mac test summary', JSON.stringify({
+              success: results.success,
+              passedTests: results.numPassedTests,
+              failedTests: results.numFailedTests,
+              passedSuites: results.numPassedTestSuites,
+              failedSuites: results.numFailedTestSuites,
+          }));
+          const suites = [...results.testResults].sort((a, b) => (b.endTime - b.startTime) - (a.endTime - a.startTime));
+          notice('Mac slow suites', suites.slice(0, 8).map((suite) =>
+              `${path.basename(suite.name)}: ${(suite.endTime - suite.startTime) / 1000}s (${suite.status})`
+          ).join('\n'));
+          const failures = suites.filter((suite) => suite.status === 'failed').slice(0, 5);
+          if (failures.length) {
+              notice('Mac test failures', failures.map((suite) =>
+                  `${path.basename(suite.name)}: ${suite.message}\n${suite.assertionResults.filter((test) =>
+                      test.status === 'failed'
+                  ).map((test) => `${test.fullName}: ${test.failureMessages.join('\n')}`).join('\n')}`.slice(0, 6000)
+              ).join('\n'));
+          }
+          NODE
+
+      - name: Upload macOS test logs
+        if: always() && matrix.os == 'macos-latest' && steps.mac_tests.outcome != 'skipped'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: macos-test-logs-${{ github.run_attempt }}
+          path: |
+            packages/pyright-internal/mac-test.log
+            packages/pyright-internal/mac-test-results.json
+          if-no-files-found: error
+          retention-days: 7
 
       # Install python so we can create a VENV for tests
       - name: Use Python ${{env.PYTHON_VERSION}}
