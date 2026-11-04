@@ -141,15 +141,20 @@ jobs:
               failedSuites: results.numFailedTestSuites,
           }));
           const suites = [...results.testResults].sort((a, b) => (b.endTime - b.startTime) - (a.endTime - a.startTime));
-          for (const suite of suites.slice(0, 8)) {
-              notice('Jest slow suite', `${path.basename(suite.name)}: ${(suite.endTime - suite.startTime) / 1000}s (${suite.status})`);
-          }
-          for (const suite of suites.filter((suite) => suite.status === 'failed').slice(0, 5)) {
-              notice('Jest failing suite', `${path.basename(suite.name)}: ${suite.message.slice(0, 6000)}`);
+          notice('Jest slow suites', suites.slice(0, 8).map((suite) =>
+              `${path.basename(suite.name)}: ${(suite.endTime - suite.startTime) / 1000}s (${suite.status})`
+          ).join('\n'));
+          const failingSuites = suites.filter((suite) => suite.status === 'failed').slice(0, 5);
+          if (failingSuites.length) {
+              notice('Jest failing suites', failingSuites.map((suite) =>
+                  `${path.basename(suite.name)}: ${suite.message.slice(0, 6000)}`
+              ).join('\n'));
           }
           const failures = results.testResults.flatMap((suite) => suite.assertionResults.filter((test) => test.status === 'failed'));
-          for (const test of failures.slice(0, 5)) {
-              notice('Jest failing test', `${test.fullName}: ${test.failureMessages.join('\n').slice(0, 6000)}`);
+          if (failures.length) {
+              notice('Jest failing tests', failures.slice(0, 5).map((test) =>
+                  `${test.fullName}: ${test.failureMessages.join('\n').slice(0, 6000)}`
+              ).join('\n'));
           }
           NODE
 
