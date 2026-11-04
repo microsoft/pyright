@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import base64
 import hashlib
@@ -24,6 +25,7 @@ from collections.abc import Callable, Collection, Mapping
 from datetime import datetime
 from itertools import combinations, product
 from pathlib import Path, PureWindowsPath
+from time import perf_counter, thread_time
 from types import TracebackType
 from typing import Literal, ParamSpec, Protocol, TypeVar
 from urllib.parse import urlparse
@@ -90,9 +92,106 @@ def fingerprint(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=True).encode()).hexdigest()
 
 
-def tree_hash(directory: Path) -> str:
-    root = directory.resolve(strict=True)
+def compact_preparation(preparation: dict[str, JsonValue], target: ReproductionTarget) -> dict[str, JsonValue]:
+    commands = preparation["commands"]
+    if not isinstance(commands, list):
+        raise ValueError("Preparation command captures are missing")
+    projected: list[JsonValue] = []
+    for command in commands:
+        if not isinstance(command, dict):
+            raise ValueError("Invalid preparation command capture")
+        command_text = command.get("command")
+        if not isinstance(command_text, str):
+            raise ValueError("Invalid preparation command capture")
+        if not re.search(r"\bpack\s", command_text) or not re.search(r"\bnpm(?:\.cmd)?\b", command_text):
+            projected.append(command)
+            continue
+        stdout = command.get("stdout")
+        if not isinstance(stdout, str):
+            raise ValueError("npm pack preparation lacks its original stdout")
+        packed = json.loads(stdout)
+        if (
+            not isinstance(packed, list) or len(packed) != 1 or not isinstance(packed[0], dict)
+            or any(packed[0].get(field) != expected for field, expected in (
+                ("name", "pyright"), ("version", target.version), ("filename", f"pyright-{target.version}.tgz"),
+            ))
+            or not isinstance(packed[0].get("files"), list)
+        ):
+            raise ValueError("npm pack preparation metadata disagrees with the pinned package")
+        files = packed[0]["files"]
+        if packed[0].get("entryCount") != len(files):
+            raise ValueError("npm pack preparation file manifest disagrees with its entry count")
+        if packed[0].get("integrity") != target.artifact_sha512:
+            raise ValueError("npm pack preparation archive checksum disagrees with the acquired archive")
+        projected.append({
+            **{key: value for key, value in command.items() if key != "stdout"},
+            "stdout_projection": {
+                "format": "npm_pack_metadata", "raw_chars": len(stdout),
+                "raw_sha256": hashlib.sha256(stdout.encode("utf-8")).hexdigest(),
+                "metadata": [{key: value for key, value in packed[0].items() if key != "files"}],
+                "omitted_fields": [{
+                    "pointer": "/0/files", "entries": len(files), "fingerprint": fingerprint(files),
+                }],
+            },
+        })
+    return {
+        **preparation, "schema_version": 2, "commands": projected,
+        "capture_policy": "Only npm pack file manifests are omitted; complete raw captures remain source-hash bound.",
+    }
+
+
+def validate_resolution_controls(scenario: ReproductionScenario) -> None:
+    if not scenario.control_files or not any(claim.resolution_precision for claim in scenario.claims):
+        return
+    scenario_inputs(scenario)
+    trees: dict[str, tuple[list[ast.AST], list[ast.AST]]] = {}
+    for claim in scenario.claims:
+        for expected in claim.resolution_precision:
+            if expected.severity != "information":
+                continue
+            if expected.file not in trees:
+                try:
+                    trees[expected.file] = (
+                        list(ast.walk(ast.parse(scenario.files[expected.file]))),
+                        list(ast.walk(ast.parse(scenario.control_files[expected.file]))),
+                    )
+                except SyntaxError as error:
+                    raise ValueError(f"Cannot inspect repaired-output controls in {expected.file}") from error
+            original, controls = trees[expected.file]
+            locations = {
+                item.line for item in [*claim.broken, *claim.resolved] if item.file == expected.file
+            }
+            for query in controls:
+                if not isinstance(query, ast.Call) or query.lineno != expected.line or not query.args:
+                    continue
+                value = query.args[0]
+                if isinstance(value, (ast.Name, ast.Constant)):
+                    continue
+                expression = ast.dump(value)
+                matches = [
+                    node for node in original if isinstance(node, type(value)) and ast.dump(node) == expression
+                ]
+                if not any(
+                    any(node.lineno <= line <= (node.end_lineno or node.lineno) for line in locations)
+                    for node in matches if isinstance(node, ast.expr)
+                ):
+                    continue
+                if sum(
+                    isinstance(node, type(value)) and ast.dump(node) == expression for node in controls
+                ) > len(matches):
+                    raise ValueError(
+                        f"Claim {claim.id}: repaired-output query at {expected.file}:{expected.line} repeats "
+                        "a material original operation and can introduce undeclared diagnostics. In the separate "
+                        "control tree, evaluate it once, bind its result, and reveal that bound value. Keep the "
+                        "pristine original unchanged and retain the exact repaired type, never Any/Unknown."
+                    )
+
+
+def tree_hash(directory: Path, *, measurements: dict[str, JsonValue] | None = None) -> str:
+    started, cpu_started = perf_counter(), thread_time()
+    root = directory
     files: dict[str, str] = {}
+    directories, hashed_bytes = 0, 0
 
     def state(info: os.stat_result) -> tuple[int, int, int, int, int]:
         # Windows path stat and fstat can expose different ctime semantics.
@@ -103,10 +202,12 @@ def tree_hash(directory: Path) -> str:
             raise ValueError("Target/input tree contains a link or reparse point")
 
     def visit(path: Path) -> None:
+        nonlocal directories, hashed_bytes
         before = path.stat(follow_symlinks=False)
         reject_link(before)
         if not stat.S_ISDIR(before.st_mode) or not path.resolve(strict=True).is_relative_to(root):
             raise ValueError("Target/input directory escaped its tree")
+        directories += 1
         # Validate ancestors per directory, not twice per file. Every file's bytes are still freshly hashed.
         with os.scandir(path) as entries:
             for entry in entries:
@@ -120,7 +221,7 @@ def tree_hash(directory: Path) -> str:
                         opened = os.fstat(stream.fileno())
                         if state(opened) != state(info):
                             raise ValueError("Target/input file changed before hashing")
-                        files[str(child.relative_to(directory))] = hashlib.file_digest(stream, "sha256").hexdigest()
+                        file_hash = hashlib.file_digest(stream, "sha256").hexdigest()
                         finished = os.fstat(stream.fileno())
                         if state(finished) != state(opened) or finished.st_ctime_ns != opened.st_ctime_ns:
                             raise ValueError("Target/input file changed during hashing")
@@ -128,6 +229,8 @@ def tree_hash(directory: Path) -> str:
                     reject_link(after)
                     if state(after) != state(info) or after.st_ctime_ns != info.st_ctime_ns:
                         raise ValueError("Target/input file changed after hashing")
+                    files[str(child.relative_to(directory))] = file_hash
+                    hashed_bytes += info.st_size
                 else:
                     raise ValueError("Target/input tree contains a non-regular file")
         after = path.stat(follow_symlinks=False)
@@ -139,8 +242,17 @@ def tree_hash(directory: Path) -> str:
         ):
             raise ValueError("Target/input directory changed during hashing")
 
-    visit(directory)
-    return fingerprint(files)
+    try:
+        root = directory.resolve(strict=True)
+        visit(directory)
+        return fingerprint(files)
+    finally:
+        if measurements is not None:
+            measurements.update({
+                "files": len(files), "directories": directories, "bytes": hashed_bytes,
+                "wall_seconds": max(0, perf_counter() - started),
+                "thread_cpu_seconds": max(0, thread_time() - cpu_started),
+            })
 
 
 class RegistryRedirects(HTTPRedirectHandler):
@@ -803,10 +915,13 @@ class TargetStore:
         return stdout.strip()
 
     def verify(self, target: ReproductionTarget) -> None:
-        with phase_timing(self.directory / "timings.jsonl", "target.integrity", target=target.role):
-            self._verify(target)
+        measurements: dict[str, JsonValue] = {}
+        with phase_timing(
+            self.directory / "timings.jsonl", "target.integrity", target=target.role, measurements=measurements,
+        ):
+            self._verify(target, measurements=measurements)
 
-    def _verify(self, target: ReproductionTarget) -> None:
+    def _verify(self, target: ReproductionTarget, *, measurements: dict[str, JsonValue] | None = None) -> None:
         if (
             target.registry != self.registry or target.status != "ready"
             or not target.directory or not target.cli or not target.tree_hash
@@ -814,7 +929,7 @@ class TargetStore:
             or not Path(target.directory).resolve().is_relative_to(self.directory)
             or Path(target.cli).resolve() != (Path(target.directory) / "index.js").resolve()
             or not Path(target.cli).is_file()
-            or tree_hash(Path(target.directory)) != target.tree_hash
+            or tree_hash(Path(target.directory), measurements=measurements) != target.tree_hash
         ):
             raise ValueError("Pinned checker target is unavailable or its integrity changed")
 
@@ -844,7 +959,7 @@ class TargetStore:
             "registry": self.registry, "entrypoint": "index.js",
         }) / "target.json"
 
-    def preparation_evidence(self, target: ReproductionTarget) -> dict[str, JsonValue]:
+    def preparation_evidence(self, target: ReproductionTarget, *, compact: bool = False) -> dict[str, JsonValue]:
         base = self._metadata_path(target).parent
         if not base.resolve().is_relative_to(self.directory):
             raise ValueError("Target preparation evidence escaped the cache")
@@ -897,7 +1012,8 @@ class TargetStore:
             candidates.append({
                 "id": f"preparation-{target.role}", "kind": "target_preparation",
                 "target": target.model_dump(mode="json"), "source_path": str(path),
-                "source_sha256": hashlib.sha256(raw).hexdigest(), "preparation": preparation,
+                "source_sha256": hashlib.sha256(raw).hexdigest(),
+                "preparation": compact_preparation(preparation, target) if compact else preparation,
             })
         if len(candidates) != 1:
             raise ValueError("Target needs exactly one successful saved preparation receipt")
@@ -1015,7 +1131,13 @@ class TargetStore:
                     raise ValueError("Checker version differs from the integrity-verified package")
                 target.version = observed
                 target.directory, target.cli = str(runtime), str(cli)
-                target.tree_hash, target.status = await self.timed_io("target.initial_integrity", tree_hash, runtime), "ready"
+                measurements: dict[str, JsonValue] = {}
+                with phase_timing(
+                    self.directory / "timings.jsonl", "target.initial_integrity",
+                    target=target.role, measurements=measurements,
+                ):
+                    target.tree_hash = await run_target_io(tree_hash, runtime, measurements=measurements)
+                target.status = "ready"
                 metadata.write_text(target.model_dump_json(indent=2), encoding="utf-8")
                 prepared = True
             except (OSError, ValueError, TimeoutError, tarfile.TarError) as error:

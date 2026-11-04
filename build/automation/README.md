@@ -213,10 +213,17 @@ queries. Those additional requirements apply only when the matching pristine ori
 A broken query returning Unknown cannot erase observed reproduction, but Unknown/Any, lost output and incorrect
 types cannot satisfy the repaired-output requirement. Original and control receipts must match target/scenario
 identities; controls never replace original observations.
+New attempts reject repaired-output queries that syntactically repeat a material original operation. In the
+separate control tree, compute that operation once, bind its result at the original location, and reveal the bound
+value later. The pristine original stays unchanged; no extra errors are excused and no repaired type is weakened.
 
 New attempts freeze successful target acquisition/build receipts in `preparations.jsonl`, separate from checker
-receipts. The gate receives exact paged preparation records, source digests, package checksums, pinned-main checkout/
-install/build commands and runtime/content-hash bindings. Approval must cover their raw hashes as well as comparison
+receipts. Under the frozen schema-2 compact policy, only `npm pack` file-manifest arrays are projected out after
+validating the original command captures and package/target bindings. Complete package metadata, stdout length/digest
+and omitted-manifest counts/fingerprints remain in `stdout_projection`; other outputs and stderr are unchanged.
+The complete raw preparation stays on disk, bound by `source_sha256`. The gate must inspect the complete permitted
+compact view, not hundreds of inventory pages or shortened previews. It receives source digests, package checksums, pinned-main checkout/
+install/build commands and runtime/content-hash bindings. Approval must cover the exact delivered-record hashes as well as comparison
 receipts, and publication rechecks their unchanged source records. Missing/mismatched preparation evidence blocks
 the comparison rather than asking the gate to trust version/hash metadata alone. Legacy frozen attempts are not
 silently upgraded to this new policy; use fresh run state.
@@ -659,6 +666,11 @@ comparisons, checker-process waits, evidence validation and gating/revalidation.
 a parent can include cache-lock wait and child work. Phase success means the operation returned, not that a checker
 diagnostic or comparison passed. A start without an end identifies an unfinished phase. Timing logs are not comparison
 inputs or sealed evidence and do not weaken integrity verification.
+Integrity phase ends additionally record `measurements`: file/directory counts, freshly hashed byte counts,
+hash wall seconds and the hashing thread's CPU seconds. Failed hashes retain partial work counts and failed phase
+status. These numeric measurements contain no source contents and never enter the canonical digest. Thread CPU
+excludes other issue/worker threads; compare CPU versus wall alongside file/byte workload to investigate filesystem
+or scheduling delays. Neither a warm-cache microbenchmark nor a different-workload batch establishes a speedup.
 
 `--dry-run`/`--read-only` disables **all** comment drafting and GitHub mutations, including repository-label creation.
 Proposals preserve exact intended labels and completed-closure reasons plus release wording, target provenance,

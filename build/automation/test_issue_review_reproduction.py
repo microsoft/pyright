@@ -34,6 +34,7 @@ from issue_review_reproduction import (
     MICROSOFT_FEED, MICROSOFT_REGISTRY, NPM_REGISTRY, UPSTREAM, RegistryRedirects,
     ReleaseCatalog, TargetStore, classify, fingerprint, observe_claims, registry_base, release_wording, scenario_inputs,
     reproduction_defaults, select_targets, tree_hash, validate_exploratory_settings, validate_registry_url,
+    validate_resolution_controls,
 )
 from issue_review_safety import InjectionScreening, ScreeningBlocked
 from review_issues import (
@@ -103,6 +104,60 @@ def scenario_with_resolution_controls() -> ReproductionScenario:
         probe.claims[0].precision[0].model_copy(update={"line": 4, "message": 'Type of "result" is "int"'}),
     ]
     return probe
+
+
+def placeholder_scenario() -> ReproductionScenario:
+    operation = "functools.partial(bin, functools.Placeholder)(42)"
+    precision = [
+        {
+            "file": "sample.py", "line": line, "severity": "information",
+            "message": f'Type of "{expression}" is "str"', "rule": None, "present": True,
+        }
+        for line, expression in ((4, "bin(42)"), (5, "functools.partial(bin)(42)"))
+    ]
+    claims = []
+    for identifier, rule, message in (
+        ("placeholder-argument-type", "reportArgumentType",
+         'Argument of type "_PlaceholderType" cannot be assigned to parameter "number" of type "SupportsIndex" in function "bin"'),
+        ("placeholder-call-arity", "reportCallIssue", "Expected 0 positional arguments"),
+    ):
+        symptom = {
+            "file": "sample.py", "line": 2, "severity": "error", "message": message, "rule": rule, "present": True,
+        }
+        claims.append({
+            "id": identifier, "report_quote": "A small reproducer", "surface": "cli",
+            "broken": [symptom], "resolved": [{**symptom, "present": False}], "precision": precision,
+            "resolution_precision": [{
+                **precision[0], "line": 6, "message": 'Type of "result" is "str"',
+            }],
+        })
+    return ReproductionScenario.model_validate({
+        "summary": "Placeholder diagnostics with a once-computed result", "reported_version": None, "version_quote": None,
+        "files": {"sample.py": f"import functools\n{operation}\n"},
+        "control_files": {
+            "sample.py": f"import functools\nresult = {operation}\n\n"
+            "reveal_type(bin(42))\nreveal_type(functools.partial(bin)(42))\nreveal_type(result)\n",
+        },
+        "configuration": {"pythonVersion": "3.14", "typeCheckingMode": "standard"},
+        "claims": claims, "prerequisites": [], "limitations": ["Not a reporter editor environment"],
+    })
+
+
+def add_pack_capture(store, target, *, count=512) -> Path:
+    evidence = store.preparation_evidence(target)
+    source = Path(str(evidence["source_path"]))
+    raw = json.loads(source.read_text(encoding="utf-8"))
+    raw["commands"].insert(0, {
+        "command": f'"C:\\tools\\npm.cmd" --ignore-scripts pack pyright@{target.version} --json',
+        "cwd": target.directory, "exit_code": 0, "stderr": "retained npm warning",
+        "stdout": json.dumps([{
+            "name": "pyright", "version": target.version, "filename": f"pyright-{target.version}.tgz",
+            "integrity": target.artifact_sha512, "entryCount": count, "extra": {"retained": True},
+            "files": [{"path": f"dist/typeshed/stub-{index}.pyi", "size": index, "mode": 420} for index in range(count)],
+        }], indent=2),
+    })
+    source.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    return source
 
 
 def exploratory_scenario() -> ExploratoryReproductionScenario:
@@ -671,6 +726,35 @@ class TransportTests(unittest.TestCase):
 
 
 class OutcomeTests(unittest.TestCase):
+    def test_repaired_queries_reject_repeated_material_operations_but_allow_once_bound_results(self):
+        probe = placeholder_scenario()
+        original = probe.files.copy()
+        validate_resolution_controls(probe)
+        validate_reproduction_report(probe, "A small reproducer", single_evaluation_controls=True)
+        self.assertEqual(probe.files, original)
+        operation = "functools.partial(bin, functools.Placeholder)(42)"
+        for reveal in ("reveal_type", "typing.reveal_type", "show"):
+            repeated = probe.model_copy(deep=True)
+            repeated.control_files["sample.py"] = repeated.control_files["sample.py"].replace(
+                "reveal_type(result)", f"{reveal}({operation})",
+            )
+            for claim in repeated.claims:
+                claim.resolution_precision[0].message = f'Type of "{operation}" is "str"'
+            with self.subTest(reveal=reveal), self.assertRaisesRegex(ValueError, "repeats a material original operation"):
+                validate_resolution_controls(repeated)
+            validate_reproduction_report(repeated, "A small reproducer")
+
+    def test_repaired_queries_already_present_in_original_do_not_count_as_added_execution(self):
+        probe = placeholder_scenario()
+        probe.files = probe.control_files.copy()
+        validate_resolution_controls(probe)
+        probe.control_files = {}
+        validate_resolution_controls(probe)
+        with self.assertRaisesRegex(ValueError, "Cannot inspect"):
+            malformed = placeholder_scenario()
+            malformed.control_files["sample.py"] = malformed.control_files["sample.py"].replace("result =", "result = )")
+            validate_resolution_controls(malformed)
+
     def test_fixed_only_controls_preserve_reproduction_but_require_exact_repaired_output(self):
         probe = scenario_with_resolution_controls()
         scenario_inputs(probe)
@@ -1073,6 +1157,47 @@ class OutcomeTests(unittest.TestCase):
 
 
 class TreeHashTests(unittest.TestCase):
+    def test_numeric_work_measurements_preserve_digest_and_distinguish_wall_from_thread_cpu(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "nested").mkdir()
+            (root / "first.py").write_bytes(b"abc")
+            (root / "nested" / "second.pyi").write_bytes(b"defgh")
+            expected = tree_hash(root)
+            measurements: dict[str, JsonValue] = {}
+            with patch("issue_review_reproduction.perf_counter", side_effect=[10.0, 15.0]), patch(
+                "issue_review_reproduction.thread_time", side_effect=[2.0, 3.0],
+            ):
+                self.assertEqual(tree_hash(root, measurements=measurements), expected)
+            self.assertEqual(measurements, {
+                "files": 2, "directories": 2, "bytes": 8, "wall_seconds": 5.0, "thread_cpu_seconds": 1.0,
+            })
+            (root / "first.py").write_bytes(b"xyz")
+            self.assertNotEqual(tree_hash(root, measurements=measurements), expected)
+            self.assertEqual(measurements["bytes"], 8)
+            self.assertNotIn("abc", json.dumps(measurements))
+
+    def test_failed_hash_retains_partial_numeric_work_without_a_success_digest(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "sample.py"
+            source.write_bytes(b"old")
+            digest_file = hashlib.file_digest
+            def mutate(stream, algorithm):
+                result = digest_file(stream, algorithm)
+                source.write_bytes(b"changed")
+                return result
+            measurements: dict[str, JsonValue] = {}
+            with patch("issue_review_reproduction.hashlib.file_digest", side_effect=mutate):
+                with self.assertRaisesRegex(ValueError, "changed"):
+                    tree_hash(root, measurements=measurements)
+            self.assertEqual(measurements["files"], 0)
+            self.assertEqual(measurements["bytes"], 0)
+            self.assertEqual(measurements["directories"], 1)
+            elapsed = measurements["wall_seconds"]
+            assert isinstance(elapsed, (int, float))
+            self.assertGreaterEqual(elapsed, 0)
+
     def test_digest_is_compatible_and_every_pass_reads_changed_content_despite_preserved_timestamps(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -1453,6 +1578,46 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(stage.action())
         self.assertEqual(self.github.mutations, [])
 
+    async def test_repeated_faulting_control_is_rejected_before_target_execution(self):
+        self.planned_scenario = placeholder_scenario()
+        self.planned_scenario.control_files["sample.py"] = self.planned_scenario.control_files["sample.py"].replace(
+            "reveal_type(result)", "reveal_type(functools.partial(bin, functools.Placeholder)(42))",
+        )
+        with patch.object(self.targets, "prepare", wraps=self.targets.prepare) as prepare:
+            await self.console.reproduce(self.entry)
+            prepare.assert_not_awaited()
+        assert self.entry.reproduction_stage is not None
+        self.assertIn("repeats a material original operation", self.entry.reproduction_stage.error or "")
+        self.assertIsNone(self.entry.reproduction_stage.gate)
+        self.assertEqual(self.targets.executions, 0)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_compact_provenance_is_frozen_and_omitted_manifest_mutation_still_blocks_publication(self):
+        original_prepare = self.targets.prepare
+        async def prepare(target):
+            await original_prepare(target)
+            if target.role != "main":
+                add_pack_capture(self.targets, target)
+        with patch.object(self.targets, "prepare", side_effect=prepare):
+            stage = await self.ready()
+        self.assertTrue(stage.compact_preparations)
+        records = self.console.reproduction_preparations(stage)
+        self.console.require_reproduction_evidence(self.entry)
+        for record in records:
+            preparation = record["preparation"]
+            assert isinstance(preparation, dict)
+            self.assertEqual(preparation["schema_version"], 2)
+            self.assertLess(len(evidence_json(record)), 12000)
+        source = Path(str(records[0]["source_path"]))
+        raw = json.loads(source.read_text(encoding="utf-8"))
+        packed = json.loads(raw["commands"][0]["stdout"])
+        packed[0]["files"][0]["size"] += 1
+        raw["commands"][0]["stdout"] = json.dumps(packed)
+        source.write_text(json.dumps(raw), encoding="utf-8")
+        with self.assertRaisesRegex(AutomationError, "provenance changed"):
+            self.console.require_reproduction_evidence(self.entry)
+        self.assertEqual(self.github.mutations, [])
+
     async def test_gate_receives_frozen_preparation_receipts_and_revalidates_source_digests(self):
         stage = await self.ready()
         preparations = self.console.reproduction_preparations(stage)
@@ -1481,7 +1646,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(AutomationError, "preparation provenance"):
             self.console.validate_reproduction_gate(stage, stage.gate)
         path.write_bytes(saved)
-        for field in ("missing_diagnostic_policy", "provenance_required"):
+        for field in ("missing_diagnostic_policy", "provenance_required", "compact_preparations", "single_evaluation_controls"):
             stage = self.entry.reproduction_stage = stage.model_copy(update={field: False})
             with self.assertRaisesRegex(AutomationError, "policy is missing or changed"):
                 self.console.validate_reproduction_policy(self.entry)
@@ -2330,6 +2495,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         stage = await self.ready()
         stage = self.entry.reproduction_stage = stage.model_copy(update={
             "default_settings": None, "missing_diagnostic_policy": False, "provenance_required": False,
+            "compact_preparations": False, "single_evaluation_controls": False,
         })
         self.assertEqual(self.entry.input_hash, digest("context" + self.entry.issue.model_dump_json()))
         stage.policy_hash = None
@@ -2351,6 +2517,8 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         raw["reproduction_stage"].pop("default_settings")
         raw["reproduction_stage"].pop("missing_diagnostic_policy")
         raw["reproduction_stage"].pop("provenance_required")
+        raw["reproduction_stage"].pop("compact_preparations")
+        raw["reproduction_stage"].pop("single_evaluation_controls")
         restored = Entry.model_validate(raw)
         self.sdk.reset_mock()
         await self.console.reproduce(restored)
@@ -2895,6 +3063,96 @@ class ArtifactTests(unittest.IsolatedAsyncioTestCase):
         metadata.write_text(target.model_dump_json(), encoding="utf-8")
         return store, target
 
+    async def test_compact_preparation_retains_complete_proof_without_paging_package_inventory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = FakeTargets(Path(temporary), {})
+            target = select_targets(
+                catalog(), issue().model_copy(update={"created_at": "2025-02-15T00:00:00Z"}),
+                scenario(), "", "a" * 40,
+            )[0]
+            await store.prepare(target)
+            source = add_pack_capture(store, target, count=3000)
+            saved = source.read_bytes()
+            full = store.preparation_evidence(target)
+            with patch("issue_review_reproduction.tree_hash", side_effect=AssertionError("No extra integrity pass")):
+                compact = store.preparation_evidence(target, compact=True)
+            self.assertEqual(source.read_bytes(), saved)
+            self.assertEqual(full["source_sha256"], compact["source_sha256"])
+            self.assertEqual(compact["source_sha256"], hashlib.sha256(saved).hexdigest())
+            self.assertLess(len(evidence_json(compact)), 12000)
+            self.assertGreater(len(evidence_json(full)), 300000)
+            preparation, original = compact["preparation"], full["preparation"]
+            assert isinstance(preparation, dict) and isinstance(original, dict)
+            commands, original_commands = preparation["commands"], original["commands"]
+            assert isinstance(commands, list) and isinstance(original_commands, list)
+            capture, original_capture = commands[0], original_commands[0]
+            assert isinstance(capture, dict) and isinstance(original_capture, dict)
+            self.assertNotIn("stdout", capture)
+            self.assertEqual(capture["stderr"], "retained npm warning")
+            stdout = original_capture["stdout"]
+            assert isinstance(stdout, str)
+            packed = json.loads(stdout)[0]
+            projected = capture["stdout_projection"]
+            assert isinstance(projected, dict)
+            self.assertEqual(projected["raw_sha256"], hashlib.sha256(stdout.encode("utf-8")).hexdigest())
+            self.assertEqual(projected["metadata"], [{key: value for key, value in packed.items() if key != "files"}])
+            self.assertEqual(projected["omitted_fields"], [{
+                "pointer": "/0/files", "entries": 3000, "fingerprint": fingerprint(packed["files"]),
+            }])
+            self.assertEqual(commands[1], original_commands[1])
+            self.assertEqual(preparation["acquisitions"], original["acquisitions"])
+            tools = ReproductionEvidenceTools(FakeGitHub(), Path(temporary) / "reads", [compact])
+            tools.require_delivery()
+            tools = ReproductionEvidenceTools(FakeGitHub(), Path(temporary) / "raw-reads", [full])
+            with self.assertRaisesRegex(AutomationError, "not completely delivered"):
+                tools.require_delivery()
+
+    async def test_compact_preparation_rejects_invalid_pack_identity_manifest_or_archive_checksum(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = FakeTargets(Path(temporary), {})
+            target = select_targets(
+                catalog(), issue().model_copy(update={"created_at": "2025-02-15T00:00:00Z"}),
+                scenario(), "", "a" * 40,
+            )[0]
+            await store.prepare(target)
+            source = add_pack_capture(store, target)
+            raw = json.loads(source.read_text(encoding="utf-8"))
+            for field, invalid in (
+                ("name", "different"), ("version", "1.1.99"), ("filename", "other.tgz"),
+                ("files", None), ("entryCount", 0), ("integrity", "sha512-wrong"),
+            ):
+                modified = json.loads(json.dumps(raw))
+                packed = json.loads(modified["commands"][0]["stdout"])
+                packed[0][field] = invalid
+                modified["commands"][0]["stdout"] = json.dumps(packed)
+                source.write_text(json.dumps(modified), encoding="utf-8")
+                with self.subTest(field=field), self.assertRaisesRegex(ValueError, "npm pack preparation"):
+                    store.preparation_evidence(target, compact=True)
+            raw["commands"][0]["stdout"] = "{invalid"
+            source.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaises(json.JSONDecodeError):
+                store.preparation_evidence(target, compact=True)
+
+    async def test_integrity_phase_records_numeric_measurements_on_success_and_mismatch(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store, target = self.cached_target(Path(temporary) / "targets")
+            store.verify(target)
+            assert target.cli is not None
+            Path(target.cli).write_text("// changed fixture", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "integrity changed"):
+                store.verify(target)
+            records = [json.loads(line) for line in (store.directory / "timings.jsonl").read_text().splitlines()]
+            self.assertEqual([record["status"] for record in records if record["type"] == "phase.end"], [
+                "succeeded", "failed",
+            ])
+            for record in records:
+                if record["type"] == "phase.end":
+                    self.assertEqual(record["measurements"]["files"], 1)
+                    self.assertGreater(record["measurements"]["bytes"], 0)
+                    self.assertIn("thread_cpu_seconds", record["measurements"])
+                else:
+                    self.assertNotIn("measurements", record)
+
     async def test_slow_target_verification_does_not_starve_screening_timeout_and_retry(self):
         for operation in ("prepare", "run_static"):
             with self.subTest(operation=operation), tempfile.TemporaryDirectory() as temporary:
@@ -2903,12 +3161,12 @@ class ArtifactTests(unittest.IsolatedAsyncioTestCase):
                 entered, release = threading.Event(), threading.Event()
                 original_hash = tree_hash
 
-                def slow_hash(directory):
+                def slow_hash(directory, *, measurements=None):
                     if directory == Path(target.directory or ""):
                         entered.set()
                         if not release.wait(5):
                             raise ValueError("Target hashing blocked the event loop")
-                    return original_hash(directory)
+                    return original_hash(directory, measurements=measurements)
 
                 calls = 0
                 async def classify(*args, **kwargs):
@@ -2946,12 +3204,12 @@ class ArtifactTests(unittest.IsolatedAsyncioTestCase):
             entered, release, finished = threading.Event(), threading.Event(), threading.Event()
             original_hash = tree_hash
 
-            def slow_hash(directory):
+            def slow_hash(directory, *, measurements=None):
                 entered.set()
                 try:
                     if not release.wait(5):
                         raise ValueError("Integrity worker was not released")
-                    return original_hash(directory)
+                    return original_hash(directory, measurements=measurements)
                 finally:
                     finished.set()
 

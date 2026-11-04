@@ -687,6 +687,8 @@ class ReproductionStage(Record):
     default_settings: dict[str, str] | None = Field(default=None, frozen=True)
     missing_diagnostic_policy: bool = Field(default=False, frozen=True)
     provenance_required: bool = Field(default=False, frozen=True)
+    compact_preparations: bool = Field(default=False, frozen=True)
+    single_evaluation_controls: bool = Field(default=False, frozen=True)
     policy_hash: str | None = None
     targets: list[ReproductionTarget] = Field(default_factory=list)
     receipt_ids: list[str] = Field(default_factory=list)

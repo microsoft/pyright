@@ -77,6 +77,13 @@ repaired-output expectations in `resolution_precision`, not invariant `precision
 additional observations only when that claim's pristine original is resolved. Use separate controls for added
 queries; do not modify the original to observe its symptom. Unknown on a still-broken query does not erase
 reproduction, but Unknown/Any, missing output or a wrong type never satisfies a repaired-output expectation.
+Do not repeat a material faulty expression inside an added reveal_type query: that re-execution can introduce
+additional undeclared errors. In the separate control tree, bind the operation's result once at its original
+location and reveal the bound value later. Keep the pristine original untouched. For example, retain the original
+`partial(...)(42)` statement in `files`; in `control_files`, use `result = partial(...)(42)` once and
+`reveal_type(result)` later, with the exact desired repaired type in `resolution_precision`. Preserve scope,
+arguments, evaluation order and unaffected precision controls. The controller rejects syntactically repeated
+material operations in repaired-output queries; it does not rewrite your source or suppress their errors.
 Preserve valid/invalid neighboring behavior. Any/Unknown,
 lost imports, zero analyzed files, output wording differences and changed configuration are not fixes. If precise
 predicates or stable controls cannot be justified before execution, preserve the limitation rather than guessing

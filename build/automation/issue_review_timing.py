@@ -28,7 +28,9 @@ async def timed_phase(path: Path, phase: str, operation: Awaitable[T], *, target
 
 
 @contextmanager
-def phase_timing(path: Path, phase: str, *, target: str | None = None) -> Iterator[None]:
+def phase_timing(
+    path: Path, phase: str, *, target: str | None = None, measurements: dict[str, JsonValue] | None = None,
+) -> Iterator[None]:
     identifier, parent = uuid.uuid4().hex, _parent.get()
     started_at, started = datetime.now(timezone.utc).isoformat(), monotonic()
 
@@ -53,4 +55,5 @@ def phase_timing(path: Path, phase: str, *, target: str | None = None) -> Iterat
         raise
     finally:
         _parent.reset(token)
-        write("phase.end", elapsed_seconds=max(0, monotonic() - started), status=status, exception=exception)
+        measured: dict[str, JsonValue] = {} if measurements is None else {"measurements": dict(measurements)}
+        write("phase.end", elapsed_seconds=max(0, monotonic() - started), status=status, exception=exception, **measured)

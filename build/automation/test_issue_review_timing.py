@@ -52,3 +52,18 @@ class PhaseTimingTests(unittest.TestCase):
             self.assertEqual(end["status"], expected)
             self.assertEqual(end["exception"], type(error).__name__)
             self.assertNotIn("private", json.dumps(end))
+
+    def test_final_measurements_are_recorded_on_success_failure_and_cancellation_only_at_end(self):
+        for error in (None, ValueError("private source"), asyncio.CancelledError()):
+            measurements = {}
+            try:
+                with phase_timing(self.path, "target.integrity", target="main", measurements=measurements):
+                    measurements.update(files=2, bytes=5, wall_seconds=3.0, thread_cpu_seconds=0.5)
+                    if error is not None:
+                        raise error
+            except (ValueError, asyncio.CancelledError):
+                pass
+            start, end = self.records()[-2:]
+            self.assertNotIn("measurements", start)
+            self.assertEqual(end["measurements"], measurements)
+            self.assertEqual(end["status"], "succeeded" if error is None else "cancelled" if isinstance(error, asyncio.CancelledError) else "failed")

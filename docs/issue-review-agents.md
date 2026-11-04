@@ -144,6 +144,9 @@ Invariant `precision` must hold on broken and resolved targets. Desired repaired
 `resolution_precision` and are required only when that claim's pristine original is resolved. Additional queries
 use separate controls matched to the original target/scenario. A broken query's Unknown result does not erase
 reproduction; Unknown/Any, missing output and wrong types never satisfy a repaired-output requirement.
+New attempts reject added repaired-output queries that syntactically repeat a material original operation.
+The separate control may bind the operation's result once at its original location and reveal that bound value;
+the pristine original remains untouched. Extra diagnostics are not suppressed or treated as successful controls.
 
 Paired phase records in attempt/cache `timings.jsonl` files separate preparation/acquisition/build, copy/extraction,
 integrity checks, checker waits and controller validation/gating. UTC starts/ends, monotonic wall durations,
@@ -153,6 +156,10 @@ Action revalidation logs to the current issue directory, not an imported frozen 
 Integrity checks still freshly hash all file bytes and preserve the canonical digest. Directory-scoped containment
 validation eliminates repeated per-file ancestor resolution while rejecting links/reparse points, non-regular
 files and observed mutation. No timestamp-only hash cache or before/after-check exemption is introduced.
+Integrity phase ends carry numeric file/directory/byte counts plus hash wall time and hashing-thread CPU time,
+including partial measurements on failure. Measurements stay outside canonical digests and contain no source text.
+CPU-versus-wall interpretation must account for the same workload and cache state; prior warm-cache measurements
+alone cannot establish whole-run improvements.
 
 Main source builds use a uniquely owned system-temporary checkout, separate from the hashed runtime cache, to
 avoid Windows dependency-loader path limits. Work directories are removed on success or failure. Main runtimes
@@ -169,9 +176,13 @@ Explicit Microsoft-feed mode verifies its published checksum, preserving any leg
 acquired archive's locally recorded SHA-512. The latter is an execution/cache binding, not a claim that the feed
 published SHA-512. Metadata, acquisition commands and the selected registry remain part of the provenance.
 New attempts freeze successful preparation records in `preparations.jsonl` and deliver them to the gate with
-source digests and exact executed-target/runtime/content-hash bindings. Full paged preparation fields expose
-checksums and pinned checkout/install/build output, not merely version strings. Gate approval covers these raw
-records; publication revalidates their unchanged sources. A prepared-but-later-blocked target remains a blocked
+source digests and exact executed-target/runtime/content-hash bindings. The new frozen schema-2 policy validates
+original captures before omitting only `npm pack` file-manifest arrays. Compact `stdout_projection` retains complete
+package metadata, original stdout digest/length and omitted-manifest counts/fingerprints; other stdout and stderr
+remain complete. Raw sources stay unchanged on disk and publication regenerates the same source-bound projection.
+The gate inspects the complete permitted compact view, not omitted inventory or truncated previews. Preparation fields expose
+checksums and pinned checkout/install/build output, not merely version strings. Gate approval covers the exact
+delivered records and their bound raw-source digests; publication revalidates their unchanged sources. A prepared-but-later-blocked target remains a blocked
 observation. Legacy frozen attempts are not rewritten or promoted to the new evidence policy.
 
 Pristine report-faithful original source/configuration is frozen separately from any added type-query controls.

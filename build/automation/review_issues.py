@@ -118,6 +118,7 @@ from issue_review_reproduction import (
     select_targets,
     tree_hash,
     validate_exploratory_settings,
+    validate_resolution_controls,
 )
 from issue_review_safety import ENVIRONMENT as SCORER_ENVIRONMENT
 from issue_review_safety import SCREENING_SCOPE, InjectionScreening, ScreeningBlocked, child_environment
@@ -333,7 +334,10 @@ def validate_reproduction_report(
     scenario: ReproductionScenario, report: str, *, defaults: dict[str, str] | None = None,
     capture: SourceCapture | None = None,
     allow_missing_diagnostic_predicates: bool = False,
+    single_evaluation_controls: bool = False,
 ) -> None:
+    if single_evaluation_controls:
+        validate_resolution_controls(scenario)
     if isinstance(scenario, (ExploratoryReproductionScenario, DefaultReproductionScenario)):
         validate_exploratory_settings(scenario, report)
     if isinstance(scenario, DefaultReproductionScenario):
@@ -2117,6 +2121,10 @@ class Console:
             policy["missing_diagnostic_predicates"] = "Quoted rule/original location only; reproduction actions permanently ineligible"
         if stage.provenance_required:
             policy["preparation_evidence"] = "Required frozen acquisition/checksum or pinned-main build receipts"
+        if stage.compact_preparations:
+            policy["compact_preparations"] = "Schema 2: validated npm pack metadata; omitted file manifests remain raw-source-hash bound"
+        if stage.single_evaluation_controls:
+            policy["single_evaluation_controls"] = "Repaired-output queries cannot repeat a material original operation"
         return policy
 
     def validate_reproduction_policy(self, entry: Entry) -> None:
@@ -2140,6 +2148,7 @@ class Console:
             stage.policy_hash is None and not path.exists() and not stage.exploratory
             and not isinstance(stage.scenario, DefaultReproductionScenario)
             and not stage.missing_diagnostic_policy and not stage.provenance_required
+            and not stage.compact_preparations and not stage.single_evaluation_controls
         ):
             return
         expected = self.reproduction_policy(entry, stage)
@@ -2214,9 +2223,15 @@ class Console:
             evidence["missing_diagnostic_policy"] = True
         if stage.provenance_required:
             evidence["preparations"] = [record for record in self.reproduction_preparations(stage)]
+        if stage.compact_preparations:
+            evidence["compact_preparations"] = True
+        if stage.single_evaluation_controls:
+            evidence["single_evaluation_controls"] = True
         return reproduction_fingerprint(evidence)
 
     def reproduction_gate_records(self, stage: ReproductionStage) -> list[dict[str, JsonValue]]:
+        if stage.single_evaluation_controls and stage.scenario is not None:
+            validate_resolution_controls(stage.scenario)
         scenario: dict[str, JsonValue] = {
             "id": "reproduction-scenario", "kind": "reproduction_scenario",
             "input_hash": stage.input_hash, "discussion_hash": stage.discussion_hash,
@@ -2230,6 +2245,8 @@ class Console:
             scenario["default_settings"] = {**stage.default_settings}
         if stage.missing_diagnostic_policy:
             scenario["missing_diagnostic_observation_only"] = stage.uses_rule_location_predicates()
+        if stage.compact_preparations:
+            scenario["preparation_capture_policy"] = "Schema 2; inspect complete compact provenance, not omitted npm file manifests"
         preparations = self.reproduction_preparations(stage) if stage.provenance_required else []
         if stage.provenance_required:
             ready = {
@@ -2250,6 +2267,11 @@ class Console:
                     != selected[identifier] for identifier, target in captured.items()
                 )
                 or any(record.get("kind") != "target_preparation" for record in preparations)
+                or any(
+                    not isinstance(preparation := record.get("preparation"), dict)
+                    or (preparation.get("schema_version") == 2) != stage.compact_preparations
+                    for record in preparations
+                )
             ):
                 raise AutomationError("Every ready target needs matching frozen preparation provenance")
         return [scenario, *preparations, *self.reproduction_records(stage)]
@@ -2289,7 +2311,9 @@ class Console:
         scenario_inputs(stage.scenario)
         records = self.reproduction_records(stage)
         if stage.provenance_required and self.reproduction_preparations(stage) != [
-            self.reproduction_store.preparation_evidence(ReproductionTarget.model_validate(record["target"]))
+            self.reproduction_store.preparation_evidence(
+                ReproductionTarget.model_validate(record["target"]), compact=stage.compact_preparations,
+            )
             for record in self.reproduction_preparations(stage)
         ]:
             raise AutomationError("Saved acquisition/build provenance changed")
@@ -2393,6 +2417,7 @@ class Console:
                 exploratory=self.exploratory_reproduction,
                 default_settings=None if self.exploratory_reproduction else reproduction_defaults(),
                 missing_diagnostic_policy=True, provenance_required=True,
+                compact_preparations=True, single_evaluation_controls=True,
             )
             policy = self.reproduction_policy(entry, stage)
             stage.policy_hash = reproduction_fingerprint(policy)
@@ -2438,6 +2463,7 @@ class Console:
                         validate_reproduction_report(
                             response.scenario, report_text, defaults=stage.default_settings, capture=capture,
                             allow_missing_diagnostic_predicates=stage.missing_diagnostic_policy,
+                            single_evaluation_controls=stage.single_evaluation_controls,
                         )
                 settings_guidance = (
                     "This controller explicitly enabled EXPLORATORY, OBSERVATION-ONLY reproduction. When Python "
@@ -2533,6 +2559,7 @@ class Console:
                     scenario, report_text, defaults=stage.default_settings,
                     capture=capture,
                     allow_missing_diagnostic_predicates=stage.missing_diagnostic_policy,
+                    single_evaluation_controls=stage.single_evaluation_controls,
                 )
             if not stage.targets:
                 with phase_timing(attempt / "timings.jsonl", "target.selection"):
@@ -2595,7 +2622,9 @@ class Console:
                             if stage.provenance_required:
                                 preparation = await timed_phase(
                                     attempt / "timings.jsonl", "evidence.provenance",
-                                    run_target_io(self.reproduction_store.preparation_evidence, target), target=target.role,
+                                    run_target_io(
+                                        self.reproduction_store.preparation_evidence, target, compact=stage.compact_preparations,
+                                    ), target=target.role,
                                 )
                                 preparations = self.reproduction_preparations(stage)
                                 prior_preparation = next(
