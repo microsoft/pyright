@@ -84,7 +84,9 @@ jobs:
       - uses: ./.github/actions/choose-npm-install
 
       - name: pnpm test (pyright-internal)
-        # Parallel workers cause swapping on the 7 GiB hosted macOS runners.
+        # Avoid swapping on the 7 GiB hosted macOS runners.
+        env:
+          NODE_OPTIONS: ${{ matrix.os == 'macos-latest' && '--max-old-space-size-percentage=50' || env.NODE_OPTIONS }}
         run: pnpm test ${{ matrix.os == 'macos-latest' && '--maxWorkers=1' || '' }}
         working-directory: packages/pyright-internal
 
