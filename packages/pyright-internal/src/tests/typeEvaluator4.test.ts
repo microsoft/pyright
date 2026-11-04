@@ -125,6 +125,11 @@ test('CallSite11', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('CallSite12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite12.py']);
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('FString1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

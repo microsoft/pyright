@@ -27119,7 +27119,8 @@ export function createTypeEvaluator(
 
             if (isUnion(srcType)) {
                 const srcWithoutAny = removeFromUnion(srcType, (type) => isAnyOrUnknown(type));
-                if (isTypeSame(destType, srcWithoutAny)) {
+                // TypeForm metadata can keep equivalent TypeVars as separate union arms.
+                if (!someSubtypes(srcWithoutAny, (subtype) => !isTypeSame(destTypeVar, subtype))) {
                     return true;
                 }
             }
