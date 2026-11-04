@@ -69,6 +69,8 @@ jobs:
     name: Test ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: typecheck
+    env:
+      JEST_WORKER_ARGS: ${{ matrix.os == 'macos-latest' && '--maxWorkers=1' || '' }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -91,7 +93,8 @@ jobs:
           const os = require('os');
           const { execFileSync } = require('child_process');
           const notice = (title, text) => console.log(`::notice title=${title}::${text.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')}`);
-          const config = JSON.parse(execFileSync(process.execPath, ['./node_modules/jest/bin/jest', '--showConfig'], { encoding: 'utf8' }));
+          const workerArgs = process.env.JEST_WORKER_ARGS ? [process.env.JEST_WORKER_ARGS] : [];
+          const config = JSON.parse(execFileSync(process.execPath, ['./node_modules/jest/bin/jest', '--showConfig', ...workerArgs], { encoding: 'utf8' }));
           notice('Test runner resources', JSON.stringify({
               node: process.version,
               platform: process.platform,
@@ -111,7 +114,7 @@ jobs:
 
       - name: pnpm test (pyright-internal)
         id: pyright_tests
-        run: pnpm test --json --outputFile=test-results.json
+        run: pnpm test --json --outputFile=test-results.json ${{ env.JEST_WORKER_ARGS }}
         working-directory: packages/pyright-internal
 
       - name: Report test diagnostics
