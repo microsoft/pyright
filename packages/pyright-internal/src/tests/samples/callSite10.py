@@ -3,7 +3,7 @@
 from collections import deque
 from collections.abc import Iterator
 from typing import Generic, Self, TypeVar
-from typing_extensions import TypeVar as TypeVarWithDefault
+from typing_extensions import TypeVar as TypeVarWithDefault  # pyright: ignore[reportMissingModuleSource]
 
 T = TypeVar("T")
 DefaultT = TypeVarWithDefault("DefaultT", default=int)
