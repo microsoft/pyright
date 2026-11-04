@@ -16,6 +16,16 @@ Try Pyright in your browser using the [Pyright Playground](https://pyright-play.
 
 Refer to [the documentation](https://microsoft.github.io/pyright) for installation, configuration, and usage details.
 
+For local development, install Node.js 24 and run these commands from the repository root:
+
+```bash
+npm run installPinnedPackageManager
+pnpm run install:all
+```
+
+See the [contributor setup guide](CONTRIBUTING.md#development-setup) for prerequisites and troubleshooting,
+and [building and debugging](docs/build-debug.md) for CLI and VS Code extension workflows.
+
 
 ## Performance
 

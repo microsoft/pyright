@@ -70,6 +70,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: typecheck
     env:
+      # Parallel workers cause swapping on the 7 GiB hosted macOS runners.
       JEST_WORKER_ARGS: ${{ matrix.os == 'macos-latest' && '--maxWorkers=1' || '' }}
 
     steps:
