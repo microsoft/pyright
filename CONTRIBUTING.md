@@ -55,8 +55,7 @@ pnpm run check
 Rebuild the test server with `pnpm --dir packages/pyright-internal run webpack:testserver` after changing
 its sources, or use `pnpm test` to rebuild it automatically.
 CI limits macOS tests to one Jest worker to avoid swapping on the 7 GiB hosted runners; local runs and
-other CI platforms retain Jest's default worker count. Runner resources and test diagnostics are
-available in the [validation workflow](.github/workflows/validation.yml) annotations.
+other CI platforms retain Jest's default worker count.
 See [building and debugging](docs/build-debug.md) for CLI builds, extension packaging, and VS Code debugging.
 
 ## Measuring performance changes
