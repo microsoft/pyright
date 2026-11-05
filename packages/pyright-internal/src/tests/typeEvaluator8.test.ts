@@ -490,6 +490,13 @@ test('Operator12', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Operator13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator13.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportOperatorIssue);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

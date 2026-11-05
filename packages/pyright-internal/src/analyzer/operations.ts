@@ -29,7 +29,9 @@ import { getTupleComparisonResult, isTupleOrdering } from './tupleComparison';
 import { EvalFlags, MagicMethodDeprecationInfo, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     InferenceContext,
+    MemberAccessFlags,
     convertToInstantiable,
+    getClassMemberIterator,
     getLiteralTypeClassName,
     getTypeCondition,
     getUnionSubtypeCount,
@@ -51,6 +53,7 @@ import {
 import {
     ClassType,
     NeverType,
+    OverloadedType,
     Type,
     TypeBase,
     UnknownType,
@@ -60,9 +63,11 @@ import {
     isAnyOrUnknown,
     isClass,
     isClassInstance,
+    isFunction,
     isFunctionOrOverloaded,
     isInstantiableClass,
     isNever,
+    isOverloaded,
     isUnion,
 } from './types';
 
@@ -107,6 +112,56 @@ interface BinaryOperationOptions {
 // If the number of subtypes starts to explode when applying "literal math",
 // cut off the literal union and fall back to the non-literal supertype.
 const maxLiteralMathSubtypeCount = 64;
+
+function shouldPrioritizeReflectedMethod(
+    evaluator: TypeEvaluator,
+    leftType: Type,
+    rightType: Type,
+    methodName: string
+): boolean {
+    if (
+        !isClassInstance(leftType) ||
+        !isClassInstance(rightType) ||
+        // A synthesized narrowing intersection is not evidence of a runtime subclass.
+        !rightType.shared.declaration ||
+        ClassType.isSameGenericClass(leftType, rightType) ||
+        !rightType.shared.mro.some(
+            (base) =>
+                isInstantiableClass(base) && ClassType.isSameGenericClass(base, ClassType.cloneAsInstantiable(leftType))
+        )
+    ) {
+        return false;
+    }
+
+    const rightMember = getClassMemberIterator(rightType, methodName, MemberAccessFlags.SkipInstanceMembers).next()
+        .value;
+    const leftMember = getClassMemberIterator(leftType, methodName, MemberAccessFlags.SkipInstanceMembers).next().value;
+    if (!rightMember || rightMember.symbol === leftMember?.symbol) {
+        return false;
+    }
+
+    const rightMethod = evaluator.getTypeOfMember(rightMember);
+    const leftMethod = leftMember ? evaluator.getTypeOfMember(leftMember) : undefined;
+    const rightFunction = isOverloaded(rightMethod) ? OverloadedType.getOverloads(rightMethod)[0] : rightMethod;
+    const leftFunction =
+        leftMethod && isOverloaded(leftMethod) ? OverloadedType.getOverloads(leftMethod)[0] : leftMethod;
+
+    // Compare unbound declarations, not specialized signatures: aliases and
+    // inherited generic methods can have different signatures but the same implementation.
+    return (
+        !!rightFunction &&
+        isFunction(rightFunction) &&
+        !!rightFunction.shared.declaration &&
+        (!leftFunction ||
+            (isFunction(leftFunction) && rightFunction.shared.declaration !== leftFunction.shared.declaration))
+    );
+}
+
+function removeNotImplemented(type: Type): Type {
+    return mapSubtypes(type, (subtype) =>
+        isClassInstance(subtype) && subtype.shared.fullName === 'types.NotImplementedType' ? undefined : subtype
+    );
+}
 
 export function validateBinaryOperation(
     evaluator: TypeEvaluator,
@@ -1371,8 +1426,48 @@ function validateArithmeticOperation(
                         }
                     }
 
-                    const magicMethodName = binaryOperatorMap[operator][0];
-                    let resultTypeResult = evaluator.getTypeOfMagicMethodCall(
+                    const [magicMethodName, altMagicMethodName] = binaryOperatorMap[operator];
+                    let resultTypeResult: TypeResult | undefined;
+                    let decliningReflectedResult: TypeResult | undefined;
+                    let skipReflectedFallback = false;
+
+                    // Rich comparisons have different precedence rules. Leave their
+                    // dispatch, and all ordinary forward-first arithmetic, unchanged.
+                    if (
+                        altMagicMethodName.startsWith('__r') &&
+                        shouldPrioritizeReflectedMethod(
+                            evaluator,
+                            leftSubtypeExpanded,
+                            rightSubtypeExpanded,
+                            altMagicMethodName
+                        )
+                    ) {
+                        const reflectedResult = evaluator.getTypeOfMagicMethodCall(
+                            rightSubtypeUnexpanded,
+                            altMagicMethodName,
+                            [{ type: leftSubtypeUnexpanded, isIncomplete: leftTypeResult.isIncomplete }],
+                            errorNode,
+                            inferenceContext
+                        );
+                        if (reflectedResult) {
+                            const acceptedType = removeNotImplemented(reflectedResult.type);
+                            if (acceptedType === reflectedResult.type) {
+                                resultTypeResult = reflectedResult;
+                            } else if (
+                                reflectedResult.overloadsUsedForCall?.length &&
+                                reflectedResult.overloadsUsedForCall.every(
+                                    (overload) => overload.shared.declaredReturnType !== undefined
+                                )
+                            ) {
+                                // Only an explicit return contract establishes a decline;
+                                // an inherited method's inferred sentinel may be contextual.
+                                decliningReflectedResult = { ...reflectedResult, type: acceptedType };
+                                skipReflectedFallback = true;
+                            }
+                        }
+                    }
+
+                    resultTypeResult ??= evaluator.getTypeOfMagicMethodCall(
                         convertFunctionToObject(evaluator, leftSubtypeUnexpanded),
                         magicMethodName,
                         [{ type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete }],
@@ -1402,9 +1497,27 @@ function validateArithmeticOperation(
                         );
                     }
 
-                    if (!resultTypeResult) {
+                    if (skipReflectedFallback && resultTypeResult) {
+                        const acceptedType = removeNotImplemented(resultTypeResult.type);
+                        if (
+                            acceptedType !== resultTypeResult.type &&
+                            !(
+                                resultTypeResult.overloadsUsedForCall?.length &&
+                                resultTypeResult.overloadsUsedForCall.every(
+                                    (overload) => overload.shared.declaredReturnType !== undefined
+                                )
+                            )
+                        ) {
+                            decliningReflectedResult = undefined;
+                        } else {
+                            resultTypeResult = isNever(acceptedType)
+                                ? undefined
+                                : { ...resultTypeResult, type: acceptedType };
+                        }
+                    }
+
+                    if (!resultTypeResult && !skipReflectedFallback) {
                         // Try the alternate form (swapping right and left).
-                        const altMagicMethodName = binaryOperatorMap[operator][1];
                         resultTypeResult = evaluator.getTypeOfMagicMethodCall(
                             convertFunctionToObject(evaluator, rightSubtypeUnexpanded),
                             altMagicMethodName,
@@ -1439,6 +1552,20 @@ function validateArithmeticOperation(
                                 inferenceContext
                             );
                         }
+                    }
+
+                    if (decliningReflectedResult && (resultTypeResult || !isNever(decliningReflectedResult.type))) {
+                        resultTypeResult = {
+                            ...decliningReflectedResult,
+                            type: combineTypes([
+                                decliningReflectedResult.type,
+                                resultTypeResult?.type ?? NeverType.createNever(),
+                            ]),
+                            isIncomplete: decliningReflectedResult.isIncomplete || resultTypeResult?.isIncomplete,
+                            magicMethodDeprecationInfo:
+                                decliningReflectedResult.magicMethodDeprecationInfo ??
+                                resultTypeResult?.magicMethodDeprecationInfo,
+                        };
                     }
 
                     if (!resultTypeResult) {
