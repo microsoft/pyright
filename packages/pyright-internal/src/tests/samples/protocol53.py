@@ -78,8 +78,7 @@ class Impl_CoGenericExplicit3(Proto_CoGeneric):
 
 
 class Impl_CoOtherExplicit3(Proto_CoGeneric):
-    # This should generate a reportIncompatibleMethodOverride error
-    # but does not currently.
+    # This should generate a reportIncompatibleMethodOverride error.
     def m(self) -> Impl_CoSelf: ...
 
 
@@ -167,26 +166,19 @@ class Impl_ContraOtherExplicit2(Proto_ContraSelf):
 
 
 class Impl_ContraRecursExplicit3(Proto_ContraGeneric):
-    # This should not generate a reportIncompatibleMethodOverride error
-    # but does currently.
     def m(self, x: "Impl_ContraRecursExplicit3") -> None: ...
 
 
 class Impl_ContraSelfExplicit3(Proto_ContraGeneric):
-    # This should not generate a reportIncompatibleMethodOverride error
-    # but does currently.
     def m(self, x: Self) -> None: ...
 
 
 class Impl_ContraGenericExplicit3(Proto_ContraGeneric):
-    # This should not generate a reportIncompatibleMethodOverride error
-    # but does currently.
     def m[T: Impl_ContraGenericExplicit3](self: T, x: T) -> None: ...
 
 
 class Impl_ContraOtherExplicit3(Proto_ContraGeneric):
-    # This should not generate a reportIncompatibleMethodOverride error
-    # but does currently.
+    # This should generate a reportIncompatibleMethodOverride error.
     def m(self, x: Impl_ContraSelf) -> None: ...
 
 
