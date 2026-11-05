@@ -256,12 +256,19 @@ function validateNewAndInitMethods(
     const overloadsUsedForCall: FunctionType[] = [];
     let newMethodReturnType: Type | undefined;
 
-    // Validate __new__ if it is present and is not the default object.__new__.
-    // The default implementation accepts arbitrary arguments and always returns
+    // Validate __new__ unless it is a synthesized placeholder for object.__new__.
+    // This placeholder accepts arbitrary arguments and always returns
     // an instance of the constructed class, so validating its arguments only
     // causes them to be evaluated speculatively before __init__ evaluates them
     // again.
-    if (newMethodTypeResult && !isDefaultNewMethod(newMethodTypeResult.type)) {
+    if (
+        newMethodTypeResult &&
+        !(
+            isFunction(newMethodTypeResult.type) &&
+            FunctionType.isSynthesizedMethod(newMethodTypeResult.type) &&
+            isDefaultNewMethod(newMethodTypeResult.type)
+        )
+    ) {
         // Use speculative mode for arg expressions because we don't know whether
         // we'll need to re-evaluate these expressions later for __init__.
         const newCallResult = validateNewMethod(

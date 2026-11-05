@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass
 from typing import Self
+from warnings import deprecated
 
 
 class Chain: ...
@@ -44,3 +45,37 @@ class ExplicitNew:
 
 
 ExplicitNew('value')  # E
+
+
+class VariadicNew:
+    def __new__(cls, *args: int, **kwargs: str) -> Self:
+        for value in args:
+            value.bit_length()
+        return super().__new__(cls)
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        pass
+
+
+VariadicNew(1, key="value")
+VariadicNew("bad")  # E
+VariadicNew(key=1)  # E
+
+
+class InheritedVariadicNew(VariadicNew):
+    pass
+
+
+InheritedVariadicNew("bad")  # E
+
+
+class DeprecatedNew:
+    @deprecated("Use replacement instead", category=None)
+    def __new__(cls, *args: object, **kwargs: object) -> Self:
+        return super().__new__(cls)
+
+    def __init__(self) -> None:
+        pass
+
+
+DeprecatedNew()  # E

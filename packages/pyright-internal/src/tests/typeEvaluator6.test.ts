@@ -1032,9 +1032,12 @@ test('Constructor1', () => {
 });
 
 test('ConstructorPerformance1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorPerformance1.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.diagnosticRuleSet.reportDeprecated = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorPerformance1.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('Constructor2', () => {
