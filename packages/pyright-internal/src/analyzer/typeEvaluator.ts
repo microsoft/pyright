@@ -516,7 +516,7 @@ import { createExpressionEvaluation } from './typeEvaluator/expressionEvaluation
 import { createFlowAnalysis } from './typeEvaluator/flowAnalysis';
 import { createMemberResolution } from './typeEvaluator/memberResolution';
 import { createOverrideValidation } from './typeEvaluator/overrideValidation';
-import { createPureHelpers } from './typeEvaluator/pureHelpers';
+import { applyUnpackToTupleLike } from './typeEvaluator/pureHelpers';
 import { createSpecialFormCreation } from './typeEvaluator/specialFormCreation';
 import { createTypeVarHandling } from './typeEvaluator/typeVarHandling';
 export function createTypeEvaluator(
@@ -6334,10 +6334,6 @@ export function createTypeEvaluator(
         });
 
         return typeArgs;
-    }
-
-    function applyUnpackToTupleLike(type: Type): Type | undefined {
-        return pureHelpers.applyUnpackToTupleLike(type);
     }
 
     function getTypeArg(node: ExpressionNode, flags: EvalFlags, supportsDictExpression: boolean): TypeResultWithNode {
@@ -19435,8 +19431,6 @@ export function createTypeEvaluator(
         maxCodeComplexity,
         nodeInfo,
     });
-
-    const pureHelpers = createPureHelpers({});
 
     const evaluatorNarrowing = createEvaluatorNarrowing({
         assignType,
