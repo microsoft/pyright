@@ -52,7 +52,6 @@ import {
     DictionaryNode,
     ErrorExpressionCategory,
     ExceptNode,
-    ExecutionScopeNode,
     ExpressionNode,
     FormatStringNode,
     ForNode,
@@ -81,7 +80,6 @@ import {
     TypeAnnotationNode,
     TypeParameterListNode,
     TypeParameterNode,
-    TypeParameterScopeNode,
     TypeParamKind,
     UnpackNode,
     WithItemNode,
@@ -92,15 +90,13 @@ import { ParseOptions, Parser, ParseTextMode } from '../parser/parser';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, isAnnotationEvaluationPostponed } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { CodeFlowAnalyzer, FlowNodeTypeOptions, FlowNodeTypeResult, getCodeFlowEngine } from './codeFlowEngine';
+import { FlowNodeTypeOptions, FlowNodeTypeResult, getCodeFlowEngine } from './codeFlowEngine';
 import {
     CodeFlowReferenceExpressionNode,
-    createKeyForReference,
     FlowFlags,
     FlowNode,
     FlowWildcardImport,
     isCodeFlowSupportedForReference,
-    wildcardImportReferenceKey,
 } from './codeFlowTypes';
 import { ConstraintSolution } from './constraintSolution';
 import {
@@ -182,7 +178,6 @@ import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbo
 import { assignTupleTypeArgs, expandTuple, getSlicedTupleType, getTypeOfTuple, makeTupleObject } from './tuples';
 import {
     addContextualTypeCacheEntry,
-    ContextualTypeCacheEntry,
     contextualTypeCacheEntryMatches,
     findContextualTypeCacheEntry,
     SpeculativeModeOptions,
@@ -241,7 +236,6 @@ import {
 } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
 import * as TypePrinter from './typePrinter';
-import { TypeWalker } from './typeWalker';
 import {
     AnyType,
     ClassType,
@@ -284,10 +278,8 @@ import {
     NeverType,
     OverloadedType,
     ParamSpecType,
-    preserveInferredTupleLiterals,
     removeFromUnion,
     removeUnbound,
-    SentinelLiteral,
     TupleTypeArg,
     Type,
     TypeAliasInfo,
@@ -396,6 +388,7 @@ import {
     UniqueSignatureTracker,
     validateTypeVarDefault,
 } from './typeUtils';
+import { TypeWalker } from './typeWalker';
 
 import {
     AutomaticOverloadSelection,
@@ -407,90 +400,6 @@ import {
     OverloadCoverage,
     OverloadSelectionBudget,
 } from './overloadResultSelector';
-
-interface GetTypeArgsOptions {
-    isAnnotatedClass?: boolean;
-    hasCustomClassGetItem?: boolean;
-    isFinalAnnotation?: boolean;
-    isClassVarAnnotation?: boolean;
-    supportsTypedDictTypeArg?: boolean;
-}
-
-interface MatchArgsToParamsResult {
-    overload: FunctionType;
-    overloadIndex: number;
-
-    argumentErrors: boolean;
-    isTypeIncomplete: boolean;
-    argParams: ValidateArgTypeParams[];
-    activeParam?: FunctionParam | undefined;
-    paramSpecTarget?: ParamSpecType | undefined;
-    paramSpecArgList?: Arg[] | undefined;
-
-    // Was there an unpacked argument of unknown length?
-    unpackedArgOfUnknownLength?: boolean;
-
-    // Did that unpacked argument map to a variadic parameter?
-    unpackedArgMapsToVariadic?: boolean;
-
-    // A score that indicates how well the overload matches with
-    // supplied arguments. Used to pick the "best" for purposes
-    // of error reporting when no matches are found. The higher
-    // the score, the worse the match.
-    argumentMatchScore: number;
-}
-
-export interface MemberAccessTypeResult {
-    type: Type;
-    isDescriptorApplied?: boolean;
-    isAsymmetricAccessor?: boolean;
-    memberAccessDeprecationInfo?: MemberAccessDeprecationInfo;
-    typeErrors?: boolean;
-}
-
-interface ScopedTypeVarResult {
-    type: TypeVarType;
-    scopeNode: TypeParameterScopeNode | AssignmentNode | undefined;
-    foundInterveningClass: boolean;
-}
-
-interface AliasMapEntry {
-    alias: string;
-    module: 'builtins' | 'collections' | 'internals';
-    implicitBaseClass?: string;
-    isSpecialForm?: boolean;
-    isIllegalInIsinstance?: boolean;
-    typeParamVariance?: Variance;
-}
-
-interface AssignClassToSelfInfo {
-    class: ClassType;
-    assumedVariance: Variance;
-}
-
-interface MatchedOverloadInfo {
-    overload: FunctionType;
-    matchResults: MatchArgsToParamsResult;
-    constraints: ConstraintTracker;
-    argResults: ArgResult[];
-    returnType: Type;
-}
-
-interface ValidateArgTypeOptions {
-    skipUnknownArgCheck?: boolean;
-    isArgFirstPass?: boolean;
-    conditionFilter?: TypeCondition[];
-    skipReportError?: boolean;
-}
-
-interface EffectiveReturnTypeOptions {
-    callSiteInfo?: CallSiteEvaluationInfo;
-}
-
-interface SignatureTrackerStackEntry {
-    tracker: UniqueSignatureTracker;
-    rootNode: ParseNode;
-}
 
 // This table contains the names of several built-in types that
 // are not subscriptable at runtime on older versions of Python.
@@ -522,30 +431,6 @@ const typePromotions: Map<string, string[]> = new Map([
     ['builtins.complex', ['builtins.float', 'builtins.int']],
     ['builtins.bytes', ['builtins.bytearray', 'builtins.memoryview']],
 ]);
-
-interface SymbolResolutionStackEntry {
-    // The symbol ID and declaration being resolved.
-    symbolId: number;
-    declaration: Declaration;
-
-    // Initially true, it's set to false if a recursion
-    // is detected.
-    isResultValid: boolean;
-
-    // Some limited forms of recursion are allowed. In these
-    // cases, a partially-constructed type can be registered.
-    partialType?: Type | undefined;
-}
-
-interface ReturnTypeInferenceContext {
-    functionNode: FunctionNode;
-    codeFlowAnalyzer: CodeFlowAnalyzer;
-}
-
-interface ParamSpecArgResult {
-    argumentErrors: boolean;
-    constraintTrackers: (ConstraintTracker | undefined)[];
-}
 
 // How many levels deep should we attempt to infer return
 // types based on call-site argument types? The deeper we go,
@@ -626,70 +511,42 @@ const verifyTypeCacheEvaluatorFlags = false;
 // This debugging option prints each expression and its evaluated type.
 const printExpressionTypes = false;
 
-export interface EvaluatorOptions {
-    printTypeFlags: TypePrinter.PrintTypeFlags;
-    logCalls: boolean;
-    minimumLoggingThreshold: number;
-    evaluateUnknownImportsAsAny: boolean;
-    verifyTypeCacheEvaluatorFlags: boolean;
-    nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader;
-    maxCodeComplexity: number;
-    experimentalOverloadResult?: import('./overloadResultController').ExperimentalOverloadResultController;
-    // Artifact-only root-operation experiment. No normal evaluator installs this hook.
-    testOnlyMemberAccess?: {
-        nodes: ReadonlySet<MemberAccessNode>;
-        install: (getMember: (node: MemberAccessNode, baseTypeResult: TypeResult) => TypeResult) => void;
-    };
-    // Test-only injection uses the same production cache-ownership contract.
-    testOnlyExpression?: EvaluationOperationController & {
-        query?: (node: ExpressionNode) => TypeResult | undefined;
-    };
-}
-
 // Describes a "deferred class completion" that is run when a class type is
 // fully created and the "PartiallyEvaluated" flag has just been cleared.
 // This allows us to properly compute information like the MRO which
 // depends on a full understanding of base classes.
-interface DeferredClassCompletion {
-    dependsUpon: ClassType;
-    classesToComplete: ClassNode[];
-}
 
-interface TypeCacheEntry {
-    typeResult: TypeResult;
-    incompleteGenCount: number;
-    flags: EvalFlags | undefined;
-}
+import {
+    AliasMapEntry,
+    AssignClassToSelfInfo,
+    CodeFlowAnalyzerCacheEntry,
+    ContextualLambdaTypeCache,
+    DeferredClassCompletion,
+    EffectiveReturnTypeOptions,
+    EvaluatorOptions,
+    ExpectedTypeCacheEntry,
+    FunctionRecursionInfo,
+    GetTypeArgsOptions,
+    LogWrapper,
+    MatchArgsToParamsResult,
+    MatchedOverloadInfo,
+    MemberAccessTypeResult,
+    ParamSpecArgResult,
+    ReturnTypeInferenceContext,
+    ScopedTypeVarResult,
+    SignatureTrackerStackEntry,
+    SuppressedNodeStackEntry,
+    SymbolResolutionStackEntry,
+    TypeCacheEntry,
+    TypeFormTypeCacheEntry,
+    ValidateArgTypeOptions,
+} from './typeEvaluator/internals';
+export { EvaluatorOptions, MemberAccessTypeResult } from './typeEvaluator/internals';
 
-interface ContextualLambdaTypeCache {
-    lambdaNodes: LambdaNode[];
-    entries: Map<ParseNode, Map<number, TypeCacheEntry>>;
-    branchIndex: number;
-}
-
-interface TypeFormTypeCacheEntry extends TypeCacheEntry, ContextualTypeCacheEntry {}
-
-interface CodeFlowAnalyzerCacheEntry {
-    typeAtStart: TypeResult | undefined;
-    codeFlowAnalyzer: CodeFlowAnalyzer;
-}
-
-interface FunctionRecursionInfo {
-    callerNode: ExpressionNode | undefined;
-}
-
-type LogWrapper = <T extends (...args: any[]) => any>(func: T) => (...args: Parameters<T>) => ReturnType<T>;
-
-interface SuppressedNodeStackEntry {
-    node: ParseNode;
-    suppressedDiags: string[] | undefined;
-}
-
-interface ExpectedTypeCacheEntry {
-    type: Type;
-    candidates: Type[];
-}
-
+import { createDiagnostics } from './typeEvaluator/diagnostics';
+import { createEvaluatorNarrowing } from './typeEvaluator/evaluatorNarrowing';
+import { createFlowAnalysis } from './typeEvaluator/flowAnalysis';
+import { createPureHelpers } from './typeEvaluator/pureHelpers';
 export function createTypeEvaluator(
     importLookup: ImportLookup,
     evaluatorOptions: EvaluatorOptions,
@@ -2315,212 +2172,11 @@ export function createTypeEvaluator(
     }
 
     function canBeFalsy(type: Type, recursionCount = 0): boolean {
-        type = makeTopLevelTypeVarsConcrete(type);
-
-        if (recursionCount > maxTypeRecursionCount) {
-            return true;
-        }
-        recursionCount++;
-
-        switch (type.category) {
-            case TypeCategory.OverloadResult:
-                return true;
-
-            case TypeCategory.Unbound:
-            case TypeCategory.Unknown:
-            case TypeCategory.Any:
-            case TypeCategory.Never: {
-                return true;
-            }
-
-            case TypeCategory.Union: {
-                return findSubtype(type, (subtype) => canBeFalsy(subtype, recursionCount)) !== undefined;
-            }
-
-            case TypeCategory.Function:
-            case TypeCategory.Overloaded:
-            case TypeCategory.Module:
-            case TypeCategory.TypeVar: {
-                return false;
-            }
-
-            case TypeCategory.Class: {
-                if (TypeBase.isInstantiable(type)) {
-                    return false;
-                }
-
-                // Sentinels are always truthy.
-                if (isSentinelLiteral(type)) {
-                    return false;
-                }
-
-                // Handle tuples specially.
-                if (isTupleClass(type) && type.priv.tupleTypeArgs) {
-                    return isUnboundedTupleClass(type) || type.priv.tupleTypeArgs.length === 0;
-                }
-
-                // Handle subclasses of tuple, such as NamedTuple.
-                const tupleBaseClass = type.shared.mro.find((mroClass) => !isClass(mroClass) || isTupleClass(mroClass));
-                if (tupleBaseClass && isClass(tupleBaseClass) && tupleBaseClass.priv.tupleTypeArgs) {
-                    return isUnboundedTupleClass(tupleBaseClass) || tupleBaseClass.priv.tupleTypeArgs.length === 0;
-                }
-
-                // Handle TypedDicts specially. If one or more entries are required
-                // or known to exist, we can say for sure that the type is not falsy.
-                if (ClassType.isTypedDictClass(type)) {
-                    const tdEntries = getTypedDictMembersForClass(evaluatorInterface, type, /* allowNarrowed */ true);
-                    if (tdEntries) {
-                        for (const tdEntry of tdEntries.knownItems.values()) {
-                            if (tdEntry.isRequired || tdEntry.isProvided) {
-                                return false;
-                            }
-                        }
-                    }
-                }
-
-                // Check for bool, int, str and bytes literals that are never falsy.
-                if (type.priv.literalValue !== undefined) {
-                    if (ClassType.isBuiltIn(type, ['bool', 'int', 'str', 'bytes'])) {
-                        return !type.priv.literalValue || type.priv.literalValue === BigInt(0);
-                    }
-
-                    if (type.priv.literalValue instanceof EnumLiteral) {
-                        // Does the Enum class forward the truthiness check to the
-                        // underlying member type?
-                        if (type.priv.literalValue.isReprEnum) {
-                            return canBeFalsy(type.priv.literalValue.itemType, recursionCount);
-                        }
-                    }
-                }
-
-                // If this is a protocol class, don't make any assumptions about the absence
-                // of specific methods. These could be provided by a class that conforms
-                // to the protocol.
-                if (ClassType.isProtocolClass(type)) {
-                    return true;
-                }
-
-                const lenMethod = lookUpObjectMember(type, '__len__');
-                if (lenMethod) {
-                    return true;
-                }
-
-                const boolMethod = lookUpObjectMember(type, '__bool__');
-                if (boolMethod) {
-                    const boolMethodType = getTypeOfMember(boolMethod);
-
-                    // If the __bool__ function unconditionally returns True, it can never be falsy.
-                    if (isFunction(boolMethodType) && boolMethodType.shared.declaredReturnType) {
-                        const returnType = boolMethodType.shared.declaredReturnType;
-                        if (
-                            isClassInstance(returnType) &&
-                            ClassType.isBuiltIn(returnType, 'bool') &&
-                            returnType.priv.literalValue === true
-                        ) {
-                            return false;
-                        }
-                    }
-
-                    return true;
-                }
-
-                // If the class is not final, it's possible that it could be overridden
-                // such that it is falsy. To be fully correct, we'd need to do the
-                // following:
-                // return !ClassType.isFinal(type);
-                // However, pragmatically if the class is not an `object`, it's typically
-                // OK to assume that it will not be overridden in this manner.
-                return ClassType.isBuiltIn(type, 'object');
-            }
-        }
+        return evaluatorNarrowing.canBeFalsy(type, recursionCount);
     }
 
     function canBeTruthy(type: Type, recursionCount = 0): boolean {
-        type = makeTopLevelTypeVarsConcrete(type);
-
-        if (recursionCount > maxTypeRecursionCount) {
-            return true;
-        }
-        recursionCount++;
-
-        switch (type.category) {
-            case TypeCategory.OverloadResult:
-                return true;
-
-            case TypeCategory.Unknown:
-            case TypeCategory.Function:
-            case TypeCategory.Overloaded:
-            case TypeCategory.Module:
-            case TypeCategory.TypeVar:
-            case TypeCategory.Never:
-            case TypeCategory.Any: {
-                return true;
-            }
-
-            case TypeCategory.Union: {
-                return findSubtype(type, (subtype) => canBeTruthy(subtype, recursionCount)) !== undefined;
-            }
-
-            case TypeCategory.Unbound: {
-                return false;
-            }
-
-            case TypeCategory.Class: {
-                if (TypeBase.isInstantiable(type)) {
-                    return true;
-                }
-
-                if (isNoneInstance(type)) {
-                    return false;
-                }
-
-                // // Check for tuple[()] (an empty tuple).
-                if (type.priv.tupleTypeArgs && type.priv.tupleTypeArgs.length === 0) {
-                    return false;
-                }
-
-                // Check for bool, int, str and bytes literals that are never falsy.
-                if (type.priv.literalValue !== undefined) {
-                    if (ClassType.isBuiltIn(type, ['bool', 'int', 'str', 'bytes'])) {
-                        return !!type.priv.literalValue && type.priv.literalValue !== BigInt(0);
-                    }
-
-                    if (type.priv.literalValue instanceof EnumLiteral) {
-                        // Does the Enum class forward the truthiness check to the
-                        // underlying member type?
-                        if (type.priv.literalValue.isReprEnum) {
-                            return canBeTruthy(type.priv.literalValue.itemType, recursionCount);
-                        }
-                    }
-                }
-
-                // If this is a protocol class, don't make any assumptions about the absence
-                // of specific methods. These could be provided by a class that conforms
-                // to the protocol.
-                if (ClassType.isProtocolClass(type)) {
-                    return true;
-                }
-
-                const boolMethod = lookUpObjectMember(type, '__bool__');
-                if (boolMethod) {
-                    const boolMethodType = getTypeOfMember(boolMethod);
-
-                    // If the __bool__ function unconditionally returns False, it can never be truthy.
-                    if (isFunction(boolMethodType) && boolMethodType.shared.declaredReturnType) {
-                        const returnType = boolMethodType.shared.declaredReturnType;
-                        if (
-                            isClassInstance(returnType) &&
-                            ClassType.isBuiltIn(returnType, 'bool') &&
-                            returnType.priv.literalValue === false
-                        ) {
-                            return false;
-                        }
-                    }
-                }
-
-                return true;
-            }
-        }
+        return evaluatorNarrowing.canBeTruthy(type, recursionCount);
     }
 
     // Filters a type such that that no part of it is definitely
@@ -2529,53 +2185,7 @@ export function createTypeEvaluator(
     // method, this method would strip off the "Foo"
     // and return only the "None".
     function removeTruthinessFromType(type: Type): Type {
-        return mapSubtypes(type, (subtype) => {
-            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
-
-            if (isClassInstance(concreteSubtype)) {
-                if (concreteSubtype.priv.literalValue !== undefined) {
-                    let isLiteralFalsy: boolean;
-
-                    if (concreteSubtype.priv.literalValue instanceof EnumLiteral) {
-                        isLiteralFalsy = !canBeTruthy(concreteSubtype);
-                    } else {
-                        isLiteralFalsy = !concreteSubtype.priv.literalValue;
-                    }
-
-                    // If the object is already definitely falsy, it's fine to
-                    // include, otherwise it should be removed.
-                    return isLiteralFalsy ? subtype : undefined;
-                }
-
-                // If the object is a sentinel, we can eliminate it.
-                if (isSentinelLiteral(concreteSubtype)) {
-                    return undefined;
-                }
-
-                // If the object is a bool, make it "false", since
-                // "true" is a truthy value.
-                if (ClassType.isBuiltIn(concreteSubtype, 'bool')) {
-                    return ClassType.cloneWithLiteral(concreteSubtype, /* value */ false);
-                }
-
-                // If the object is an int, str or bytes, narrow to a literal type.
-                // This is slightly unsafe in that someone could subclass `int`, `str`
-                // or `bytes` and override the `__bool__` method to change its behavior,
-                // but this is extremely unlikely (and ill advised).
-                if (ClassType.isBuiltIn(concreteSubtype, 'int')) {
-                    return ClassType.cloneWithLiteral(concreteSubtype, /* value */ 0);
-                } else if (ClassType.isBuiltIn(concreteSubtype, ['str', 'bytes'])) {
-                    return ClassType.cloneWithLiteral(concreteSubtype, /* value */ '');
-                }
-            }
-
-            // If it's possible for the type to be falsy, include it.
-            if (canBeFalsy(subtype)) {
-                return subtype;
-            }
-
-            return undefined;
-        });
+        return evaluatorNarrowing.removeTruthinessFromType(type);
     }
 
     // Filters a type such that that no part of it is definitely
@@ -2583,58 +2193,7 @@ export function createTypeEvaluator(
     // and an "int", this method would strip off the "None"
     // and return only the "int".
     function removeFalsinessFromType(type: Type): Type {
-        return mapSubtypes(type, (subtype) => {
-            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
-
-            if (isClassInstance(concreteSubtype)) {
-                if (concreteSubtype.priv.literalValue !== undefined) {
-                    let isLiteralTruthy: boolean;
-
-                    if (concreteSubtype.priv.literalValue instanceof EnumLiteral) {
-                        isLiteralTruthy = !canBeFalsy(concreteSubtype);
-                    } else if (concreteSubtype.priv.literalValue instanceof SentinelLiteral) {
-                        isLiteralTruthy = true;
-                    } else {
-                        isLiteralTruthy = !!concreteSubtype.priv.literalValue;
-                    }
-
-                    // If the object is already definitely truthy, it's fine to
-                    // include, otherwise it should be removed.
-                    return isLiteralTruthy ? subtype : undefined;
-                }
-
-                // If the object is a bool, make it "true", since
-                // "false" is a falsy value.
-                if (ClassType.isBuiltIn(concreteSubtype, 'bool')) {
-                    return ClassType.cloneWithLiteral(concreteSubtype, /* value */ true);
-                }
-
-                // If the object is a "None" instance, we can eliminate it.
-                if (isNoneInstance(concreteSubtype)) {
-                    return undefined;
-                }
-
-                // If this is an instance of a class that cannot be subclassed,
-                // we cannot say definitively that it's not falsy because a subclass
-                // could override `__bool__`. For this reason, the code should not
-                // remove any classes that are not final.
-                // if (!ClassType.isFinal(concreteSubtype)) {
-                //     return subtype;
-                // }
-                // However, we're going to pragmatically assume that any classes
-                // other than `object` will not be overridden in this manner.
-                if (ClassType.isBuiltIn(concreteSubtype, 'object')) {
-                    return subtype;
-                }
-            }
-
-            // If it's possible for the type to be truthy, include it.
-            if (canBeTruthy(subtype)) {
-                return subtype;
-            }
-
-            return undefined;
-        });
+        return evaluatorNarrowing.removeFalsinessFromType(type);
     }
 
     function stripTypeGuard(type: Type): Type {
@@ -3895,255 +3454,51 @@ export function createTypeEvaluator(
     }
 
     function checkCodeFlowTooComplex(node: ParseNode): boolean {
-        const scopeNode =
-            node.nodeType === ParseNodeType.Function ? node : ParseTreeUtils.getExecutionScopeNode(node, nodeInfo);
-        const codeComplexity = nodeInfo.getCodeFlowComplexity(scopeNode);
-
-        if (codeComplexity > maxCodeComplexity) {
-            let errorRange: TextRange = scopeNode;
-            if (scopeNode.nodeType === ParseNodeType.Function) {
-                errorRange = scopeNode.d.name;
-            } else if (scopeNode.nodeType === ParseNodeType.Module) {
-                errorRange = { start: 0, length: 0 };
-            }
-
-            const fileInfo = nodeInfo.getFileInfo(node);
-            addDiagnosticForTextRange(
-                fileInfo,
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.codeTooComplexToAnalyze(),
-                errorRange
-            );
-
-            return true;
-        }
-
-        return false;
+        return flowAnalysis.checkCodeFlowTooComplex(node);
     }
 
     function isNodeReachable(node: ParseNode, sourceNode?: ParseNode): boolean {
-        return getNodeReachability(node, sourceNode) === Reachability.Reachable;
+        return flowAnalysis.isNodeReachable(node, sourceNode);
     }
 
     function isAfterNodeReachable(node: ParseNode): boolean {
-        return getAfterNodeReachability(node) === Reachability.Reachable;
+        return flowAnalysis.isAfterNodeReachable(node);
     }
 
     function getNodeReachability(node: ParseNode, sourceNode?: ParseNode): Reachability {
-        if (checkCodeFlowTooComplex(node)) {
-            return Reachability.Reachable;
-        }
-
-        const flowNode = nodeInfo.getFlowNode(node);
-        if (!flowNode) {
-            if (node.parent) {
-                return getNodeReachability(node.parent, sourceNode);
-            }
-            return Reachability.UnreachableStructural;
-        }
-
-        const sourceFlowNode = sourceNode ? nodeInfo.getFlowNode(sourceNode) : undefined;
-
-        return codeFlowEngine.getFlowNodeReachability(flowNode, sourceFlowNode);
+        return flowAnalysis.getNodeReachability(node, sourceNode);
     }
 
     function getAfterNodeReachability(node: ParseNode): Reachability {
-        const returnFlowNode = nodeInfo.getAfterFlowNode(node);
-        if (!returnFlowNode) {
-            return Reachability.UnreachableStructural;
-        }
-
-        if (checkCodeFlowTooComplex(node)) {
-            return Reachability.Reachable;
-        }
-
-        const reachability = codeFlowEngine.getFlowNodeReachability(returnFlowNode);
-        if (reachability !== Reachability.Reachable) {
-            return reachability;
-        }
-
-        const executionScopeNode = ParseTreeUtils.getExecutionScopeNode(node, nodeInfo);
-        if (!isFlowNodeReachableUsingNeverNarrowing(executionScopeNode, returnFlowNode)) {
-            return Reachability.UnreachableByAnalysis;
-        }
-
-        return Reachability.Reachable;
-    }
-
-    // Although isFlowNodeReachable indicates that the node is reachable, it
-    // may not be reachable if we apply "never narrowing".
-    function isFlowNodeReachableUsingNeverNarrowing(node: ExecutionScopeNode, flowNode: FlowNode) {
-        const analyzer = getCodeFlowAnalyzerForNode(node, /* typeAtStart */ undefined);
-
-        if (checkCodeFlowTooComplex(node)) {
-            return true;
-        }
-
-        const codeFlowResult = analyzer.getTypeFromCodeFlow(flowNode, /* reference */ undefined, {
-            typeAtStart: { type: UnboundType.create() },
-        });
-
-        return codeFlowResult.type !== undefined && !isNever(codeFlowResult.type);
+        return flowAnalysis.getAfterNodeReachability(node);
     }
 
     // Determines whether there is a code flow path from sourceNode to sinkNode.
     function isFlowPathBetweenNodes(sourceNode: ParseNode, sinkNode: ParseNode, allowSelf = true) {
-        if (checkCodeFlowTooComplex(sourceNode)) {
-            return true;
-        }
-
-        const sourceFlowNode = nodeInfo.getFlowNode(sourceNode);
-        const sinkFlowNode = nodeInfo.getFlowNode(sinkNode);
-        if (!sourceFlowNode || !sinkFlowNode) {
-            return false;
-        }
-        if (sourceFlowNode === sinkFlowNode) {
-            return allowSelf;
-        }
-
-        return (
-            codeFlowEngine.getFlowNodeReachability(sinkFlowNode, sourceFlowNode, /* ignoreNoReturn */ true) ===
-            Reachability.Reachable
-        );
+        return flowAnalysis.isFlowPathBetweenNodes(sourceNode, sinkNode, allowSelf);
     }
 
     function addInformation(message: string, node: ParseNode, range?: TextRange) {
-        return addDiagnosticWithSuppressionCheck('information', message, node, range);
+        return diagnostics.addInformation(message, node, range);
     }
 
     function addUnreachableCode(node: ParseNode, reachability: Reachability, textRange: TextRange) {
-        if (reachability === Reachability.Reachable) {
-            return;
-        }
-
-        if (!isDiagnosticSuppressedForNode(node)) {
-            const fileInfo = nodeInfo.getFileInfo(node);
-            const reportTypeReachability = fileInfo.diagnosticRuleSet.enableReachabilityAnalysis;
-
-            if (
-                reachability === Reachability.UnreachableStructural ||
-                reachability === Reachability.UnreachableStaticCondition ||
-                reportTypeReachability
-            ) {
-                fileInfo.diagnosticSink.addUnreachableCodeWithTextRange(
-                    reachability === Reachability.UnreachableStructural
-                        ? LocMessage.unreachableCodeStructure()
-                        : reachability === Reachability.UnreachableStaticCondition
-                        ? LocMessage.unreachableCodeCondition()
-                        : LocMessage.unreachableCodeType(),
-                    textRange
-                );
-            }
-        }
+        return diagnostics.addUnreachableCode(node, reachability, textRange);
     }
 
     function addDeprecated(message: string, node: ParseNode) {
-        if (!isDiagnosticSuppressedForNode(node)) {
-            const fileInfo = nodeInfo.getFileInfo(node);
-            fileInfo.diagnosticSink.addDeprecatedWithTextRange(message, node);
-        }
-    }
-
-    function addDiagnosticWithSuppressionCheck(
-        diagLevel: DiagnosticLevel,
-        message: string,
-        node: ParseNode,
-        range?: TextRange
-    ) {
-        if (isDiagnosticSuppressedForNode(node)) {
-            // See if this node is suppressed but the diagnostic should be generated
-            // anyway so it can be used by the caller that requested the suppression.
-            const suppressionEntry = suppressedNodeStack.find(
-                (suppressedNode) =>
-                    ParseTreeUtils.isNodeContainedWithin(node, suppressedNode.node) && suppressedNode.suppressedDiags
-            );
-            suppressionEntry?.suppressedDiags?.push(message);
-
-            return undefined;
-        }
-
-        if (isNodeReachable(node)) {
-            const fileInfo = nodeInfo.getFileInfo(node);
-            const sink =
-                evaluatorOptions.experimentalOverloadResult?.getDiagnosticSink(node) ?? fileInfo.diagnosticSink;
-            return sink.addDiagnosticWithTextRange(diagLevel, message, range ?? node);
-        }
-
-        return undefined;
-    }
-
-    function isDiagnosticSuppressedForNode(node: ParseNode) {
-        if (speculativeTypeTracker.isSpeculative(node, /* ignoreIfDiagnosticsAllowed */ true)) {
-            return true;
-        }
-
-        return suppressedNodeStack.some((suppressedNode) =>
-            ParseTreeUtils.isNodeContainedWithin(node, suppressedNode.node)
-        );
+        return diagnostics.addDeprecated(message, node);
     }
 
     // This function is similar to isDiagnosticSuppressedForNode except that it
     // returns false if diagnostics are suppressed for the node but the caller
     // has requested that diagnostics be generated anyway.
     function canSkipDiagnosticForNode(node: ParseNode) {
-        if (speculativeTypeTracker.isSpeculative(node, /* ignoreIfDiagnosticsAllowed */ true)) {
-            return true;
-        }
-
-        const suppressedEntries = suppressedNodeStack.filter((suppressedNode) =>
-            ParseTreeUtils.isNodeContainedWithin(node, suppressedNode.node)
-        );
-
-        if (suppressedEntries.length === 0) {
-            return false;
-        }
-
-        return suppressedEntries.every((entry) => !entry.suppressedDiags);
+        return diagnostics.canSkipDiagnosticForNode(node);
     }
 
     function addDiagnostic(rule: DiagnosticRule, message: string, node: ParseNode, range?: TextRange) {
-        const fileInfo = nodeInfo.getFileInfo(node);
-        const diagLevel = fileInfo.diagnosticRuleSet[rule] as DiagnosticLevel;
-
-        if (diagLevel === 'none') {
-            return undefined;
-        }
-
-        const containingFunction = ParseTreeUtils.getEnclosingFunction(node);
-
-        if (containingFunction) {
-            // Should we suppress this diagnostic because it's within an unannotated function?
-            const fileInfo = nodeInfo.getFileInfo(node);
-            if (!fileInfo.diagnosticRuleSet.analyzeUnannotatedFunctions) {
-                // Is the target node within the body of the function? If so, suppress the diagnostic.
-                if (
-                    ParseTreeUtils.isUnannotatedFunction(containingFunction) &&
-                    ParseTreeUtils.isNodeContainedWithin(node, containingFunction.d.suite)
-                ) {
-                    return undefined;
-                }
-            }
-
-            // Should we suppress this diagnostic because it's within a no_type_check function?
-            const containingClassNode = ParseTreeUtils.getEnclosingClass(containingFunction, /* stopAtFunction */ true);
-            const functionInfo = getFunctionInfoFromDecorators(
-                evaluatorInterface,
-                containingFunction,
-                !!containingClassNode,
-                nodeInfo
-            );
-
-            if ((functionInfo.flags & FunctionTypeFlags.NoTypeCheck) !== 0) {
-                return undefined;
-            }
-        }
-
-        const diagnostic = addDiagnosticWithSuppressionCheck(diagLevel, message, node, range);
-        if (diagnostic) {
-            diagnostic.setRule(rule);
-        }
-
-        return diagnostic;
+        return diagnostics.addDiagnostic(rule, message, node, range);
     }
 
     function addDiagnosticForTextRange(
@@ -4152,18 +3507,7 @@ export function createTypeEvaluator(
         message: string,
         range: TextRange
     ) {
-        const diagLevel = fileInfo.diagnosticRuleSet[rule] as DiagnosticLevel;
-
-        if (diagLevel === 'none') {
-            return undefined;
-        }
-
-        const diagnostic = fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range);
-        if (rule) {
-            diagnostic.setRule(rule);
-        }
-
-        return diagnostic;
+        return diagnostics.addDiagnosticForTextRange(fileInfo, rule, message, range);
     }
 
     function assignTypeToNameNode(
@@ -9437,36 +8781,7 @@ export function createTypeEvaluator(
     }
 
     function applyUnpackToTupleLike(type: Type): Type | undefined {
-        if (isTypeVarTuple(type)) {
-            if (!type.priv.isUnpacked) {
-                return TypeVarType.cloneForUnpacked(type);
-            }
-
-            return undefined;
-        }
-
-        if (isParamSpec(type)) {
-            return undefined;
-        }
-
-        // Is this a TypeVar that has a tuple upper bound?
-        if (isTypeVar(type)) {
-            const upperBound = type.shared.boundType;
-
-            if (upperBound && isClassInstance(upperBound) && isTupleClass(upperBound)) {
-                return TypeVarType.cloneForUnpacked(type);
-            }
-
-            return undefined;
-        }
-
-        if (isInstantiableClass(type) && !type.priv.includeSubclasses) {
-            if (isTupleClass(type)) {
-                return ClassType.cloneForUnpacked(type);
-            }
-        }
-
-        return undefined;
+        return pureHelpers.applyUnpackToTupleLike(type);
     }
 
     function getTypeArg(node: ExpressionNode, flags: EvalFlags, supportsDictExpression: boolean): TypeResultWithNode {
@@ -23061,42 +22376,6 @@ export function createTypeEvaluator(
         return undefined;
     }
 
-    function getCodeFlowAnalyzerForNode(
-        node: ExecutionScopeNode,
-        typeAtStart: TypeResult | undefined
-    ): CodeFlowAnalyzer {
-        let entries = codeFlowAnalyzerCache.get(node.id);
-
-        if (entries) {
-            const cachedEntry = entries.find((entry) => {
-                if (!typeAtStart || !entry.typeAtStart) {
-                    return !typeAtStart && !entry.typeAtStart;
-                }
-
-                if (!typeAtStart.isIncomplete !== !entry.typeAtStart.isIncomplete) {
-                    return false;
-                }
-
-                return isTypeSame(typeAtStart.type, entry.typeAtStart.type);
-            });
-
-            if (cachedEntry) {
-                return cachedEntry.codeFlowAnalyzer;
-            }
-        }
-
-        // Allocate a new code flow analyzer.
-        const analyzer = codeFlowEngine.createCodeFlowAnalyzer();
-        if (entries) {
-            entries.push({ typeAtStart, codeFlowAnalyzer: analyzer });
-        } else {
-            entries = [{ typeAtStart, codeFlowAnalyzer: analyzer }];
-            codeFlowAnalyzerCache.set(node.id, entries);
-        }
-
-        return analyzer;
-    }
-
     // Attempts to determine the type of the reference expression at the
     // point in the code. If the code flow analysis has nothing to say
     // about that expression, it returns un undefined type. Normally
@@ -23108,46 +22387,7 @@ export function createTypeEvaluator(
         startNode?: ClassNode | FunctionNode | LambdaNode,
         options?: FlowNodeTypeOptions
     ): FlowNodeTypeResult {
-        // See if this execution scope requires code flow for this reference expression.
-        const referenceKey = createKeyForReference(reference);
-        const executionNode = ParseTreeUtils.getExecutionScopeNode(startNode?.parent ?? reference, nodeInfo);
-        const codeFlowExpressions = nodeInfo.getCodeFlowExpressions(executionNode);
-
-        if (
-            !codeFlowExpressions ||
-            (!codeFlowExpressions.has(referenceKey) && !codeFlowExpressions.has(wildcardImportReferenceKey))
-        ) {
-            return FlowNodeTypeResult.create(/* type */ undefined, /* isIncomplete */ false);
-        }
-
-        if (checkCodeFlowTooComplex(reference)) {
-            return FlowNodeTypeResult.create(
-                /* type */ options?.typeAtStart && isUnbound(options.typeAtStart.type)
-                    ? UnknownType.create()
-                    : undefined,
-                /* isIncomplete */ true
-            );
-        }
-
-        // Is there an code flow analyzer cached for this execution scope?
-        let analyzer: CodeFlowAnalyzer | undefined;
-
-        if (isNodeInReturnTypeInferenceContext(executionNode)) {
-            // If we're performing the analysis within a temporary
-            // context of a function for purposes of inferring its
-            // return type for a specified set of arguments, use
-            // a temporary analyzer that we'll use only for this context.
-            analyzer = getCodeFlowAnalyzerForReturnTypeInferenceContext();
-        } else {
-            analyzer = getCodeFlowAnalyzerForNode(executionNode, options?.typeAtStart);
-        }
-
-        const flowNode = nodeInfo.getFlowNode(startNode ?? reference);
-        if (flowNode === undefined) {
-            return FlowNodeTypeResult.create(/* type */ undefined, /* isIncomplete */ false);
-        }
-
-        return analyzer.getTypeFromCodeFlow(flowNode!, reference, options);
+        return flowAnalysis.getFlowTypeOfReference(reference, startNode, options);
     }
 
     // Specializes the specified (potentially generic) class type using
@@ -24038,21 +23278,7 @@ export function createTypeEvaluator(
         callback: () => T,
         diagCallback?: (suppressedDiags: string[]) => void
     ) {
-        suppressedNodeStack.push({ node, suppressedDiags: diagCallback ? [] : undefined });
-
-        try {
-            const result = callback();
-            const poppedNode = suppressedNodeStack.pop();
-            if (diagCallback && poppedNode?.suppressedDiags) {
-                diagCallback(poppedNode.suppressedDiags);
-            }
-            return result;
-        } catch (e) {
-            // We don't use finally here because the TypeScript debugger doesn't
-            // handle finally well when single stepping.
-            suppressedNodeStack.pop();
-            throw e;
-        }
+        return diagnostics.suppressDiagnostics<T>(node, callback, diagCallback);
     }
 
     function getSignatureTrackerForNode(node: ParseNode): UniqueSignatureTracker | undefined {
@@ -29929,103 +29155,7 @@ export function createTypeEvaluator(
     // When a value is assigned to a variable with a declared type,
     // we may be able to narrow the type based on the assignment.
     function narrowTypeBasedOnAssignment(declaredType: Type, assignedTypeResult: TypeResult): TypeResult {
-        // TODO: The rules for narrowing types on assignment are not defined in
-        // the typing spec. Pyright's current logic is currently not even internally
-        // consistent and probably not sound from a type theory perspective. It
-        // should be completely reworked once there has been a public discussion
-        // about the correct behavior.
-
-        const narrowedType = mapSubtypes(assignedTypeResult.type, (assignedSubtype) => {
-            // Handle the special case where the assigned type is a literal type.
-            // Some types include very large unions of literal types, and we don't
-            // want to use an n^2 loop to compare them.
-            if (isClass(assignedSubtype) && isLiteralType(assignedSubtype)) {
-                if (isUnion(declaredType) && UnionType.containsType(declaredType, assignedSubtype)) {
-                    return assignedSubtype;
-                }
-            }
-
-            const narrowedSubtype = mapSubtypes(declaredType, (declaredSubtype) => {
-                if (!assignType(declaredSubtype, assignedSubtype)) {
-                    return undefined;
-                }
-
-                // Retain unknowns for code flow analysis convergence and for
-                // unknown type reporting in strict mode.
-                if (isUnknown(assignedSubtype)) {
-                    return assignedSubtype;
-                }
-
-                // Preserve assignment narrowing when an enum literal is assigned
-                // to its non-literal enum class. A single-member enum is equivalent
-                // to its only literal, but the assigned value is still more precise.
-                if (
-                    isClassInstance(assignedSubtype) &&
-                    assignedSubtype.priv.literalValue instanceof EnumLiteral &&
-                    isClassInstance(declaredSubtype) &&
-                    declaredSubtype.priv.literalValue === undefined &&
-                    ClassType.isSameGenericClass(assignedSubtype, declaredSubtype)
-                ) {
-                    return assignedSubtype;
-                }
-
-                // If the two types are bidirectionally assignable, they are
-                // either equivalent (in which case it doesn't matter which
-                // one we choose) or one or both include gradual types (Any, etc.),
-                // in which case we'll want to stick with the declared subtype.
-                if (assignType(assignedSubtype, declaredSubtype)) {
-                    // We need to be careful with TypedDict types that have
-                    // narrowed fields. In this case, we want to return the
-                    // assigned type.
-                    if (
-                        isClass(assignedSubtype) &&
-                        assignedSubtype.priv.typedDictNarrowedEntries &&
-                        isTypeSame(assignedSubtype, declaredSubtype, { ignoreTypedDictNarrowEntries: true })
-                    ) {
-                        return assignedSubtype;
-                    }
-
-                    // We also need to be careful with callback protocols.
-                    if (isClassInstance(declaredSubtype) && ClassType.isProtocolClass(declaredSubtype)) {
-                        if (isFunctionOrOverloaded(assignedSubtype)) {
-                            return assignedSubtype;
-                        }
-                    }
-
-                    return declaredSubtype;
-                }
-
-                return assignedSubtype;
-            });
-
-            // If we couldn't assign the assigned subtype any of the declared
-            // subtypes, the types are incompatible. Return the unnarrowed form.
-            if (isNever(narrowedSubtype)) {
-                return assignedSubtype;
-            }
-
-            return narrowedSubtype;
-        });
-
-        // If the result of narrowing is an Unknown that is incomplete, propagate the
-        // incomplete type for the benefit of code flow analysis.
-        // If the result of narrowing is a complete Unknown, combine the Unknown type
-        // with the declared type. In strict mode, this will retain the "unknown type"
-        // diagnostics while still providing reasonable completion suggestions.
-        if (isIncompleteUnknown(narrowedType)) {
-            return { type: narrowedType, isIncomplete: assignedTypeResult.isIncomplete };
-        } else if (isUnknown(narrowedType)) {
-            return { type: combineTypes([narrowedType, declaredType]), isIncomplete: assignedTypeResult.isIncomplete };
-        }
-
-        return {
-            type:
-                narrowedType.props?.inferredTupleLiteral &&
-                !assignType(declaredType, getInferredTupleLiteralBase(narrowedType))
-                    ? preserveInferredTupleLiterals(narrowedType)
-                    : narrowedType,
-            isIncomplete: assignedTypeResult.isIncomplete,
-        };
+        return evaluatorNarrowing.narrowTypeBasedOnAssignment(declaredType, assignedTypeResult);
     }
 
     function validateOverrideMethod(
@@ -31272,13 +30402,7 @@ export function createTypeEvaluator(
     // var can be "narrowed" to a single one of its constraints based on isinstance
     // checks within the code flow.
     function narrowConstrainedTypeVar(node: ParseNode, typeVar: TypeVarType): Type | undefined {
-        const flowNode = nodeInfo.getFlowNode(node);
-
-        if (!flowNode) {
-            return undefined;
-        }
-
-        return codeFlowEngine.narrowConstrainedTypeVar(flowNode, typeVar);
+        return flowAnalysis.narrowConstrainedTypeVar(node, typeVar);
     }
 
     function getPrintExpressionTypesSpaces() {
@@ -31297,7 +30421,7 @@ export function createTypeEvaluator(
         callName: string,
         logger: ConsoleInterface
     ) {
-        return codeFlowEngine.printControlFlowGraph(flowNode, reference, callName, logger);
+        return flowAnalysis.printControlFlowGraph(flowNode, reference, callName, logger);
     }
 
     // Track these apis internal usages when logging is on. otherwise, it should be noop.
@@ -31421,6 +30545,36 @@ export function createTypeEvaluator(
     };
 
     const codeFlowEngine = getCodeFlowEngine(evaluatorInterface, speculativeTypeTracker, nodeInfo);
+
+    const diagnostics = createDiagnostics({
+        evaluatorInterface,
+        evaluatorOptions,
+        isNodeReachable,
+        nodeInfo,
+        speculativeTypeTracker,
+        suppressedNodeStack,
+    });
+
+    const flowAnalysis = createFlowAnalysis({
+        addDiagnosticForTextRange,
+        get codeFlowAnalyzerCache() {
+            return codeFlowAnalyzerCache;
+        },
+        codeFlowEngine,
+        getCodeFlowAnalyzerForReturnTypeInferenceContext,
+        isNodeInReturnTypeInferenceContext,
+        maxCodeComplexity,
+        nodeInfo,
+    });
+
+    const pureHelpers = createPureHelpers({});
+
+    const evaluatorNarrowing = createEvaluatorNarrowing({
+        assignType,
+        evaluatorInterface,
+        getTypeOfMember,
+        makeTopLevelTypeVarsConcrete,
+    });
 
     if (evaluatorOptions.testOnlyMemberAccess) {
         const { nodes, install } = evaluatorOptions.testOnlyMemberAccess;
