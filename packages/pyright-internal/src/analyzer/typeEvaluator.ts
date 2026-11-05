@@ -508,6 +508,7 @@ import {
 export { EvaluatorOptions, MemberAccessTypeResult } from './typeEvaluator/internals';
 
 import { createAssignFunctions } from './typeEvaluator/assignFunctions';
+import { createBoundMethodSpecialization } from './typeEvaluator/boundMethodSpecialization';
 import { createCollectionInference } from './typeEvaluator/collectionInference';
 import { createDiagnostics } from './typeEvaluator/diagnostics';
 import { createEvaluatorCore } from './typeEvaluator/evaluatorCore';
@@ -18804,108 +18805,14 @@ export function createTypeEvaluator(
         firstParamType: ClassType | TypeVarType | undefined,
         stripFirstParam = true
     ): FunctionType | undefined {
-        const constraints = new ConstraintTracker();
-
-        if (firstParamType) {
-            if (memberType.shared.parameters.length > 0) {
-                const memberTypeFirstParam = memberType.shared.parameters[0];
-                const memberTypeFirstParamType = FunctionType.getParamType(memberType, 0);
-
-                if (
-                    isTypeVar(memberTypeFirstParamType) &&
-                    memberTypeFirstParamType.shared.boundType &&
-                    isClassInstance(memberTypeFirstParamType.shared.boundType) &&
-                    ClassType.isProtocolClass(memberTypeFirstParamType.shared.boundType)
-                ) {
-                    // Handle the protocol class specially. Some protocol classes
-                    // contain references to themselves or their subclasses, so if
-                    // we attempt to call assignType, we'll risk infinite recursion.
-                    // Instead, we'll assume it's assignable.
-                    constraints.setBounds(
-                        memberTypeFirstParamType,
-                        TypeBase.isInstantiable(memberTypeFirstParamType)
-                            ? convertToInstance(firstParamType)
-                            : firstParamType
-                    );
-                } else {
-                    const subDiag = diag?.createAddendum();
-
-                    // Protect against the case where a callback protocol is being
-                    // bound to its own __call__ method but the first parameter
-                    // is annotated with its own callable type. This can lead to
-                    // infinite recursion.
-                    if (isFunctionOrOverloaded(memberTypeFirstParamType)) {
-                        if (isClassInstance(firstParamType) && ClassType.isProtocolClass(firstParamType)) {
-                            if (subDiag) {
-                                subDiag.addMessage(
-                                    LocMessage.bindTypeMismatch().format({
-                                        type: printType(firstParamType),
-                                        methodName: memberType.shared.name || '<anonymous>',
-                                        paramName: memberTypeFirstParam.name || '__p0',
-                                    })
-                                );
-                            }
-                            return undefined;
-                        }
-                    }
-
-                    if (
-                        !assignType(
-                            memberTypeFirstParamType,
-                            firstParamType,
-                            subDiag?.createAddendum(),
-                            constraints,
-                            AssignTypeFlags.AllowUnspecifiedTypeArgs,
-                            recursionCount
-                        )
-                    ) {
-                        if (
-                            memberTypeFirstParam.name &&
-                            !FunctionParam.isNameSynthesized(memberTypeFirstParam) &&
-                            FunctionParam.isTypeDeclared(memberTypeFirstParam)
-                        ) {
-                            if (subDiag) {
-                                subDiag.addMessage(
-                                    LocMessage.bindTypeMismatch().format({
-                                        type: printType(firstParamType),
-                                        methodName: memberType.shared.name || '<anonymous>',
-                                        paramName: memberTypeFirstParam.name,
-                                    })
-                                );
-                            }
-                            return undefined;
-                        }
-                    }
-                }
-            } else {
-                const subDiag = diag?.createAddendum();
-                if (subDiag) {
-                    subDiag.addMessage(
-                        LocMessage.bindParamMissing().format({
-                            methodName: memberType.shared.name || '<anonymous>',
-                        })
-                    );
-                }
-                return undefined;
-            }
-        }
-
-        // Get the effective return type, which will have the side effect of lazily
-        // evaluating (and caching) the inferred return type if there is no defined return type.
-        getEffectiveReturnType(memberType);
-
-        const specializedFunction = solveAndApplyConstraints(memberType, constraints);
-        if (isFunction(specializedFunction)) {
-            return FunctionType.clone(specializedFunction, stripFirstParam, baseType);
-        }
-
-        if (isOverloaded(specializedFunction)) {
-            // For overloaded functions, use the first overload. This isn't
-            // strictly correct, but this is an extreme edge case.
-            return FunctionType.clone(OverloadedType.getOverloads(specializedFunction)[0], stripFirstParam, baseType);
-        }
-
-        return undefined;
+        return boundMethodSpecialization.partiallySpecializeBoundMethod(
+            baseType,
+            memberType,
+            diag,
+            recursionCount,
+            firstParamType,
+            stripFirstParam
+        );
     }
 
     function isFinalVariable(symbol: Symbol): boolean {
@@ -19146,6 +19053,13 @@ export function createTypeEvaluator(
     };
 
     const codeFlowEngine = getCodeFlowEngine(evaluatorInterface, speculativeTypeTracker, nodeInfo);
+
+    const boundMethodSpecialization = createBoundMethodSpecialization({
+        assignType,
+        getEffectiveReturnType,
+        printType,
+        solveAndApplyConstraints,
+    });
 
     const memberResolution = createMemberResolution({
         addClassEntryDeclsForKeywordArgIfPresent: _addClassEntryDeclsForKeywordArgIfPresent,
