@@ -1,0 +1,2835 @@
+{
+  "upstream": "b57fefae2650597bd1a0f7fb3ce821015c25d317",
+  "sourceBranch": "bschnurr/typeEval-explained",
+  "sourceTip": "17ece96b804240b7265185ffe0f680a369a7bd40",
+  "sourceBase": "e89e2dbf99e5f69896a19dcc9d6ac565101e2c32",
+  "policy": "Current upstream code supersedes historical algorithms. Historical intermediate moves, restorations and interface scaffolding are represented by their final architectural outcome, not replayed.",
+  "accounting": "Commit mapping is path-level final-outcome accounting, not a claim of patch-equivalent cherry-picks. See the architecture and retrospective for validation and exceptions.",
+  "deliberateDifferences": {
+    "publicInterface": "Keep upstream typeEvaluatorTypes.ts unchanged; use private contracts in internals.ts rather than historical public-interface expansion.",
+    "codeFlowEngine": "No net historical refactor change; current upstream file remains unchanged.",
+    "documentation": "Architecture, retrospective and Copilot guidance are rewritten for the current code and pnpm commands, not copied with historical measurements.",
+    "state": "Mutable bindings remain evaluator-owned and use live context accessors; immutable dependencies are captured once."
+  },
+  "commits": [
+    {
+      "source": "6689087b40e68b86665744514b20f93086e33f3a",
+      "subject": " Confirmed install state is good: tsc build succeeds from packages/pyright-internal. The extracted diagnostics module is in place at diagnostics.ts, and the wiring in typeEvaluator.ts delegates to it.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts"
+      ]
+    },
+    {
+      "source": "1c09de11153a1d48cee8157712c99485e92b28f1",
+      "subject": "Confirmed install state is good: tsc build succeeds from packages/pyright-internal. The extracted diagnostics module is in place at diagnostics.ts, and the wiring in typeEvaluator.ts delegates to it.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts"
+      ]
+    },
+    {
+      "source": "4fe1c1ceaa0630c6d16e6bb6996b6732f6a3c1d8",
+      "subject": "Extracted the reachability helper cluster into flowAnalysis.ts as: getNodeReachability, isNodeReachable, getAfterNodeReachability, isAfterNodeReachable Added ReachabilityContext (extends the existing NeverNarrowingContext) so the module stays cycle-free and still performs the “never narrowing” secondary reachability check. Updated typeEvaluator.ts:3370-3474 to delegate those four functions to TypeEvaluatorFlowAnalysis.* with minimal adapters (notably codeFlowEngine.getFlowNodeReachability). Ran npm run build (tsc) in pyright-internal; clean build, no new errors.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/flowAnalysis.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts"
+      ]
+    },
+    {
+      "source": "d6448114a0828456bbd7174ffcf8ce2c5244d2e4",
+      "subject": "Extracted the reachability helper cluster into flowAnalysis.ts as: getNodeReachability, isNodeReachable, getAfterNodeReachability, isAfterNodeReachable Added ReachabilityContext (extends the existing NeverNarrowingContext) so the module stays cycle-free and still performs the “never narrowing” secondary reachability check. Updated typeEvaluator.ts:3370-3474 to delegate those four functions to TypeEvaluatorFlowAnalysis.* with minimal adapters (notably codeFlowEngine.getFlowNodeReachability). Ran npm run build (tsc) in pyright-internal; clean build, no new errors.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/flowAnalysis.ts"
+      ]
+    },
+    {
+      "source": "100973b06d87d55c19de30e5051357435d2f7eae",
+      "subject": "Kept going with another small, safe extraction and also fixed a bad intermediate edit that had snuck into the flow module.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/flowAnalysis.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts"
+      ]
+    },
+    {
+      "source": "fdfa36674b71fb2aef8b74ab70d94a757fc9957e",
+      "subject": "Moved the tiny printControlFlowGraph wrapper into flowAnalysis.ts as TypeEvaluatorFlowAnalysis.printControlFlowGraph, behind a PrintControlFlowGraphContext adapter. Updated typeEvaluator.ts so printControlFlowGraph delegates to the flow module while still calling codeFlowEngine.printControlFlowGraph via the context (no new dependency direction). Ran npm run build (tsc) in pyright-internal; clean build, no errors. Next small flow candidates: getLineNum/getPrintExpressionTypesSpaces (utility-ish) or we can jump back to a more meaningful narrowing extraction.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/flowAnalysis.ts"
+      ]
+    },
+    {
+      "source": "e7869092ac1cdb508e369b1bd2929f35ebf4f79f",
+      "subject": "Extracted two more narrowing helpers into narrowing.ts: stripLiteralValue(ctx, type) behind StripLiteralValueContext stripTypeGuard(ctx, type) behind StripTypeGuardContext Updated typeEvaluator.ts so its local stripLiteralValue/stripTypeGuard delegate to TypeEvaluatorNarrowing.*, keeping the prefetched/convertToInstance logic in tiny adapters. Re-ran npm run build (tsc) in pyright-internal; clean build.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts"
+      ]
+    },
+    {
+      "source": "0aaccdabb02aee3b893bb27437b969340fa78fa2",
+      "subject": "Restored cache helper block and wired truthiness context correctly in typeEvaluator.ts. Removed the old truthiness helper implementations from typeEvaluator.ts. Fixed imports and typing in narrowing.ts.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts"
+      ]
+    },
+    {
+      "source": "a114c66fcb55e8f84b4ff783180c3d793ece0871",
+      "subject": "Restored cache helper block and wired truthiness context correctly in typeEvaluator.ts. Removed the old truthiness helper implementations from typeEvaluator.ts. Fixed imports and typing in narrowing.ts.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts"
+      ]
+    },
+    {
+      "source": "008ed72f1f5078426b0f1738f5cbb406596ae73c",
+      "subject": "Pulled class/literal equality narrowing into the narrowing module and wired type guards to delegate via small contexts; updated the architecture progress. Key edits in narrowing.ts, typeGuards.ts, and type-evaluator-architecture.md.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "943521ecf5b33ebf09e8efaff6b377874321a047",
+      "subject": "Moved the discriminated equality helpers (tuple/dict/member, plus member-None) into the narrowing module and wired type guards to delegate through small contexts; updated the architecture tracking. Changes are in narrowing.ts, typeGuards.ts, and type-evaluator-architecture.md.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "da1de97c7b07a07b10282cb29224143f8385250f",
+      "subject": "117 x 20 1 Hidden Terminal continue with 1",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "2f25820b73f764d48fb0970cb684678cbf0cbd23",
+      "subject": "Moved the isinstance/issubclass narrowing logic into the narrowing module and delegated from type guards via a context wrapper; updated the progress doc. Changes are in narrowing.ts, typeGuards.ts, and type-evaluator-architecture.md.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "03fc88c4e55bf41630c19cefc990a9f002ed7eb9",
+      "subject": "Moved the isinstance/issubclass narrowing logic into the narrowing module and delegated from type guards via a context wrapper; updated the progress doc. Changes are in narrowing.ts, typeGuards.ts, and type-evaluator-architecture.md.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "b0dfcdeb4ac0943eb801e146a5890353289b50fd",
+      "subject": "Moved the user-defined TypeGuard/TypeIs narrowing logic into the shared narrowing module and delegated from the guard layer, then synced the architecture doc. Typecheck still passes.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "105c79cfea4b7f184da354df62250afd858e40c6",
+      "subject": "Moved the tuple-length, container, and TypedDict-key narrowing helpers into the shared narrowing module and delegated from the guard layer, plus updated the progress doc. Typecheck still passes.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "3dc6a55456b678d88bd78dc043f8286ea4238cd2",
+      "subject": "Here’s what I just moved as part of continuing narrowing extractions:",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "6cdb8d66b0dcbb7453c70708f289df82d4b4cf7f",
+      "subject": "Pulled the isinstance/issubclass class-type parsing helper into the shared narrowing module and kept typeGuards as a thin delegator. This continues the “make typeEvaluator smaller” path by centralizing narrowing logic and leaving only adapter glue in the evaluator/guards.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "5b638a8b43e7293035f7daa965e071556efed9d5",
+      "subject": "Pulled the isinstance/issubclass class-type parsing helper into the shared narrowing module and kept typeGuards as a thin delegator. This continues the “make typeEvaluator smaller” path by centralizing narrowing logic and leaving only adapter glue in the evaluator/guards.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "172d8ca72c8eefb089136ce0c21e487152bba911",
+      "subject": "Pulled the name-scope check used in narrowing into the shared narrowing module and left a thin delegator in typeGuards. This keeps the narrowing logic consolidated and trims helper code from typeGuards.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "22b79da65c19f5532474c9026aaca9066b5a0c0f",
+      "subject": "Moved aliased-condition narrowing (and its local-var declaration scan) into the shared narrowing module, and left a thin delegator in typeGuards. This keeps the narrowing logic centralized and further trims the guard layer.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "abd309b2014e628360fb97336f9adb57b027e7dc",
+      "subject": "133 x 20 1 Hidden Terminal 1",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "bf187f67dd35ed39629374b4b0858dcf65d2ff03",
+      "subject": "Moved the None/Ellipsis comparison matching logic into the shared narrowing module and kept typeGuards as a thin adapter that builds callbacks from the returned info. This keeps more of the narrowing shape in one place while preserving the existing flow.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "3fc0ad37beedc54a0db2b021b60f8955d4d77c6d",
+      "subject": "Moved the None/Ellipsis comparison matching logic into the shared narrowing module and kept typeGuards as a thin adapter that builds callbacks from the returned info. This keeps more of the narrowing shape in one place while preserving the existing flow.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "b5956327c9185c78e22a6fa857c0bd8d325038ba",
+      "subject": "Moved the None/Ellipsis comparison matching logic into the shared narrowing module and kept typeGuards as a thin adapter that builds callbacks from the returned info. This keeps more of the narrowing shape in one place while preserving the existing flow.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "42ff127aaf4201c87da9bbd35990bf9d05403d55",
+      "subject": "Extracted the X is <literal/class> matching into the narrowing module and kept typeGuards focused on building the narrowing callbacks.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "61f5594bed75686e2196b19d929543b90ac3aac7",
+      "subject": "133 x 20 1 Hidden Terminal continue",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "fdbc12d00b69610e0185875f19efe7f939d4635d",
+      "subject": "133 x 20 1 Hidden Terminal continue",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "c0568c417d22e7af53c9027de9dd00bb50fd558e",
+      "subject": "Extract equality and member-access matchers into narrowing",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "a9742704a8d577174091e00ebdd1a0fb06d5d7f9",
+      "subject": "133 x 20 1 Hidden Terminal continue",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "8e9dd56dbcb4d557622a98b7f4f89fdc0a3c3e7d",
+      "subject": "Moved the len(x) comparison matching into narrowing, with a small context adapter in typeGuards so the callback logic just consumes the computed info. Also updated the architecture progress list to note the new extraction. Changes are in narrowing.ts:2347, typeGuards.ts:208, and type-evaluator-architecture.md:40.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "5caf9af567a0c5d3d72037d0f8a33c7fc3899d2e",
+      "subject": "Moved the in/not in matching into narrowing alongside the new len matcher, leaving typeGuards with the callback wiring. Updated the progress note to reflect the extraction.",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "99ac16ee7b57e495661e5f21a1309e5e2cc3e8fd",
+      "subject": "148 x 20 1 Hidden Terminal continue",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "b4575aa36455b48f371a32b6311e4d13e4fdee09",
+      "subject": "148 x 20 1 Hidden Terminal continue",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "74ea995ddded1ab5dd93c946fb21cd3c2b521283",
+      "subject": "113 x 20 1 Hidden Terminal continue",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "f1c4663eaa52ae5843e2fe0a80dc0e1f6f1876ef",
+      "subject": "Removed the now-unused binary-op flags and let the len matcher fully own its operator checks, keeping the binary-operation path a bit leaner. Change is in typeGuards.ts:360-680.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts"
+      ]
+    },
+    {
+      "source": "ce31231ef48f8ed612ed85cec66e42a3593b9d78",
+      "subject": "Flattened the binary-operation narrowing flow by removing the outer operator gate and letting each helper decide if it applies. This keeps the logic in one linear pass and relies on the existing operator checks inside the helpers, which is a cleaner and more local decision.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "897fe32ad43b5838035cadc62e6c85e6f8ea00b8",
+      "subject": "Simplified the member-access narrowing branch by removing the redundant literal-equals case; it now falls through to the shared literal-field narrowing path. This keeps the logic tighter without changing behavior. The change is in typeGuards.ts:600-640.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "bdf86ec8b586378865f9819431e7904017c987f3",
+      "subject": "Removed the redundant in/not in operator guard so the dedicated matcher decides applicability, keeping the binary-operation path simpler. Change is in typeGuards.ts:640-710.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeGuards.ts"
+      ]
+    },
+    {
+      "source": "aaf5335c70dac090a51650200a9083d9d107e324",
+      "subject": "Moved to another module and made a small, logical simplification in flow analysis. I reduced repetition in getFlowTypeOfReference by reusing a shared empty result, keeping the control-flow logic clearer and avoiding duplicated result creation.",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator/flowAnalysis.ts"
+      ]
+    },
+    {
+      "source": "0b8091f13daefb37351f16f6a3ccd175eb453c5c",
+      "subject": "Refactor type evaluator core helpers",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "930ef9706fabb1e01f325c0b6215afa68bc61235",
+      "subject": "Refactor return inference frame creation",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "ba570292f5e6465e88be3441ebd998b376607676",
+      "subject": "Refactor return inference context runner",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "727380b68b877fb087a7ff07f3b68b949b8aa7cc",
+      "subject": "Refactor symbol resolution index lookup",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "3fe17b7145b9424c6791ad258cddc072df03f978",
+      "subject": "Refactor symbol resolution stack ops",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "47b16efebbb3c38e3859cf36ebabc004de7a6faf",
+      "subject": "Refactor symbol resolution partial type ops",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "d410631b1ccc2be3b5bdd35d1c79f4ea9ef47065",
+      "subject": "Refactor getLineNum and partial type helpers",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "03fc42dd06dae29b1cb580b6394df8d91c7491c8",
+      "subject": "Refactor getAliasFromImport and getLineNum",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "2e60ae311412b65144bd36a99ae64e84bc2d6906",
+      "subject": "Refactor isTypeFormSupported helper",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "e95eb819e35f27b3b6dd63bed65db3f276247b55",
+      "subject": "Refactor declaration and type alias helpers",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "1195dc92250e01f653690b7fff2ab170671516ed",
+      "subject": "Refactor isPossibleTypeAliasDeclaration helper",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "ea7923f117e6063d640af9ff6b0d1656db0bf972",
+      "subject": "Refactor index access and argument conversion helpers",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "ea5255b68974b32fd969630f1387073839ff886c",
+      "subject": "Refactor getFunctionFullName and getPseudoGenericTypeVarName",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "267f4fea81703eed99d53b384c07de5e5911d014",
+      "subject": "Refactor getSpeculativeNodeForCall helper",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "3d4e445e3fb56faf0fc64ada73df6d31934c50da",
+      "subject": "Update architecture doc with extraction progress",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "5c6a30cf5150b340de32d95890fa69358c03d642",
+      "subject": "Refactor type checking and alias placeholder helpers",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "4c8627cd2f0b01defc7fb007ffad4f4b0f986d7b",
+      "subject": "Refactor type alias and return type helpers",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "744f0a1d1c12b42f89ca461e71824d87487ae9ed",
+      "subject": "Refactor applyUnpackToTupleLike helper",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "5de400ba1d2678eb7cdf1e20c55bb5ce4e31ef76",
+      "subject": "Refactor getDeclarationFromKeywordParam helper",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "e87ae00ec40a53841b25ba3b848b82078fef2b45",
+      "subject": "Update architecture doc with full extraction progress",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "eba54bfe2dfbddc3e92df0a42fed95c73964a8a9",
+      "subject": "Refactor prefetched type accessors via context injection",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "d530df91d3e5eda11af5e85ca66aa6fc76e27b4e",
+      "subject": "Refactor parseStringAsTypeAnnotation helper",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "e2be24e2b23f64c4d917dcb8a849f60187de3019",
+      "subject": "Refactor convertSpecialFormToRuntimeValue and parseStringAsTypeAnnotation",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "61ac31d29842034e2e8f32d81e0bd5ae33b91e47",
+      "subject": "Update architecture doc with Phase 3 progress",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "ccf5123b679db3d17c9def627558e93cb89d194b",
+      "subject": "refactor: extract expandTypedKwargsForFunction to evaluatorCore.ts",
+      "currentFiles": [
+        ".github/copilot-instructions.md",
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "6143742815d764f3d6a9294e5cec7c8355e80a63",
+      "subject": "refactor: extract setConstraintsForFreeTypeVarsInType to evaluatorCore.ts",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "ada520b908bc89d599de107f29f8125e4853651d",
+      "subject": "refactor: extract 4 addDiagnostic-dependent functions to evaluatorCore.ts",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "d4764c2866f6f1ee771f6be8063b3de8728b4057",
+      "subject": "refactor: extract 5 more addDiagnostic-dependent functions to evaluatorCore.ts",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "604c9bc69c59ea5766dc2db0b0f78f29ad54849f",
+      "subject": "refactor: extract validateTypeArg and createUnpackType to evaluatorCore.ts",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "b0f8da3346eb138550a8f2b56739c6e4bdfac26b",
+      "subject": "refactor: extract createSpecialType (137 lines) to evaluatorCore.ts",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "facc0a7514a78d098f9a1b343961beed8acb75d1",
+      "subject": "refactor: extract createConcatenateType and createGenericType to evaluatorCore.ts",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "e8c12a5b00f82dac9b95713c79a74651524f7e6b",
+      "subject": "docs: update architecture doc with Phase 3b progress and injection patterns",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "df4dc5aaaf6f4748250bf9eed60f78f63b1c8a73",
+      "subject": "refactor: extract createAnnotatedType, createCallableType, createOptionalType, validateAnnotatedMetadata",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "b90203b4b4833b6dff17502e4f5f6eff9af488bb",
+      "subject": "refactor: extract createTypeFormType and createTypeGuardType",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "548d2aed01e652aa03ba7d02e4e1eae52bb745d5",
+      "subject": "docs: update architecture doc with final Phase 3 progress",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "f6536ac5c5bc95ae15488da905902905c9dc09e9",
+      "subject": "refactor: Phase 4 - extract 3 functions with TypeEvaluator param pattern",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "0cdeb1472c2c44311bff61526b5b7790414b51b0",
+      "subject": "refactor: extract createRequiredOrReadOnlyType and createUnionType",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "1ce81c08dbfe78179daba048ff3986bb27c15fb8",
+      "subject": "refactor: extract validateTypeIsInstantiable and reportPossibleUnknownAssignment",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "4beef86300cb15834c53ee5977abd55f05c64a73",
+      "subject": "docs: update architecture doc with Phase 4 progress and pattern",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "f3b2427ed37d55d98e365aa589fbb41686d88e51",
+      "subject": "refactor: extract 8 functions with TypeEvaluator param pattern (Phase 4 batch 4)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "07102063ed0f8c51a4ca98bcf2bde08c556cd646",
+      "subject": "refactor: extract getTypeOfSlice, transformVariadicParamType, computeEffectiveMetaclass (Phase 4 batch 5)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "9a84a438b3a8d08ed82885439f30704873e8288f",
+      "subject": "refactor: extract expandPromotionTypes, getTypeOfExpressionExpectingType (Phase 4 batch 6)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "56459b52469afe4daf0a3be83bd9722bb7afaef2",
+      "subject": "refactor: extract getTypeOfYieldFrom, isPossibleTypeDictFactoryCall, isUnambiguousInference (Phase 4 batch 7)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "7d13f4ed59bda45963f7cdb4795ec0882d5b3194",
+      "subject": "docs: update architecture doc with final Phase 4 progress",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "e90d2e612989c280ba2a28bc7cf95912a0916e1e",
+      "subject": "docs: add future performance improvement ideas section",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "1a690b88df8aeaf3dcc44d6c6451965ab16be6a8",
+      "subject": "docs: add V8 perf guardrails, dependency diagram, cycle prevention rules",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "786779ea0b7507e60410539a33b2f2a6ec74fa8b",
+      "subject": "docs: add V8 baseline audit results (dispatch, shape, cycles, state)",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "d9fc43a8567389124ad3acd64e383ec4f37880ec",
+      "subject": "docs: update makeTopLevelTypeVarsConcrete perf note with concrete findings",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "ab811aec9a9c9b034fb2a4d7803b29a5b244804e",
+      "subject": "docs: add performance investigation findings to architecture doc",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "9b96bdd774050c4c222d2cccc127cae6684ac96f",
+      "subject": "Phase 5 batch 1: extract symbol scope functions to evaluatorCore",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/internals.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "94f26c3ce5daafed46c939aba376fe5ea6d38332",
+      "subject": "Phase 5 batch 2: extract verifyRaiseExceptionType to evaluatorCore",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "f9d1d97b2aa9f020fbff0d8bfde59f97b0059085",
+      "subject": "docs: update architecture doc and plan with Phase 5 progress",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "d0858fb7ea3b84bf449a0c148c4d74b8644ca6d0",
+      "subject": "Phase 5 batch 3: extract assign* functions and getCallbackProtocolType to evaluatorCore",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/internals.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "7dc09224fcb7d5129cfd90d186d69584e8b0d056",
+      "subject": "docs: update architecture doc with Phase 5 batch 3 progress",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "ca7e7186222384292de2582eed9f866df9e19fee",
+      "subject": "Phase 5 batch 4: extract override validation and applyTypeArgToTypeVar",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "e551865e0e00346f679bb01eb7970f38a9e9423d",
+      "subject": "docs: update architecture doc and plan with Phase 5 batch 4 progress",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "28ab7c9748e43e7674ea41d511d944557a1c942a",
+      "subject": "Phase 5 batch 5: extract bindFunctionToClassOrObject and partiallySpecializeBoundMethod (~200 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "ca2d91dd182f77bda460239a1a76e54b67c82c70",
+      "subject": "Phase 5 batch 6: extract makeTopLevelTypeVarsConcrete and printSrcDestTypes (~155 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "a045342bf9dd7a58c8d0b1d1fd02ddc3c4bda308",
+      "subject": "docs: update architecture doc with Phase 5 batch 5-6 progress",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "ac999e5934cb68bd043f41fb48c3daf9cb1272de",
+      "subject": "Phase 5 batch 7: extract inferVarianceForTypeAlias and updateUsageVariancesRecursive (~130 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "284ef02511a3abf859a8306e7d8b3bd1f6fb27c8",
+      "subject": "docs: update architecture doc with Phase 5 batch 7 and extraction limit analysis",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "f56f39c52b78d30f2500a959ee3eb60694ddad0c",
+      "subject": "Phase 6 batch 1: extract 6 functions using evaluator interface pattern (~485 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/internals.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "c91bbdbb885bc064f0b64be9350561152d5ccddd",
+      "subject": "Phase 6 batch 2: extract 4 large functions using evaluator interface (~875 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/internals.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "8d2a28dda890e06b0f90ed200c81042bbf8e9b50",
+      "subject": "Phase 6 batch 3: extract getTypeOfIterator and getTypeOfStringListAsType (~206 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "5c5e60cd5656f04f0bca19b44fd2635bf9ebb3d8",
+      "subject": "Phase 6 batch 4: extract createSpecializedClassType (~513 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "2c902d42aa5c6503ad6b7226af6575cee2d35235",
+      "subject": "docs: update architecture doc and plan with Phase 6 progress",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "a69f92ec556079aa594de3d7d7855d273500e720",
+      "subject": "refactor: Phase 6 batch 5 - extract 8 functions (~508 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/internals.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "ce44807b96a4b8fbf9e36179ae5fb52434c694eb",
+      "subject": "refactor: Phase 6 batch 6 - extract 7 functions (~284 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "c37e0d393fed6e4e10b68ffbd045c297fae39f3a",
+      "subject": "refactor: Phase 6 batch 7 - extract 11 functions (~214 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "6ce4facd81f701f7e959acb547129890067272bc",
+      "subject": "refactor: Phase 6 batch 8 - extract 4 functions (~376 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "d1741cfc38e1162d5090bee7e160e214291426e5",
+      "subject": "refactor: Phase 6 batch 9 - extract 8 functions (~230 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "eacae438796256708f7ad673d20081d6f2b1c961",
+      "subject": "refactor: Phase 6 batch 10 - extract 7 functions (~204 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "5b27f5cb81fefc0f5c493a0e059594129f93f09d",
+      "subject": "Phase 6 batch 11: extract 5 functions (~228 lines) to evaluatorCore",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/internals.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "d112e904b68e219bf5de9cd85dbd11db8b44aff9",
+      "subject": "Phase 6 batch 12: extract 4 functions (~349 lines) to evaluatorCore",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "23aaeae00442e947ae757784e857927464cafc47",
+      "subject": "Phase 6 batch 13: extract 4 functions (~351 lines) to evaluatorCore",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "3781ba078513ecbaf89bf85ce133d6eb14840120",
+      "subject": "Phase 6 batch 14: extract 3 functions (~261 lines) to evaluatorCore",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "50132745880bb6893814c7ad629ed00b0a2859dd",
+      "subject": "Phase 6 batch 15: extract getTypeOfStringList, getTypeOfComprehension, getTypeOfListOrSetWithContext, getTypeOfListOrSetInferred (~354 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "2a28d4e60b16defeb5616dbeaf08b7717dd66757",
+      "subject": "Phase 6 batch 16: extract getKeyAndValueTypesFromDictionary (~288 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "25fc6a459633d3b22a0dc4ee12ed5a21ff6f3ec1",
+      "subject": "Phase 6 batch 17: extract getTypeOfDictionaryWithContext, getTypeOfDictionaryInferred (~247 lines)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "a0e6234c91e6dee5b6dfa45297569493707ae47a",
+      "subject": "Phase 7: split evaluatorCore.ts into topic-focused modules",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/pureHelpers.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/specialFormCreation.ts"
+      ]
+    },
+    {
+      "source": "5329ad14f6aabbd6fe6d566ef829605c316ace5e",
+      "subject": "docs: update architecture doc and plan for Phase 7 module split",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "39bd279b77aa4ba02d5de3ea568d0b3a88e3da13",
+      "subject": "refactor: extract collectionInference.ts from evaluatorCore.ts",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/collectionInference.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "fcdcb9f0dfd0ce5c5787d21ef0c91ad9cf8d12bb",
+      "subject": "refactor: move list/set inference functions to collectionInference.ts",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/collectionInference.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "db230c9b73bf045c9645b65f2f25df2eef238cae",
+      "subject": "refactor: extract assignFunctions.ts from evaluatorCore.ts",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/assignFunctions.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "ffd06fd087d0bf7c5790933a493ccff75546642e",
+      "subject": "docs: update architecture doc for collectionInference + assignFunctions modules",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "8c85abb3bd23a94852590bef9a1c39a956965a70",
+      "subject": "refactor: extract overrideValidation.ts from evaluatorCore.ts",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/overrideValidation.ts"
+      ]
+    },
+    {
+      "source": "93f91166d3fd2bae9dd3b06a0d8f92dfd1d93da2",
+      "subject": "refactor: expand assignFunctions.ts with union/class assignment logic",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/assignFunctions.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "ca4864f5a1886f1ab48d96a5d488137b22b7906c",
+      "subject": "docs: update architecture for assignFunctions expansion + overrideValidation",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "d313e8b13b4365bedaa722077ed2feb4b12a038a",
+      "subject": "refactor: extract expressionEvaluation.ts from evaluatorCore.ts",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/collectionInference.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+      ]
+    },
+    {
+      "source": "7ce7e16d6e95d4f4281cc6a1f12bffbcffdaab74",
+      "subject": "refactor: extract typeVarHandling.ts from evaluatorCore.ts",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/collectionInference.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeVarHandling.ts"
+      ]
+    },
+    {
+      "source": "09e53e1dff078853b8b8b29343e00d3077be7d45",
+      "subject": "docs: update architecture and plan for expressionEvaluation + typeVarHandling",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "1d4c9aa33a7aff2ce70d91ff0670d95293a62493",
+      "subject": "refactor: extract memberResolution.ts from evaluatorCore (23 member/symbol/binding functions)",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/memberResolution.ts"
+      ]
+    },
+    {
+      "source": "c66a2ffb8fc122240034795371883a6ea3b56120",
+      "subject": "docs: update architecture doc for memberResolution extraction and current state",
+      "currentFiles": [
+        "docs/type-evaluator-architecture.md"
+      ]
+    },
+    {
+      "source": "b1c0d4f7153419daa957486c479b1e19974dadee",
+      "subject": "fix: update expressionEvaluation imports for memberResolution extraction",
+      "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts"
+      ]
+    },
+    {
+      "source": "17ece96b804240b7265185ffe0f680a369a7bd40",
+      "subject": "docs: add refactor retrospective with tool analysis and improvement ideas",
+      "currentFiles": [
+        "docs/refactor-retrospective.md"
+      ]
+    }
+  ],
+  "evaluatorFunctions": [
+    {
+      "name": "canBeFalsy",
+      "oldModule": "narrowing",
+      "resolution": "ported",
+      "currentModule": "evaluatorNarrowing"
+    },
+    {
+      "name": "canBeTruthy",
+      "oldModule": "narrowing",
+      "resolution": "ported",
+      "currentModule": "evaluatorNarrowing"
+    },
+    {
+      "name": "removeTruthinessFromType",
+      "oldModule": "narrowing",
+      "resolution": "ported",
+      "currentModule": "evaluatorNarrowing"
+    },
+    {
+      "name": "removeFalsinessFromType",
+      "oldModule": "narrowing",
+      "resolution": "ported",
+      "currentModule": "evaluatorNarrowing"
+    },
+    {
+      "name": "isNodeInReturnTypeInferenceContext",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getCodeFlowAnalyzerForReturnTypeInferenceContext",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getIndexOfSymbolResolution",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "pushSymbolResolution",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "popSymbolResolution",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "setSymbolResolutionPartialType",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "getSymbolResolutionPartialType",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "reportUseOfTypeCheckOnly",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "validateTypeIsInstantiable",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getTypeOfEllipsis",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfUnpackOperator",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfStringList",
+      "oldModule": "collectionInference",
+      "resolution": "ported",
+      "currentModule": "collectionInference"
+    },
+    {
+      "name": "getTypeOfStringListAsType",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfString",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "stripLiteralValue",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "literalTypes"
+    },
+    {
+      "name": "stripTypeGuard",
+      "oldModule": "narrowing",
+      "resolution": "ported",
+      "currentModule": "literalTypes"
+    },
+    {
+      "name": "solveAndApplyConstraints",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getBoundMagicMethod",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "expandTypedKwargs",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "isDeclaredTypeAlias",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "getDeclaredTypeForExpression",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfAwaitable",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getTypeOfIterator",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfIterable",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "isTypeHashable",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getTypedDictClassType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getTupleClassType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getDictClassType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getStrClassType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getObjectType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getNoneType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getUnionClassType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getTypeClassType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "checkCodeFlowTooComplex",
+      "oldModule": "flowAnalysis",
+      "resolution": "ported",
+      "currentModule": "flowAnalysis"
+    },
+    {
+      "name": "isNodeReachable",
+      "oldModule": "flowAnalysis",
+      "resolution": "ported",
+      "currentModule": "flowAnalysis"
+    },
+    {
+      "name": "isAfterNodeReachable",
+      "oldModule": "flowAnalysis",
+      "resolution": "ported",
+      "currentModule": "flowAnalysis"
+    },
+    {
+      "name": "getNodeReachability",
+      "oldModule": "flowAnalysis",
+      "resolution": "ported",
+      "currentModule": "flowAnalysis"
+    },
+    {
+      "name": "getAfterNodeReachability",
+      "oldModule": "flowAnalysis",
+      "resolution": "ported",
+      "currentModule": "flowAnalysis"
+    },
+    {
+      "name": "isFlowNodeReachableUsingNeverNarrowing",
+      "oldModule": "flowAnalysis",
+      "resolution": "ported",
+      "currentModule": "flowAnalysis"
+    },
+    {
+      "name": "isFlowPathBetweenNodes",
+      "oldModule": "flowAnalysis",
+      "resolution": "ported",
+      "currentModule": "flowAnalysis"
+    },
+    {
+      "name": "addInformation",
+      "oldModule": "diagnostics",
+      "resolution": "ported",
+      "currentModule": "diagnostics"
+    },
+    {
+      "name": "addUnreachableCode",
+      "oldModule": "diagnostics",
+      "resolution": "ported",
+      "currentModule": "diagnostics"
+    },
+    {
+      "name": "addDeprecated",
+      "oldModule": "diagnostics",
+      "resolution": "ported",
+      "currentModule": "diagnostics"
+    },
+    {
+      "name": "addDiagnosticWithSuppressionCheck",
+      "oldModule": "diagnostics",
+      "resolution": "ported",
+      "currentModule": "diagnostics"
+    },
+    {
+      "name": "isDiagnosticSuppressedForNode",
+      "oldModule": "diagnostics",
+      "resolution": "ported",
+      "currentModule": "diagnostics"
+    },
+    {
+      "name": "canSkipDiagnosticForNode",
+      "oldModule": "diagnostics",
+      "resolution": "ported",
+      "currentModule": "diagnostics"
+    },
+    {
+      "name": "addDiagnostic",
+      "oldModule": "diagnostics",
+      "resolution": "ported",
+      "currentModule": "diagnostics"
+    },
+    {
+      "name": "addDiagnosticForTextRange",
+      "oldModule": "diagnostics",
+      "resolution": "ported",
+      "currentModule": "diagnostics"
+    },
+    {
+      "name": "expandPromotionTypes",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "makeTopLevelTypeVarsConcrete",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "mapSubtypesExpandTypeVars",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "applyConditionFilterToType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "verifyRaiseExceptionType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "addTypeFormForSymbol",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "isSymbolValidTypeExpression",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "validateSymbolIsTypeExpression",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "convertSpecialFormToRuntimeValue",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "enforceClassTypeVarScope",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "reportMissingTypeArgs",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "bindMethodForMemberAccess",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "isAsymmetricDescriptorClass",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "isClassWithAsymmetricAttributeAccessor",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "applyAttributeAccessOverride",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "adjustTypeArgsForTypeVarTuple",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "validateTypeVarTupleIsUnpacked",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "specializeTypeAliasWithDefaults",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "inferVarianceForTypeAlias",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "getIndexAccessMagicMethodName",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "getTypeOfIndexedObjectOrClass",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "applyUnpackToTupleLike",
+      "oldModule": "pureHelpers",
+      "resolution": "ported",
+      "currentModule": "pureHelpers"
+    },
+    {
+      "name": "getTypeArg",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "buildTupleTypesList",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getTypeOfLambdaForCall",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfTypeForm",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfAssertType",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "convertNodeToArg",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getTypeOfRevealLocals",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfSuperCall",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getSpeculativeNodeForCall",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "expandArgTypes",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "expandArgType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getAbstractSymbolInfo",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "validateCallForClassInstance",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "evaluateCastCall",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "expandArgList",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "getUnknownExemptTypeVarsForReturnType",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "adjustCallableReturnType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "createTypeVarType",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "verifyTypeVarDefaultIsCompatible",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "createTypeVarTupleType",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "getTypeVarTupleDefaultType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getBooleanValue",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "getFunctionFullName",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "createNewType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "createClassFromMetaclass",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getTypeOfConstant",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfMagicMethodCall",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfDictionaryWithContext",
+      "oldModule": "collectionInference",
+      "resolution": "ported",
+      "currentModule": "collectionInference"
+    },
+    {
+      "name": "getTypeOfDictionaryInferred",
+      "oldModule": "collectionInference",
+      "resolution": "ported",
+      "currentModule": "collectionInference"
+    },
+    {
+      "name": "getKeyAndValueTypesFromDictionary",
+      "oldModule": "collectionInference",
+      "resolution": "ported",
+      "currentModule": "collectionInference"
+    },
+    {
+      "name": "getTypeOfListOrSetWithContext",
+      "oldModule": "collectionInference",
+      "resolution": "ported",
+      "currentModule": "collectionInference"
+    },
+    {
+      "name": "getExpectedEntryTypeForIterable",
+      "oldModule": "collectionInference",
+      "resolution": "ported",
+      "currentModule": "collectionInference"
+    },
+    {
+      "name": "getTypeOfListOrSetInferred",
+      "oldModule": "collectionInference",
+      "resolution": "ported",
+      "currentModule": "collectionInference"
+    },
+    {
+      "name": "verifySetEntryOrDictKeyIsHashable",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "inferTypeArgFromExpectedEntryType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getTypeOfYield",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfYieldFrom",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfComprehension",
+      "oldModule": "collectionInference",
+      "resolution": "ported",
+      "currentModule": "collectionInference"
+    },
+    {
+      "name": "reportPossibleUnknownAssignment",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "evaluateComprehensionForIf",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getElementTypeFromComprehension",
+      "oldModule": "collectionInference",
+      "resolution": "ported",
+      "currentModule": "collectionInference"
+    },
+    {
+      "name": "getTypeOfSlice",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "validateTypeArg",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "createCallableType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "createOptionalType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "cloneBuiltinObjectWithLiteral",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "cloneBuiltinClassWithLiteral",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "createLiteralType",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "createClassVarType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "createTypeFormType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "createTypeGuardType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "createSelfType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "createRequiredOrReadOnlyType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "createUnpackType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "createFinalType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "createConcatenateType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "createAnnotatedType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "validateAnnotatedMetadata",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "createSpecialType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "createUnionType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "createGenericType",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "transformTypeForTypeAlias",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "synthesizeTypeAliasPlaceholder",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "getPseudoGenericTypeVarName",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "createSubclass",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "buildTypeParamsFromTypeArgs",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "validateTypeParamDefault",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "inferVarianceForClass",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "computeEffectiveMetaclass",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "verifyGenericTypeParams",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "adjustParamAnnotatedType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "inferParamTypeFromDefaultValue",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "transformVariadicParamType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "methodAlwaysRaisesNotImplemented",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getAliasedSymbolTypeForName",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "getCodeFlowAnalyzerForNode",
+      "oldModule": "flowAnalysis",
+      "resolution": "ported",
+      "currentModule": "flowAnalysis"
+    },
+    {
+      "name": "getFlowTypeOfReference",
+      "oldModule": "flowAnalysis",
+      "resolution": "ported",
+      "currentModule": "flowAnalysis"
+    },
+    {
+      "name": "createSpecializedClassType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "transformTypeArgsForParamSpec",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "getTypeOfArg",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfArgExpectingType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getTypeOfExpressionExpectingType",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getBuiltInType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getBuiltInObject",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "lookUpSymbolRecursive",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "suppressDiagnostics",
+      "oldModule": "diagnostics",
+      "resolution": "ported",
+      "currentModule": "diagnostics"
+    },
+    {
+      "name": "getDeclarationFromKeywordParam",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getDeclInfoForStringNode",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "getAliasFromImport",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getDeclInfoForNameNode",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "isUnambiguousInference",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "includesVariableTypeDecl",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "inferReturnTypeForCallSite",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getDeclaredReturnType",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "getTypeOfMember",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "getTypeOfMemberInternal",
+      "oldModule": "expressionEvaluation",
+      "resolution": "ported",
+      "currentModule": "expressionEvaluation"
+    },
+    {
+      "name": "assignClass",
+      "oldModule": "assignFunctions",
+      "resolution": "ported",
+      "currentModule": "assignFunctions"
+    },
+    {
+      "name": "assignClassWithTypeArgs",
+      "oldModule": "assignFunctions",
+      "resolution": "ported",
+      "currentModule": "assignFunctions"
+    },
+    {
+      "name": "assignRecursiveTypeAliasToSelf",
+      "oldModule": "assignFunctions",
+      "resolution": "ported",
+      "currentModule": "assignFunctions"
+    },
+    {
+      "name": "convertToTypeFormType",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "assignFromUnionType",
+      "oldModule": "assignFunctions",
+      "resolution": "ported",
+      "currentModule": "assignFunctions"
+    },
+    {
+      "name": "isSpecialFormClass",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "setConstraintsForFreeTypeVars",
+      "oldModule": "typeVarHandling",
+      "resolution": "ported",
+      "currentModule": "typeVarHandling"
+    },
+    {
+      "name": "isTypeSubsumedByOtherType",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "isProperSubtype",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "isTypeComparable",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "assignToUnionType",
+      "oldModule": "assignFunctions",
+      "resolution": "ported",
+      "currentModule": "assignFunctions"
+    },
+    {
+      "name": "assignConditionalTypeToTypeVar",
+      "oldModule": "assignFunctions",
+      "resolution": "ported",
+      "currentModule": "assignFunctions"
+    },
+    {
+      "name": "getCallbackProtocolType",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "assignParam",
+      "oldModule": "assignFunctions",
+      "resolution": "ported",
+      "currentModule": "assignFunctions"
+    },
+    {
+      "name": "adjustSourceParamDetailsForDestVariadic",
+      "oldModule": "specialFormCreation",
+      "resolution": "ported",
+      "currentModule": "specialFormCreation"
+    },
+    {
+      "name": "assignFunction",
+      "oldModule": "assignFunctions",
+      "resolution": "ported",
+      "currentModule": "assignFunctions"
+    },
+    {
+      "name": "narrowTypeBasedOnAssignment",
+      "oldModule": "narrowing",
+      "resolution": "ported",
+      "currentModule": "evaluatorNarrowing"
+    },
+    {
+      "name": "validateOverrideMethod",
+      "oldModule": "overrideValidation",
+      "resolution": "ported",
+      "currentModule": "overrideValidation"
+    },
+    {
+      "name": "isOverrideMethodApplicable",
+      "oldModule": "overrideValidation",
+      "resolution": "ported",
+      "currentModule": "overrideValidation"
+    },
+    {
+      "name": "validateOverrideMethodInternal",
+      "oldModule": "overrideValidation",
+      "resolution": "ported",
+      "currentModule": "overrideValidation"
+    },
+    {
+      "name": "applyTypeArgToTypeVar",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "getAbstractSymbols",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "bindFunctionToClassOrObject",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "isFinalVariable",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "isFinalVariableDeclaration",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "isExplicitTypeAliasDeclaration",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "isPossibleTypeAliasDeclaration",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "isLegalTypeAliasExpressionForm",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "isLegalImplicitTypeAliasType",
+      "oldModule": "memberResolution",
+      "resolution": "ported",
+      "currentModule": "memberResolution"
+    },
+    {
+      "name": "isPossibleTypeDictFactoryCall",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "printSrcDestTypes",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "isTypeFormSupported",
+      "oldModule": "pureHelpers",
+      "resolution": "superseded-upstream",
+      "reason": "No current upstream function: current TypeForm support logic is authoritative."
+    },
+    {
+      "name": "parseStringAsTypeAnnotation",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "narrowConstrainedTypeVar",
+      "oldModule": "flowAnalysis",
+      "resolution": "ported",
+      "currentModule": "flowAnalysis"
+    },
+    {
+      "name": "getLineNum",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "evaluatorCore"
+    },
+    {
+      "name": "printControlFlowGraph",
+      "oldModule": "flowAnalysis",
+      "resolution": "ported",
+      "currentModule": "flowAnalysis"
+    }
+  ],
+  "additionalModuleExports": [
+    {
+      "name": "partiallySpecializeBoundMethod",
+      "oldModule": "evaluatorCore",
+      "resolution": "ported",
+      "currentModule": "boundMethodSpecialization"
+    },
+    {
+      "name": "formatTypeViolationMessage",
+      "oldModule": "diagnostics",
+      "resolution": "superseded-scaffolding",
+      "reason": "No current named helper; preserve current upstream message construction instead of historical convenience scaffolding."
+    },
+    {
+      "name": "pushReturnTypeInferenceContextFrame",
+      "oldModule": "evaluatorCore",
+      "resolution": "current-inline-equivalent",
+      "currentModule": "evaluatorCore",
+      "reason": "Current inferred-return analysis pushes frames inline; preserve current frame shape and cache handling rather than recreate a standalone wrapper."
+    },
+    {
+      "name": "popReturnTypeInferenceContextFrame",
+      "oldModule": "evaluatorCore",
+      "resolution": "current-inline-equivalent",
+      "currentModule": "evaluatorCore",
+      "reason": "Current inferred-return analysis pops frames in its existing finally block and restores both inference caches."
+    }
+  ],
+  "typeGuardExports": [
+    {
+      "name": "narrowTypeForCondition",
+      "resolution": "superseded-inline",
+      "currentImplementation": "getTypeNarrowingCallback + applyTypeNarrowingCallback",
+      "currentFile": "analyzer/typeGuards.ts"
+    },
+    {
+      "name": "narrowTypeBasedOnAssignment",
+      "resolution": "moved-other-topic",
+      "currentImplementation": "narrowTypeBasedOnAssignment",
+      "currentFile": "analyzer/typeEvaluator/evaluatorNarrowing.ts"
+    },
+    {
+      "name": "stripTypeGuard",
+      "resolution": "moved-other-topic",
+      "currentImplementation": "stripTypeGuard",
+      "currentFile": "analyzer/typeEvaluator/literalTypes.ts"
+    },
+    {
+      "name": "stripLiteralValue",
+      "resolution": "moved-other-topic",
+      "currentImplementation": "stripLiteralValue",
+      "currentFile": "analyzer/typeEvaluator/literalTypes.ts"
+    },
+    {
+      "name": "canBeFalsy",
+      "resolution": "moved-other-topic",
+      "currentImplementation": "TypeEvaluator.canBeFalsy method",
+      "currentFile": "analyzer/typeEvaluator/evaluatorNarrowing.ts"
+    },
+    {
+      "name": "canBeTruthy",
+      "resolution": "moved-other-topic",
+      "currentImplementation": "TypeEvaluator.canBeTruthy method",
+      "currentFile": "analyzer/typeEvaluator/evaluatorNarrowing.ts"
+    },
+    {
+      "name": "removeTruthinessFromType",
+      "resolution": "moved-other-topic",
+      "currentImplementation": "TypeEvaluator.removeTruthinessFromType method",
+      "currentFile": "analyzer/typeEvaluator/evaluatorNarrowing.ts"
+    },
+    {
+      "name": "removeFalsinessFromType",
+      "resolution": "moved-other-topic",
+      "currentImplementation": "TypeEvaluator.removeFalsinessFromType method",
+      "currentFile": "analyzer/typeEvaluator/evaluatorNarrowing.ts"
+    },
+    {
+      "name": "narrowTypeForTruthiness",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForTruthiness",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTupleTypeForIsNone",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTupleTypeForIsNone",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForIsNone",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForIsNone",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForIsEllipsis",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForIsEllipsis",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForClassComparison",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForClassComparison",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForLiteralComparison",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForLiteralComparison",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForDiscriminatedDictEntryComparison",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForDiscriminatedDictEntryComparison",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForDiscriminatedTupleComparison",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForDiscriminatedTupleComparison",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForDiscriminatedLiteralFieldComparison",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForDiscriminatedLiteralFieldComparison",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForDiscriminatedFieldNoneComparison",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForDiscriminatedFieldNoneComparison",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForTypeIs",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForTypeIs",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForUserDefinedTypeGuard",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForUserDefinedTypeGuard",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForInstanceOrSubclass",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForInstanceOrSubclass",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForTupleLength",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForTupleLength",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForContainerType",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForContainerType",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getElementTypeForContainerNarrowing",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getElementTypeForContainerNarrowing",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForContainerElementType",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForContainerElementType",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "narrowTypeForTypedDictKey",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "narrowTypeForTypedDictKey",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "enumerateLiteralsForType",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "enumerateLiteralsForType",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getIsInstanceClassTypes",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getIsInstanceClassTypes",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "isNameSameScope",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "isNameSameScope",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getNoneEllipsisNarrowingInfo",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getNoneEllipsisNarrowingInfo",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getTypeIsCallNarrowingInfo",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getTypeIsCallNarrowingInfo",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getIsLiteralOrClassNarrowingInfo",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getIsLiteralOrClassNarrowingInfo",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getIndexedLiteralNarrowingInfo",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getIndexedLiteralNarrowingInfo",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getEqualsLiteralNarrowingInfo",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getEqualsLiteralNarrowingInfo",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getMemberAccessNarrowingInfo",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getMemberAccessNarrowingInfo",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getLenComparisonNarrowingInfo",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getLenComparisonNarrowingInfo",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getInOperatorNarrowingInfo",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getInOperatorNarrowingInfo",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getIsInstanceCallNarrowingInfo",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getIsInstanceCallNarrowingInfo",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getBoolCallNarrowingInfo",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getBoolCallNarrowingInfo",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getTypeGuardCallNarrowingInfo",
+      "resolution": "superseded-inline",
+      "currentImplementation": "inlined TypeGuard/TypeIs call analysis in getTypeNarrowingCallback",
+      "currentFile": "analyzer/typeGuards.ts"
+    },
+    {
+      "name": "isDirectReferenceTest",
+      "resolution": "superseded-inline",
+      "currentImplementation": "inlined argument reference matching in getTypeNarrowingCallback",
+      "currentFile": "analyzer/typeGuards.ts"
+    },
+    {
+      "name": "getNotExpressionNarrowingInfo",
+      "resolution": "moved-to-narrowing",
+      "currentImplementation": "getNotExpressionNarrowingInfo",
+      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+    },
+    {
+      "name": "getTypeNarrowingCallbackForAliasedCondition<TCallback>",
+      "resolution": "superseded-inline",
+      "currentImplementation": "getTypeNarrowingCallbackForAliasedCondition",
+      "currentFile": "analyzer/typeGuards.ts"
+    },
+    {
+      "name": "getTypeNarrowingCallbackForAssignmentExpression<TCallback>",
+      "resolution": "superseded-inline",
+      "currentImplementation": "getTypeNarrowingCallbackForAssignmentExpression",
+      "currentFile": "analyzer/typeGuards.ts"
+    }
+  ]
+}

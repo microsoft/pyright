@@ -85,13 +85,15 @@ Source files are processed through these phases in order:
 
 ### Key Design Patterns
 
-**Type Evaluator closure pattern**: `typeEvaluator.ts` uses a single large `createTypeEvaluator()` factory function. Internal methods access the full closure for performance (same approach as the TypeScript compiler). The public API is defined as the `TypeEvaluator` interface in `typeEvaluatorTypes.ts`.
+**Type Evaluator ownership pattern**: `typeEvaluator.ts` keeps evaluator state in the `createTypeEvaluator()` closure. Topic modules in `analyzer/typeEvaluator/` receive narrow private contexts; mutable bindings use live accessors rather than snapshots. Keep the public `TypeEvaluator` API in `typeEvaluatorTypes.ts` unchanged, and do not back-import `typeEvaluator.ts` from extracted modules or `codeFlowEngine.ts`. See the [architecture guide](../docs/type-evaluator-architecture.md). Current upstream implementations supersede historical refactor algorithms.
 
 **Service → Program → SourceFile**: A `Service` manages a `Program`, which tracks `SourceFile` instances. The `Program` coordinates analysis ordering, prioritizing open editor files and their dependencies.
 
 **Typeshed fallback**: `packages/pyright-internal/typeshed-fallback/` contains a bundled copy of typeshed stubs. This provides the Python stdlib type stubs when no external typeshed is available.
 
 **Localized diagnostics**: All user-facing diagnostic messages come from `localization/localize.ts`, not inline strings.
+
+**CLI contracts**: Preserve documented exit statuses and JSON output schemas in `packages/pyright-internal/src/pyright.ts`.
 
 ### Evaluation tracing
 
