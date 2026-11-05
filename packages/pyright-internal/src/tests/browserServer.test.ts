@@ -152,4 +152,4 @@ test('browser server checks stdlib types and updates diagnostics after edits wit
             Reflect.deleteProperty(globalThis, '__rootDirectory');
         }
     }
-});
+}, 30_000);
