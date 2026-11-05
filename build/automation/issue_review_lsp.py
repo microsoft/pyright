@@ -16,9 +16,10 @@ import subprocess
 import sys
 import time
 import uuid
+from collections.abc import Awaitable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeVar
 from urllib.parse import unquote, urlparse
 
 from pydantic import Field, JsonValue
@@ -26,6 +27,9 @@ from pydantic import Field, JsonValue
 from issue_review_editor import copy_assets, owned_tree
 from issue_review_models import Record, ReproductionTarget
 from issue_review_reproduction import TargetStore, relative_path, run_target_io, tree_hash
+from issue_review_timing import phase_timing, timed_phase
+
+T = TypeVar("T")
 
 MAX_FRAME = 256 * 1024
 MAX_WIRE = 2 * 1024 * 1024
@@ -554,26 +558,32 @@ class LanguageServerRuntime:
         self.lock = asyncio.Lock()
         self.attempts = 0
 
-    async def target(self, identifier: str) -> tuple[Path, dict[str, JsonValue]]:
+    async def target(self, identifier: str, *, timings: Path | None = None) -> tuple[Path, dict[str, JsonValue]]:
+        timings = timings or self.directory / "timings.jsonl"
         if identifier == "checkout":
             package = self.root / "packages" / "pyright"
             for name in ("langserver.index.js", str(Path("dist") / "pyright-langserver.js")):
                 if not (package / name).is_file():
                     raise ValueError(f"Prepared checkout LSP build is missing {package / name}; caller must build it")
-            revision = await run_target_io(subprocess.check_output, ["git", "rev-parse", "HEAD"], cwd=self.root, timeout=5)
+            revision = await timed_phase(timings, "lsp.target.revision", run_target_io(
+                subprocess.check_output, ["git", "rev-parse", "HEAD"], cwd=self.root, timeout=5,
+            ), target=identifier)
+            measurements: dict[str, JsonValue] = {}
+            with phase_timing(timings, "lsp.target.source.integrity", target=identifier, measurements=measurements):
+                source_hash = await run_target_io(
+                    tree_hash, self.root / "packages" / "pyright-internal" / "src", measurements=measurements,
+                )
             return package, {
                 "role": "checkout", "identity": revision.decode("ascii").strip(),
-                "source": str(self.root), "source_tree_hash": await run_target_io(
-                    tree_hash, self.root / "packages" / "pyright-internal" / "src",
-                ),
+                "source": str(self.root), "source_tree_hash": source_hash,
                 "version": json.loads((package / "package.json").read_text(encoding="utf-8"))["version"],
                 "note": "Checkout build, not a published release even when versions match.",
             }
         target = self.prepared_targets.get(identifier)
         if self.prepared_store is None or target is None:
             raise ValueError("Unknown LSP target ID; only checkout or advertised prepared targets are available")
-        await run_target_io(self.prepared_store.restore, target)
-        await run_target_io(self.prepared_store.verify, target)
+        await timed_phase(timings, "lsp.target.restore", run_target_io(self.prepared_store.restore, target), target=identifier)
+        await timed_phase(timings, "lsp.target.verify", run_target_io(self.prepared_store.verify, target), target=identifier)
         assert target.directory is not None
         package = Path(target.directory)
         if not (package / "langserver.index.js").is_file() or not (package / "dist" / "pyright-langserver.js").is_file():
@@ -585,46 +595,95 @@ class LanguageServerRuntime:
             if self.attempts >= 3:
                 raise ValueError("The three-attempt LSP allowance is exhausted; use saved observations")
             self.attempts += 1
-            inputs = await run_target_io(capture_inputs, self.scratch, request)
-            package, provenance = await self.target(request.target_id)
+            started = time.monotonic()
             attempt = self.directory / uuid.uuid4().hex
             attempt.mkdir(parents=True)
-            snapshot = attempt / "runtime"
-            snapshot.mkdir()
-            no_links(package / "langserver.index.js")
-            source_hash = await run_target_io(tree_hash, package / "dist")
-            await run_target_io(copy_assets, package / "dist", snapshot / "dist")
-            await run_target_io(shutil.copyfile, package / "langserver.index.js", snapshot / "langserver.index.js")
-            if await run_target_io(tree_hash, snapshot / "dist") != source_hash:
-                raise ValueError("Source LSP bundle changed while copying")
-            if request.target_id != "checkout" and self.prepared_store is not None:
-                await run_target_io(self.prepared_store.verify, self.prepared_targets[request.target_id])
-            runtime_hash = await run_target_io(tree_hash, snapshot)
-            node = shutil.which("node")
-            if node is None:
-                raise ValueError("Node is unavailable; caller must prepare the server runtime")
-            node_env = environment(attempt / "runtime-home")
-            node_version = await run_target_io(subprocess.check_output, [node, "--version"], env=node_env, timeout=5)
+            timings = attempt / "timings.jsonl"
             cases: list[JsonValue] = []
             record: dict[str, JsonValue] = {
                 "id": attempt.name, "kind": "language_server_observation", "product_surface": "language_server",
                 "started_at": datetime.now(timezone.utc).isoformat(),
-                "capability": "workspace_progress_v1", "target_id": request.target_id, "target": provenance,
+                "status": "preparing", "phase": "lsp.preparation",
+                "artifact": str(attempt / "observation.json"), "timings": str(timings),
+                "capability": "workspace_progress_v1", "target_id": request.target_id,
                 "probe_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                "request": request.model_dump(mode="json"), "inputs": {name: content for name, content in inputs.items()}, "runtime_hash": runtime_hash,
+                "request": request.model_dump(mode="json"),
                 "source_directory": str(self.scratch / request.project),
                 "interpreter": {"executable": sys.executable, "version": sys.version, "platform": sys.platform},
-                "node": {"executable": node, "version": node_version.decode("ascii").strip()},
                 "cases": cases, "action_ineligible": True, "faithful_reproduction": False,
                 "qualifications": [
-                    "Inspected reconstructed workspace; original client initialize exchange was not supplied.",
+                    "Reconstructed workspace only; original client initialize exchange was not supplied.",
                     "Controller interpreter is not necessarily the reported interpreter; static-target controls do not switch interpreters.",
                     "Configured checking-mode omission is preserved; server defaults are not evidence of reported settings.",
                     "Empty diagnostics may clear earlier diagnostics; publication alone proves neither a defect nor remaining-file identity.",
                     "Bounded progress cutoff is not proof of idle state, a permanent hang, templatelib causation, resolution or a duplicate.",
                 ],
             }
+
+            def save() -> None:
+                (attempt / "observation.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+
+            async def phase(
+                name: str, operation: Awaitable[T], *, measurements: dict[str, JsonValue] | None = None,
+            ) -> T:
+                record["phase"] = name
+                save()
+                with phase_timing(timings, name, target=request.target_id, measurements=measurements):
+                    return await operation
+
+            async def hash_tree(name: str, path: Path) -> str:
+                measurements: dict[str, JsonValue] = {}
+                return await phase(name, run_target_io(tree_hash, path, measurements=measurements), measurements=measurements)
+
             try:
+                save()
+                with phase_timing(timings, "lsp.preparation", target=request.target_id):
+                    inputs = await phase("lsp.preparation.inputs", run_target_io(capture_inputs, self.scratch, request))
+                    record["inputs"] = {name: content for name, content in inputs.items()}
+                    package, provenance = await phase("lsp.preparation.target", self.target(request.target_id, timings=timings))
+                    record["target"] = provenance
+                    snapshot = attempt / "runtime"
+                    snapshot.mkdir()
+                    no_links(package / "langserver.index.js")
+                    source_hash = await hash_tree("lsp.preparation.source.integrity", package / "dist")
+                    copy_measurements: dict[str, JsonValue] = {}
+
+                    def copy_progress(kind: str, count: int, _path: str) -> None:
+                        copy_measurements[kind] = count
+
+                    def copy_bundle() -> None:
+                        wall, cpu = time.perf_counter(), time.thread_time()
+                        try:
+                            copy_assets(package / "dist", snapshot / "dist", copy_progress)
+                        finally:
+                            copy_measurements.update({
+                                "wall_seconds": max(0, time.perf_counter() - wall),
+                                "thread_cpu_seconds": max(0, time.thread_time() - cpu),
+                            })
+
+                    await phase("lsp.preparation.copy", run_target_io(copy_bundle), measurements=copy_measurements)
+                    await phase("lsp.preparation.wrapper.copy", run_target_io(
+                        shutil.copyfile, package / "langserver.index.js", snapshot / "langserver.index.js",
+                    ))
+                    if await hash_tree("lsp.preparation.snapshot.integrity", snapshot / "dist") != source_hash:
+                        raise ValueError("Source LSP bundle changed while copying")
+                    if request.target_id != "checkout" and self.prepared_store is not None:
+                        await phase("lsp.preparation.target.verify", run_target_io(
+                            self.prepared_store.verify, self.prepared_targets[request.target_id],
+                        ))
+                    runtime_hash = await hash_tree("lsp.preparation.runtime.integrity", snapshot)
+                    record["runtime_hash"] = runtime_hash
+                    node = shutil.which("node")
+                    if node is None:
+                        raise ValueError("Node is unavailable; caller must prepare the server runtime")
+                    node_env = environment(attempt / "runtime-home")
+                    node_version = await phase("lsp.preparation.node.version", run_target_io(
+                        subprocess.check_output, [node, "--version"], env=node_env, timeout=5,
+                    ))
+                    record["node"] = {"executable": node, "version": node_version.decode("ascii").strip()}
+                    record["preparation_elapsed_seconds"] = max(0, time.monotonic() - started)
+                    record["preparation_completed_at"] = datetime.now(timezone.utc).isoformat()
+                record["status"] = "observing"
                 for name, version, mode in (
                     ("original", "3.14", "workspace"), ("target_313_control", "3.13", "workspace"),
                     ("open_files_control", "3.14", "openFilesOnly"),
@@ -640,7 +699,7 @@ class LanguageServerRuntime:
                         path = workspace / filename
                         path.parent.mkdir(parents=True, exist_ok=True)
                         path.write_bytes(content.encode("utf-8"))
-                    before = await run_target_io(tree_hash, workspace)
+                    before = await hash_tree(f"lsp.case.{name}.inputs.integrity", workspace)
                     env = environment(attempt / (name + "-home"))
                     command = [node, str(snapshot / "langserver.index.js"), "--stdio"]
                     session = ProgressSession(workspace, request.open_file, mode, request.observation_seconds, Path(sys.executable))
@@ -653,22 +712,32 @@ class LanguageServerRuntime:
                         "observation": session.result,
                     }
                     cases.append(case)
-                    await session.run(command, env)
+                    await phase(f"lsp.case.{name}.observe", session.run(command, env))
                     case["exit_code"] = session.result.get("exit_code")
-                    if await run_target_io(tree_hash, workspace) != before:
+                    if await hash_tree(f"lsp.case.{name}.final.integrity", workspace) != before:
                         raise ValueError("LSP workspace changed during execution")
-                if await run_target_io(capture_inputs, self.scratch, request) != inputs or await run_target_io(tree_hash, snapshot) != runtime_hash:
+                if await phase("lsp.final.inputs", run_target_io(capture_inputs, self.scratch, request)) != inputs:
+                    raise ValueError("LSP source/configuration/runtime changed during execution")
+                if await hash_tree("lsp.final.runtime.integrity", snapshot) != runtime_hash:
                     raise ValueError("LSP source/configuration/runtime changed during execution")
                 if request.target_id != "checkout" and self.prepared_store is not None:
-                    await run_target_io(self.prepared_store.verify, self.prepared_targets[request.target_id])
+                    await phase("lsp.final.target.verify", run_target_io(
+                        self.prepared_store.verify, self.prepared_targets[request.target_id],
+                    ))
+                record["status"] = "completed"
             except asyncio.CancelledError:
+                record["status"] = "cancelled"
                 record["error"] = "Controller cancelled; partial observations retained, not successful evidence"
                 raise
-            except (OSError, ValueError, TimeoutError) as error:
+            except (OSError, ValueError, TimeoutError, subprocess.SubprocessError) as error:
+                record["status"] = "blocked"
                 record["error"] = str(error)
             finally:
-                record["artifact"] = str(attempt / "observation.json")
-                (attempt / "observation.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+                record["elapsed_seconds"] = max(0, time.monotonic() - started)
+                record["finished_at"] = datetime.now(timezone.utc).isoformat()
+                if "preparation_elapsed_seconds" not in record:
+                    record["preparation_elapsed_seconds"] = record["elapsed_seconds"]
+                save()
             return record
 
 
@@ -676,6 +745,7 @@ def observed_lsp_result(record: JsonValue) -> bool:
     if (
         not isinstance(record, dict) or record.get("kind") != "language_server_observation"
         or record.get("capability") != "workspace_progress_v1" or record.get("error")
+        or record.get("status", "completed") != "completed"
         or not isinstance(cases := record.get("cases"), list) or len(cases) != 3
     ):
         return False

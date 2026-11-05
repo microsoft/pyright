@@ -171,23 +171,23 @@ before/after checks. Directory-scoped containment validation avoids repeatedly r
 file. Links, Windows junctions/reparse points, non-regular files and observed file/directory changes during the
 walk are rejected. The canonical content digest is unchanged, so old target/input hashes remain compatible.
 
-The local root `run_overnight.ps1` test launcher now runs a **focused three-issue comparison** with
-`overnight-settings-diagnostics-20261102-111930-201`: recurring reconstruction timeouts #11513 and #11536,
-plus the successful reconstruction control #11410. Each run uses a fresh
-`$env:USERPROFILE\.copilot\issue-review\focused-stream-diagnostics-<budget>s-<timestamp>` directory. Its fixed issue-ID
+The local root `run_overnight.ps1` test launcher now retries **only the two timed-out investigations**, #11969 and
+#11925, from `expanded-reproduction-1200s-20261104-120041-882`. Each run uses a fresh
+`$env:USERPROFILE\.copilot\issue-review\timeout-retry-<budget>s-<timestamp>` directory. Its fixed issue-ID
 selection retains reserved holdout/pilot exclusions; no prior reports, answers or checkpoints are reused.
 It paginates open GitHub issues only to verify the entire cohort is still available, excludes pull requests,
 and fails without substitutions if any matched issue is no longer open. Existing state directories cannot be
 resumed accidentally. GitHub captures and checker targets are fresh, so this is a matched-issue comparison,
 not a frozen-input or pinned-target benchmark.
 It prints the cohort, fresh state and diagnostics paths before starting, keeps two concurrent issues, ordinary
-role budgets at 900 seconds, reconstruction/gate budgets at 600 seconds, and `--overnight --dry-run`. Disclosed
+role budgets at 1,200 seconds, reconstruction/gate budgets at 1,200 seconds by default, and `--overnight --dry-run`. Disclosed
 configuration defaults and the SDK diagnostics below apply automatically. It does not rehearse or publish
 comments. Run this local launcher from PowerShell with `.\run_overnight.ps1`, or use
-`.\run_overnight.ps1 -ReproductionTimeout 1200` for a 1,200-second reconstruction/gate budget. Only 600 and
-1,200 are accepted by this launcher. This runs the full issue pipelines, not isolated reconstruction calls.
-The longer allowance tests whether streams can finish; it is not a proven timeout fix or controlled deadline
-benchmark. Updating the launcher does not start a batch.
+`.\run_overnight.ps1 -ReproductionTimeout 600` for a shorter reconstruction/gate budget; ordinary turns still
+have 1,200 seconds. Only 600 and 1,200 are accepted by this launcher. It runs both full issue pipelines in one
+chunk, not isolated reconstruction calls. These ordinary-turn budgets include local target verification and
+LSP snapshot preparation; they are not model-only allowances. The longer allowance is a mitigation, not a proven
+filesystem-performance fix or controlled deadline benchmark. Updating the launcher does not start a batch.
 
 Reconstruction/evidence-gate turns have an independent `--reproduction-timeout` budget (default 900 active
 seconds each, including bounded correction), so shortening `--timeout` for other stages does not accidentally
@@ -1143,6 +1143,14 @@ controller-owned and scratch writes remain permission-scoped. Every investigatio
 and factual check consumes model usage. `--timeout` bounds each ordinary SDK turn's active time in seconds (default 900);
 RCA investigation and independent-countercheck turns use a separate `--rca-timeout` budget (default 900).
 Output correction shares the original turn's budget rather than starting another full allowance.
+Behavior-review correction feedback includes independently detectable reproduction-policy violations even when
+source-authority or another schema error prevents host validation. Each violation identifies its claim and exact
+reproduction-status field. This is diagnostic feedback only: the controller never repairs a response, accepts a
+partial record, or grants another correction. Full schema, execution-provenance and closure gates still apply.
+The surface restriction is **audit-wide**: when `audit.product_surface != cli`, every claim's checkout reproduction
+must remain `blocked`/`not_attempted` (or genuinely `not_applicable`), including ancillary CLI controls. Real CLI/LSP
+observations remain executed checks and Markdown evidence, not faithful integration reproduction. Neither the
+surface nor material claims may be changed just to pass validation.
 When evidence is missing, correction may use remaining authorized tools and allowance, or preserve an inconclusive
 finding; repeating an unsupported conclusion is not a repair. Waiting for operator approval does not consume that
 budget, and approval prompts do not block the SDK event loop.
@@ -1208,11 +1216,15 @@ unattributed buckets. Per-dispatch timing is not retained. Totals distinguish co
 and events whose summary could not be captured.
 
 Runtime capture has a 20,000-record/8-MiB payload budget per console invocation: 75% for ordinary logs and
-dispatch summaries, and a reserved 25% for known client/session operations, warnings/errors and exceptions.
+dispatch summaries (including routine client/session operation records), and a reserved 25% for warnings/errors
+and records carrying exceptions, regardless of severity. Routine DEBUG/INFO SDK operations cannot consume that
+reserve, even when they have recognized operation names. Their names/timings remain available until the ordinary
+lane fills; losing routine operation logs is not loss of SDK execution events.
 Each lane stops capturing after its first limit breach, with explicit per-priority dropped counts; important
 capacity is finite too. Start/end records and at most two limit markers add bounded control-record overhead
 outside those budgets. Session event/timeout logs remain separate. The SDK logger configuration is restored
-when the console exits. Diagnostics schema version 2 is recorded in the runtime header, `run.json` and
+when the console exits. Diagnostics schema version 3 and the warning/error/exception-only retention policy are
+recorded in the runtime header; the version also appears in `run.json` and
 `sdk-sessions.jsonl`, alongside settings and locations.
 This filtering applies to these diagnostic captures, not existing raw reproduction evidence or the runtime's
 own independent storage. Existing frozen runs are not rewritten; new logging cannot reconstruct missing
@@ -1344,6 +1356,22 @@ bounded bidirectional protocol transcripts are retained outside agent-writable s
 The runner's interpreter may differ from a report's; for #11925, Python 3.14.3 is not the reported 3.14.9.
 The missing original initialize exchange, no-config/interpreter-discovery variant, historical build and editor
 behavior remain unverified unless separately observed through their actual supported surface.
+
+Every probe creates `observation.json` before input capture or target selection and updates its current phase
+as preparation/execution advance. Preparation failures/cancellations preserve an explicitly blocked/cancelled
+receipt, even if no server launched. Receipts distinguish whole-attempt start/finish and elapsed time from
+preparation completion/elapsed time; `phase` names the last operation entered, not proof it completed.
+`completed` means the runner finished, not that every observation qualified. Incomplete statuses cannot pass
+observation validation, and legacy completed receipts without a status remain supported.
+
+Each probe also writes paired `timings.jsonl` phases outside its hashed runtime/workspaces: input capture, target
+selection/restoration, checkout source hashing, bundle hashing/copying, snapshot verification, Node preparation,
+each original/control observation, and final input/runtime/target verification. Hashes retain full-content
+file/directory/byte and worker CPU/wall measurements; copies retain checked/copied counts and worker CPU/wall
+measurements, including partial work on failure. Nested timings are non-additive. Filesystem workers are still
+drained on cancellation before saving the final incomplete receipt or releasing the probe lock; a deadline
+cannot safely terminate a running filesystem operation. These diagnostics do not skip or cache integrity checks
+and do not establish which OS/storage component caused off-CPU delays.
 
 The client only initializes, answers scoped configuration/progress-token creation, optionally opens one source,
 observes, then shuts down/exits. It performs no diagnostic pulls, watched-file edits, arbitrary requests/commands,

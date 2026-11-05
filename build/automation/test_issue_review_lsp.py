@@ -5,16 +5,19 @@ import asyncio
 import ctypes
 import json
 import os
+import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, call, patch
 
 from copilot import ToolInvocation
 from copilot.generated.session_events import PermissionRequestCustomTool, PermissionRequestShell
 from pydantic import JsonValue, ValidationError
 
+from issue_review_editor import copy_assets
 from issue_review_lsp import (
     MAX_EVENTS, MAX_FRAME, MAX_INPUT, MAX_STDERR, MAX_WIRE, LanguageServerRuntime, LspProbeRequest, ProgressSession,
     capture_inputs, environment, observed_lsp_result, parse_json, summarize,
@@ -427,6 +430,221 @@ class LspRuntimeTests(unittest.IsolatedAsyncioTestCase):
         assert isinstance(result["artifact"], str)
         self.assertTrue(Path(result["artifact"]).is_file())
         self.assertTrue(observed_lsp_result(result))
+        self.assertEqual(result["status"], "completed")
+        self.assertIn("preparation_completed_at", result)
+        assert isinstance(result["preparation_elapsed_seconds"], (int, float))
+        assert isinstance(result["elapsed_seconds"], (int, float))
+        self.assertLessEqual(result["preparation_elapsed_seconds"], result["elapsed_seconds"])
+        assert isinstance(result["timings"], str)
+        records = [json.loads(line) for line in Path(result["timings"]).read_text().splitlines()]
+        starts = {row["id"]: row for row in records if row["type"] == "phase.start"}
+        ends = {row["id"]: row for row in records if row["type"] == "phase.end"}
+        self.assertEqual(starts.keys(), ends.keys())
+        self.assertTrue(all(row["status"] == "succeeded" for row in ends.values()))
+        preparation = next(row for row in ends.values() if row["phase"] == "lsp.preparation")
+        source = next(row for row in ends.values() if row["phase"] == "lsp.preparation.source.integrity")
+        self.assertEqual(source["parent_id"], preparation["id"])
+        self.assertEqual(source["measurements"]["files"], 1)
+        self.assertGreater(source["measurements"]["bytes"], 0)
+        copy = next(row for row in ends.values() if row["phase"] == "lsp.preparation.copy")
+        self.assertEqual(copy["measurements"]["files_copied"], 1)
+        self.assertEqual(copy["measurements"]["paths_checked"], 2)
+        for row in (source, copy):
+            self.assertGreaterEqual(row["measurements"]["wall_seconds"], 0)
+            self.assertGreaterEqual(row["measurements"]["thread_cpu_seconds"], 0)
+        self.assertEqual(
+            sum(row["phase"].startswith("lsp.case.") and row["phase"].endswith(".observe") for row in ends.values()), 3,
+        )
+        self.assertTrue(any(row["phase"] == "lsp.final.runtime.integrity" for row in ends.values()))
+
+    async def test_checkout_selection_profiles_source_integrity_separately(self):
+        self.runtime.root = self.directory / "checkout"
+        package = self.runtime.root / "packages" / "pyright"
+        for name, content in (
+            (Path("langserver.index.js"), "// fixture"), (Path("dist") / "pyright-langserver.js", "// fixture"),
+            (Path("package.json"), '{"version":"1.1.414"}'),
+        ):
+            path = package / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+        source = self.runtime.root / "packages" / "pyright-internal" / "src"
+        source.mkdir(parents=True)
+        (source / "fixture.ts").write_text("// fixture", encoding="utf-8")
+        with patch("issue_review_lsp.subprocess.check_output", return_value=b"fixture-revision\n"):
+            selected, provenance = await self.runtime.target("checkout")
+        self.assertEqual(selected, package)
+        self.assertEqual(provenance["source_tree_hash"], tree_hash(source))
+        rows = [json.loads(line) for line in (self.runtime.directory / "timings.jsonl").read_text().splitlines()]
+        integrity = next(row for row in rows if row["type"] == "phase.end" and row["phase"] == "lsp.target.source.integrity")
+        self.assertEqual(integrity["status"], "succeeded")
+        self.assertEqual(integrity["measurements"]["files"], 1)
+        self.assertIn("thread_cpu_seconds", integrity["measurements"])
+
+    async def test_failed_input_capture_retains_preparation_receipt_and_timing(self):
+        self.runtime.target = AsyncMock()
+        (self.scratch / "pyrightconfig.json").unlink()
+        result = await self.runtime.run(LspProbeRequest())
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["phase"], "lsp.preparation.inputs")
+        assert isinstance(result["error"], str)
+        self.assertIn("explicit Python 3.14", result["error"])
+        self.assertEqual(result["cases"], [])
+        self.assertNotIn("preparation_completed_at", result)
+        self.assertFalse(observed_lsp_result(result))
+        assert isinstance(result["artifact"], str)
+        assert isinstance(result["timings"], str)
+        self.assertEqual(json.loads(Path(result["artifact"]).read_text()), result)
+        rows = [json.loads(line) for line in Path(result["timings"]).read_text().splitlines()]
+        self.assertTrue(all(row["status"] == "failed" for row in rows if row["type"] == "phase.end"))
+        self.runtime.target.assert_not_awaited()
+
+    async def test_copy_failure_retains_failed_preparation_not_observations(self):
+        self.runtime.target = AsyncMock(return_value=(self.package, {"identity": "fixture"}))
+        with patch("issue_review_lsp.copy_assets", side_effect=ValueError("fixture copy failure")), patch.object(ProgressSession, "run", new_callable=AsyncMock) as run:
+            result = await self.runtime.run(LspProbeRequest())
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["phase"], "lsp.preparation.copy")
+        self.assertEqual(result["error"], "fixture copy failure")
+        self.assertEqual(result["cases"], [])
+        self.assertFalse(observed_lsp_result(result))
+        assert isinstance(result["timings"], str)
+        rows = [json.loads(line) for line in Path(result["timings"]).read_text().splitlines()]
+        copy = next(row for row in rows if row["type"] == "phase.end" and row["phase"] == "lsp.preparation.copy")
+        self.assertEqual(copy["status"], "failed")
+        self.assertIn("thread_cpu_seconds", copy["measurements"])
+        run.assert_not_awaited()
+
+    async def test_cancelled_target_selection_retains_preparation_receipt(self):
+        self.runtime.target = AsyncMock(side_effect=asyncio.CancelledError)
+        with self.assertRaises(asyncio.CancelledError):
+            await self.runtime.run(LspProbeRequest())
+        artifacts = list((self.directory / "evidence").glob(str(Path("*") / "observation.json")))
+        self.assertEqual(len(artifacts), 1)
+        record = json.loads(artifacts[0].read_text())
+        self.assertEqual(record["status"], "cancelled")
+        self.assertEqual(record["phase"], "lsp.preparation.target")
+        self.assertEqual(record["cases"], [])
+        self.assertNotIn("preparation_completed_at", record)
+        self.assertFalse(observed_lsp_result(record))
+
+    async def test_node_preparation_errors_retain_explicitly_blocked_receipts(self):
+        self.runtime.target = AsyncMock(return_value=(self.package, {"identity": "fixture"}))
+        for error in (
+            subprocess.TimeoutExpired(["node", "--version"], 5),
+            subprocess.CalledProcessError(2, ["node", "--version"]),
+        ):
+            with self.subTest(error=type(error).__name__):
+                with patch("issue_review_lsp.subprocess.check_output", side_effect=error), patch.object(ProgressSession, "run", new_callable=AsyncMock) as run:
+                    result = await self.runtime.run(LspProbeRequest())
+                self.assertEqual(result["status"], "blocked")
+                self.assertEqual(result["phase"], "lsp.preparation.node.version")
+                self.assertEqual(result["error"], str(error))
+                self.assertEqual(result["cases"], [])
+                self.assertNotIn("preparation_completed_at", result)
+                self.assertFalse(observed_lsp_result(result))
+                assert isinstance(result["artifact"], str)
+                self.assertEqual(json.loads(Path(result["artifact"]).read_text()), result)
+                run.assert_not_awaited()
+
+    async def test_copy_cancellation_drains_worker_and_retains_preparation_receipt(self):
+        self.runtime.target = AsyncMock(return_value=(self.package, {"identity": "fixture"}))
+        entered, release = asyncio.Event(), threading.Event()
+        loop = asyncio.get_running_loop()
+
+        def copy(source, destination, progress):
+            loop.call_soon_threadsafe(entered.set)
+            if not release.wait(20):
+                raise TimeoutError("Fixture copy was not released")
+            copy_assets(source, destination, progress)
+
+        with patch("issue_review_lsp.copy_assets", copy), patch.object(ProgressSession, "run", new_callable=AsyncMock) as run:
+            task = asyncio.create_task(self.runtime.run(LspProbeRequest()))
+            try:
+                await asyncio.wait_for(entered.wait(), 10)
+                artifact = next((self.directory / "evidence").glob(str(Path("*") / "observation.json")))
+                partial = json.loads(artifact.read_text())
+                self.assertEqual(partial["status"], "preparing")
+                self.assertEqual(partial["phase"], "lsp.preparation.copy")
+                self.assertNotIn("finished_at", partial)
+                task.cancel()
+                await asyncio.sleep(0)
+                self.assertFalse(task.done())
+            finally:
+                release.set()
+                if not task.done():
+                    task.cancel()
+                outcome = await asyncio.gather(task, return_exceptions=True)
+            self.assertIsInstance(outcome[0], asyncio.CancelledError)
+        result = json.loads(artifact.read_text())
+        self.assertEqual(result["status"], "cancelled")
+        self.assertEqual(result["phase"], "lsp.preparation.copy")
+        self.assertIn("cancelled", result["error"])
+        self.assertEqual(result["cases"], [])
+        self.assertFalse((artifact.parent / "runtime-home").exists())
+        self.assertTrue((artifact.parent / "runtime" / "dist" / "pyright-langserver.js").is_file())
+        self.assertFalse(observed_lsp_result(result))
+        rows = [json.loads(line) for line in Path(result["timings"]).read_text().splitlines()]
+        cancelled = [row for row in rows if row["type"] == "phase.end" and row["status"] == "cancelled"]
+        self.assertEqual({row["phase"] for row in cancelled}, {"lsp.preparation", "lsp.preparation.copy"})
+        copy_record = next(row for row in cancelled if row["phase"] == "lsp.preparation.copy")
+        self.assertEqual(copy_record["measurements"]["files_copied"], 1)
+        run.assert_not_awaited()
+
+    async def test_post_observation_runtime_integrity_is_still_required(self):
+        self.runtime.target = AsyncMock(return_value=(self.package, {"identity": "fixture"}))
+
+        async def run(session, command, env):
+            session.result.update({
+                "status": "observed", "exit_code": 0, "observation_window_complete": True,
+                "configuration_seen": True,
+            })
+            (Path(command[1]).parent / "dist" / "pyright-langserver.js").write_text("// changed", encoding="utf-8")
+            return session.result
+
+        with patch.object(ProgressSession, "run", run):
+            result = await self.runtime.run(LspProbeRequest())
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["phase"], "lsp.final.runtime.integrity")
+        assert isinstance(result["error"], str)
+        assert isinstance(result["cases"], list)
+        self.assertIn("changed during execution", result["error"])
+        self.assertEqual(len(result["cases"]), 3)
+        self.assertFalse(observed_lsp_result(result))
+
+    async def test_prepared_target_verification_remains_before_and_after_observations(self):
+        target = ReproductionTarget(
+            role="latest", identity="npm:pyright@1.1.414", version="1.1.414", source="fixture",
+            selection_reason="fixture", directory=str(self.package),
+        )
+        store = Mock(restore=Mock(), verify=Mock())
+        self.runtime.prepared_store = store
+        self.runtime.prepared_targets = {"opaque": target}
+
+        async def run(session, command, env):
+            session.result.update({
+                "status": "observed", "exit_code": 0, "observation_window_complete": True,
+                "configuration_seen": True,
+            })
+            return session.result
+
+        with patch.object(ProgressSession, "run", run):
+            result = await self.runtime.run(LspProbeRequest(target_id="opaque"))
+        self.assertTrue(observed_lsp_result(result))
+        store.restore.assert_called_once_with(target)
+        self.assertEqual(store.verify.call_args_list, [call(target)] * 3)
+        assert isinstance(result["timings"], str)
+        rows = [json.loads(line) for line in Path(result["timings"]).read_text().splitlines()]
+        phases = {row["phase"] for row in rows if row["type"] == "phase.end" and row["status"] == "succeeded"}
+        self.assertTrue({
+            "lsp.target.restore", "lsp.target.verify", "lsp.preparation.target.verify", "lsp.final.target.verify",
+        } <= phases)
+
+    def test_incomplete_receipts_cannot_pass_even_with_complete_case_observations(self):
+        for status in ("preparing", "observing", "blocked", "cancelled"):
+            with self.subTest(status=status):
+                record = complete_record()
+                record["status"] = status
+                self.assertFalse(observed_lsp_result(record))
 
     async def test_missing_prepared_wrappers_are_blocked_without_resealing(self):
         target = ReproductionTarget(
@@ -506,6 +724,18 @@ class LspInvestigationTests(unittest.IsolatedAsyncioTestCase):
         ))
         self.assertEqual(result.result_type, "failure")
         self.tools.lsp.run.assert_not_awaited()
+
+    async def test_preparation_failure_is_saved_and_returned_as_tool_failure(self):
+        record = complete_record()
+        record.update(status="blocked", phase="lsp.preparation.copy", error="fixture preparation failure", cases=[])
+        self.tools.lsp.run = AsyncMock(return_value=record)
+        result = await self.tools.lsp_progress_probe(ToolInvocation(
+            session_id="test", tool_call_id="probe", tool_name="lsp_progress_probe", arguments={},
+        ))
+        self.assertEqual(result.result_type, "failure")
+        self.assertIn("fixture preparation failure", result.text_result_for_llm)
+        self.assertEqual(self.tools.lsp_records["lsp"]["status"], "blocked")
+        self.assertIn("fixture preparation failure", (self.directory / "checks.jsonl").read_text())
 
     def test_prepared_target_bindings_are_shared_with_the_bounded_lsp_runtime(self):
         store = Mock()

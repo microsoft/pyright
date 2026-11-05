@@ -57,7 +57,7 @@ DISPATCH_EVENTS = DIAGNOSTIC_EVENTS | {
     "permission.requested",
 }
 DISPATCH_SUMMARY_SECONDS = 30
-DIAGNOSTICS_SCHEMA_VERSION = 2
+DIAGNOSTICS_SCHEMA_VERSION = 3
 
 
 def text_metadata(text: str) -> dict[str, JsonValue]:
@@ -295,7 +295,7 @@ class RuntimeDiagnostics(logging.Handler):
                     self._next_dispatch_summary = monotonic() + DISPATCH_SUMMARY_SECONDS
                 return
             operation = re.match(r"(Copilot(?:Client|Session)\.[A-Za-z0-9_]+)\b", str(record.msg))
-            important = record.levelno >= logging.WARNING or operation is not None or bool(record.exc_info)
+            important = record.levelno >= logging.WARNING or bool(record.exc_info)
             lane = "important" if important else "general"
             if self._lane_dropped[lane]:
                 self._drop_record(lane)
@@ -331,6 +331,7 @@ class RuntimeDiagnostics(logging.Handler):
             "schema_version": DIAGNOSTICS_SCHEMA_VERSION,
             "dispatch_summary_interval_seconds": DISPATCH_SUMMARY_SECONDS,
             "reserved_important_records": self._reserved_records, "reserved_important_bytes": self._reserved_bytes,
+            "important_retention": "warnings_errors_exceptions_only",
         })
         self._level, self._propagate = self._logger.level, self._logger.propagate
         self._logger.setLevel(logging.DEBUG)

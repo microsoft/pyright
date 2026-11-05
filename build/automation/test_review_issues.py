@@ -96,6 +96,9 @@ from review_issues import (
     main as review_main,
     reject_operator_approval,
     require_run_mode,
+    review_reproduction_errors,
+    review_validation_feedback,
+    validate_review_execution,
     validate_reproduction_report,
     response_schema,
     save_dry_run_proposals,
@@ -158,6 +161,27 @@ def no_duplicates() -> DuplicateReport:
         repository=REPOSITORY, issue_number=123, summary="No shared cause found in bounded searches",
         candidates=[], uncertainties=[], search_complete=True,
         searches=[HistoricalSearch(query="assignment", outcome="Strongest candidates inspected; no duplicate found")],
+    )
+
+
+def lsp_findings() -> ReviewFindings:
+    report = audit()
+    report.product_surface = "language_server"
+    report.claims[0].id = "policy-attribution"
+    control = report.claims[0].model_copy(deep=True)
+    control.id, control.summary = "cli-control", "Ancillary CLI observation, not integration reproduction"
+    report.claims.append(control)
+    report.sources[0].kind, report.sources[0].location = "repository", r"fixture\tests\intent.py"
+    for claim in report.claims:
+        assert claim.expectation is not None
+        claim.expectation.kind = "intended_behavior"
+        claim.expectation.evidence[0].authority = "accepted_policy"
+        claim.expectation.evidence[0].intent_basis = "regression_test"
+        for reproduction in claim.reproduction:
+            reproduction.status = "blocked"
+    return ReviewFindings(
+        markdown="# Findings\n\nIntegration reproduction is blocked; the CLI control is an executed observation only.",
+        audit=report,
     )
 
 
@@ -266,6 +290,88 @@ class ContextTests(unittest.TestCase):
 
 
 class ModelTests(unittest.TestCase):
+    def test_reproduction_policy_feedback_matches_host_rejection(self):
+        for surface in ("cli", "language_server", "editor", "packaging", "other"):
+            for status in ("reproduced", "not_reproduced", "blocked", "not_attempted", "not_applicable"):
+                for target_index in range(3):
+                    with self.subTest(surface=surface, status=status, target_index=target_index):
+                        report = audit()
+                        report.product_surface = surface
+                        for target in report.claims[0].reproduction:
+                            target.status = "blocked"
+                        report.claims[0].reproduction[target_index].status = status
+                        report.claims[0].reproduction[target_index].check_ids = ["check"]
+                        errors = review_reproduction_errors(report.model_dump(mode="json"))
+                        forbidden = status in {"reproduced", "not_reproduced"} and (
+                            target_index != 2 or surface != "cli"
+                        )
+                        if forbidden:
+                            self.assertEqual(len(errors), 1)
+                            self.assertIn(f"audit.claims[0].reproduction[{target_index}].status", errors[0])
+                            self.assertIn('claim "claim"', errors[0])
+                            with self.assertRaises(AutomationError) as rejected:
+                                validate_review_execution(report, [product_record(report)])
+                            self.assertEqual(str(rejected.exception), errors[0])
+                            raw = ReviewFindings(markdown="# Findings", audit=report).model_dump_json()
+                            self.assertEqual(review_validation_feedback(raw, errors[0]), errors[0])
+                        else:
+                            self.assertEqual(errors, [])
+                            validate_review_execution(report, [product_record(report)])
+
+    def test_reproduction_feedback_collects_all_claims_and_targets_without_editing(self):
+        findings = lsp_findings()
+        findings.audit.claims[0].reproduction[0].status = "reproduced"
+        findings.audit.claims[1].reproduction[1].status = "not_reproduced"
+        findings.audit.claims[1].reproduction[2].status = "reproduced"
+        raw = findings.model_dump_json()
+        primary = "A separate source-authority validation error"
+        feedback = review_validation_feedback(raw, primary)
+        self.assertTrue(feedback.startswith(primary))
+        for claim_index, target_index in ((0, 0), (1, 1), (1, 2)):
+            self.assertIn(f"audit.claims[{claim_index}].reproduction[{target_index}].status", feedback)
+        self.assertEqual(feedback.count("reviewer experiments do not establish faithful released-checker"), 2)
+        self.assertIn("cli-control", feedback)
+        self.assertIn("policy-attribution", feedback)
+        self.assertEqual(findings.model_dump_json(), raw)
+
+    def test_reproduction_feedback_preserves_schema_errors_for_malformed_records(self):
+        cases: list[JsonValue] = [
+            None, [], {}, {"audit": []}, {"audit": {"claims": None}},
+            {"audit": {"claims": {}}},
+            {"audit": {"product_surface": {}, "claims": [
+                {"id": "control", "reproduction": [{"target": "checkout", "status": "reproduced"}]},
+            ]}},
+            {"audit": {"product_surface": "language_server", "claims": [
+                None, [], {"reproduction": None}, {"reproduction": {}},
+                {"id": {}, "reproduction": [
+                    None, {}, {"target": {}, "status": {}}, {"target": [], "status": ["reproduced"]},
+                ]},
+            ]}},
+        ]
+        for raw in ["{"] + [json.dumps(case) for case in cases]:
+            with self.subTest(raw=raw):
+                with self.assertRaises(ValidationError) as rejected:
+                    ReviewFindings.model_validate_json(raw)
+                primary = str(rejected.exception)
+                self.assertEqual(review_validation_feedback(raw, primary), primary)
+
+    def test_partial_policy_feedback_does_not_certify_an_invalid_or_legacy_record(self):
+        partial: JsonValue = {"audit": {"product_surface": "language_server", "claims": [{
+            "id": "control", "reproduction": [{"target": "checkout", "status": "reproduced"}],
+        }]}}
+        raw = json.dumps(partial)
+        with self.assertRaises(ValidationError) as rejected:
+            ReviewFindings.model_validate_json(raw)
+        feedback = review_validation_feedback(raw, str(rejected.exception))
+        self.assertIn("non-CLI product surface", feedback)
+        self.assertIn("audit.claims[0].reproduction[0].status", feedback)
+        legacy = audit().model_dump(mode="json")
+        del legacy["product_surface"]
+        report = Audit.model_validate(legacy)
+        self.assertEqual(report.product_surface, "cli")
+        self.assertEqual(review_reproduction_errors(legacy), [])
+        validate_review_execution(report, [product_record(report)])
+
     def test_supported_bug_survives_unresolved_unobserved_ancillary_claim(self):
         report = audit()
         report.claims[0].disposition = "bug"
@@ -896,6 +1002,8 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
                 report.product_surface = "editor"
 
             async def execute(_agent, _prompt, _scratch, **options):
+                self.assertIn("including ancillary CLI controls", _prompt)
+                self.assertIn("Do not change product_surface or omit material claims", _prompt)
                 record = product_record(report)
                 if scenario == "runtime_only":
                     record["kind"] = "python"
@@ -1054,6 +1162,105 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("rca_run", correction)
             client.create_session.assert_awaited_once()
             session.disconnect.assert_awaited_once()
+
+    async def test_review_correction_reports_schema_and_surface_errors_together(self):
+        findings = lsp_findings()
+        invalid = findings.model_copy(deep=True)
+        expectation = invalid.audit.claims[0].expectation
+        assert expectation is not None
+        expectation.evidence[0].intent_basis = "maintainer_decision"
+        invalid.audit.claims[1].reproduction[2].status = "reproduced"
+        raw, corrected = invalid.model_dump_json(), findings.model_dump_json()
+        session = AsyncMock()
+        session.session_id = "compound-review-errors"
+        session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.profile.name))
+        session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+        calls = 0
+
+        async def respond(prompt, **_options):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                self.assertIn("Accepted intent requires the actual maintainer decision: policy-attribution", prompt)
+                self.assertIn("cli-control", prompt)
+                self.assertIn("audit.claims[1].reproduction[2]", prompt)
+                self.assertIn("non-CLI product surface", prompt)
+                self.assertIn("including ancillary CLI controls", prompt)
+            return SimpleNamespace(data=AssistantMessageData(
+                content=raw if calls == 1 else corrected, message_id="result",
+            ))
+
+        session.send_and_wait.side_effect = respond
+        client = AsyncMock()
+        client.create_session.return_value = session
+        validated = []
+
+        def validate(content: str) -> None:
+            report = ReviewFindings.model_validate_json(content).audit
+            report.require_expectations()
+            validate_review_execution(report, [product_record(report)])
+            validated.append(content)
+
+        result = await SDK(client, None, 30).run(
+            self.profile, "Offline behavior investigation", Path(self.temporary.name),
+            schema=ReviewFindings, validate=validate,
+        )
+        self.assertEqual(result, corrected)
+        self.assertEqual(validated, [corrected])
+        self.assertEqual(invalid.model_dump_json(), raw)
+        saved = Path(self.temporary.name) / f"{self.profile.name}-response-1.txt"
+        self.assertEqual(saved.read_text(encoding="utf-8"), raw)
+        self.assertEqual(session.send_and_wait.await_count, 2)
+        client.create_session.assert_awaited_once()
+        session.disconnect.assert_awaited_once()
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_review_correction_cannot_skip_gates_or_gain_another_attempt(self):
+        findings = lsp_findings()
+        schema_invalid = findings.model_copy(deep=True)
+        expectation = schema_invalid.audit.claims[0].expectation
+        assert expectation is not None
+        expectation.evidence[0].intent_basis = "maintainer_decision"
+        surface_invalid = findings.model_copy(deep=True)
+        surface_invalid.audit.claims[1].reproduction[2].status = "reproduced"
+        initial = schema_invalid.model_copy(deep=True)
+        initial.audit.claims[1].reproduction[2].status = "reproduced"
+        for name, correction, error_type in (
+            ("source-invalid", schema_invalid.model_dump_json(), ValidationError),
+            ("surface-invalid", surface_invalid.model_dump_json(), AutomationError),
+            ("unlogged-execution", findings.model_dump_json(), AutomationError),
+            ("malformed-json", "{", ValidationError),
+            ("partial-record", '{"audit":{"product_surface":"language_server","claims":[]}}', ValidationError),
+        ):
+            with self.subTest(correction=name):
+                session = AsyncMock()
+                session.session_id = "bounded-review-correction"
+                session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.profile.name))
+                session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+                session.send_and_wait.side_effect = [
+                    SimpleNamespace(data=AssistantMessageData(content=content, message_id="result"))
+                    for content in (initial.model_dump_json(), correction)
+                ]
+                client = AsyncMock()
+                client.create_session.return_value = session
+
+                def validate(content: str) -> None:
+                    report = ReviewFindings.model_validate_json(content).audit
+                    validate_review_execution(report, [] if name == "unlogged-execution" else [product_record(report)])
+
+                with self.assertRaises(error_type):
+                    await SDK(client, None, 30).run(
+                        self.profile, "Offline invalid review", Path(self.temporary.name),
+                        schema=ReviewFindings, validate=validate,
+                    )
+                self.assertEqual(session.send_and_wait.await_count, 2)
+                client.create_session.assert_awaited_once()
+                session.disconnect.assert_awaited_once()
+                if name == "surface-invalid":
+                    prompt = session.send_and_wait.await_args_list[1].args[0]
+                    self.assertIn("policy-attribution", prompt)
+                    self.assertIn("cli-control", prompt)
+                self.assertEqual(self.github.mutations, [])
 
     async def test_installed_sdk_wraps_each_reproduction_schema_once_without_live_transport(self):
         client = AsyncMock()
@@ -2270,7 +2477,7 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(timeout["stream_activity"]["subagent:assistant.reasoning_delta"]["events"], 1)
         self.assertEqual(len(timeout["stream_activity"]), 4)
         metadata = json.loads((self.scratch / "sdk-sessions.jsonl").read_text().splitlines()[-1])
-        self.assertEqual(metadata["diagnostics_schema_version"], 2)
+        self.assertEqual(metadata["diagnostics_schema_version"], 3)
         text = (self.scratch / "sdk-events.jsonl").read_text()
         self.assertNotIn("private-chunk", text)
         self.assertNotIn("private reasoning", text)

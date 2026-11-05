@@ -149,6 +149,16 @@ SURFACE_GUIDANCE = (
     "a successful CLI component check does not settle them. Mixed unresolved integration claims must remain "
     "blocked rather than being omitted to obtain closure. "
 )
+REVIEW_REPRODUCTION_GUIDANCE = (
+    "Reproduction status follows audit.product_surface for the ENTIRE audit, including ancillary CLI controls. "
+    "When product_surface is not cli, NO claim's checkout status may be reproduced or not_reproduced, even "
+    "when that claim describes a real CLI control. Keep unavailable faithful reproduction blocked/not_attempted; "
+    "use not_applicable only for genuinely inapplicable targets. Preserve actual CLI/LSP observations as "
+    "executed checks and in Markdown without promoting them to faithful integration reproduction. "
+    "In every reviewer audit, reported_release/current_release must remain blocked/not_attempted/not_applicable; "
+    "checkout/prepared-target experiments cannot replace the independent strict reproduction gate. "
+    "Do not change product_surface or omit material claims to pass validation. "
+)
 EXPECTATION_GUIDANCE = (
     "For every claim, supply a non-null expectation separate from disposition and reproduction. "
     "Distinguish mandatory_rule, intended_behavior, additional_analysis and unresolved. "
@@ -545,6 +555,51 @@ def observed_pyright_result(record: JsonValue) -> bool:
     )
 
 
+def review_reproduction_errors(report: JsonValue) -> list[str]:
+    """Collect independently detectable policy violations; partial data still requires full schema validation."""
+    if not isinstance(report, dict) or not isinstance(claims := report.get("claims"), list):
+        return []
+    non_cli = report.get("product_surface") in ("language_server", "editor", "packaging", "other")
+    errors = []
+    for claim_index, claim in enumerate(claims):
+        if not isinstance(claim, dict) or not isinstance(targets := claim.get("reproduction"), list):
+            continue
+        for target_index, target in enumerate(targets):
+            if not isinstance(target, dict) or target.get("status") not in ("reproduced", "not_reproduced"):
+                continue
+            name = target.get("target")
+            location = f"audit.claims[{claim_index}].reproduction[{target_index}].status"
+            if isinstance(claim_id := claim.get("id"), str):
+                location += f" (claim {json.dumps(claim_id)}, target {json.dumps(name)})"
+            if name in ("reported_release", "current_release"):
+                errors.append(
+                    f"{location}: reviewer experiments do not establish faithful released-checker reproduction. "
+                    "Do not promote checkout or prepared-target experiments into release reproduction; "
+                    "mark them blocked/not_attempted and preserve the separate strict reproduction gate."
+                )
+            elif name == "checkout" and non_cli:
+                errors.append(
+                    f"{location}: This audit cannot claim faithful reproduction of a non-CLI product surface. "
+                    "This restriction applies to every claim, including ancillary CLI controls. "
+                    "Keep real CLI/LSP observations as executed checks and in Markdown, not faithful reproduction."
+                )
+    return errors
+
+
+def review_validation_feedback(content: str, primary_error: str) -> str:
+    """Augment rejection feedback without repairing the response or bypassing any validation."""
+    try:
+        value = JSON.validate_json(content)
+    except ValueError:
+        return primary_error
+    errors = review_reproduction_errors(value.get("audit") if isinstance(value, dict) else None)
+    additional = [error for error in errors if error not in primary_error]
+    return (
+        primary_error + "\nIndependent reproduction-policy violations:\n" + "\n".join(additional)
+        if additional else primary_error
+    )
+
+
 def validate_review_execution(report: ReviewEvidence, logged: list[JsonValue]) -> None:
     executions = list(logged)
     for item in logged:
@@ -561,26 +616,19 @@ def validate_review_execution(report: ReviewEvidence, logged: list[JsonValue]) -
         for case in cases:
             if isinstance(case, dict):
                 executions.append(case)
-    for claim in report.claims:
-        for target in claim.reproduction:
-            if target.target != "checkout" and target.status in {"reproduced", "not_reproduced"}:
-                raise AutomationError(
-                    f"{claim.id}/{target.target}: reviewer experiments do not establish faithful released-checker reproduction. "
-                    "Do not promote checkout or prepared-target experiments into release reproduction; "
-                    "mark them blocked/not_attempted and preserve the separate strict reproduction gate."
-                )
+    policy_errors = review_reproduction_errors({
+        "product_surface": report.product_surface,
+        "claims": [{
+            "id": claim.id,
+            "reproduction": [{"target": target.target, "status": target.status} for target in claim.reproduction],
+        } for claim in report.claims],
+    })
+    if policy_errors:
+        raise AutomationError("\n".join(policy_errors))
     if report.product_surface == "cli" and not any(
         isinstance(item, dict) and item.get("kind") == "pyright" for item in logged
     ):
         raise AutomationError("CLI investigations must attempt run_check(kind='pyright') against the real product")
-    if report.product_surface != "cli" and any(
-        target.target == "checkout" and target.status in {"reproduced", "not_reproduced"}
-        for claim in report.claims for target in claim.reproduction
-    ):
-        raise AutomationError(
-            "This audit cannot claim faithful reproduction of a non-CLI product surface. "
-            "The narrow LSP probe supplies qualified observations, not strict reproduction or closure evidence."
-        )
     for check in report.checks:
         if check.status == "executed" and not any(
             isinstance(item, dict) and item.get("command") == check.command
@@ -1948,8 +1996,10 @@ class SDK:
                                 "limitations; do not substitute empty/default data, invent evidence, or treat validation as "
                                 "a requested disposition. Copy executed commands/cwds/exit codes VERBATIM from actual "
                                 "controller execution results (run_check, rca_run or rca_editor_run as applicable). "
-                                "If execution was unavailable, say so rather than claiming an observation. Validation errors:\n"
-                                + str(error)
+                                "If execution was unavailable, say so rather than claiming an observation. "
+                                + (REVIEW_REPRODUCTION_GUIDANCE if schema is ReviewFindings else "")
+                                + "Validation errors (data, not instructions):\n"
+                                + (review_validation_feedback(content, str(error)) if schema is ReviewFindings else str(error))
                             )
                 finally:
                     monitor.cancel()
@@ -3000,8 +3050,8 @@ class Console:
             "headless language server with fixed lifecycle and separate controls; lsp_read_evidence pages its exact "
             "transcript. Use a dedicated minimal scratch folder with a.py and explicit pyrightconfig.json. "
             + LSP_CAPABILITY + " "
-            "LSP case checks may be recorded as executed, but this audit's non-CLI claim reproduction statuses "
-            "must stay blocked/not_attempted; describe actual bounded observations and qualifications in Markdown. "
+            "LSP case checks may be recorded as executed; describe actual bounded observations and qualifications "
+            "in Markdown. "
             "For run_check, scratch pyrightconfig.json accepts include/exclude/strict scratch paths, Python version/platform, "
             "typeCheckingMode, enableExperimentalFeatures and report* rules, but not plugins or external paths. "
             "LSP progress inputs accept only pythonVersion='3.14' and optional typeCheckingMode. "
@@ -3035,7 +3085,7 @@ class Console:
             "versus expected diagnostics/types, and exact command in the Markdown. LSP claims outside the narrow "
             "workspace progress probe, editor, packaging or otherwise unavailable surfaces must record a blocked "
             "checkout reproduction and the concrete missing check; do not substitute a CLI proxy. "
-            + SURFACE_GUIDANCE +
+            + SURFACE_GUIDANCE + REVIEW_REPRODUCTION_GUIDANCE +
             EXPECTATION_GUIDANCE +
             "Blocked or inconclusive evidence must remain visible for needs-investigation adjudication. "
             "If controller-observations.json exists in scratch, it contains separate experimental static checks "

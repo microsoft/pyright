@@ -275,6 +275,11 @@ publication lifecycles for the Python 3.14 workspace case and separate static-ta
 not switch interpreters, execute arbitrary LSP/editor operations, or turn a timeout/empty diagnostic publication
 into a root-cause claim. These qualified, action-ineligible observations do not relax strict reproduction or
 publication gates; unsupported surfaces and exact historical/environment prerequisites remain blocked.
+The LSP receipt starts before preparation and preserves blocked/cancelled setup even when no server launches.
+Per-probe paired phase logs distinguish target selection/source integrity, runtime copy/hash, observations and
+final integrity checks, with hash/copy workload and worker CPU/wall measurements. All integrity checks and
+cancellation-safe worker draining remain mandatory; setup time still counts against the ordinary turn budget.
+These diagnostics are not new reproduction or root-cause evidence.
 
 The separate explicit `--exploratory-reproduction` mode permits disclosed, bounded
 source-compatible choices only for genuinely omitted Python/checking settings. Quoted reported settings and chosen

@@ -216,7 +216,7 @@ class RuntimeDiagnosticsTests(unittest.IsolatedAsyncioTestCase):
             logger.warning("private late provider warning", extra={"session_id": "session-a"})
             diagnostics.unregister("session-a")
         rows = self.records()
-        self.assertEqual(rows[0]["schema_version"], 2)
+        self.assertEqual(rows[0]["schema_version"], 3)
         warning = next(row for row in rows if row.get("level") == "WARNING")
         self.assertEqual(warning["correlation"], "session_id_match")
         summaries = [row for row in rows if row["type"] == "runtime.dispatch_summary"]
@@ -246,7 +246,7 @@ class RuntimeDiagnosticsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(rows[1]["sessions"], [])
         self.assertNotIn("private-unregistered-id", self.path.read_text())
 
-    async def test_debug_noise_cannot_consume_reserved_operation_and_warning_records(self):
+    async def test_debug_noise_cannot_consume_reserved_warning_and_error_records(self):
         logger = logging.getLogger("copilot.session")
         async with RuntimeDiagnostics(self.path, max_records=12, max_bytes=16384):
             for _ in range(500):
@@ -254,14 +254,55 @@ class RuntimeDiagnosticsTests(unittest.IsolatedAsyncioTestCase):
             logger.debug("CopilotSession.send_and_wait start")
             logger.warning("private warning")
             logger.error("private error")
+            logger.warning("private third warning")
             logger.warning("private over-limit warning")
         rows = self.records()
         captured = [row for row in rows if row["type"] == "runtime.log"]
         self.assertEqual(len(captured), 12)
-        self.assertEqual([row["level"] for row in captured[-3:]], ["DEBUG", "WARNING", "ERROR"])
-        self.assertEqual(captured[-3]["sdk_operation"], "CopilotSession.send_and_wait")
-        self.assertEqual(rows[-1]["dropped_by_priority"], {"general": 491, "important": 1})
+        self.assertEqual([row["level"] for row in captured[-3:]], ["WARNING", "ERROR", "WARNING"])
+        self.assertEqual(rows[-1]["dropped_by_priority"], {"general": 492, "important": 1})
         self.assertEqual(sum(row["type"] == "runtime.diagnostics_limit" for row in rows), 2)
+
+    async def test_sdk_operation_flood_cannot_consume_reserved_alert_capacity(self):
+        logger = logging.getLogger("copilot.session")
+        for limit in ("records", "bytes"):
+            with self.subTest(limit=limit):
+                path = self.path.with_name("operations-" + limit + ".jsonl")
+                async with RuntimeDiagnostics(
+                    path, max_records=12 if limit == "records" else 2000,
+                    max_bytes=16384 if limit == "records" else 8192,
+                ) as diagnostics:
+                    diagnostics.register("session-a", "reviewer", path.parent)
+                    for _ in range(500):
+                        logger.debug("CopilotSession.send_and_wait private routine RPC", extra={"session_id": "session-a"})
+                    logger.warning("CopilotSession.send_and_wait private warning", extra={"session_id": "session-a"})
+                    logger.error("CopilotSession.abort private error", extra={"session_id": "session-a"})
+                    diagnostics.unregister("session-a")
+                rows = [json.loads(line) for line in path.read_text().splitlines()]
+                alerts = [row for row in rows if row.get("level") in {"WARNING", "ERROR"}]
+                self.assertEqual([row["level"] for row in alerts], ["WARNING", "ERROR"])
+                self.assertEqual(alerts[0]["sdk_operation"], "CopilotSession.send_and_wait")
+                self.assertTrue(all(row["correlation"] == "session_id_match" for row in alerts))
+                self.assertGreater(rows[-1]["dropped_by_priority"]["general"], 0)
+                self.assertEqual(rows[-1]["dropped_by_priority"]["important"], 0)
+                self.assertEqual(rows[0]["important_retention"], "warnings_errors_exceptions_only")
+                self.assertNotIn("private", path.read_text())
+
+    async def test_low_severity_exception_keeps_reserved_capacity_after_operation_flood(self):
+        logger = logging.getLogger("copilot.session")
+        async with RuntimeDiagnostics(self.path, max_records=12, max_bytes=16384):
+            for _ in range(500):
+                logger.debug("CopilotSession.send_and_wait private routine RPC")
+            try:
+                raise ValueError("private exception payload")
+            except ValueError:
+                logger.debug("CopilotSession.send_and_wait private exception", exc_info=True)
+        rows = self.records()
+        exception = next(row for row in rows if row.get("exception_type") == "ValueError")
+        self.assertEqual(exception["level"], "DEBUG")
+        self.assertEqual(exception["sdk_operation"], "CopilotSession.send_and_wait")
+        self.assertEqual(rows[-1]["dropped_by_priority"]["important"], 0)
+        self.assertNotIn("private", self.path.read_text())
 
     async def test_byte_limits_reserve_warning_capacity_with_bounded_control_record_overhead(self):
         logger = logging.getLogger("copilot.session")
