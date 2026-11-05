@@ -517,3 +517,53 @@ class Child12_1(Parent12):
     # This should generate an error because the override does not
     # handle all overloads of the base method.
     def m1(self, x: int | str) -> int | str: ...
+
+
+class Parent13:
+    @overload
+    def m1(self, x: int, mode: Literal[False] = False) -> int: ...
+
+    @overload
+    def m1(self, x: str, mode: Literal[False] = False) -> str: ...
+
+    def m1(self, x: int | str, mode: bool = False) -> int | str: ...
+
+
+class Child13_1(Parent13):
+    @overload
+    def m1(self, x: int, mode: Literal[True] = True) -> bytes: ...
+
+    @overload
+    def m1(self, x: int, mode: Literal[False] = False) -> int: ...
+
+    @overload
+    def m1(self, x: str, mode: Literal[False] = False) -> str: ...
+
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
+    def m1(self, x: int | str, mode: bool = True) -> int | str | bytes: ...
+
+
+class Parent14:
+    @overload
+    def m1[T](self, x: T, /) -> T: ...
+
+    @overload
+    def m1(self, x: int, y: int, /) -> int: ...
+
+    def m1(self, x: object, y: int = 0, /) -> object: ...
+
+
+class Child14_1(Parent14):
+    @overload
+    def m1(self, x: int, /) -> bytes: ...
+
+    @overload
+    def m1[T](self, x: T, /) -> T: ...
+
+    @overload
+    def m1(self, x: int, y: int, /) -> int: ...
+
+    # This should generate an error because the override does not
+    # handle all overloads of the base method.
+    def m1(self, x: object, y: int = 0, /) -> object: ...

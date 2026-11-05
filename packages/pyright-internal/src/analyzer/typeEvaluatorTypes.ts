@@ -686,6 +686,11 @@ export const enum AssignTypeFlags {
     // records it. Overload consistency validation uses this when comparing
     // return types.
     RejectCyclicLowerBound = 1 << 18,
+
+    // When used in conjunction with PartialOverloadOverlap, treat two
+    // parameters with defaults as overlapping even if they overlap only
+    // when the argument is omitted. Override validation uses this.
+    IncludeOverlapByOmission = 1 << 19,
 }
 
 export interface TypeEvaluator {

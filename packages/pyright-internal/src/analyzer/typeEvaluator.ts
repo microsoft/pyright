@@ -28878,6 +28878,7 @@ export function createTypeEvaluator(
                 if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
                     if (srcParam.defaultType) {
                         if (
+                            (flags & AssignTypeFlags.IncludeOverlapByOmission) === 0 &&
                             isOverlapOnlyByOmission(destParamType, destParam.defaultType, srcParamType) &&
                             checkParamListOmission()
                         ) {
@@ -29317,6 +29318,7 @@ export function createTypeEvaluator(
                     if (srcParamInfo.defaultType && destParamInfo.defaultType) {
                         if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
                             if (
+                                (flags & AssignTypeFlags.IncludeOverlapByOmission) === 0 &&
                                 isOverlapOnlyByOmission(destParamInfo.type, destParamInfo.defaultType, srcParamType) &&
                                 checkParamListOmission()
                             ) {
@@ -29881,10 +29883,6 @@ export function createTypeEvaluator(
     }
 
     function isOverrideMethodOverlapping(baseOverload: FunctionType, overrideOverload: FunctionType): boolean {
-        if (assignType(getEffectiveReturnType(baseOverload), getEffectiveReturnType(overrideOverload))) {
-            return false;
-        }
-
         if (
             FunctionType.isInstanceMethod(overrideOverload) ||
             FunctionType.isClassMethod(overrideOverload) ||
@@ -29894,16 +29892,32 @@ export function createTypeEvaluator(
             overrideOverload = FunctionType.clone(overrideOverload, /* stripFirstParam */ true);
         }
 
-        let flags = AssignTypeFlags.SkipReturnTypeCheck;
-        if (
-            assignType(baseOverload, overrideOverload, /* diag */ undefined, /* constraints */ undefined, flags) ||
-            assignType(overrideOverload, baseOverload, /* diag */ undefined, /* constraints */ undefined, flags)
-        ) {
-            return true;
-        }
+        const flags = AssignTypeFlags.SkipReturnTypeCheck;
+        const partialOverlapFlags =
+            flags |
+            AssignTypeFlags.OverloadOverlap |
+            AssignTypeFlags.PartialOverloadOverlap |
+            AssignTypeFlags.IncludeOverlapByOmission;
 
-        flags |= AssignTypeFlags.OverloadOverlap | AssignTypeFlags.PartialOverloadOverlap;
-        return assignType(overrideOverload, baseOverload, /* diag */ undefined, /* constraints */ undefined, flags);
+        const checks: [FunctionType, FunctionType, AssignTypeFlags][] = [
+            [baseOverload, overrideOverload, flags],
+            [overrideOverload, baseOverload, flags],
+            [overrideOverload, baseOverload, partialOverlapFlags],
+        ];
+
+        // Compare the return types with the TypeVars solved by the
+        // parameters the two overloads share.
+        return checks.some(([destType, srcType, checkFlags]) => {
+            const constraints = new ConstraintTracker();
+            if (!assignType(destType, srcType, /* diag */ undefined, constraints, checkFlags)) {
+                return false;
+            }
+
+            return !assignType(
+                solveAndApplyConstraints(getEffectiveReturnType(baseOverload), constraints),
+                solveAndApplyConstraints(getEffectiveReturnType(overrideOverload), constraints)
+            );
+        });
     }
 
     // Determines whether a child class override is applicable to a parent
