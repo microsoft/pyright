@@ -200,6 +200,7 @@ import {
     getTypeOfIndexedTypedDict,
     synthesizeTypedDictClassMethods,
 } from './typedDicts';
+import * as LiteralTypes from './typeEvaluator/literalTypes';
 import {
     AbstractSymbol,
     Arg,
@@ -2259,38 +2260,7 @@ export function createTypeEvaluator(
     }
 
     function stripLiteralValue(type: Type): Type {
-        // Handle the not-uncommon case where the type is a union that consists
-        // only of literal values.
-        if (isUnion(type) && type.priv.subtypes.length > 0) {
-            if (
-                type.priv.literalInstances.literalStrMap?.size === type.priv.subtypes.length ||
-                type.priv.literalInstances.literalIntMap?.size === type.priv.subtypes.length ||
-                type.priv.literalInstances.literalEnumMap?.size === type.priv.subtypes.length
-            ) {
-                return stripLiteralValue(type.priv.subtypes[0]);
-            }
-        }
-
-        return mapSubtypes(type, (subtype) => {
-            if (isClass(subtype)) {
-                // A sentinel literal represents a stable singleton, so stripping
-                // it cannot produce a wider instance type.
-                if (subtype.priv.literalValue !== undefined && !isSentinelLiteral(subtype)) {
-                    subtype = ClassType.cloneWithLiteral(subtype, /* value */ undefined);
-                }
-
-                if (ClassType.isBuiltIn(subtype, 'LiteralString')) {
-                    // Handle "LiteralString" specially.
-                    if (prefetched?.strClass && isInstantiableClass(prefetched.strClass)) {
-                        let strInstance = ClassType.cloneAsInstance(prefetched.strClass);
-                        strInstance = TypeBase.cloneForCondition(strInstance, getTypeCondition(subtype));
-                        return strInstance;
-                    }
-                }
-            }
-
-            return subtype;
-        });
+        return LiteralTypes.stripLiteralValue(type, prefetched?.strClass);
     }
 
     function getTypeOfParamAnnotation(paramTypeNode: ExpressionNode, paramCategory: ParamCategory) {
@@ -2667,15 +2637,8 @@ export function createTypeEvaluator(
         });
     }
 
-    // If a type contains a TypeGuard or TypeIs, convert it to a bool.
     function stripTypeGuard(type: Type): Type {
-        return mapSubtypes(type, (subtype) => {
-            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['TypeGuard', 'TypeIs'])) {
-                return prefetched?.boolClass ? convertToInstance(prefetched.boolClass) : UnknownType.create();
-            }
-
-            return subtype;
-        });
+        return LiteralTypes.stripTypeGuard(type, prefetched?.boolClass);
     }
 
     function solveAndApplyConstraints(
