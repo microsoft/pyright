@@ -358,6 +358,7 @@ import {
     isProperty,
     isSentinelLiteral,
     isTupleClass,
+    isTupleGradualForm,
     isTupleIndexUnambiguous,
     isTypeAliasPlaceholder,
     isTypeAliasRecursive,
@@ -12355,8 +12356,14 @@ export function createTypeEvaluator(
     }
 
     // Expands any unpacked tuples within an argument list. The args that an
-    // unpacked TypeVar expands to are recorded in unpackedTypeVarArgs.
-    function expandArgList(argList: Arg[], unpackedTypeVarArgs: Map<Arg, TupleTypeArg>): Arg[] {
+    // unpacked TypeVar expands to are recorded in unpackedTypeVarArgs, and an
+    // unpacked TypeVar that expands to no args is recorded in emptyUnpackedTypeVarArgs
+    // with the index of the arg that follows it.
+    function expandArgList(
+        argList: Arg[],
+        unpackedTypeVarArgs: Map<Arg, TupleTypeArg>,
+        emptyUnpackedTypeVarArgs: { argIndex: number; typeArg: TupleTypeArg }[]
+    ): Arg[] {
         const expandedArgList: Arg[] = [];
 
         for (const arg of argList) {
@@ -12383,11 +12390,25 @@ export function createTypeEvaluator(
                         : undefined;
 
                     if (tupleTypeArgs.length !== 1 || !tupleTypeArgs[0].isUnbounded) {
+                        if (unpackedArgTypeVar && tupleTypeArgs.length === 0) {
+                            emptyUnpackedTypeVarArgs.push({
+                                argIndex: expandedArgList.length,
+                                typeArg: unpackedArgTypeVar,
+                            });
+                        }
+
                         for (const unexpandedTypeArg of unexpandedTypeArgs) {
                             const expandedTypeArgs = expandUnpackedTypeVarsInTupleArgs([unexpandedTypeArg]);
                             const unpackedTypeVarArg =
                                 unpackedArgTypeVar ??
                                 (expandedTypeArgs[0] !== unexpandedTypeArg ? { ...unexpandedTypeArg } : undefined);
+
+                            if (!unpackedArgTypeVar && unpackedTypeVarArg && expandedTypeArgs.length === 0) {
+                                emptyUnpackedTypeVarArgs.push({
+                                    argIndex: expandedArgList.length,
+                                    typeArg: unpackedTypeVarArg,
+                                });
+                            }
 
                             for (const tupleTypeArg of expandedTypeArgs) {
                                 const expandedArg: Arg = tupleTypeArg.isUnbounded
@@ -12455,7 +12476,11 @@ export function createTypeEvaluator(
 
         // Expand any unpacked tuples in the arg list.
         const unpackedTypeVarArgs = new Map<Arg, TupleTypeArg>();
-        argList = expandArgList(argList, unpackedTypeVarArgs);
+        const emptyUnpackedTypeVarArgs: { argIndex: number; typeArg: TupleTypeArg }[] = [];
+        argList = expandArgList(argList, unpackedTypeVarArgs, emptyUnpackedTypeVarArgs);
+
+        // The index of the first positional arg that the *args parameter can receive.
+        let argsParamArgIndex: number | undefined;
 
         // Construct an object that racks which parameters have been assigned arguments.
         const paramTracker = new ParamAssignmentTracker(paramDetails.params);
@@ -12576,6 +12601,10 @@ export function createTypeEvaluator(
 
             const remainingArgCount = positionalArgCount - argIndex;
             const remainingParamCount = positionParamLimitIndex - paramIndex - 1;
+
+            if (paramIndex === paramDetails.argsIndex && argsParamArgIndex === undefined) {
+                argsParamArgIndex = argIndex;
+            }
 
             if (paramIndex >= positionParamLimitIndex) {
                 if (paramSpecArgList) {
@@ -12876,6 +12905,14 @@ export function createTypeEvaluator(
                 argIndex++;
                 paramIndex++;
             }
+        }
+
+        if (
+            argsParamArgIndex === undefined &&
+            paramDetails.argsIndex !== undefined &&
+            paramIndex <= paramDetails.argsIndex
+        ) {
+            argsParamArgIndex = argIndex;
         }
 
         // If there weren't enough positional arguments to populate all of the
@@ -13398,6 +13435,15 @@ export function createTypeEvaluator(
 
                 if (isUnpacked(paramType) && (!isTypeVarTuple(paramType) || !paramType.priv.isInUnion)) {
                     const tupleTypeArgs: TupleTypeArg[] = [];
+
+                    if (variadicArgs.length === 0 && isUnpackedTypeVar(paramType)) {
+                        emptyUnpackedTypeVarArgs.forEach((emptyArg) => {
+                            if (emptyArg.argIndex === argsParamArgIndex) {
+                                tupleTypeArgs.push(emptyArg.typeArg);
+                            }
+                        });
+                    }
+
                     variadicArgs.forEach((argParam) => {
                         // An unpacked TypeVar arg that maps entirely to an
                         // unpacked TypeVar parameter stays a single entry.
@@ -13467,9 +13513,16 @@ export function createTypeEvaluator(
                         specializedTuple = makeTupleObject(evaluatorInterface, tupleTypeArgs, /* isUnpacked */ false);
                     }
 
+                    // A `tuple[Any, ...]` is compared against the tuple form of a
+                    // bound TypeVar parameter, which accepts it.
+                    const combinedParamType =
+                        isTupleGradualForm(specializedTuple) && isTypeVar(paramType) && TypeVarType.isBound(paramType)
+                            ? makeTupleObject(evaluatorInterface, [{ type: paramType, isUnbounded: false }])
+                            : makePacked(paramType);
+
                     const combinedArg: ValidateArgTypeParams = {
                         paramCategory: ParamCategory.Simple,
-                        paramType: makePacked(paramType),
+                        paramType: combinedParamType,
                         requiresTypeVarMatching: true,
                         argument: {
                             argCategory: ArgCategory.Simple,

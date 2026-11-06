@@ -319,3 +319,27 @@ def func32(cb: Callable[[Unpack[U]], None], t: tuple[*W], u: W):
 def func33(cb: Callable[[int, Unpack[U]], None], t: U):
     # This should generate an error.
     cb(*t)
+
+
+def func34[E1: tuple[()]](cb1: Callable[[*E1], None], cb2: Callable[[int, *E1], None], t: tuple[*E1], u: E1):
+    cb1(*t)
+    cb1(*u)
+    cb2(1, *t)
+
+
+def func35[E1: tuple[()]](cb: Callable[[int, *E1], None], t: tuple[*E1]):
+    # This should generate an error.
+    cb(*t, 1)
+
+
+def func36(cb: Callable[[Unpack[U]], None], t: tuple[Any, ...], a: Any):
+    cb(*t)
+    cb(*a)
+
+
+def func37(cb: Callable[[Unpack[U]], None], t: tuple[int, ...], u: tuple[Any, int]):
+    # This should generate an error.
+    cb(*t)
+
+    # This should generate an error.
+    cb(*u)
