@@ -715,7 +715,7 @@ export class TreeDumper extends ParseTreeWalker {
     }
 
     override visitName(node: NameNode) {
-        this._log(`${this._getPrefix(node)} ${getTokenString(this._uri, node.d.token, this._lines)} ${node.d.value}`);
+        this._log(`${this._getPrefix(node)} ${getTokenString(this._uri, node.d, this._lines)} ${node.d.value}`);
         return true;
     }
 

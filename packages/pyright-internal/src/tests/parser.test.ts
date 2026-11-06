@@ -26,6 +26,7 @@ import {
     StatementListNode,
 } from '../parser/parseNodes';
 import { ParseOptions, Parser } from '../parser/parser';
+import { Tokenizer } from '../parser/tokenizer';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
 
@@ -106,6 +107,44 @@ test('ExpressionWrappedInParens', () => {
     // length of node should include parens
     assert.equal(statementList.d.statements[0].nodeType, ParseNodeType.Name);
     assert.equal(statementList.d.statements[0].length, 5);
+});
+
+test('NameTokenPayloadPreservesIdentifierExtentAndNormalization', () => {
+    const text = '(\n# identifier comment\n\ufb00\n)';
+    const diagSink = new DiagnosticSink();
+    const results = TestUtils.parseText(text, diagSink);
+    assert.strictEqual(diagSink.getErrors().length, 0);
+
+    const statement = results.parserOutput.parseTree.d.statements[0];
+    assert.ok(statement.nodeType === ParseNodeType.StatementList);
+    const name = statement.d.statements[0];
+    assert.ok(name.nodeType === ParseNodeType.Name);
+    const offset = text.indexOf('\ufb00');
+    const tokens = results.tokenizerOutput.tokens;
+    const token = Array.from({ length: tokens.count }, (_, index) => tokens.getItemAt(index)).find(
+        (token) => token.start === offset
+    );
+
+    assert.ok(name.d === token);
+    assert.strictEqual(name.d.value, 'ff');
+    assert.strictEqual(name.d.start, offset);
+    assert.strictEqual(name.d.length, 1);
+    assert.strictEqual(name.d.comments?.[0].value, ' identifier comment');
+    assert.strictEqual(name.start, 0);
+    assert.strictEqual(name.length, text.length);
+
+    const recovered = new Tokenizer().tokenize(
+        text,
+        undefined,
+        undefined,
+        0,
+        false,
+        results.parserOutput.parseTree
+    ).tokens;
+    const recoveredToken = Array.from({ length: recovered.count }, (_, index) => recovered.getItemAt(index)).find(
+        (token) => token.start === offset
+    );
+    assert.ok(recoveredToken === name.d);
 });
 
 test('MaxParseDepth1', () => {

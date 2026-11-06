@@ -676,13 +676,10 @@ export namespace ClassNode {
                     parent: undefined,
                     a: key,
                     d: {
-                        token: {
-                            type: TokenType.Identifier,
-                            start: 0,
-                            length: 0,
-                            comments: [],
-                            value: '',
-                        },
+                        type: TokenType.Identifier,
+                        start: 0,
+                        length: 0,
+                        comments: [],
                         value: '',
                     },
                 },
@@ -1722,10 +1719,7 @@ export namespace LambdaNode {
 }
 
 export interface NameNode extends ParseNodeBase<ParseNodeType.Name> {
-    d: {
-        token: IdentifierToken;
-        value: string;
-    };
+    d: IdentifierToken;
 }
 
 export namespace NameNode {
@@ -1737,10 +1731,8 @@ export namespace NameNode {
             id: _nextNodeId++,
             parent: undefined,
             a: key,
-            d: {
-                token: nameToken,
-                value: nameToken.value,
-            },
+            // The retained token already contains the normalized name.
+            d: nameToken,
         };
 
         return node;
