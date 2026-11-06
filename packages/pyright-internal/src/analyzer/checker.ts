@@ -96,7 +96,13 @@ import { ConstraintSolution } from './constraintSolution';
 import { ConstraintTracker } from './constraintTracker';
 import { getBoundCallMethod, getBoundInitMethod, getBoundNewMethod } from './constructors';
 import { addInheritedDataClassEntries } from './dataClasses';
-import { Declaration, DeclarationType, isAliasDeclaration, isVariableDeclaration } from './declaration';
+import {
+    Declaration,
+    DeclarationType,
+    VariableDeclaration,
+    isAliasDeclaration,
+    isVariableDeclaration,
+} from './declaration';
 import { getNameNodeForDeclaration } from './declarationUtils';
 import { deprecatedAliases, deprecatedSpecialForms } from './deprecatedSymbols';
 import { getEnumDeclaredValueType, isEnumClassWithMembers, transformTypeForEnumMember } from './enums';
@@ -109,7 +115,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
 import { isMethodOnlyProtocol, validateProtocolUnsafeOverlap } from './protocols';
 import { Scope, ScopeType } from './scope';
-import { getScopeForNode } from './scopeUtils';
+import { getScopeForNode, getScopeHierarchy } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
 import { isStubFile } from './sourceMapper';
 import { evaluateStaticBoolExpression } from './staticExpressions';
@@ -5428,10 +5434,10 @@ export class Checker extends ParseTreeWalker {
             getProtocolSymbolsRecursive(classType, abstractSymbols, ClassTypeFlags.SupportsAbstractMethods);
         }
 
-        // If this is a dataclass, get all of the entries so we can tell which
-        // ones are initialized by the synthesized __init__ method.
+        // Include inherited dataclass fields even when the final subclass
+        // isn't itself a dataclass, so init=False fields remain visible.
         const dataClassEntries: DataClassEntry[] = [];
-        if (ClassType.isDataClass(classType)) {
+        if (ClassType.isDataClass(classType) || ClassType.isFinal(classType)) {
             addInheritedDataClassEntries(classType, dataClassEntries);
         }
 
@@ -5511,6 +5517,52 @@ export class Checker extends ParseTreeWalker {
         // that are not initialized.
         const diagAddendum = new DiagnosticAddendum();
         abstractSymbols.forEach((member, name) => {
+            // A genuine KW_ONLY separator is not an instance variable. It can,
+            // however, shadow a real field from an earlier base class. Walk
+            // past separators to check any inherited field instead.
+            while (isClass(member.classType) && ClassType.isDataClass(member.classType)) {
+                if (!member.symbol.isDataClassKeywordOnly()) {
+                    break;
+                }
+
+                const annotationDecl = member.symbol
+                    .getDeclarations()
+                    .find(
+                        (decl): decl is VariableDeclaration => isVariableDeclaration(decl) && !!decl.typeAnnotationNode
+                    );
+                if (!annotationDecl?.typeAnnotationNode) {
+                    break;
+                }
+
+                // The binder's flag is based on import names, which can be
+                // shadowed by a local declaration with the same name.
+                const annotationNode = annotationDecl.typeAnnotationNode;
+                if (annotationNode.nodeType === ParseNodeType.Name) {
+                    const visibleSymbol = getScopeHierarchy(annotationNode, undefined, this._nodeInfo)
+                        ?.map((scope) => scope.lookUpSymbol(annotationNode.d.value))
+                        .find((symbol) => !!symbol);
+                    if (visibleSymbol?.getDeclarations().some((decl) => decl.type !== DeclarationType.Alias)) {
+                        break;
+                    }
+                }
+
+                // Confirm that the annotation is the actual dataclasses sentinel.
+                const annotationType = this._evaluator.getTypeOfAnnotation(annotationDecl.typeAnnotationNode, {
+                    varTypeAnnotation: true,
+                    allowFinal: true,
+                    allowClassVar: true,
+                });
+                if (!isClassInstance(annotationType) || !ClassType.isBuiltIn(annotationType, 'KW_ONLY')) {
+                    break;
+                }
+
+                const inheritedMember = lookUpClassMember(member.classType, name, MemberAccessFlags.SkipOriginalClass);
+                if (!inheritedMember?.isInstanceMember) {
+                    return;
+                }
+                member = inheritedMember;
+            }
+
             const decls = member.symbol.getDeclarations();
 
             if (decls.length === 0 || !isClass(member.classType)) {
