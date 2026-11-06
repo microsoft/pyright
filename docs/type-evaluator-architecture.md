@@ -40,6 +40,11 @@ facade forwarding function.
 Contexts derive matching public callback signatures from `TypeEvaluator`, such
 as `TypeEvaluator['assignType']`, rather than repeating them. This is a type-only
 dependency; it does not grant the context the full evaluator interface.
+Common expression-evaluation, diagnostic and type-printing callback signatures
+also use their public contracts. Internal signatures with additional parameters
+remain distinct.
+Self and TypeForm creation callbacks derive their signatures from their owning
+special-form factory.
 
 Pass only the capabilities a shared helper needs. `makeTupleObject` requires
 only `getTupleClassType`, so special-form creation and TypeVar handling pass
@@ -50,6 +55,8 @@ Likewise, `getBoundInitMethod` needs only `getTypeOfBoundMember`; member resolut
 passes its existing context and no longer retains the full evaluator interface.
 `getFunctionInfoFromDecorators` requires only `getTypeOfExpression`, so Self
 construction passes the special-form context without gaining the full interface.
+Diagnostic decorator inspection likewise passes its existing context, which
+provides `getTypeOfExpression`, rather than retaining the full evaluator interface.
 
 ## Initialization and re-entry contracts
 

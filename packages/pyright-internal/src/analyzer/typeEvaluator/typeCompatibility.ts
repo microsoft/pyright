@@ -125,7 +125,7 @@ interface Context {
         destType: Type,
         options?: PrintTypeOptions
     ) => { sourceType: string; destType: string };
-    readonly printType: (type: Type, options?: PrintTypeOptions) => string;
+    readonly printType: TypeEvaluator['printType'];
     readonly solveAndApplyConstraints: (
         type: Type,
         constraints: ConstraintTracker,

@@ -9,7 +9,7 @@
 import { DiagnosticAddendum } from '../../common/diagnostic';
 import { LocMessage } from '../../localization/localize';
 import { ConstraintTracker } from '../constraintTracker';
-import { AssignTypeFlags, PrintTypeOptions, SolveConstraintsOptions, TypeEvaluator } from '../typeEvaluatorTypes';
+import { AssignTypeFlags, SolveConstraintsOptions, TypeEvaluator } from '../typeEvaluatorTypes';
 import {
     ClassType,
     FunctionParam,
@@ -29,7 +29,7 @@ import { ApplyTypeVarOptions, convertToInstance } from '../typeUtils';
 interface Context {
     readonly assignType: TypeEvaluator['assignType'];
     readonly getEffectiveReturnType: (type: FunctionType) => Type;
-    readonly printType: (type: Type, options?: PrintTypeOptions) => string;
+    readonly printType: TypeEvaluator['printType'];
     readonly solveAndApplyConstraints: (
         type: Type,
         constraints: ConstraintTracker,

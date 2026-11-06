@@ -7,10 +7,8 @@
  */
 
 import { assert } from '../../common/debug';
-import { Diagnostic } from '../../common/diagnostic';
 import { DiagnosticRule } from '../../common/diagnosticRules';
 import { PythonVersion, pythonVersion3_13 } from '../../common/pythonVersion';
-import { TextRange } from '../../common/textRange';
 import { Uri } from '../../common/uri/uri';
 import { LocMessage } from '../../localization/localize';
 import { ExpressionNode, ParamCategory, ParseNode, ParseNodeType } from '../../parser/parseNodes';
@@ -26,7 +24,6 @@ import {
     PrefetchedTypes,
     TypeEvaluator,
     TypeResult,
-    TypeResultWithNode,
 } from '../typeEvaluatorTypes';
 import {
     AnyType,
@@ -77,14 +74,10 @@ import {
     specializeWithDefaultTypeArgs,
     transformPossibleRecursiveTypeAlias,
 } from '../typeUtils';
+import type { createSpecialFormCreation } from './specialFormCreation';
 
 interface Context {
-    readonly addDiagnostic: (
-        rule: DiagnosticRule,
-        message: string,
-        node: ParseNode,
-        range?: TextRange
-    ) => Diagnostic | undefined;
+    readonly addDiagnostic: TypeEvaluator['addDiagnostic'];
     readonly assignClassToSelf: (
         destType: ClassType,
         srcType: ClassType,
@@ -93,17 +86,8 @@ interface Context {
         recursionCount?: number
     ) => boolean;
     readonly assignType: TypeEvaluator['assignType'];
-    readonly createSelfType: (
-        classType: ClassType,
-        errorNode: ParseNode,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags
-    ) => UnknownType | TypeVarType;
-    readonly createTypeFormType: (
-        classType: ClassType,
-        errorNode: ExpressionNode,
-        typeArgs: TypeResultWithNode[] | undefined
-    ) => Type;
+    readonly createSelfType: ReturnType<typeof createSpecialFormCreation>['createSelfType'];
+    readonly createTypeFormType: ReturnType<typeof createSpecialFormCreation>['createTypeFormType'];
     readonly getBuiltInType: (node: ParseNode, name: string) => Type;
     readonly getObjectType: () => Type;
     readonly getTupleClassType: () => ClassType | undefined;

@@ -9,9 +9,8 @@
 import { appendArray } from '../../common/collectionUtils';
 import { DiagnosticLevel } from '../../common/configOptions';
 import { assert } from '../../common/debug';
-import { Diagnostic, DiagnosticAddendum } from '../../common/diagnostic';
+import { DiagnosticAddendum } from '../../common/diagnostic';
 import { DiagnosticRule } from '../../common/diagnosticRules';
-import { TextRange } from '../../common/textRange';
 import { LocAddendum, LocMessage } from '../../localization/localize';
 import {
     ArgumentNode,
@@ -48,7 +47,6 @@ import {
     EvaluatorUsage,
     ExpectedTypeOptions,
     PrefetchedTypes,
-    PrintTypeOptions,
     SolveConstraintsOptions,
     TypeEvaluator,
     TypeResult,
@@ -115,12 +113,7 @@ import type { createSpecialFormCreation } from './specialFormCreation';
 
 interface Context {
     readonly createSpecializedClassType: ReturnType<typeof createSpecialFormCreation>['createSpecializedClassType'];
-    readonly addDiagnostic: (
-        rule: DiagnosticRule,
-        message: string,
-        node: ParseNode,
-        range?: TextRange
-    ) => Diagnostic | undefined;
+    readonly addDiagnostic: TypeEvaluator['addDiagnostic'];
     readonly assignType: TypeEvaluator['assignType'];
     readonly evaluatorInterface: TypeEvaluator;
     readonly getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
@@ -136,11 +129,7 @@ interface Context {
         selfType?: ClassType | TypeVarType,
         recursionCount?: number
     ) => TypeResult | undefined;
-    readonly getTypeOfExpression: (
-        node: ExpressionNode,
-        flags?: EvalFlags,
-        inferenceContext?: InferenceContext
-    ) => TypeResult;
+    readonly getTypeOfExpression: TypeEvaluator['getTypeOfExpression'];
     readonly getTypeOfExpressionExpectingType: (node: ExpressionNode, options?: ExpectedTypeOptions) => TypeResult;
     readonly inferReturnTypeIfNecessary: (type: Type) => void;
     readonly isTypeFormClass: (type: ClassType) => boolean;
@@ -152,7 +141,7 @@ interface Context {
     ) => Type;
     readonly nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor;
     readonly prefetched: Partial<PrefetchedTypes> | undefined;
-    readonly printType: (type: Type, options?: PrintTypeOptions) => string;
+    readonly printType: TypeEvaluator['printType'];
     readonly stripLiteralValue: (type: Type) => Type;
     readonly suppressDiagnostics: <T>(
         node: ParseNode,
@@ -768,6 +757,7 @@ export function createEvaluatorCore(contextDependencies: Context) {
         };
     }
 
+    // Include all arguments even when the error node isn't a call, as in __init_subclass__ validation.
     function getSpeculativeNodeForCall(errorNode: ExpressionNode): ParseNode {
         // If the error node is within an arg, expand to include the parent of the arg list.
         const argParent = ParseTreeUtils.getParentNodeOfType(errorNode, ParseNodeType.Argument);

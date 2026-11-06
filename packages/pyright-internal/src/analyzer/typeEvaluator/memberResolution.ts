@@ -8,9 +8,8 @@
 
 import { appendArray } from '../../common/collectionUtils';
 import { assert } from '../../common/debug';
-import { Diagnostic, DiagnosticAddendum } from '../../common/diagnostic';
+import { DiagnosticAddendum } from '../../common/diagnostic';
 import { DiagnosticRule } from '../../common/diagnosticRules';
-import { TextRange } from '../../common/textRange';
 import { LocAddendum, LocMessage } from '../../localization/localize';
 import {
     ArgCategory,
@@ -56,6 +55,7 @@ import {
     Reachability,
     ResolveAliasOptions,
     SymbolDeclInfo,
+    TypeEvaluator,
     TypeResult,
 } from '../typeEvaluatorTypes';
 import {
@@ -121,12 +121,7 @@ interface Context {
         paramName: string,
         decls: Declaration[]
     ) => boolean;
-    readonly addDiagnostic: (
-        rule: DiagnosticRule,
-        message: string,
-        node: ParseNode,
-        range?: TextRange
-    ) => Diagnostic | undefined;
+    readonly addDiagnostic: TypeEvaluator['addDiagnostic'];
     readonly codeFlowEngine: CodeFlowEngine;
     readonly evaluateTypesForStatement: (node: ParseNode) => void;
     readonly evaluatorOptions: EvaluatorOptions;

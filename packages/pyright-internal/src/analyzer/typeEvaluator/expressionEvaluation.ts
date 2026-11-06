@@ -146,12 +146,7 @@ export function getIndexAccessMagicMethodName(usage: EvaluatorUsage): string {
 }
 
 interface Context {
-    readonly addDiagnostic: (
-        rule: DiagnosticRule,
-        message: string,
-        node: ParseNode,
-        range?: TextRange
-    ) => Diagnostic | undefined;
+    readonly addDiagnostic: TypeEvaluator['addDiagnostic'];
     readonly addInformation: (message: string, node: ParseNode, range?: TextRange) => Diagnostic | undefined;
     readonly cloneBuiltinObjectWithLiteral: (node: ParseNode, builtInName: string, value: LiteralValue) => Type;
     readonly collectLiteralEnumClasses: (
@@ -196,11 +191,7 @@ interface Context {
     readonly getTypeOfArgExpectingType: (arg: Arg, options?: ExpectedTypeOptions) => TypeResult;
     readonly getTypeOfAwaitable: (typeResult: TypeResult, errorNode?: ExpressionNode) => TypeResult;
     readonly getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
-    readonly getTypeOfExpression: (
-        node: ExpressionNode,
-        flags?: EvalFlags,
-        inferenceContext?: InferenceContext
-    ) => TypeResult;
+    readonly getTypeOfExpression: TypeEvaluator['getTypeOfExpression'];
     readonly getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
     readonly getTypeVarScopesForNode: (node: ParseNode) => string[];
     readonly getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
@@ -234,7 +225,7 @@ interface Context {
         destType: Type,
         options?: PrintTypeOptions
     ) => { sourceType: string; destType: string };
-    readonly printType: (type: Type, options?: PrintTypeOptions) => string;
+    readonly printType: TypeEvaluator['printType'];
     readonly resolveDeclaredMemberType: (
         symbol: Symbol,
         classOrObjectBase: ClassType | undefined,

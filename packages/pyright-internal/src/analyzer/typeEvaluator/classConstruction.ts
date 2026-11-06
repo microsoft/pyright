@@ -7,22 +7,14 @@
  */
 
 import { assert } from '../../common/debug';
-import { Diagnostic, DiagnosticAddendum } from '../../common/diagnostic';
+import { DiagnosticAddendum } from '../../common/diagnostic';
 import { DiagnosticRule } from '../../common/diagnosticRules';
-import { TextRange } from '../../common/textRange';
 import { LocAddendum, LocMessage } from '../../localization/localize';
 import { ArgCategory, ExpressionNode, ParamCategory, ParseNode, ParseNodeType } from '../../parser/parseNodes';
 import * as AnalyzerNodeInfo from '../analyzerNodeInfo';
 import * as ParseTreeUtils from '../parseTreeUtils';
 import { Symbol, SymbolFlags } from '../symbol';
-import {
-    Arg,
-    ExpectedTypeOptions,
-    PrefetchedTypes,
-    PrintTypeOptions,
-    TypeEvaluator,
-    TypeResult,
-} from '../typeEvaluatorTypes';
+import { Arg, ExpectedTypeOptions, PrefetchedTypes, TypeEvaluator, TypeResult } from '../typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -50,12 +42,7 @@ import {
 } from '../typeUtils';
 
 interface Context {
-    readonly addDiagnostic: (
-        rule: DiagnosticRule,
-        message: string,
-        node: ParseNode,
-        range?: TextRange
-    ) => Diagnostic | undefined;
+    readonly addDiagnostic: TypeEvaluator['addDiagnostic'];
     readonly assignType: TypeEvaluator['assignType'];
     readonly getBaseClassesFromTypeCall: (baseTupleType: ClassType) => Type[] | undefined;
     readonly getBuiltInType: (node: ParseNode, name: string) => Type;
@@ -64,7 +51,7 @@ interface Context {
     readonly getTypeOfArgExpectingType: (arg: Arg, options?: ExpectedTypeOptions) => TypeResult;
     readonly nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor;
     readonly prefetched: Partial<PrefetchedTypes> | undefined;
-    readonly printType: (type: Type, options?: PrintTypeOptions) => string;
+    readonly printType: TypeEvaluator['printType'];
 }
 
 // Synthesizes classes and resolves effective metaclasses, delegating evaluation and diagnostics.

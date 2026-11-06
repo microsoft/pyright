@@ -22,26 +22,19 @@ import { PrintTypeOptions, Reachability, TypeEvaluator } from '../typeEvaluatorT
 import { FunctionTypeFlags, Type } from '../types';
 
 interface Context {
-    readonly evaluatorInterface: TypeEvaluator;
     readonly evaluatorOptions: EvaluatorOptions;
+    readonly getTypeOfExpression: TypeEvaluator['getTypeOfExpression'];
     readonly isNodeReachable: (node: ParseNode, sourceNode?: ParseNode) => boolean;
     readonly nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor;
-    readonly printType: (type: Type, options?: PrintTypeOptions) => string;
+    readonly printType: TypeEvaluator['printType'];
     readonly speculativeTypeTracker: SpeculativeTypeTracker;
     readonly suppressedNodeStack: SuppressedNodeStackEntry[];
 }
 
 // Formats and emits diagnostics; suppression and evaluation state remain evaluator-owned.
 export function createDiagnostics(context: Context) {
-    const {
-        evaluatorInterface,
-        evaluatorOptions,
-        isNodeReachable,
-        nodeInfo,
-        printType,
-        speculativeTypeTracker,
-        suppressedNodeStack,
-    } = context;
+    const { evaluatorOptions, isNodeReachable, nodeInfo, printType, speculativeTypeTracker, suppressedNodeStack } =
+        context;
 
     function addInformation(message: string, node: ParseNode, range?: TextRange) {
         return addDiagnosticWithSuppressionCheck('information', message, node, range);
@@ -160,7 +153,7 @@ export function createDiagnostics(context: Context) {
             // Should we suppress this diagnostic because it's within a no_type_check function?
             const containingClassNode = ParseTreeUtils.getEnclosingClass(containingFunction, /* stopAtFunction */ true);
             const functionInfo = getFunctionInfoFromDecorators(
-                evaluatorInterface,
+                context,
                 containingFunction,
                 !!containingClassNode,
                 nodeInfo

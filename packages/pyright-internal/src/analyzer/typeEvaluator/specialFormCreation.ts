@@ -8,10 +8,9 @@
 
 import { appendArray } from '../../common/collectionUtils';
 import { assert } from '../../common/debug';
-import { Diagnostic, DiagnosticAddendum } from '../../common/diagnostic';
+import { DiagnosticAddendum } from '../../common/diagnostic';
 import { DiagnosticRule } from '../../common/diagnosticRules';
 import { PythonVersion, pythonVersion3_9 } from '../../common/pythonVersion';
-import { TextRange } from '../../common/textRange';
 import { LocAddendum, LocMessage } from '../../localization/localize';
 import {
     ArgCategory,
@@ -35,7 +34,6 @@ import {
     EvalFlags,
     ExpectedTypeOptions,
     PrefetchedTypes,
-    PrintTypeOptions,
     TypeEvaluator,
     TypeResult,
     TypeResultWithNode,
@@ -85,7 +83,6 @@ import {
     explodeGenericClass,
     getTypeVarArgsRecursive,
     getTypeVarScopeIds,
-    InferenceContext,
     isEllipsisType,
     isInstantiableMetaclass,
     isNoneInstance,
@@ -102,12 +99,7 @@ import {
 } from '../typeUtils';
 
 interface Context {
-    readonly addDiagnostic: (
-        rule: DiagnosticRule,
-        message: string,
-        node: ParseNode,
-        range?: TextRange
-    ) => Diagnostic | undefined;
+    readonly addDiagnostic: TypeEvaluator['addDiagnostic'];
     readonly applyUnpackToTupleLike: (type: Type) => Type | undefined;
     readonly getScopeIdForNode: (node: ParseNode) => string;
     readonly getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
@@ -125,14 +117,10 @@ interface Context {
         makeParamSpecsConcrete?: boolean,
         conditionFilter?: TypeCondition[]
     ) => Type;
-    readonly printType: (type: Type, options?: PrintTypeOptions) => string;
+    readonly printType: TypeEvaluator['printType'];
     readonly getBuiltInType: TypeEvaluator['getBuiltInType'];
     readonly solveAndApplyConstraints: TypeEvaluator['solveAndApplyConstraints'];
-    readonly getTypeOfExpression: (
-        node: ExpressionNode,
-        flags?: EvalFlags,
-        inferenceContext?: InferenceContext
-    ) => TypeResult;
+    readonly getTypeOfExpression: TypeEvaluator['getTypeOfExpression'];
 }
 
 // Synthesizes typing special forms and validates their arguments through evaluator callbacks.

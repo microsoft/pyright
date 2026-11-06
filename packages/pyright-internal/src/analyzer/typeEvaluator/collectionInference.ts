@@ -7,9 +7,8 @@
  */
 
 import { assert } from '../../common/debug';
-import { Diagnostic, DiagnosticAddendum } from '../../common/diagnostic';
+import { DiagnosticAddendum } from '../../common/diagnostic';
 import { DiagnosticRule } from '../../common/diagnosticRules';
-import { TextRange } from '../../common/textRange';
 import { LocAddendum, LocMessage } from '../../localization/localize';
 import {
     ComprehensionForIfNode,
@@ -36,7 +35,6 @@ import {
     maxInferredContainerDepth,
     maxSubtypesForInferredType,
     PrefetchedTypes,
-    PrintTypeOptions,
     SolveConstraintsOptions,
     TypeEvaluator,
     TypeResult,
@@ -100,12 +98,7 @@ interface DictionaryEntryTypeResults {
 }
 
 interface Context {
-    readonly addDiagnostic: (
-        rule: DiagnosticRule,
-        message: string,
-        node: ParseNode,
-        range?: TextRange
-    ) => Diagnostic | undefined;
+    readonly addDiagnostic: TypeEvaluator['addDiagnostic'];
     readonly assignType: TypeEvaluator['assignType'];
     readonly assignTypeToExpression: (
         target: ExpressionNode,
@@ -137,11 +130,7 @@ interface Context {
     readonly getNoneType: () => Type;
     readonly getObjectType: () => Type;
     readonly getTupleClassType: () => ClassType | undefined;
-    readonly getTypeOfExpression: (
-        node: ExpressionNode,
-        flags?: EvalFlags,
-        inferenceContext?: InferenceContext
-    ) => TypeResult;
+    readonly getTypeOfExpression: TypeEvaluator['getTypeOfExpression'];
     readonly getTypeOfIterator: (
         typeResult: TypeResult,
         isAsync: boolean,
@@ -160,7 +149,7 @@ interface Context {
     readonly maxEntriesToUseForInference: 64;
     readonly nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor;
     readonly prefetched: Partial<PrefetchedTypes> | undefined;
-    readonly printType: (type: Type, options?: PrintTypeOptions) => string;
+    readonly printType: TypeEvaluator['printType'];
     readonly solveAndApplyConstraints: (
         type: Type,
         constraints: ConstraintTracker,

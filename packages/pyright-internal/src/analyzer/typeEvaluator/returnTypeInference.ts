@@ -13,18 +13,20 @@ import { CodeFlowEngine } from '../codeFlowEngine';
 import * as ParseTreeUtils from '../parseTreeUtils';
 import { SpeculativeTypeTracker } from '../typeCacheUtils';
 import { ReturnTypeInferenceContext, TypeCacheEntry, TypeFormTypeCacheEntry } from '../typeEvaluator/internals';
-import { CallSiteEvaluationInfo, EvalFlags, FunctionTypeResult, TypeResult } from '../typeEvaluatorTypes';
+import {
+    CallSiteEvaluationInfo,
+    EvalFlags,
+    FunctionTypeResult,
+    TypeEvaluator,
+    TypeResult,
+} from '../typeEvaluatorTypes';
 import { FunctionType, isTypeSame, isUnknown, removeUnbound, Type, UnknownType } from '../types';
 import { InferenceContext, stripTypeForm } from '../typeUtils';
 
 interface Context {
     readonly codeFlowEngine: CodeFlowEngine;
     readonly convertSpecialFormToRuntimeValue: (type: Type, flags: EvalFlags, convertModule?: boolean) => Type;
-    readonly getTypeOfExpression: (
-        node: ExpressionNode,
-        flags?: EvalFlags,
-        inferenceContext?: InferenceContext
-    ) => TypeResult;
+    readonly getTypeOfExpression: TypeEvaluator['getTypeOfExpression'];
     readonly getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
     readonly inferFunctionReturnType: (
         node: FunctionNode,
