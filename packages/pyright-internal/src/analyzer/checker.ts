@@ -1900,20 +1900,51 @@ export class Checker extends ParseTreeWalker {
                 return undefined;
             }
 
-            // Invoke the __bool__ method on the type.
-            const boolReturnType = this._evaluator.getTypeOfMagicMethodCall(
-                expandedSubtype,
-                '__bool__',
-                [],
-                node,
-                /* inferenceContext */ undefined
-            )?.type;
-
-            if (!boolReturnType || isAnyOrUnknown(boolReturnType)) {
+            if (!isClass(expandedSubtype)) {
                 return undefined;
             }
 
-            if (isClassInstance(boolReturnType) && ClassType.isBuiltIn(boolReturnType, 'bool')) {
+            const boolMember = this._evaluator.getTypeOfBoundMember(
+                node,
+                expandedSubtype,
+                '__bool__',
+                /* usage */ undefined,
+                /* diag */ undefined,
+                MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
+            );
+            if (!boolMember || isNever(boolMember.type)) {
+                return undefined;
+            }
+
+            const callResult = boolMember.typeErrors
+                ? undefined
+                : this._evaluator.useSpeculativeMode(node, () =>
+                      this._evaluator.validateCallArgs(
+                          node,
+                          [],
+                          boolMember,
+                          /* constraints */ undefined,
+                          /* skipUnknownArgCheck */ true,
+                          /* inferenceContext */ undefined
+                      )
+                  );
+            if (boolMember.typeErrors || callResult?.argumentErrors) {
+                isTypeBool = false;
+                diag.addMessage(
+                    LocAddendum.conditionalBoolNotCallable().format({
+                        operandType: this._evaluator.printType(expandedSubtype),
+                    })
+                );
+                return undefined;
+            }
+
+            const boolReturnType = callResult?.returnType;
+            if (
+                !boolReturnType ||
+                isAnyOrUnknown(boolReturnType) ||
+                (!isNever(boolReturnType) &&
+                    this._evaluator.assignType(this._evaluator.getBuiltInObject(node, 'bool'), boolReturnType))
+            ) {
                 return undefined;
             }
 
