@@ -7,8 +7,6 @@ new evaluator, and outdated implementations were not restored.
 
 The [architecture guide](type-evaluator-architecture.md) describes the current
 module boundaries and ownership rules.
-[The migration manifest](type-evaluator-migration.json) records every old commit
-and the final destination of each old evaluator delegator.
 
 ## Deliberate differences from the old refactor
 

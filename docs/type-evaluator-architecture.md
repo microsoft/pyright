@@ -65,18 +65,16 @@ the remaining evaluator state or attempt to move every upstream function.
 
 ## Historical migration
 
-[The migration manifest](type-evaluator-migration.json) accounts for all 135
-source commits and all 206 old evaluator delegators. There are 205 surviving
-current-code equivalents. Additional old module-only exports are accounted for
-separately: bound-method specialization is also extracted, inference frame push
+The migration covers the final architectural outcomes of all 135 source commits
+and all 206 old evaluator delegators. There are 205 surviving current-code
+equivalents. Bound-method specialization is also extracted, inference frame push
 and pop operations retain their current inline implementation, and obsolete
 message-formatting scaffolding is not restored. The old `isTypeFormSupported`
 helper is absent from current upstream and is not resurrected.
 
 Intermediate moves, corrections, redundant wrappers and public-interface
 scaffolding are represented by their final architectural outcome, not replayed
-as historical patches. The manifest's commit mapping is path-level accounting;
-it does not assert that each old patch was cherry-picked unchanged.
+as historical patches, not one-for-one cherry-picks.
 
 ## Validation
 
