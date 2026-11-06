@@ -102,3 +102,8 @@ def func5():
 
     v2: MutableSequence[int | str] = [1]
     reveal_type(v2, expected_text="list[int | str]")
+
+
+# This should generate an error because the generator expression is a list
+# element rather than a list comprehension whose yielded values are elements.
+v17: list[int] = [1, 2, (i for i in range(4))]
