@@ -20,7 +20,7 @@ import { ConstraintSolution } from './constraintSolution';
 import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
-import { Arg, CallResult, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { Arg, AssignTypeFlags, CallResult, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     ClassType,
     FunctionType,
@@ -423,6 +423,64 @@ function validateNewMethod(
     const overloadsUsedForCall: FunctionType[] = [];
 
     const constraints = new ConstraintTracker();
+    let effectiveNewMethodTypeResult = newMethodTypeResult;
+    let newInferenceContext = inferenceContext;
+
+    if (type.priv.typeArgs && type.priv.isTypeArgExplicit) {
+        // An explicitly-specialized class must constrain method-scoped type variables
+        // that appear in the __new__ return type before its arguments are validated.
+        const expectedType = ClassType.cloneAsInstance(type);
+        const specializeNewMethod = (newMethod: FunctionType): FunctionType | undefined => {
+            const returnType = FunctionType.getEffectiveReturnType(newMethod);
+            if (!returnType || !isClassInstance(returnType)) {
+                return undefined;
+            }
+
+            const returnConstraints = new ConstraintTracker();
+            if (
+                !evaluator.assignType(
+                    returnType,
+                    expectedType,
+                    /* diag */ undefined,
+                    returnConstraints,
+                    AssignTypeFlags.PopulateExpectedType
+                )
+            ) {
+                return undefined;
+            }
+
+            return evaluator.solveAndApplyConstraints(newMethod, returnConstraints) as FunctionType;
+        };
+
+        let effectiveNewMethodType = newMethodTypeResult.type;
+        let useClassExpectedType = false;
+        if (isFunction(newMethodTypeResult.type)) {
+            const specializedNewMethod = specializeNewMethod(newMethodTypeResult.type);
+            if (specializedNewMethod) {
+                effectiveNewMethodType = specializedNewMethod;
+                useClassExpectedType = true;
+            }
+        } else if (isOverloaded(newMethodTypeResult.type)) {
+            const specializedOverloads = OverloadedType.getOverloads(newMethodTypeResult.type).map((overload) => {
+                const specializedOverload = specializeNewMethod(overload);
+                return { overload: specializedOverload ?? overload, wasSpecialized: !!specializedOverload };
+            });
+            useClassExpectedType = specializedOverloads.every(({ wasSpecialized }) => wasSpecialized);
+            effectiveNewMethodType = OverloadedType.create(specializedOverloads.map(({ overload }) => overload));
+        }
+
+        effectiveNewMethodTypeResult = {
+            ...newMethodTypeResult,
+            type: effectiveNewMethodType,
+        };
+
+        if (useClassExpectedType) {
+            newInferenceContext = {
+                ...inferenceContext,
+                expectedType,
+            };
+        }
+    }
 
     const callResult = evaluator.useSpeculativeMode(
         useSpeculativeModeForArgs ? errorNode : undefined,
@@ -430,13 +488,13 @@ function validateNewMethod(
             return evaluator.validateCallArgs(
                 errorNode,
                 argList,
-                newMethodTypeResult,
+                effectiveNewMethodTypeResult,
                 constraints,
                 skipUnknownArgCheck,
-                inferenceContext
+                newInferenceContext
             );
         },
-        { dependentType: newMethodTypeResult.type }
+        { dependentType: effectiveNewMethodTypeResult.type }
     );
 
     if (callResult.isTypeIncomplete) {
@@ -450,10 +508,10 @@ function validateNewMethod(
         evaluator.validateCallArgs(
             errorNode,
             argList,
-            newMethodTypeResult,
+            effectiveNewMethodTypeResult,
             constraints,
             skipUnknownArgCheck,
-            inferenceContext
+            newInferenceContext
         );
     } else {
         newReturnType = callResult.returnType;
@@ -473,10 +531,10 @@ function validateNewMethod(
                 ]);
             }
 
-            newReturnType = applyExpectedTypeForTupleConstructor(newReturnType, inferenceContext);
+            newReturnType = applyExpectedTypeForTupleConstructor(newReturnType, newInferenceContext);
         }
     } else {
-        newReturnType = applyExpectedTypeForConstructor(evaluator, type, inferenceContext, constraints);
+        newReturnType = applyExpectedTypeForConstructor(evaluator, type, newInferenceContext, constraints);
     }
 
     return { argumentErrors, returnType: newReturnType, isTypeIncomplete, overloadsUsedForCall };
@@ -710,14 +768,21 @@ export function createFunctionFromConstructor(
     evaluator: TypeEvaluator,
     classType: ClassType,
     selfType: ClassType | TypeVarType | undefined = undefined,
-    recursionCount = 0
+    recursionCount = 0,
+    retainUnboundNewOverloads = false
 ): Type | undefined {
     const fromMetaclassCall = createFunctionFromMetaclassCall(evaluator, classType, recursionCount);
     if (fromMetaclassCall) {
         return fromMetaclassCall;
     }
 
-    let fromNew = createFunctionFromNewMethod(evaluator, classType, selfType, recursionCount);
+    let fromNew = createFunctionFromNewMethod(
+        evaluator,
+        classType,
+        selfType,
+        recursionCount,
+        retainUnboundNewOverloads
+    );
 
     if (fromNew) {
         let skipInitMethod = false;
@@ -818,7 +883,8 @@ function createFunctionFromNewMethod(
     evaluator: TypeEvaluator,
     classType: ClassType,
     selfType: ClassType | TypeVarType | undefined,
-    recursionCount: number
+    recursionCount: number,
+    retainUnboundOverloads: boolean
 ): FunctionType | OverloadedType | undefined {
     const newInfo = lookUpClassMember(
         classType,
@@ -848,7 +914,7 @@ function createFunctionFromNewMethod(
             return typeVars.some((typeVar) => typeVar.priv.scopeId === getTypeVarScopeId(classType));
         });
 
-        const boundNew = evaluator.bindFunctionToClassOrObject(
+        let boundNew = evaluator.bindFunctionToClassOrObject(
             hasParamsWithTypeVars ? selfSpecializeClass(classType) : classType,
             newSubtype,
             newInfo && isInstantiableClass(newInfo.classType) ? newInfo.classType : undefined,
@@ -857,6 +923,27 @@ function createFunctionFromNewMethod(
             /* diag */ undefined,
             recursionCount
         ) as FunctionType | undefined;
+
+        const newClassType =
+            newSubtype.shared.parameters.length > 0 ? FunctionType.getParamType(newSubtype, 0) : undefined;
+        if (
+            !boundNew &&
+            retainUnboundOverloads &&
+            !classType.priv.typeArgs &&
+            newClassType &&
+            isInstantiableClass(newClassType) &&
+            ClassType.isSameGenericClass(newClassType, classType)
+        ) {
+            boundNew = evaluator.bindFunctionToClassOrObject(
+                /* baseType */ undefined,
+                newSubtype,
+                newInfo && isInstantiableClass(newInfo.classType) ? newInfo.classType : undefined,
+                /* treatConstructorAsClassMethod */ true,
+                /* selfType */ undefined,
+                /* diag */ undefined,
+                recursionCount
+            ) as FunctionType | undefined;
+        }
 
         if (!boundNew) {
             return undefined;

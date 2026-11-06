@@ -134,6 +134,7 @@ export interface TypeSameOptions {
     honorIsTypeArgExplicit?: boolean;
     treatAnySameAsUnknown?: boolean;
     honorCallBehavior?: boolean;
+    honorTypedDictNarrowedValues?: boolean;
     ignoreOverloadOwner?: boolean;
 }
 
@@ -1195,7 +1196,12 @@ export namespace ClassType {
     // Determines whether two typed dict classes are equivalent given
     // that one or both have narrowed entries (i.e. entries that are
     // guaranteed to be present).
-    export function isTypedDictNarrowedEntriesSame(type1: ClassType, type2: ClassType): boolean {
+    export function isTypedDictNarrowedEntriesSame(
+        type1: ClassType,
+        type2: ClassType,
+        options: TypeSameOptions = {},
+        recursionCount = 0
+    ): boolean {
         if (type1.priv.typedDictNarrowedEntries) {
             if (!type2.priv.typedDictNarrowedEntries) {
                 return false;
@@ -1216,6 +1222,14 @@ export namespace ClassType {
                     return false;
                 }
                 if (entry1.isProvided !== entry2.isProvided) {
+                    return false;
+                }
+                if (
+                    options.honorTypedDictNarrowedValues &&
+                    (entry1.isRequired !== entry2.isRequired ||
+                        entry1.isReadOnly !== entry2.isReadOnly ||
+                        !isTypeSame(entry1.valueType, entry2.valueType, options, recursionCount))
+                ) {
                     return false;
                 }
             }
@@ -3531,7 +3545,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
     }
 
     if (recursionCount > maxTypeRecursionCount) {
-        return !options.honorCallBehavior && !isOverloadResult(type1);
+        return !options.honorCallBehavior && !options.honorTypedDictNarrowedValues && !isOverloadResult(type1);
     }
     recursionCount++;
 
@@ -3635,7 +3649,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 }
             }
 
-            if (!options.ignoreTypedDictNarrowEntries && !ClassType.isTypedDictNarrowedEntriesSame(type1, classType2)) {
+            if (
+                !options.ignoreTypedDictNarrowEntries &&
+                !ClassType.isTypedDictNarrowedEntriesSame(type1, classType2, recursiveOptions, recursionCount)
+            ) {
                 return false;
             }
 
