@@ -63,6 +63,7 @@ the operation to its topic:
 | --- | --- |
 | Expression or call argument | Expression dispatch -> `expressionEvaluation.ts` |
 | List, set, dictionary or comprehension | `collectionInference.ts`, including entry inference and clause evaluation |
+| Dictionary entry inference | Expected-type or unconstrained inference -> `inferDictionaryEntries` -> key/value entries, mapping expansion or comprehension |
 | Member access or declaration lookup | `memberResolution.ts` -> receiver binding in `boundMethodSpecialization.ts` |
 | Call matching and overload selection | Main evaluator -> argument expansion in `expressionEvaluation.ts` -> `typeCompatibility.ts` |
 | Conditional or type guard test | `typeGuards.ts` -> `typeGuardNarrowing.ts` -> evaluator narrowing primitives |
@@ -72,6 +73,12 @@ Each factory's returned functions are private implementation entry points.
 Some back public evaluator methods through the facade, but those methods are
 defined by `TypeEvaluator` in `typeEvaluatorTypes.ts`. A topic export does not
 itself extend that interface.
+
+Dictionary entry inference owns its key/value result arrays and reports
+incompleteness and type errors separately from the final dictionary type.
+`inferDictionaryKeyEntry` handles expected value types and literal-key replacement;
+`tryInferDictionaryExpansion` handles mapping and TypedDict unpacking. The entry
+sampling limit restricts retained types, not evaluation or diagnostics.
 
 `returnTypeInference.ts` uses the original evaluator-owned inference stack and
 live cache getters/setters. It does not own replacement evaluator state.

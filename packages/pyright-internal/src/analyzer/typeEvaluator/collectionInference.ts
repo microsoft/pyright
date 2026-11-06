@@ -14,6 +14,8 @@ import { LocAddendum, LocMessage } from '../../localization/localize';
 import {
     ComprehensionForIfNode,
     ComprehensionNode,
+    DictionaryExpandEntryNode,
+    DictionaryKeyEntryNode,
     DictionaryNode,
     ExpressionNode,
     isExpressionNode,
@@ -80,6 +82,23 @@ import {
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
 } from '../typeUtils';
+
+interface DictionaryInferenceOptions {
+    readonly forceStrictInference: boolean;
+    readonly isValueTypeInvariant: boolean;
+    readonly expectedKeyType?: Type;
+    readonly expectedValueType?: Type;
+    readonly expectedTypedDictEntries?: TypedDictEntries;
+    readonly expectedDiagAddendum?: DiagnosticAddendum;
+}
+
+interface DictionaryEntryTypeResults {
+    readonly keyTypes: TypeResultWithNode[];
+    readonly valueTypes: TypeResultWithNode[];
+    isIncomplete: boolean;
+    typeErrors: boolean;
+}
+
 interface Context {
     readonly addDiagnostic: (
         rule: DiagnosticRule,
@@ -198,11 +217,6 @@ export function createCollectionInference(context: Context) {
             return undefined;
         }
 
-        const keyTypes: TypeResultWithNode[] = [];
-        const valueTypes: TypeResultWithNode[] = [];
-        let isIncomplete = false;
-        let typeErrors = false;
-
         // Handle TypedDict's as a special case.
         if (ClassType.isTypedDictClass(concreteExpectedType)) {
             // Remove any conditions associated with the type so the resulting type isn't
@@ -211,27 +225,12 @@ export function createCollectionInference(context: Context) {
 
             const expectedTypedDictEntries = getTypedDictMembersForClass(evaluatorInterface, concreteExpectedType);
 
-            // Infer the key and value types if possible.
-            const keyValueTypeResult = getKeyAndValueTypesFromDictionary(
-                node,
-                flags,
-                keyTypes,
-                valueTypes,
-                /* forceStrictInference */ true,
-                /* isValueTypeInvariant */ true,
-                /* expectedKeyType */ undefined,
-                /* expectedValueType */ undefined,
+            const { keyTypes, valueTypes, isIncomplete } = inferDictionaryEntries(node, flags, {
+                forceStrictInference: true,
+                isValueTypeInvariant: true,
                 expectedTypedDictEntries,
-                expectedDiagAddendum
-            );
-
-            if (keyValueTypeResult.isIncomplete) {
-                isIncomplete = true;
-            }
-
-            if (keyValueTypeResult.typeErrors) {
-                typeErrors = true;
-            }
+                expectedDiagAddendum,
+            });
 
             const resultTypedDict = assignToTypedDict(
                 evaluatorInterface,
@@ -239,7 +238,7 @@ export function createCollectionInference(context: Context) {
                 keyTypes,
                 valueTypes,
                 // Don't overwrite existing expectedDiagAddendum messages if they were
-                // already provided by getKeyValueTypesFromDictionary.
+                // already provided by inferDictionaryEntries.
                 expectedDiagAddendum?.isEmpty() ? expectedDiagAddendum : undefined
             );
             if (resultTypedDict) {
@@ -303,27 +302,13 @@ export function createCollectionInference(context: Context) {
             }
         }
 
-        // Infer the key and value types if possible.
-        const keyValueResult = getKeyAndValueTypesFromDictionary(
-            node,
-            flags,
-            keyTypes,
-            valueTypes,
-            /* forceStrictInference */ true,
+        const { keyTypes, valueTypes, isIncomplete, typeErrors } = inferDictionaryEntries(node, flags, {
+            forceStrictInference: true,
             isValueTypeInvariant,
             expectedKeyType,
             expectedValueType,
-            undefined,
-            expectedDiagAddendum
-        );
-
-        if (keyValueResult.isIncomplete) {
-            isIncomplete = true;
-        }
-
-        if (keyValueResult.typeErrors) {
-            typeErrors = true;
-        }
+            expectedDiagAddendum,
+        });
 
         const specializedKeyType = inferTypeArgFromExpectedEntryType(
             makeInferenceContext(expectedKeyType),
@@ -348,30 +333,16 @@ export function createCollectionInference(context: Context) {
         let keyType: Type = fallbackType;
         let valueType: Type = fallbackType;
 
-        const keyTypeResults: TypeResultWithNode[] = [];
-        const valueTypeResults: TypeResultWithNode[] = [];
-
         let isEmptyContainer = false;
-        let isIncomplete = false;
-        let typeErrors = false;
-
-        // Infer the key and value types if possible.
-        const keyValueResult = getKeyAndValueTypesFromDictionary(
-            node,
-            flags,
-            keyTypeResults,
-            valueTypeResults,
-            /* forceStrictInference */ hasExpectedType,
-            /* isValueTypeInvariant */ false
-        );
-
-        if (keyValueResult.isIncomplete) {
-            isIncomplete = true;
-        }
-
-        if (keyValueResult.typeErrors) {
-            typeErrors = true;
-        }
+        const {
+            keyTypes: keyTypeResults,
+            valueTypes: valueTypeResults,
+            isIncomplete,
+            typeErrors,
+        } = inferDictionaryEntries(node, flags, {
+            forceStrictInference: hasExpectedType,
+            isValueTypeInvariant: false,
+        });
 
         // Strip any literal values and TypeForm types.
         const keyTypes = keyTypeResults.map((t) =>
@@ -430,295 +401,276 @@ export function createCollectionInference(context: Context) {
         return { type, isIncomplete, typeErrors };
     }
 
-    function getKeyAndValueTypesFromDictionary(
+    function inferDictionaryEntries(
         node: DictionaryNode,
         flags: EvalFlags,
-        keyTypes: TypeResultWithNode[],
-        valueTypes: TypeResultWithNode[],
-        forceStrictInference: boolean,
-        isValueTypeInvariant: boolean,
-        expectedKeyType?: Type,
-        expectedValueType?: Type,
-        expectedTypedDictEntries?: TypedDictEntries,
-        expectedDiagAddendum?: DiagnosticAddendum
-    ): TypeResult {
-        let isIncomplete = false;
-        let typeErrors = false;
+        options: DictionaryInferenceOptions
+    ): DictionaryEntryTypeResults {
+        const results: DictionaryEntryTypeResults = {
+            keyTypes: [],
+            valueTypes: [],
+            isIncomplete: false,
+            typeErrors: false,
+        };
 
-        // Mask out some of the flags that are not applicable for a dictionary key
-        // even if it appears within an inlined TypedDict annotation.
-        const keyFlags = flags & ~(EvalFlags.TypeExpression | EvalFlags.StrLiteralAsType | EvalFlags.InstantiableType);
-
-        // Infer the key and value types if possible.
+        // The sampling limit restricts retained types, not evaluation or diagnostics.
         node.d.items.forEach((entryNode, index) => {
+            const retainEntryTypes = options.forceStrictInference || index < maxEntriesToUseForInference;
             let addUnknown = true;
 
             if (entryNode.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                const keyTypeResult = getTypeOfExpression(
-                    entryNode.d.keyExpr,
-                    keyFlags | EvalFlags.StripTupleLiterals,
-                    makeInferenceContext(
-                        expectedKeyType ?? (forceStrictInference ? NeverType.createNever() : undefined)
-                    )
-                );
-
-                if (keyTypeResult.isIncomplete) {
-                    isIncomplete = true;
-                }
-
-                if (keyTypeResult.typeErrors) {
-                    typeErrors = true;
-                }
-
-                const keyType = keyTypeResult.type;
-
-                if (!keyTypeResult.isIncomplete && !keyTypeResult.typeErrors) {
-                    verifySetEntryOrDictKeyIsHashable(entryNode.d.keyExpr, keyType, /* isDictKey */ true);
-                }
-
-                if (expectedDiagAddendum && keyTypeResult.expectedTypeDiagAddendum) {
-                    expectedDiagAddendum.addAddendum(keyTypeResult.expectedTypeDiagAddendum);
-                }
-
-                let valueTypeResult: TypeResult;
-                let entryInferenceContext: InferenceContext | undefined;
-
-                if (
-                    expectedTypedDictEntries &&
-                    isClassInstance(keyType) &&
-                    ClassType.isBuiltIn(keyType, 'str') &&
-                    isLiteralType(keyType) &&
-                    (expectedTypedDictEntries.knownItems.has(keyType.priv.literalValue as string) ||
-                        expectedTypedDictEntries.extraItems)
-                ) {
-                    let effectiveValueType =
-                        expectedTypedDictEntries.knownItems.get(keyType.priv.literalValue as string)?.valueType ??
-                        expectedTypedDictEntries.extraItems?.valueType;
-                    if (effectiveValueType) {
-                        const liveTypeVarScopes = getTypeVarScopesForNode(node);
-                        effectiveValueType = transformExpectedType(effectiveValueType, liveTypeVarScopes, node.start);
-                    }
-                    entryInferenceContext = makeInferenceContext(effectiveValueType);
-                    valueTypeResult = getTypeOfExpression(
-                        entryNode.d.valueExpr,
-                        flags | EvalFlags.StripTupleLiterals,
-                        entryInferenceContext
-                    );
-                } else {
-                    let effectiveValueType =
-                        expectedValueType ?? (forceStrictInference ? NeverType.createNever() : undefined);
-                    if (effectiveValueType) {
-                        const liveTypeVarScopes = getTypeVarScopesForNode(node);
-                        effectiveValueType = transformExpectedType(effectiveValueType, liveTypeVarScopes, node.start);
-                    }
-                    entryInferenceContext = makeInferenceContext(effectiveValueType);
-                    valueTypeResult = getTypeOfExpression(
-                        entryNode.d.valueExpr,
-                        flags | EvalFlags.StripTupleLiterals,
-                        entryInferenceContext
-                    );
-                }
-
-                if (entryInferenceContext && !valueTypeResult.typeErrors) {
-                    const fromExpectedType = inferTypeArgFromExpectedEntryType(
-                        entryInferenceContext,
-                        [valueTypeResult.type],
-                        !isValueTypeInvariant
-                    );
-
-                    if (fromExpectedType) {
-                        valueTypeResult = { ...valueTypeResult, type: fromExpectedType };
-                    }
-                }
-
-                if (expectedDiagAddendum && valueTypeResult.expectedTypeDiagAddendum) {
-                    expectedDiagAddendum.addAddendum(valueTypeResult.expectedTypeDiagAddendum);
-                }
-
-                const valueType = valueTypeResult.type;
-                if (valueTypeResult.isIncomplete) {
-                    isIncomplete = true;
-                }
-
-                if (valueTypeResult.typeErrors) {
-                    typeErrors = true;
-                }
-
-                if (forceStrictInference || index < maxEntriesToUseForInference) {
-                    // If an existing key has the same literal type, delete the previous
-                    // key since we're overwriting it here.
-                    if (isClass(keyType) && isLiteralType(keyType)) {
-                        const existingIndex = keyTypes.findIndex((kt) => isTypeSame(keyType, kt.type));
-                        if (existingIndex >= 0) {
-                            keyTypes.splice(existingIndex, 1);
-                            valueTypes.splice(existingIndex, 1);
-                        }
-                    }
-
-                    keyTypes.push({ node: entryNode.d.keyExpr, type: keyType });
-                    valueTypes.push({ node: entryNode.d.valueExpr, type: valueType });
-                }
-
+                inferDictionaryKeyEntry(node, entryNode, flags, options, results, retainEntryTypes);
                 addUnknown = false;
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
-                let expectedType: Type | undefined;
-                if (expectedKeyType && expectedValueType) {
-                    if (
-                        context.prefetched?.supportsKeysAndGetItemClass &&
-                        isInstantiableClass(context.prefetched.supportsKeysAndGetItemClass)
-                    ) {
-                        expectedType = ClassType.cloneAsInstance(
-                            ClassType.specialize(context.prefetched.supportsKeysAndGetItemClass, [
-                                expectedKeyType,
-                                expectedValueType,
-                            ])
-                        );
-                    }
-                }
-
-                const entryInferenceContext = makeInferenceContext(expectedType);
-                let unexpandedTypeResult = getTypeOfExpression(
-                    entryNode.d.expr,
-                    flags | EvalFlags.StripTupleLiterals,
-                    entryInferenceContext
-                );
-
-                if (entryInferenceContext && !unexpandedTypeResult.typeErrors) {
-                    const fromExpectedType = inferTypeArgFromExpectedEntryType(
-                        entryInferenceContext,
-                        [unexpandedTypeResult.type],
-                        !isValueTypeInvariant
-                    );
-
-                    if (fromExpectedType) {
-                        unexpandedTypeResult = { ...unexpandedTypeResult, type: fromExpectedType };
-                    }
-                }
-
-                if (unexpandedTypeResult.isIncomplete) {
-                    isIncomplete = true;
-                }
-
-                if (unexpandedTypeResult.typeErrors) {
-                    typeErrors = true;
-                }
-
-                const unexpandedType = unexpandedTypeResult.type;
-
-                if (isAnyOrUnknown(unexpandedType)) {
-                    if (forceStrictInference || index < maxEntriesToUseForInference) {
-                        keyTypes.push({ node: entryNode, type: unexpandedType });
-                        valueTypes.push({ node: entryNode, type: unexpandedType });
-                    }
-                    addUnknown = false;
-                } else if (isClassInstance(unexpandedType) && ClassType.isTypedDictClass(unexpandedType)) {
-                    // Handle dictionary expansion for a TypedDict.
-                    if (context.prefetched?.strClass && isInstantiableClass(context.prefetched.strClass)) {
-                        const strObject = ClassType.cloneAsInstance(context.prefetched.strClass);
-                        const tdEntries = getTypedDictMembersForClass(
-                            evaluatorInterface,
-                            unexpandedType,
-                            /* allowNarrowed */ true
-                        );
-
-                        tdEntries.knownItems.forEach((entry, name) => {
-                            if (!expectedTypedDictEntries || entry.isRequired || entry.isProvided) {
-                                keyTypes.push({
-                                    node: entryNode,
-                                    type: ClassType.cloneWithLiteral(strObject, name),
-                                });
-                                valueTypes.push({ node: entryNode, type: entry.valueType });
-                            }
-                        });
-
-                        if (!expectedTypedDictEntries) {
-                            // Open TypedDicts can contain extra items with arbitrary value types.
-                            keyTypes.push({ node: entryNode, type: ClassType.cloneAsInstance(strObject) });
-                            valueTypes.push({
-                                node: entryNode,
-                                type: tdEntries.extraItems?.valueType ?? getObjectType(),
-                            });
-                        }
-
-                        addUnknown = false;
-                    }
-                } else if (
-                    context.prefetched?.supportsKeysAndGetItemClass &&
-                    isInstantiableClass(context.prefetched.supportsKeysAndGetItemClass)
-                ) {
-                    const mappingConstraints = new ConstraintTracker();
-
-                    const supportsKeysAndGetItemClass = selfSpecializeClass(
-                        context.prefetched.supportsKeysAndGetItemClass
-                    );
-
-                    if (
-                        assignType(
-                            ClassType.cloneAsInstance(supportsKeysAndGetItemClass),
-                            unexpandedType,
-                            /* diag */ undefined,
-                            mappingConstraints,
-                            AssignTypeFlags.RetainLiteralsForTypeVar
-                        )
-                    ) {
-                        const specializedMapping = solveAndApplyConstraints(
-                            supportsKeysAndGetItemClass,
-                            mappingConstraints
-                        ) as ClassType;
-                        const typeArgs = specializedMapping.priv.typeArgs;
-                        if (typeArgs && typeArgs.length >= 2) {
-                            if (forceStrictInference || index < maxEntriesToUseForInference) {
-                                keyTypes.push({ node: entryNode, type: typeArgs[0] });
-                                valueTypes.push({ node: entryNode, type: typeArgs[1] });
-                            }
-                            addUnknown = false;
-                        }
-                    } else {
-                        addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            LocMessage.dictUnpackIsNotMapping(),
-                            entryNode
-                        );
-                    }
-                }
+                addUnknown = !tryInferDictionaryExpansion(entryNode, flags, options, results, retainEntryTypes);
             } else if (entryNode.nodeType === ParseNodeType.Comprehension) {
                 const dictEntryTypeResult = getElementTypeFromComprehension(
                     entryNode,
                     flags | EvalFlags.StripTupleLiterals,
-                    expectedValueType,
-                    expectedKeyType
+                    options.expectedValueType,
+                    options.expectedKeyType
                 );
                 const dictEntryType = dictEntryTypeResult.type;
                 if (dictEntryTypeResult.isIncomplete) {
-                    isIncomplete = true;
+                    results.isIncomplete = true;
                 }
 
                 if (dictEntryTypeResult.typeErrors) {
-                    typeErrors = true;
+                    results.typeErrors = true;
                 }
 
                 // The result should be a tuple.
                 if (isClassInstance(dictEntryType) && isTupleClass(dictEntryType)) {
                     const typeArgs = dictEntryType.priv.tupleTypeArgs?.map((t) => t.type);
                     if (typeArgs && typeArgs.length === 2) {
-                        if (forceStrictInference || index < maxEntriesToUseForInference) {
-                            keyTypes.push({ node: entryNode, type: typeArgs[0] });
-                            valueTypes.push({ node: entryNode, type: typeArgs[1] });
+                        if (retainEntryTypes) {
+                            results.keyTypes.push({ node: entryNode, type: typeArgs[0] });
+                            results.valueTypes.push({ node: entryNode, type: typeArgs[1] });
                         }
                         addUnknown = false;
                     }
                 }
             }
 
-            if (addUnknown) {
-                if (forceStrictInference || index < maxEntriesToUseForInference) {
-                    keyTypes.push({ node: entryNode, type: UnknownType.create() });
-                    valueTypes.push({ node: entryNode, type: UnknownType.create() });
-                }
+            if (addUnknown && retainEntryTypes) {
+                results.keyTypes.push({ node: entryNode, type: UnknownType.create() });
+                results.valueTypes.push({ node: entryNode, type: UnknownType.create() });
             }
         });
 
-        return { type: AnyType.create(), isIncomplete, typeErrors };
+        return results;
+    }
+
+    function inferDictionaryKeyEntry(
+        node: DictionaryNode,
+        entryNode: DictionaryKeyEntryNode,
+        flags: EvalFlags,
+        options: DictionaryInferenceOptions,
+        results: DictionaryEntryTypeResults,
+        retainEntryTypes: boolean
+    ) {
+        const { expectedKeyType, expectedValueType, expectedTypedDictEntries, expectedDiagAddendum } = options;
+        // Keys aren't type expressions, even within an inlined TypedDict annotation.
+        const keyFlags = flags & ~(EvalFlags.TypeExpression | EvalFlags.StrLiteralAsType | EvalFlags.InstantiableType);
+        const keyTypeResult = getTypeOfExpression(
+            entryNode.d.keyExpr,
+            keyFlags | EvalFlags.StripTupleLiterals,
+            makeInferenceContext(
+                expectedKeyType ?? (options.forceStrictInference ? NeverType.createNever() : undefined)
+            )
+        );
+
+        if (keyTypeResult.isIncomplete) {
+            results.isIncomplete = true;
+        }
+        if (keyTypeResult.typeErrors) {
+            results.typeErrors = true;
+        }
+
+        const keyType = keyTypeResult.type;
+        if (!keyTypeResult.isIncomplete && !keyTypeResult.typeErrors) {
+            verifySetEntryOrDictKeyIsHashable(entryNode.d.keyExpr, keyType, /* isDictKey */ true);
+        }
+        if (expectedDiagAddendum && keyTypeResult.expectedTypeDiagAddendum) {
+            expectedDiagAddendum.addAddendum(keyTypeResult.expectedTypeDiagAddendum);
+        }
+
+        let effectiveValueType: Type | undefined;
+        if (
+            expectedTypedDictEntries &&
+            isClassInstance(keyType) &&
+            ClassType.isBuiltIn(keyType, 'str') &&
+            isLiteralType(keyType) &&
+            (expectedTypedDictEntries.knownItems.has(keyType.priv.literalValue as string) ||
+                expectedTypedDictEntries.extraItems)
+        ) {
+            effectiveValueType =
+                expectedTypedDictEntries.knownItems.get(keyType.priv.literalValue as string)?.valueType ??
+                expectedTypedDictEntries.extraItems?.valueType;
+        } else {
+            effectiveValueType =
+                expectedValueType ?? (options.forceStrictInference ? NeverType.createNever() : undefined);
+        }
+        if (effectiveValueType) {
+            const liveTypeVarScopes = getTypeVarScopesForNode(node);
+            effectiveValueType = transformExpectedType(effectiveValueType, liveTypeVarScopes, node.start);
+        }
+
+        const entryInferenceContext = makeInferenceContext(effectiveValueType);
+        let valueTypeResult = getTypeOfExpression(
+            entryNode.d.valueExpr,
+            flags | EvalFlags.StripTupleLiterals,
+            entryInferenceContext
+        );
+        if (entryInferenceContext && !valueTypeResult.typeErrors) {
+            const fromExpectedType = inferTypeArgFromExpectedEntryType(
+                entryInferenceContext,
+                [valueTypeResult.type],
+                !options.isValueTypeInvariant
+            );
+            if (fromExpectedType) {
+                valueTypeResult = { ...valueTypeResult, type: fromExpectedType };
+            }
+        }
+        if (expectedDiagAddendum && valueTypeResult.expectedTypeDiagAddendum) {
+            expectedDiagAddendum.addAddendum(valueTypeResult.expectedTypeDiagAddendum);
+        }
+        if (valueTypeResult.isIncomplete) {
+            results.isIncomplete = true;
+        }
+        if (valueTypeResult.typeErrors) {
+            results.typeErrors = true;
+        }
+
+        if (retainEntryTypes) {
+            // A later literal key replaces its earlier key/value pair.
+            if (isClass(keyType) && isLiteralType(keyType)) {
+                const existingIndex = results.keyTypes.findIndex((kt) => isTypeSame(keyType, kt.type));
+                if (existingIndex >= 0) {
+                    results.keyTypes.splice(existingIndex, 1);
+                    results.valueTypes.splice(existingIndex, 1);
+                }
+            }
+            results.keyTypes.push({ node: entryNode.d.keyExpr, type: keyType });
+            results.valueTypes.push({ node: entryNode.d.valueExpr, type: valueTypeResult.type });
+        }
+    }
+
+    // Returns whether the expansion has a usable key/value shape, even beyond the sampling limit.
+    function tryInferDictionaryExpansion(
+        entryNode: DictionaryExpandEntryNode,
+        flags: EvalFlags,
+        options: DictionaryInferenceOptions,
+        results: DictionaryEntryTypeResults,
+        retainEntryTypes: boolean
+    ): boolean {
+        let expectedType: Type | undefined;
+        if (options.expectedKeyType && options.expectedValueType) {
+            if (
+                context.prefetched?.supportsKeysAndGetItemClass &&
+                isInstantiableClass(context.prefetched.supportsKeysAndGetItemClass)
+            ) {
+                expectedType = ClassType.cloneAsInstance(
+                    ClassType.specialize(context.prefetched.supportsKeysAndGetItemClass, [
+                        options.expectedKeyType,
+                        options.expectedValueType,
+                    ])
+                );
+            }
+        }
+
+        const entryInferenceContext = makeInferenceContext(expectedType);
+        let unexpandedTypeResult = getTypeOfExpression(
+            entryNode.d.expr,
+            flags | EvalFlags.StripTupleLiterals,
+            entryInferenceContext
+        );
+        if (entryInferenceContext && !unexpandedTypeResult.typeErrors) {
+            const fromExpectedType = inferTypeArgFromExpectedEntryType(
+                entryInferenceContext,
+                [unexpandedTypeResult.type],
+                !options.isValueTypeInvariant
+            );
+            if (fromExpectedType) {
+                unexpandedTypeResult = { ...unexpandedTypeResult, type: fromExpectedType };
+            }
+        }
+        if (unexpandedTypeResult.isIncomplete) {
+            results.isIncomplete = true;
+        }
+        if (unexpandedTypeResult.typeErrors) {
+            results.typeErrors = true;
+        }
+
+        const unexpandedType = unexpandedTypeResult.type;
+        if (isAnyOrUnknown(unexpandedType)) {
+            if (retainEntryTypes) {
+                results.keyTypes.push({ node: entryNode, type: unexpandedType });
+                results.valueTypes.push({ node: entryNode, type: unexpandedType });
+            }
+            return true;
+        }
+
+        if (isClassInstance(unexpandedType) && ClassType.isTypedDictClass(unexpandedType)) {
+            if (context.prefetched?.strClass && isInstantiableClass(context.prefetched.strClass)) {
+                const strObject = ClassType.cloneAsInstance(context.prefetched.strClass);
+                const tdEntries = getTypedDictMembersForClass(
+                    evaluatorInterface,
+                    unexpandedType,
+                    /* allowNarrowed */ true
+                );
+                tdEntries.knownItems.forEach((entry, name) => {
+                    if (!options.expectedTypedDictEntries || entry.isRequired || entry.isProvided) {
+                        results.keyTypes.push({
+                            node: entryNode,
+                            type: ClassType.cloneWithLiteral(strObject, name),
+                        });
+                        results.valueTypes.push({ node: entryNode, type: entry.valueType });
+                    }
+                });
+
+                if (!options.expectedTypedDictEntries) {
+                    // Open TypedDicts can contain extra items with arbitrary value types.
+                    results.keyTypes.push({ node: entryNode, type: ClassType.cloneAsInstance(strObject) });
+                    results.valueTypes.push({
+                        node: entryNode,
+                        type: tdEntries.extraItems?.valueType ?? getObjectType(),
+                    });
+                }
+                return true;
+            }
+        } else if (
+            context.prefetched?.supportsKeysAndGetItemClass &&
+            isInstantiableClass(context.prefetched.supportsKeysAndGetItemClass)
+        ) {
+            const mappingConstraints = new ConstraintTracker();
+            const supportsKeysAndGetItemClass = selfSpecializeClass(context.prefetched.supportsKeysAndGetItemClass);
+            if (
+                assignType(
+                    ClassType.cloneAsInstance(supportsKeysAndGetItemClass),
+                    unexpandedType,
+                    /* diag */ undefined,
+                    mappingConstraints,
+                    AssignTypeFlags.RetainLiteralsForTypeVar
+                )
+            ) {
+                const specializedMapping = solveAndApplyConstraints(
+                    supportsKeysAndGetItemClass,
+                    mappingConstraints
+                ) as ClassType;
+                const typeArgs = specializedMapping.priv.typeArgs;
+                if (typeArgs && typeArgs.length >= 2) {
+                    if (retainEntryTypes) {
+                        results.keyTypes.push({ node: entryNode, type: typeArgs[0] });
+                        results.valueTypes.push({ node: entryNode, type: typeArgs[1] });
+                    }
+                    return true;
+                }
+            } else {
+                addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.dictUnpackIsNotMapping(), entryNode);
+            }
+        }
+        return false;
     }
 
     function getTypeOfListOrSetWithContext(
@@ -1176,7 +1128,6 @@ export function createCollectionInference(context: Context) {
     return {
         getTypeOfDictionaryWithContext,
         getTypeOfDictionaryInferred,
-        getKeyAndValueTypesFromDictionary,
         getTypeOfListOrSetWithContext,
         getExpectedEntryTypeForIterable,
         getTypeOfListOrSetInferred,
