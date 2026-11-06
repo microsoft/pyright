@@ -3248,6 +3248,12 @@ export function createTypeEvaluator(
             if (setter && isFunction(setter) && setter.shared.parameters.length >= 2) {
                 declaredType = FunctionType.getParamType(setter, 1);
 
+                // The setter's value type is used as-is, so it must not be bound.
+                // Binding would also have solved Self, so solve it here using the
+                // object being assigned to.
+                bindFunction = false;
+                selfType = selfType ?? classOrObjectBase;
+
                 if (isAnyOrUnknown(declaredType)) {
                     return undefined;
                 }
