@@ -37,6 +37,7 @@ jobs:
           cache: 'pip'
           cache-dependency-path: |
             build/benchmark/install_envs.json
+            build/benchmark/checker_requirements.txt
             .github/workflows/typecheck_benchmark_weekly.yml
 
       - name: Verify build prerequisites
@@ -45,9 +46,8 @@ jobs:
           g++ --version
           make --version
 
-      - name: Install ${{ matrix.checker }}
-        if: ${{ matrix.checker != 'pyright' }}
-        run: python -m pip install --upgrade '${{ matrix.checker }}'
+      - name: Install shared checker environment
+        run: python -m pip install -r build/benchmark/checker_requirements.txt
 
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         if: ${{ matrix.checker == 'pyright' }}
@@ -91,6 +91,9 @@ jobs:
           if [[ '${{ matrix.checker }}' == 'pyright' ]]; then
             checkers+=(pyright-threads)
             extra_args+=(--skip-pyright-build)
+          fi
+          if [[ '${{ matrix.checker }}' == 'ty' ]]; then
+            checkers+=(ty-infer)
           fi
           python build/benchmark/typecheck_benchmark.py \
             -c "${checkers[@]}" -r 3 -w 1 -t 1800 \
