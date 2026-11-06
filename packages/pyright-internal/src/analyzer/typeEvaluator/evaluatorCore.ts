@@ -2046,7 +2046,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         }
 
         // Handle ParamSpec arguments and fill in any missing type arguments with Unknown.
-        let typeArgTypes: Type[] = [];
         const fullTypeParams = ClassType.getTypeParams(classType);
 
         typeArgs = transformTypeArgsForParamSpec(fullTypeParams, typeArgs, errorNode);
@@ -2054,9 +2053,78 @@ export function createEvaluatorCore(contextDependencies: Context) {
             isValidTypeForm = false;
         }
 
+        let typeArgTypes = resolveClassTypeArguments(classType, fullTypeParams, typeArgs, flags);
+
+        typeArgTypes = typeArgTypes.map((typeArgType, index) => {
+            if (index < typeArgCount) {
+                const diag = new DiagnosticAddendum();
+                let adjustedTypeArgType = applyTypeArgToTypeVar(typeParams[index], typeArgType, diag);
+
+                // Determine if the variance must match.
+                if (adjustedTypeArgType && (flags & EvalFlags.EnforceVarianceConsistency) !== 0) {
+                    const destType = typeParams[index];
+                    const declaredVariance = destType.shared.declaredVariance;
+
+                    if (!isVarianceOfTypeArgCompatible(adjustedTypeArgType, declaredVariance)) {
+                        diag.addMessage(
+                            LocAddendum.varianceMismatchForClass().format({
+                                typeVarName: printType(adjustedTypeArgType),
+                                className: classType.shared.name,
+                            })
+                        );
+                        adjustedTypeArgType = undefined;
+                    }
+                }
+
+                if (adjustedTypeArgType) {
+                    typeArgType = adjustedTypeArgType;
+                } else {
+                    // Avoid emitting this error for a partially-constructed class.
+                    if (!isClassInstance(typeArgType) || !ClassType.isPartiallyEvaluated(typeArgType)) {
+                        assert(typeArgs !== undefined);
+                        isValidTypeForm = false;
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeArguments,
+                            LocMessage.typeVarAssignmentMismatch().format({
+                                type: printType(typeArgType),
+                                name: TypeVarType.getReadableName(typeParams[index]),
+                            }) + diag.getString(),
+                            typeArgs[index].node
+                        );
+                    }
+                }
+            }
+
+            return typeArgType;
+        });
+
+        // If the class is partially constructed and doesn't yet have
+        // type parameters, assume that the number and types of supplied type
+        // arguments are correct.
+        if (typeArgs && classType.shared.typeParams.length === 0 && ClassType.isPartiallyEvaluated(classType)) {
+            typeArgTypes = typeArgs.map((t) => convertToInstance(t.type));
+        }
+
+        let specializedClass = ClassType.specialize(classType, typeArgTypes, typeArgs !== undefined);
+
+        specializedClass = TypeBase.cloneWithTypeForm(
+            specializedClass,
+            isValidTypeForm ? convertToInstance(specializedClass) : undefined
+        );
+
+        return { type: specializedClass };
+    }
+
+    function resolveClassTypeArguments(
+        classType: ClassType,
+        typeParams: TypeVarType[],
+        typeArgs: TypeResultWithNode[] | undefined,
+        flags: EvalFlags
+    ): Type[] {
+        const typeArgTypes: Type[] = [];
         const constraints = new ConstraintTracker();
 
-        fullTypeParams.forEach((typeParam, index) => {
+        typeParams.forEach((typeParam, index) => {
             if (typeArgs && index < typeArgs.length) {
                 if (isParamSpec(typeParam)) {
                     const typeArg = typeArgs[index];
@@ -2138,64 +2206,7 @@ export function createEvaluatorCore(contextDependencies: Context) {
             constraints.setBounds(typeParam, solvedDefaultType);
         });
 
-        typeArgTypes = typeArgTypes.map((typeArgType, index) => {
-            if (index < typeArgCount) {
-                const diag = new DiagnosticAddendum();
-                let adjustedTypeArgType = applyTypeArgToTypeVar(typeParams[index], typeArgType, diag);
-
-                // Determine if the variance must match.
-                if (adjustedTypeArgType && (flags & EvalFlags.EnforceVarianceConsistency) !== 0) {
-                    const destType = typeParams[index];
-                    const declaredVariance = destType.shared.declaredVariance;
-
-                    if (!isVarianceOfTypeArgCompatible(adjustedTypeArgType, declaredVariance)) {
-                        diag.addMessage(
-                            LocAddendum.varianceMismatchForClass().format({
-                                typeVarName: printType(adjustedTypeArgType),
-                                className: classType.shared.name,
-                            })
-                        );
-                        adjustedTypeArgType = undefined;
-                    }
-                }
-
-                if (adjustedTypeArgType) {
-                    typeArgType = adjustedTypeArgType;
-                } else {
-                    // Avoid emitting this error for a partially-constructed class.
-                    if (!isClassInstance(typeArgType) || !ClassType.isPartiallyEvaluated(typeArgType)) {
-                        assert(typeArgs !== undefined);
-                        isValidTypeForm = false;
-                        addDiagnostic(
-                            DiagnosticRule.reportInvalidTypeArguments,
-                            LocMessage.typeVarAssignmentMismatch().format({
-                                type: printType(typeArgType),
-                                name: TypeVarType.getReadableName(typeParams[index]),
-                            }) + diag.getString(),
-                            typeArgs[index].node
-                        );
-                    }
-                }
-            }
-
-            return typeArgType;
-        });
-
-        // If the class is partially constructed and doesn't yet have
-        // type parameters, assume that the number and types of supplied type
-        // arguments are correct.
-        if (typeArgs && classType.shared.typeParams.length === 0 && ClassType.isPartiallyEvaluated(classType)) {
-            typeArgTypes = typeArgs.map((t) => convertToInstance(t.type));
-        }
-
-        let specializedClass = ClassType.specialize(classType, typeArgTypes, typeArgs !== undefined);
-
-        specializedClass = TypeBase.cloneWithTypeForm(
-            specializedClass,
-            isValidTypeForm ? convertToInstance(specializedClass) : undefined
-        );
-
-        return { type: specializedClass };
+        return typeArgTypes;
     }
 
     function getTypeOfArgExpectingType(arg: Arg, options?: ExpectedTypeOptions): TypeResult {

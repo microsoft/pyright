@@ -19021,6 +19021,8 @@ export function createTypeEvaluator(
         printControlFlowGraph,
     };
 
+    // Topic factories must only capture dependencies here; injected callbacks can
+    // reach topics that are not initialized until later in this construction block.
     const codeFlowEngine = getCodeFlowEngine(evaluatorInterface, speculativeTypeTracker, nodeInfo);
 
     const boundMethodSpecialization = createBoundMethodSpecialization({
@@ -19036,7 +19038,6 @@ export function createTypeEvaluator(
         addSymbolDeclInfo: _addSymbolDeclInfo,
         codeFlowEngine,
         evaluateTypesForStatement,
-        evaluatorInterface,
         evaluatorOptions,
         getAbstractSymbolInfo,
         getBoundMagicMethod,
@@ -19226,6 +19227,7 @@ export function createTypeEvaluator(
         typePromotions,
     });
 
+    // This direct function reference requires evaluatorCore to be initialized first.
     const collectionInference = createCollectionInference({
         addDiagnostic,
         assignType,

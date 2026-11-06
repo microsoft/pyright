@@ -56,7 +56,6 @@ import {
     Reachability,
     ResolveAliasOptions,
     SymbolDeclInfo,
-    TypeEvaluator,
     TypeResult,
 } from '../typeEvaluatorTypes';
 import {
@@ -123,7 +122,6 @@ interface Context {
     ) => void;
     readonly codeFlowEngine: CodeFlowEngine;
     readonly evaluateTypesForStatement: (node: ParseNode) => void;
-    readonly evaluatorInterface: TypeEvaluator;
     readonly evaluatorOptions: EvaluatorOptions;
     readonly getAbstractSymbolInfo: (classType: ClassType, symbolName: string) => AbstractSymbol | undefined;
     readonly getBoundMagicMethod: (
@@ -214,7 +212,6 @@ export function createMemberResolution(context: Context) {
         addDiagnostic,
         codeFlowEngine,
         evaluateTypesForStatement,
-        evaluatorInterface,
         evaluatorOptions,
         getAbstractSymbolInfo,
         getBoundMagicMethod,
@@ -1091,7 +1088,7 @@ export function createMemberResolution(context: Context) {
                         });
                     } else if (isInstantiableClass(baseType)) {
                         const initMethodType = getBoundInitMethod(
-                            evaluatorInterface,
+                            context,
                             argNode.parent.d.leftExpr,
                             ClassType.cloneAsInstance(baseType)
                         )?.type;

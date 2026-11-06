@@ -29,6 +29,41 @@ only `getTupleClassType`, so special-form creation and TypeVar handling pass
 their existing contexts rather than retaining the full evaluator interface.
 This lookup uses the same evaluator-owned callback and remains lazy; it does
 not add a wrapper, construct a per-call adapter, or remove recursive evaluation.
+Likewise, `getBoundInitMethod` needs only `getTypeOfBoundMember`; member resolution
+passes its existing context and no longer retains the full evaluator interface.
+
+## Initialization and re-entry contracts
+
+Topic factories must be inert during construction: capture dependency functions
+and live accessors, then return entry points without evaluating nodes or calling
+injected callbacks. The interface and code flow engine exist before several
+callback targets. A factory that begins evaluating during setup changes the
+lifecycle contract and can reach an uninitialized topic.
+
+Facade callbacks defer cross-topic lookup until invocation. Direct producer
+references are different: `collectionInference` receives
+`evaluatorCore.isTypeHashable`, so core must be initialized before collection
+inference. Keep evaluator extension and test-hook installation after every topic
+has been initialized; installed callbacks may immediately start evaluation.
+
+Do not destructure mutable bindings such as prefetched builtins or contextual
+return caches into snapshots. Disposal and contextual inference replace these
+bindings. Preserve live accessors, inference-stack identity, speculative cache
+isolation and `try/finally` restoration.
+
+The injected callback graph is not the complete evaluation graph. External
+helpers can call back through the evaluator or a narrower capability:
+
+| Helper path | Indirect evaluator dependency |
+| --- | --- |
+| `constructors.ts` -> `getBoundInitMethod` | Bound member lookup -> member resolution and receiver specialization |
+| `tuples.ts` -> `makeTupleObject` | Lazy tuple-class lookup -> core |
+| `typedDicts.ts` -> member inference and assignment | Evaluator-backed entry evaluation, specialization and compatibility |
+| `constraintSolver.ts` -> constraint solving | Evaluator-backed compatibility and specialization |
+
+These are evaluation dependencies, not ES-module import cycles. Narrow a helper
+contract only after tracing its actual use; do not conceal remaining re-entry
+with a cast or force legitimate recursive evaluation into an acyclic graph.
 
 ## Topic boundaries
 
@@ -71,6 +106,7 @@ the operation to its topic:
 | List, set, dictionary or comprehension | `collectionInference.ts`, including entry inference and clause evaluation |
 | Dictionary entry inference | Expected-type or unconstrained inference -> `inferDictionaryEntries` -> key/value entries, mapping expansion or comprehension |
 | Member access or declaration lookup | `memberResolution.ts` -> receiver binding in `boundMethodSpecialization.ts` |
+| Class type arguments and defaults | `evaluatorCore.ts` -> `createSpecializedClassType` -> `resolveClassTypeArguments` |
 | Call matching and overload selection | Main evaluator -> argument expansion in `expressionEvaluation.ts` -> `typeCompatibility.ts` |
 | Conditional or type guard test | `typeGuards.ts` -> `typeGuardNarrowing.ts` -> evaluator narrowing primitives |
 | Contextual return type at a call site | `returnTypeInference.ts`; ordinary function return inference remains in the main evaluator |
@@ -85,6 +121,17 @@ incompleteness and type errors separately from the final dictionary type.
 `inferDictionaryKeyEntry` handles expected value types and literal-key replacement;
 `tryInferDictionaryExpansion` handles mapping and TypedDict unpacking. The entry
 sampling limit restricts retained types, not evaluation or diagnostics.
+
+`createSpecializedClassType` handles special forms and validates supplied
+arguments and normalizes ParamSpecs before resolving general class arguments.
+Its private `resolveClassTypeArguments` phase constructs ParamSpec values and
+solves defaults in parameter order using the same constraint tracker. Recorded
+earlier bindings inform later default solutions. The phase returns its resolved
+type array without a result adapter.
+The caller keeps the normalized argument nodes, checks compatibility and
+variance, and constructs the specialized class. Missing argument nodes still
+invalidate type-form metadata rather than silently indicating successful
+validation.
 
 `returnTypeInference.ts` uses the original evaluator-owned inference stack and
 live cache getters/setters. It does not own replacement evaluator state.
