@@ -1724,7 +1724,7 @@ export function getTypeOfIndexedTypedDict(
             return subtype;
         }
 
-        if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'str')) {
+        if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['str', 'LiteralString'])) {
             if (subtype.priv.literalValue === undefined) {
                 // If it's a plain str with no literal value, we can't
                 // make any determination about the resulting type.
