@@ -69,6 +69,8 @@ jobs:
     name: Test ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: typecheck
+    env:
+      JEST_WORKER_ARGS: ${{ matrix.os == 'macos-latest' && '--maxWorkers=1' || '' }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -83,9 +85,81 @@ jobs:
 
       - uses: ./.github/actions/choose-npm-install
 
-      - name: pnpm test (pyright-internal)
-        run: pnpm test
+      - name: Report test runner resources
+        shell: bash
         working-directory: packages/pyright-internal
+        run: |
+          node <<'NODE'
+          const os = require('os');
+          const { execFileSync } = require('child_process');
+          const notice = (title, text) => console.log(`::notice title=${title}::${text.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')}`);
+          const workerArgs = process.env.JEST_WORKER_ARGS ? [process.env.JEST_WORKER_ARGS] : [];
+          const config = JSON.parse(execFileSync(process.execPath, ['./node_modules/jest/bin/jest', '--showConfig', ...workerArgs], { encoding: 'utf8' }));
+          notice('Test runner resources', JSON.stringify({
+              node: process.version,
+              platform: process.platform,
+              arch: process.arch,
+              cpuModel: os.cpus()[0].model,
+              logicalCpus: os.cpus().length,
+              availableParallelism: os.availableParallelism(),
+              totalMemoryGiB: os.totalmem() / 2 ** 30,
+              freeMemoryGiB: os.freemem() / 2 ** 30,
+              jestWorkers: config.globalConfig.maxWorkers,
+          }));
+          if (process.platform === 'darwin') {
+              notice('Mac memory before tests', execFileSync('vm_stat', { encoding: 'utf8' }));
+              notice('Mac swap before tests', execFileSync('sysctl', ['vm.swapusage'], { encoding: 'utf8' }));
+          }
+          NODE
+
+      - name: pnpm test (pyright-internal)
+        id: pyright_tests
+        run: pnpm test --json --outputFile=test-results.json ${{ env.JEST_WORKER_ARGS }}
+        working-directory: packages/pyright-internal
+
+      - name: Report test diagnostics
+        if: always() && steps.pyright_tests.outcome != 'skipped'
+        shell: bash
+        working-directory: packages/pyright-internal
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const { execFileSync } = require('child_process');
+          const notice = (title, text) => console.log(`::notice title=${title}::${text.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')}`);
+          if (process.platform === 'darwin') {
+              notice('Mac memory after tests', execFileSync('vm_stat', { encoding: 'utf8' }));
+              notice('Mac swap after tests', execFileSync('sysctl', ['vm.swapusage'], { encoding: 'utf8' }));
+          }
+          if (!fs.existsSync('test-results.json')) {
+              notice('Jest results missing', 'The test step did not write JSON results; check for a process-level failure.');
+              throw new Error('Jest results missing');
+          }
+          const results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+          notice('Jest summary', JSON.stringify({
+              success: results.success,
+              passedTests: results.numPassedTests,
+              failedTests: results.numFailedTests,
+              passedSuites: results.numPassedTestSuites,
+              failedSuites: results.numFailedTestSuites,
+          }));
+          const suites = [...results.testResults].sort((a, b) => (b.endTime - b.startTime) - (a.endTime - a.startTime));
+          notice('Jest slow suites', suites.slice(0, 8).map((suite) =>
+              `${path.basename(suite.name)}: ${(suite.endTime - suite.startTime) / 1000}s (${suite.status})`
+          ).join('\n'));
+          const failingSuites = suites.filter((suite) => suite.status === 'failed').slice(0, 5);
+          if (failingSuites.length) {
+              notice('Jest failing suites', failingSuites.map((suite) =>
+                  `${path.basename(suite.name)}: ${suite.message.slice(0, 6000)}`
+              ).join('\n'));
+          }
+          const failures = results.testResults.flatMap((suite) => suite.assertionResults.filter((test) => test.status === 'failed'));
+          if (failures.length) {
+              notice('Jest failing tests', failures.slice(0, 5).map((test) =>
+                  `${test.fullName}: ${test.failureMessages.join('\n').slice(0, 6000)}`
+              ).join('\n'));
+          }
+          NODE
 
       # Install python so we can create a VENV for tests
       - name: Use Python ${{env.PYTHON_VERSION}}

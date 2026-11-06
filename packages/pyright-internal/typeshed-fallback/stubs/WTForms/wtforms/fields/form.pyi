@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from typing import Any, Generic, TypeVar
 
+from wtforms.datalist import DataList
 from wtforms.fields.core import Field, _Widget
 from wtforms.form import BaseForm, _FormErrors
 from wtforms.meta import DefaultMeta, _SupportsGettextAndNgettext
@@ -23,9 +24,11 @@ class FormField(Field, Generic[_BoundFormT]):
         description: str = "",
         id: str | None = None,
         default: object | None = None,
+        invalid_value_message: str | None = None,
         widget: _Widget[FormField[_BoundFormT]] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,
+        datalist: DataList | str | None = None,
         _form: BaseForm | None = None,
         _prefix: str = "",
         _translations: _SupportsGettextAndNgettext | None = None,

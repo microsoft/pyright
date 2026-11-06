@@ -1,6 +1,7 @@
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from typing import Any, Generic, TypeVar
 
+from wtforms.datalist import DataList
 from wtforms.fields.core import Field, UnboundField, _FormT, _Validator, _Widget
 from wtforms.form import BaseForm
 from wtforms.meta import DefaultMeta, _SupportsGettextAndNgettext
@@ -34,16 +35,23 @@ class FieldList(Field, Generic[_BoundFieldT]):
         *,
         description: str = "",
         id: str | None = None,
+        invalid_value_message: str | None = None,
         widget: _Widget[FieldList[Any]] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,
+        datalist: DataList | str | None = None,
         _form: BaseForm | None = None,
         _prefix: str = "",
         _translations: _SupportsGettextAndNgettext | None = None,
         _meta: DefaultMeta | None = None,
     ) -> None: ...
+    # since `Field` is not generic in its `data` type we can't be more specific here
+    # now that type parameters can have a default, we could probably prototype a change
+    # that makes `Field` generic, defaulting to `Any` to preserve the existing ergonomics.
+    # `data` should match the `data` type of the bound field.
     def append_entry(self, data: Any = ...) -> _BoundFieldT: ...
-    def pop_entry(self) -> _BoundFieldT: ...
+    def insert_entry(self, index: int, data: Any = ...) -> _BoundFieldT: ...
+    def pop_entry(self, index: int = -1) -> _BoundFieldT: ...
     def __iter__(self) -> Iterator[_BoundFieldT]: ...
     def __len__(self) -> int: ...
     def __getitem__(self, index: int) -> _BoundFieldT: ...

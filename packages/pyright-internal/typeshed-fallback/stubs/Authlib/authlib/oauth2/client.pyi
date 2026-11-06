@@ -1,15 +1,18 @@
 from _typeshed import Incomplete
+from collections.abc import Sequence
+from typing import ClassVar
 
-from authlib.oauth2 import ClientAuth, OAuth2Error, TokenAuth
+from authlib.common.errors import AuthlibBaseError
+from authlib.oauth2 import ClientAuth, TokenAuth
 
 DEFAULT_HEADERS: Incomplete
 
 class OAuth2Client:
-    client_auth_class = ClientAuth
-    token_auth_class = TokenAuth
-    oauth_error_class = OAuth2Error
+    client_auth_class: ClassVar[type[ClientAuth]]
+    token_auth_class: ClassVar[type[TokenAuth]]
+    oauth_error_class: ClassVar[type[AuthlibBaseError]]
     EXTRA_AUTHORIZE_PARAMS: tuple[str, ...]
-    SESSION_REQUEST_PARAMS: list[str]
+    SESSION_REQUEST_PARAMS: ClassVar[Sequence[str]]
     session: Incomplete
     client_id: Incomplete
     client_secret: Incomplete

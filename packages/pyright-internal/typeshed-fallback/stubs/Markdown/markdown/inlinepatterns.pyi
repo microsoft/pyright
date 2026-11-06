@@ -1,36 +1,27 @@
 import re
+from _typeshed import Unused
+from collections import deque
 from collections.abc import Collection
-from typing import ClassVar, NamedTuple
+from typing import ClassVar, Final, NamedTuple
 from xml.etree.ElementTree import Element
 
 from markdown import util
 from markdown.core import Markdown
 
-def build_inlinepatterns(md: Markdown, **kwargs) -> util.Registry[Pattern]: ...
+def build_inlinepatterns(md: Markdown, **kwargs: Unused) -> util.Registry[Pattern]: ...
 
-NOIMG: str
-BACKTICK_RE: str
-ESCAPE_RE: str
-EMPHASIS_RE: str
-STRONG_RE: str
-SMART_STRONG_RE: str
-SMART_EMPHASIS_RE: str
-SMART_STRONG_EM_RE: str
-EM_STRONG_RE: str
-EM_STRONG2_RE: str
-STRONG_EM_RE: str
-STRONG_EM2_RE: str
-STRONG_EM3_RE: str
-LINK_RE: str
-IMAGE_LINK_RE: str
-REFERENCE_RE: str
-IMAGE_REFERENCE_RE: str
-NOT_STRONG_RE: str
-AUTOLINK_RE: str
-AUTOMAIL_RE: str
-HTML_RE: str
-ENTITY_RE: str
-LINE_BREAK_RE: str
+NOIMG: Final[str]
+BACKTICK_RE: Final[str]
+ESCAPE_RE: Final[str]
+LINK_RE: Final[str]
+IMAGE_LINK_RE: Final[str]
+REFERENCE_RE: Final[str]
+IMAGE_REFERENCE_RE: Final[str]
+AUTOLINK_RE: Final[str]
+AUTOMAIL_RE: Final[str]
+HTML_RE: Final[str]
+ENTITY_RE: Final[str]
+LINE_BREAK_RE: Final[str]
 
 def dequote(string: str) -> str: ...
 
@@ -74,6 +65,8 @@ class BacktickInlineProcessor(InlineProcessor):
     ESCAPED_BSLASH: str
     tag: str
     def __init__(self, pattern: str) -> None: ...
+    def find_code_spans(self, start: int, text: str) -> tuple[int, int] | None: ...
+    def handleMatch(self, m: re.Match[str], data: str) -> tuple[Element | str | None, int | None, int | None]: ...  # type: ignore[override]
 
 class DoubleTagPattern(SimpleTagPattern): ...
 class DoubleTagInlineProcessor(SimpleTagInlineProcessor): ...
@@ -82,15 +75,48 @@ class HtmlInlineProcessor(InlineProcessor):
     def unescape(self, text: str) -> str: ...
     def backslash_unescape(self, text: str) -> str: ...
 
-class AsteriskProcessor(InlineProcessor):
-    PATTERNS: ClassVar[list[EmStrongItem]]
-    def build_single(self, m: re.Match[str], tag: str, idx: int) -> Element: ...
-    def build_double(self, m: re.Match[str], tags: str, idx: int) -> Element: ...
-    def build_double2(self, m: re.Match[str], tags: str, idx: int) -> Element: ...
-    def parse_sub_patterns(self, data: str, parent: Element, last: Element | None, idx: int) -> None: ...
-    def build_element(self, m: re.Match[str], builder: str, tags: str, index: int) -> Element: ...
+class Delimiter:
+    stack: deque[tuple[int, int, bool, int]]
+    tag_count: int
+    tags: tuple[str, str]
+    double: bool
+    single: bool
+    smart: bool
 
-class UnderscoreProcessor(AsteriskProcessor): ...
+    token: str
+    max_size: int
+    boundary: re.Pattern[str]
+    bad: re.Pattern[str]
+
+    def __init__(self, token: str, tags: str, smart: bool, double: bool): ...
+    def reset(self) -> None: ...
+
+class DelimiterProcessor(InlineProcessor):
+    SPACE: Final[re.Pattern[str]]
+
+    regions: list[tuple[int, int, int, int, tuple[str, str], int]]
+    stack: list[tuple[int, int, bool, int]]
+    tokens: list[str]
+    delimiters: dict[str, Delimiter]
+    cache_index: int
+    cache_pos: int
+    md: Markdown
+    safe_mode: bool
+    pattern: str
+    compiled_re: re.Pattern[str]
+
+    def __init__(self, token: str, tags: str, md: Markdown, smart: bool = False, double: bool = False) -> None: ...
+    def add(self, token: str, tags: str, smart: bool = False, double: bool = False) -> None: ...
+    def remove(self, token: str) -> None: ...
+    def reset(self) -> None: ...
+    def increment_next_position(self, start: int, count: int) -> None: ...
+    def get_cached_result(self, pos: int, data: str) -> tuple[Element, int, int]: ...
+    def get_match(self, data: str, start: int) -> re.Match[str] | None: ...
+    def search(self, data: str, start: int) -> re.Match[str] | None: ...
+    def add_region(self, delim: Delimiter, a: int, b: int, c: int, d: int, size: int) -> None: ...
+    def handleMatch(  # type: ignore[override]
+        self, m: re.Match[str], data: str
+    ) -> tuple[Element | None, int | None, int | None]: ...
 
 class LinkInlineProcessor(InlineProcessor):
     RE_LINK: ClassVar[re.Pattern[str]]

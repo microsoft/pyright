@@ -1,4 +1,5 @@
 from collections.abc import Callable, Collection, Iterable
+from datetime import date, datetime
 from decimal import Decimal
 from re import Match, Pattern
 from typing import Any, TypeVar, overload
@@ -20,7 +21,9 @@ __all__ = (
     "Length",
     "length",
     "NumberRange",
+    "DateRange",
     "number_range",
+    "date_range",
     "Optional",
     "optional",
     "Regexp",
@@ -65,17 +68,33 @@ class Length:
     def __call__(self, form: BaseForm, field: StringField) -> None: ...
 
 class NumberRange:
-    min: float | Decimal | None
-    max: float | Decimal | None
+    min: float | Decimal | Callable[[], float | Decimal | None] | None
+    max: float | Decimal | Callable[[], float | Decimal | None] | None
     message: str | None
     field_flags: dict[str, Any]
     def __init__(
-        self, min: float | Decimal | None = None, max: float | Decimal | None = None, message: str | None = None
+        self,
+        min: float | Decimal | Callable[[], float | Decimal | None] | None = None,
+        max: float | Decimal | Callable[[], float | Decimal | None] | None = None,
+        message: str | None = None,
     ) -> None: ...
     # any numeric field will work, for now we don't try to use a union
     # to restrict to the defined numeric fields, since user-defined fields
     # will likely not use a common base class, just like the existing
     # numeric fields
+    def __call__(self, form: BaseForm, field: Field) -> None: ...
+
+class DateRange:
+    min: date | datetime | Callable[[], date | datetime | None] | None
+    max: date | datetime | Callable[[], date | datetime | None] | None
+    message: str
+    field_flags: dict[str, Any]
+    def __init__(
+        self,
+        min: date | datetime | Callable[[], date | datetime | None] | None = None,
+        max: date | datetime | Callable[[], date | datetime | None] | None = None,
+        message: str | None = None,
+    ) -> None: ...
     def __call__(self, form: BaseForm, field: Field) -> None: ...
 
 class Optional:
@@ -99,22 +118,33 @@ class InputRequired:
 class Regexp:
     regex: Pattern[str]
     message: str | None
-    def __init__(self, regex: str | Pattern[str], flags: int = 0, message: str | None = None) -> None: ...
+    matcher: Callable[[Pattern[str], str], Match[str]]
+    field_flags: dict[str, Any]
+    def __init__(
+        self,
+        regex: str | Pattern[str],
+        flags: int = 0,
+        message: str | None = None,
+        matcher: Callable[[Pattern[str], str], Match[str]] = ...,
+        html_pattern: bool | str | Callable[[Pattern[str]], bool | str] = False,
+    ) -> None: ...
     def __call__(self, form: BaseForm, field: StringField, message: str | None = None) -> Match[str]: ...
 
 class Email:
     message: str | None
     granular_message: bool
     check_deliverability: bool
-    allow_smtputf8: bool
-    allow_empty_local: bool
+    test_environment: bool | None
+    allow_smtputf8: bool | None
+    allow_empty_local: bool | None
     def __init__(
         self,
         message: str | None = None,
         granular_message: bool = False,
         check_deliverability: bool = False,
-        allow_smtputf8: bool = True,
-        allow_empty_local: bool = False,
+        test_environment: bool | None = None,
+        allow_smtputf8: bool | None = None,
+        allow_empty_local: bool | None = None,
     ) -> None: ...
     def __call__(self, form: BaseForm, field: StringField) -> None: ...
 
@@ -133,9 +163,19 @@ class MacAddress(Regexp):
     def __init__(self, message: str | None = None) -> None: ...
     def __call__(self, form: BaseForm, field: StringField) -> None: ...  # type: ignore[override]
 
-class URL(Regexp):
+class URL:
+    allow_userinfo: bool
+    schemes: Collection[str]
+    message: str | None
     validate_hostname: HostnameValidation
-    def __init__(self, require_tld: bool = True, allow_ip: bool = True, message: str | None = None) -> None: ...
+    def __init__(
+        self,
+        require_tld: bool = True,
+        allow_ip: bool = True,
+        allow_userinfo: bool = False,
+        schemes: Collection[str] = ...,
+        message: str | None = None,
+    ) -> None: ...
     def __call__(self, form: BaseForm, field: StringField) -> None: ...  # type: ignore[override]
 
 class UUID:
@@ -203,6 +243,7 @@ ip_address = IPAddress
 mac_address = MacAddress
 length = Length
 number_range = NumberRange
+date_range = DateRange
 optional = Optional
 input_required = InputRequired
 data_required = DataRequired

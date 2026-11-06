@@ -1,5 +1,6 @@
+from _typeshed import MaybeNone
 from collections.abc import Sequence
-from typing import Any, Literal, SupportsIndex, overload
+from typing import Literal, SupportsIndex, overload
 from typing_extensions import Unpack
 
 from ._enum import ParamEnum
@@ -62,7 +63,7 @@ def boundary(geometry: Polygon | MultiPolygon, **kwargs: Unpack[UFuncKwargs]) ->
 @overload
 def boundary(geometry: GeometryCollection | None, **kwargs: Unpack[UFuncKwargs]) -> None: ...
 @overload
-def boundary(geometry: Geometry, **kwargs: Unpack[UFuncKwargs]) -> BaseMultipartGeometry | Any: ...
+def boundary(geometry: Geometry, **kwargs: Unpack[UFuncKwargs]) -> BaseMultipartGeometry | MaybeNone: ...
 @overload
 def boundary(geometry: OptGeoArrayLikeSeq, **kwargs: Unpack[UFuncKwargs]) -> GeoArray: ...
 

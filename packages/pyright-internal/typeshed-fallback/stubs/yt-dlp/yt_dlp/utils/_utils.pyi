@@ -10,6 +10,7 @@ from _typeshed import (
     ExcInfo,
     FileDescriptorLike,
     FileDescriptorOrPath,
+    MaybeNone,
     OpenBinaryMode,
     OpenTextMode,
     ReadableBuffer,
@@ -590,7 +591,7 @@ def scale_thumbnails_to_max_format_width(
     formats: Iterable[Mapping[str, Any]], thumbnails: Iterable[Mapping[str, Any]], url_width_re: str | Pattern[str]
 ) -> list[dict[str, Any]]: ...
 def parse_http_range(range: str | None) -> tuple[int | None, int | None, int | None]: ...
-def read_stdin(what: str) -> TextIO | Any: ...
+def read_stdin(what: str) -> TextIO | MaybeNone: ...
 def determine_file_encoding(data: bytes) -> tuple[str | None, int]: ...
 
 class Config:
