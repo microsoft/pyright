@@ -33,6 +33,7 @@ import {
     YieldFromNode,
     YieldNode,
 } from '../../parser/parseNodes';
+import { ParseOptions, Parser, ParseTextMode } from '../../parser/parser';
 import { KeywordType, OperatorType, StringTokenFlags } from '../../parser/tokenizerTypes';
 import { isAnnotationEvaluationPostponed } from '../analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzerNodeInfo';
@@ -159,6 +160,7 @@ interface Context {
     ) => ClassType[];
     readonly convertNodeToArg: (node: ArgumentNode) => ArgWithExpression;
     readonly evaluatorInterface: TypeEvaluator;
+    readonly expectedTypeWantsTypeForm: (expectedType: Type) => boolean;
     readonly getBoundMagicMethod: (
         classType: ClassType,
         memberName: string,
@@ -232,7 +234,6 @@ interface Context {
         literalEnumClasses: ClassType[],
         recursionCount?: number
     ) => Type;
-    readonly parseStringAsTypeAnnotation: (node: StringListNode, reportErrors: boolean) => ExpressionNode | undefined;
     readonly prefetched: Partial<PrefetchedTypes> | undefined;
     readonly printSrcDestTypes: (
         srcType: Type,
@@ -276,6 +277,7 @@ export function createExpressionEvaluation(context: Context) {
         collectLiteralEnumClasses,
         convertNodeToArg,
         evaluatorInterface,
+        expectedTypeWantsTypeForm,
         getBoundMagicMethod,
         getBuiltInObject,
         getBuiltInType,
@@ -301,7 +303,6 @@ export function createExpressionEvaluation(context: Context) {
         mapSubtypesExpandTypeVars,
         nodeInfo,
         normalizeEnumTypes,
-        parseStringAsTypeAnnotation,
         printSrcDestTypes,
         printType,
         resolveDeclaredMemberType,
@@ -2489,10 +2490,228 @@ export function createExpressionEvaluation(context: Context) {
         };
     }
 
+    // Calls back into the parser to parse the contents of a string literal.
+    // This is unfortunately needed in some cases — specifically where the
+    // parser couldn't determine that the string literal would be used in
+    // a context where it should be treated as a forward-declared type. This
+    // call produces an expression tree that is not attached to the main parse
+    // expression tree because we don't want to mutate the latter; the
+    // expression tree created by this function is therefore used only temporarily.
+    function parseStringAsTypeAnnotation(node: StringListNode, reportErrors: boolean): ExpressionNode | undefined {
+        const fileInfo = nodeInfo.getFileInfo(node);
+        const parser = new Parser();
+        const textValue = node.d.strings[0].d.value;
+
+        // Determine the offset within the file where the string
+        // literal's contents begin.
+        let valueOffset = node.d.strings[0].start;
+        if (node.d.strings[0].nodeType === ParseNodeType.String) {
+            valueOffset += node.d.strings[0].d.token.prefixLength + node.d.strings[0].d.token.quoteMarkLength;
+        }
+
+        // Construct a temporary dummy string with the text value at the appropriate
+        // offset so as to mimic the original file. This will keep all of the token
+        // and diagnostic offsets correct.
+        const dummyFileContents = ' '.repeat(valueOffset) + textValue;
+
+        const parseOptions = new ParseOptions();
+        parseOptions.isStubFile = fileInfo.isStubFile;
+        parseOptions.pythonVersion = fileInfo.executionEnvironment.pythonVersion;
+        parseOptions.reportErrorsForParsedStringContents = true;
+
+        const parseResults = parser.parseTextExpression(
+            dummyFileContents,
+            valueOffset,
+            textValue.length,
+            parseOptions,
+            ParseTextMode.Expression,
+            /* initialParenDepth */ undefined,
+            fileInfo.typingSymbolAliases,
+            node.a
+        );
+
+        if (parseResults.parseTree) {
+            // If there are errors but we are not reporting them, return
+            // undefined to indicate that the parse failed.
+            if (!reportErrors && parseResults.diagnostics.length > 0) {
+                return undefined;
+            }
+
+            const fileInfo = nodeInfo.getFileInfo(node);
+            parseResults.diagnostics.forEach((diag) => {
+                fileInfo.diagnosticSink.addDiagnosticWithTextRange('error', diag.message, node);
+            });
+
+            parseResults.parseTree.parent = node;
+
+            // Optionally add the new subtree to the parse tree so it can
+            // participate in language server operations like find and replace.
+            if (reportErrors) {
+                nodeInfo.setStringAnnotation(node, parseResults.parseTree, parseResults.stringAnnotations);
+            }
+
+            return parseResults.parseTree;
+        }
+
+        return undefined;
+    }
+
+    function getTypeOfStringList(
+        node: StringListNode,
+        flags: EvalFlags,
+        inferenceContext?: InferenceContext
+    ): TypeResult {
+        let typeResult: TypeResult | undefined;
+
+        if (
+            (flags & EvalFlags.StrLiteralAsType) !== 0 &&
+            ((flags & EvalFlags.TypeFormArg) === 0 || (flags & EvalFlags.NoConvertSpecialForm) !== 0)
+        ) {
+            return getTypeOfStringListAsType(node, flags);
+        }
+
+        const isBytesNode = (node: StringNode | FormatStringNode) =>
+            (node.d.token.flags & StringTokenFlags.Bytes) !== 0;
+        const isTemplateNode = (node: StringNode | FormatStringNode) =>
+            (node.d.token.flags & StringTokenFlags.Template) !== 0;
+
+        // Check for mixing of t-string literals with str, bytes, or f-string
+        // literals. CPython reports this as a SyntaxError (PEP 750).
+        const firstTemplateIndex = node.d.strings.findIndex(isTemplateNode);
+        const firstNonTemplateIndex = node.d.strings.findIndex((str) => !isTemplateNode(str));
+        if (firstTemplateIndex >= 0 && firstNonTemplateIndex >= 0) {
+            addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.mixingTemplateAndStr(),
+                node.d.strings[Math.max(firstTemplateIndex, firstNonTemplateIndex)]
+            );
+
+            return { type: UnknownType.create() };
+        }
+
+        // Check for mixing of bytes and str, which is not allowed.
+        const firstStrIndex = node.d.strings.findIndex((str) => !isBytesNode(str));
+        const firstBytesIndex = node.d.strings.findIndex((str) => isBytesNode(str));
+        if (firstStrIndex >= 0 && firstBytesIndex >= 0) {
+            addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.mixingBytesAndStr(),
+                node.d.strings[Math.max(firstBytesIndex, firstStrIndex)]
+            );
+
+            return { type: UnknownType.create() };
+        }
+
+        const isBytes = firstBytesIndex >= 0;
+        let isLiteralString = true;
+        let isIncomplete = false;
+        let isTemplate = false;
+
+        node.d.strings.forEach((expr) => {
+            // Handle implicit concatenation.
+            const typeResult = getTypeOfString(expr);
+
+            if (typeResult.isIncomplete) {
+                isIncomplete = true;
+            }
+
+            let isExprLiteralString = false;
+
+            if (isClassInstance(typeResult.type)) {
+                if (ClassType.isBuiltIn(typeResult.type, 'str') && typeResult.type.priv.literalValue !== undefined) {
+                    isExprLiteralString = true;
+                } else if (ClassType.isBuiltIn(typeResult?.type, 'LiteralString')) {
+                    isExprLiteralString = true;
+                }
+
+                if (typeResult.type.shared.name === 'Template') {
+                    isTemplate = true;
+                }
+            }
+
+            if (!isExprLiteralString) {
+                isLiteralString = false;
+            }
+        });
+
+        if (isTemplate) {
+            const templateType =
+                context.prefetched?.templateClass && isInstantiableClass(context.prefetched?.templateClass)
+                    ? ClassType.cloneAsInstance(context.prefetched.templateClass)
+                    : UnknownType.create();
+
+            typeResult = { type: templateType, isIncomplete };
+        } else if (node.d.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {
+            if (isLiteralString) {
+                const literalStringType = getTypingType(node, 'LiteralString');
+                if (literalStringType && isInstantiableClass(literalStringType)) {
+                    typeResult = { type: ClassType.cloneAsInstance(literalStringType) };
+                }
+            }
+
+            if (!typeResult) {
+                typeResult = {
+                    type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
+                    isIncomplete,
+                };
+            }
+        } else {
+            typeResult = {
+                type: cloneBuiltinObjectWithLiteral(
+                    node,
+                    isBytes ? 'bytes' : 'str',
+                    node.d.strings.map((s) => s.d.value).join('')
+                ),
+                isIncomplete,
+            };
+        }
+
+        if (node.d.strings.length !== 1 || node.d.strings[0].nodeType !== ParseNodeType.String) {
+            return typeResult;
+        }
+
+        // Only attempt to interpret the string as a TypeForm forward reference when
+        // there's a signal that a TypeForm value is wanted in this context. Doing it
+        // unconditionally can trigger expensive (and recursion-prone) type lookups
+        // for plain string literals in non-type contexts.
+        const wantsTypeForm =
+            (flags & EvalFlags.TypeFormArg) !== 0 ||
+            (inferenceContext !== undefined && expectedTypeWantsTypeForm(inferenceContext.expectedType));
+        if (!wantsTypeForm) {
+            return typeResult;
+        }
+
+        // For performance reasons, do not attempt to treat the string literal
+        // as a TypeForm if it's going to fail anyway or is unlikely to be a
+        // TypeForm (really long, triple-quoted, etc.).
+        const stringNode = node.d.strings[0];
+        const tokenFlags = stringNode.d.token.flags;
+        const disallowedTokenFlags =
+            StringTokenFlags.Bytes |
+            StringTokenFlags.Raw |
+            StringTokenFlags.Format |
+            StringTokenFlags.Template |
+            StringTokenFlags.Triplicate;
+        const maxTypeFormStringLength = 256;
+
+        if (
+            (tokenFlags & disallowedTokenFlags) !== 0 ||
+            stringNode.d.token.escapedValue.length >= maxTypeFormStringLength
+        ) {
+            return typeResult;
+        }
+
+        const typeFormResult = getTypeOfStringListAsType(node, flags);
+        if (typeFormResult.type.props?.typeForm) {
+            typeResult.type = TypeBase.cloneWithTypeForm(typeResult.type, typeFormResult.type.props.typeForm);
+        }
+
+        return typeResult;
+    }
+
     return {
         getTypeOfEllipsis,
         getTypeOfUnpackOperator,
-        getTypeOfStringListAsType,
         getTypeOfString,
         getDeclaredTypeForExpression,
         getTypeOfIterator,
@@ -2515,5 +2734,6 @@ export function createExpressionEvaluation(context: Context) {
         getTypeOfExpressionExpectingType,
         getTypeOfMember,
         getTypeOfMemberInternal,
+        getTypeOfStringList,
     };
 }

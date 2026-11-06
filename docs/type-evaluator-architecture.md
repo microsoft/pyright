@@ -33,17 +33,31 @@ Stateless literal and unpacking helpers use ordinary module exports.
 | `diagnostics.ts` | Evaluator diagnostics and diagnostic context |
 | `flowAnalysis.ts` | Reachability and code flow adapters |
 | `evaluatorNarrowing.ts` | Evaluator truthiness and assignment narrowing |
-| `narrowing.ts` | Type guard narrowing helpers |
+| `typeGuardNarrowing.ts` | Conditional and type guard narrowing helpers |
 | `collectionInference.ts` | Lists, sets, dictionaries and comprehensions |
 | `specialFormCreation.ts` | Current special typing forms and synthesized types |
 | `typeVarHandling.ts` | Type variables, variance and specialization |
 | `overrideValidation.ts` | Method and attribute override compatibility |
 | `memberResolution.ts` | Member access, declarations and symbol resolution |
 | `boundMethodSpecialization.ts` | Current bound receiver and method specialization |
+| `classConstruction.ts` | Class synthesis and effective metaclass selection |
+| `returnTypeInference.ts` | Contextual return inference and inference-frame queries |
 | `expressionEvaluation.ts` | Expression evaluation and argument handling |
 | `assignFunctions.ts` | Type assignment and compatibility |
-| `evaluatorCore.ts` | Shared evaluator operations and inference adapters |
+| `evaluatorCore.ts` | Remaining evaluator lookup, validation and specialization helpers |
 | `internals.ts` | Private contracts shared by implementation modules |
+
+The two narrowing modules are separate layers: `evaluatorNarrowing.ts` provides
+truthiness and assignment primitives; `typeGuardNarrowing.ts` applies conditional
+and type guard tests using those primitives. Scalar string evaluation and
+forward-annotation parsing belong to `expressionEvaluation.ts`, while callable
+parameter packing is private to `assignFunctions.ts`.
+
+`returnTypeInference.ts` uses the original evaluator-owned inference stack and
+live cache getters/setters. It does not own replacement evaluator state.
+`evaluatorCore.ts` is a remaining-helper group, not a cohesive architectural
+layer or a destination for new unrelated helpers. Callback dependencies may
+still form cycles; these topic boundaries do not imply an acyclic call graph.
 
 The remaining closure-local functions are intentional. This migration reproduces
 the old branch's completed boundaries using current code; it does not redesign

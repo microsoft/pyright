@@ -11,30 +11,24 @@ import { DiagnosticLevel } from '../../common/configOptions';
 import { assert } from '../../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../../common/diagnostic';
 import { DiagnosticRule } from '../../common/diagnosticRules';
-import { convertOffsetsToRange } from '../../common/positionUtils';
 import { PythonVersion, pythonVersion3_9 } from '../../common/pythonVersion';
 import { TextRange } from '../../common/textRange';
 import { LocAddendum, LocMessage } from '../../localization/localize';
 import {
-    ArgCategory,
     ArgumentNode,
     AssignmentNode,
     ClassNode,
     ComprehensionForIfNode,
     ExpressionNode,
-    FunctionNode,
     NameNode,
     ParamCategory,
     ParameterNode,
     ParseNode,
     ParseNodeType,
-    StringListNode,
 } from '../../parser/parseNodes';
-import { ParseOptions, Parser, ParseTextMode } from '../../parser/parser';
 import { KeywordType, OperatorType } from '../../parser/tokenizerTypes';
 import { isAnnotationEvaluationPostponed } from '../analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzerNodeInfo';
-import { CodeFlowEngine } from '../codeFlowEngine';
 import { ConstraintSolution } from '../constraintSolution';
 import { solveConstraints } from '../constraintSolver';
 import { ConstraintTracker } from '../constraintTracker';
@@ -45,29 +39,21 @@ import { getParamListDetails } from '../parameterUtils';
 import * as ParseTreeUtils from '../parseTreeUtils';
 import { Scope } from '../scope';
 import * as ScopeUtils from '../scopeUtils';
-import { Symbol, SymbolFlags } from '../symbol';
+import { Symbol } from '../symbol';
 import { isPrivateOrProtectedName } from '../symbolNameUtils';
 import { getLastTypedDeclarationForSymbol } from '../symbolUtils';
 import { expandTuple, makeTupleObject } from '../tuples';
-import { SpeculativeTypeTracker } from '../typeCacheUtils';
-import {
-    ReturnTypeInferenceContext,
-    SymbolResolutionStackEntry,
-    TypeCacheEntry,
-    TypeFormTypeCacheEntry,
-} from '../typeEvaluator/internals';
+import { SymbolResolutionStackEntry } from '../typeEvaluator/internals';
 import {
     AbstractSymbol,
     Arg,
     ArgWithExpression,
     AssignTypeFlags,
     CallResult,
-    CallSiteEvaluationInfo,
     ClassTypeResult,
     EvalFlags,
     EvaluatorUsage,
     ExpectedTypeOptions,
-    FunctionTypeResult,
     MapSubtypesOptions,
     PrefetchedTypes,
     PrintTypeOptions,
@@ -79,9 +65,7 @@ import {
 } from '../typeEvaluatorTypes';
 import { enumerateLiteralsForType } from '../typeGuards';
 import {
-    AnyType,
     ClassType,
-    ClassTypeFlags,
     combineTypes,
     FunctionParam,
     FunctionParamFlags,
@@ -122,10 +106,8 @@ import {
     Variance,
 } from '../types';
 import {
-    addConditionToType,
     applySolvedTypeVars,
     ApplyTypeVarOptions,
-    computeMroLinearization,
     containsLiteralType,
     convertToInstance,
     derivesFromClassRecursive,
@@ -134,7 +116,6 @@ import {
     explodeGenericClass,
     getTypeCondition,
     getTypeVarArgsRecursive,
-    getTypeVarScopeId,
     getTypeVarScopeIds,
     getUnknownTypeForCallable,
     InferenceContext,
@@ -182,7 +163,6 @@ interface Context {
         allowAssignmentToFinalVar?: boolean,
         expectedTypeDiagAddendum?: DiagnosticAddendum
     ) => void;
-    readonly codeFlowEngine: CodeFlowEngine;
     readonly convertTypeArgToInstance: (type: Type, flags: EvalFlags) => Type;
     readonly createAnnotatedType: (
         classType: ClassType,
@@ -262,12 +242,10 @@ interface Context {
         flags: EvalFlags
     ) => Type;
     readonly evaluatorInterface: TypeEvaluator;
-    readonly getBaseClassesFromTypeCall: (baseTupleType: ClassType) => Type[] | undefined;
     readonly getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     readonly getScopeForNode: (node: ParseNode) => Scope | undefined;
     readonly getScopeIdForNode: (node: ParseNode) => string;
     readonly getTypeOfAnnotation: (node: ExpressionNode, options?: ExpectedTypeOptions) => Type;
-    readonly getTypeOfArg: (arg: Arg, inferenceContext: InferenceContext | undefined) => TypeResult;
     readonly getTypeOfBoundMember: (
         errorNode: ExpressionNode | undefined,
         objectType: ClassType,
@@ -285,17 +263,11 @@ interface Context {
         inferenceContext?: InferenceContext
     ) => TypeResult;
     readonly getTypeOfExpressionExpectingType: (node: ExpressionNode, options?: ExpectedTypeOptions) => TypeResult;
-    readonly getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
     readonly getTypeOfIterator: (
         typeResult: TypeResult,
         isAsync: boolean,
         errorNode: ExpressionNode,
         emitNotIterableError?: boolean
-    ) => TypeResult | undefined;
-    readonly inferFunctionReturnType: (
-        node: FunctionNode,
-        isAbstract: boolean,
-        callerNode: ExpressionNode | undefined
     ) => TypeResult | undefined;
     readonly inferReturnTypeIfNecessary: (type: Type) => void;
     readonly inferVarianceForClass: (classType: ClassType) => void;
@@ -312,18 +284,10 @@ interface Context {
         callback: (expandedSubtype: Type, unexpandedSubtype: Type, isLastIteration: boolean) => Type | undefined,
         recursionCount?: number
     ) => Type;
-    readonly maxCallSiteReturnTypeCacheSize: 8;
-    readonly maxReturnCallSiteTypeInferenceCodeFlowComplexity: 8;
-    readonly maxReturnTypeInferenceArgCount: 6;
-    readonly maxReturnTypeInferenceStackSize: 2;
     readonly maxSingleOverloadArgTypeExpansionCount: 64;
     readonly nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor;
     readonly prefetched: Partial<PrefetchedTypes> | undefined;
     readonly printType: (type: Type, options?: PrintTypeOptions) => string;
-    readonly returnTypeInferenceContextStack: ReturnTypeInferenceContext[];
-    returnTypeInferenceTypeCache: Map<number, TypeCacheEntry> | undefined;
-    returnTypeInferenceTypeFormTypeCache: Map<number, TypeFormTypeCacheEntry[]> | undefined;
-    readonly speculativeTypeTracker: SpeculativeTypeTracker;
     readonly stripLiteralValue: (type: Type) => Type;
     readonly suppressDiagnostics: <T>(
         node: ParseNode,
@@ -347,13 +311,6 @@ interface Context {
     ) => CallResult;
     readonly validateTypeArg: (argResult: TypeResultWithNode, options?: ValidateTypeArgsOptions) => boolean;
     readonly validateTypeVarTupleIsUnpacked: (type: TypeVarTupleType, node: ParseNode) => boolean;
-    readonly writeTypeCache: (
-        node: ParseNode,
-        typeResult: TypeResult,
-        flags: EvalFlags | undefined,
-        inferenceContext?: InferenceContext,
-        allowSpeculativeCaching?: boolean
-    ) => void;
 }
 
 export function createEvaluatorCore(contextDependencies: Context) {
@@ -361,7 +318,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         addDiagnostic,
         assignType,
         assignTypeToExpression,
-        codeFlowEngine,
         convertTypeArgToInstance,
         createAnnotatedType,
         createCallableType,
@@ -377,34 +333,24 @@ export function createEvaluatorCore(contextDependencies: Context) {
         createUnionType,
         createUnpackType,
         evaluatorInterface,
-        getBaseClassesFromTypeCall,
         getEffectiveTypeOfSymbol,
         getScopeForNode,
         getScopeIdForNode,
         getTypeOfAnnotation,
-        getTypeOfArg,
         getTypeOfBoundMember,
         getTypeOfClass,
         getTypeOfExpression,
         getTypeOfExpressionExpectingType,
-        getTypeOfFunction,
         getTypeOfIterator,
-        inferFunctionReturnType,
         inferReturnTypeIfNecessary,
         inferVarianceForClass,
         isTypeFormClass,
         isTypePromotionRelated,
         makeTopLevelTypeVarsConcrete,
         mapSubtypesExpandTypeVars,
-        maxCallSiteReturnTypeCacheSize,
-        maxReturnCallSiteTypeInferenceCodeFlowComplexity,
-        maxReturnTypeInferenceArgCount,
-        maxReturnTypeInferenceStackSize,
         maxSingleOverloadArgTypeExpansionCount,
         nodeInfo,
         printType,
-        returnTypeInferenceContextStack,
-        speculativeTypeTracker,
         stripLiteralValue,
         suppressDiagnostics,
         symbolResolutionStack,
@@ -412,34 +358,7 @@ export function createEvaluatorCore(contextDependencies: Context) {
         validateCallArgs,
         validateTypeArg,
         validateTypeVarTupleIsUnpacked,
-        writeTypeCache,
     } = contextDependencies;
-
-    function isNodeInReturnTypeInferenceContext(node: ParseNode) {
-        const stackSize = returnTypeInferenceContextStack.length;
-        if (stackSize === 0) {
-            return false;
-        }
-
-        const contextNode = returnTypeInferenceContextStack[stackSize - 1];
-
-        let curNode: ParseNode | undefined = node;
-        while (curNode) {
-            if (curNode === contextNode.functionNode) {
-                return true;
-            }
-            curNode = curNode.parent;
-        }
-
-        return false;
-    }
-
-    function getCodeFlowAnalyzerForReturnTypeInferenceContext() {
-        const stackSize = returnTypeInferenceContextStack.length;
-        assert(stackSize > 0);
-        const contextNode = returnTypeInferenceContextStack[stackSize - 1];
-        return contextNode.codeFlowAnalyzer;
-    }
 
     function getIndexOfSymbolResolution(symbol: Symbol, declaration: Declaration) {
         return symbolResolutionStack.findIndex(
@@ -1469,185 +1388,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         return nameParts.reverse().join('.');
     }
 
-    function createNewType(errorNode: ExpressionNode, argList: Arg[]): ClassType | undefined {
-        const fileInfo = nodeInfo.getFileInfo(errorNode);
-        let className = '';
-
-        if (argList.length !== 2) {
-            addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.newTypeParamCount(), errorNode);
-            return undefined;
-        }
-
-        const nameArg = argList[0];
-        if (
-            nameArg.argCategory === ArgCategory.Simple &&
-            nameArg.valueExpression &&
-            nameArg.valueExpression.nodeType === ParseNodeType.StringList
-        ) {
-            className = nameArg.valueExpression.d.strings.map((s) => s.d.value).join('');
-        }
-
-        if (!className) {
-            addDiagnostic(DiagnosticRule.reportArgumentType, LocMessage.newTypeBadName(), argList[0].node ?? errorNode);
-            return undefined;
-        }
-
-        if (
-            errorNode.parent?.nodeType === ParseNodeType.Assignment &&
-            errorNode.parent.d.leftExpr.nodeType === ParseNodeType.Name &&
-            errorNode.parent.d.leftExpr.d.value !== className
-        ) {
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.newTypeNameMismatch(),
-                errorNode.parent.d.leftExpr
-            );
-            return undefined;
-        }
-
-        let baseClass = getTypeOfArgExpectingType(argList[1]).type;
-        let isBaseClassAny = false;
-
-        if (isAnyOrUnknown(baseClass)) {
-            baseClass = contextDependencies.prefetched?.objectClass ?? UnknownType.create();
-
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.newTypeAnyOrUnknown(),
-                argList[1].node ?? errorNode
-            );
-
-            isBaseClassAny = true;
-        }
-
-        // Specifically disallow Annotated.
-        if (
-            baseClass.props?.specialForm &&
-            isClassInstance(baseClass.props.specialForm) &&
-            ClassType.isBuiltIn(baseClass.props.specialForm, 'Annotated')
-        ) {
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.newTypeNotAClass(),
-                argList[1].node || errorNode
-            );
-            return undefined;
-        }
-
-        if (!isInstantiableClass(baseClass)) {
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.newTypeNotAClass(),
-                argList[1].node || errorNode
-            );
-            return undefined;
-        }
-
-        if (ClassType.isProtocolClass(baseClass) || ClassType.isTypedDictClass(baseClass)) {
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.newTypeProtocolClass(),
-                argList[1].node || errorNode
-            );
-        } else if (baseClass.priv.literalValue !== undefined) {
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.newTypeLiteral(),
-                argList[1].node || errorNode
-            );
-        }
-
-        const classType = ClassType.createInstantiable(
-            className,
-            ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
-            fileInfo.moduleName,
-            fileInfo.fileUri,
-            ClassTypeFlags.Final | ClassTypeFlags.NewTypeClass | ClassTypeFlags.ValidTypeAliasClass,
-            ParseTreeUtils.getTypeSourceId(errorNode),
-            /* declaredMetaclass */ undefined,
-            baseClass.shared.effectiveMetaclass
-        );
-        classType.shared.baseClasses.push(isBaseClassAny ? AnyType.create() : baseClass);
-        computeMroLinearization(classType);
-
-        if (!isBaseClassAny) {
-            // Synthesize an __init__ method that accepts only the specified type.
-            const initType = FunctionType.createSynthesizedInstance('__init__');
-            FunctionType.addParam(
-                initType,
-                FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
-            );
-            FunctionType.addParam(
-                initType,
-                FunctionParam.create(
-                    ParamCategory.Simple,
-                    ClassType.cloneAsInstance(baseClass),
-                    FunctionParamFlags.TypeDeclared,
-                    '_x'
-                )
-            );
-            initType.shared.declaredReturnType = getNoneType();
-            ClassType.getSymbolTable(classType).set(
-                '__init__',
-                Symbol.createWithType(SymbolFlags.ClassMember, initType)
-            );
-
-            // Synthesize a trivial __new__ method.
-            const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
-            FunctionType.addParam(
-                newType,
-                FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'cls')
-            );
-            FunctionType.addDefaultParams(newType);
-            newType.shared.declaredReturnType = ClassType.cloneAsInstance(classType);
-            newType.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
-            ClassType.getSymbolTable(classType).set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
-        }
-
-        return classType;
-    }
-
-    function createClassFromMetaclass(
-        errorNode: ExpressionNode,
-        argList: Arg[],
-        metaclass: ClassType
-    ): ClassType | undefined {
-        const fileInfo = nodeInfo.getFileInfo(errorNode);
-        const arg0Type = getTypeOfArg(argList[0], /* inferenceContext */ undefined).type;
-        if (!isClassInstance(arg0Type) || !ClassType.isBuiltIn(arg0Type, 'str')) {
-            return undefined;
-        }
-        const className = (arg0Type.priv.literalValue as string) || '_';
-
-        const baseTupleType = getTypeOfArg(argList[1], /* inferenceContext */ undefined).type;
-        if (!isClassInstance(baseTupleType)) {
-            return undefined;
-        }
-
-        const baseClasses = getBaseClassesFromTypeCall(baseTupleType);
-        if (!baseClasses) {
-            return undefined;
-        }
-
-        const classType = ClassType.createInstantiable(
-            className,
-            ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
-            fileInfo.moduleName,
-            fileInfo.fileUri,
-            ClassTypeFlags.ValidTypeAliasClass,
-            ParseTreeUtils.getTypeSourceId(errorNode),
-            metaclass,
-            baseTupleType.shared.effectiveMetaclass
-        );
-        classType.shared.baseClasses.push(...baseClasses);
-
-        if (!computeMroLinearization(classType)) {
-            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.methodOrdering(), errorNode);
-        }
-
-        return classType;
-    }
-
     function verifySetEntryOrDictKeyIsHashable(entry: ExpressionNode, type: Type, isDictKey: boolean) {
         // Verify that the type is hashable.
         if (!isTypeHashable(type)) {
@@ -1912,140 +1652,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         }
 
         return result;
-    }
-
-    function createSubclass(errorNode: ExpressionNode, type1: ClassType, type2: ClassType): ClassType {
-        assert(isInstantiableClass(type1) && isInstantiableClass(type2));
-
-        // If both classes are class objects (type[A] and type[B]), create a new
-        // class object (type[A & B]) rather than "type[A] & type[B]".
-        let createClassObject = false;
-        if (TypeBase.getInstantiableDepth(type1) > 0 && TypeBase.getInstantiableDepth(type2) > 0) {
-            type1 = ClassType.cloneAsInstance(type1);
-            type2 = ClassType.cloneAsInstance(type2);
-            createClassObject = true;
-        }
-
-        const className = `<subclass of ${printType(convertToInstance(type1), {
-            omitTypeArgsIfUnknown: true,
-        })} and ${printType(convertToInstance(type2), { omitTypeArgsIfUnknown: true })}>`;
-        const fileInfo = nodeInfo.getFileInfo(errorNode);
-
-        // The effective metaclass of the intersection is the narrower of the two metaclasses.
-        let effectiveMetaclass = type1.shared.effectiveMetaclass;
-        if (type2.shared.effectiveMetaclass) {
-            if (!effectiveMetaclass || assignType(effectiveMetaclass, type2.shared.effectiveMetaclass)) {
-                effectiveMetaclass = type2.shared.effectiveMetaclass;
-            }
-        }
-
-        let newClassType = ClassType.createInstantiable(
-            className,
-            ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
-            fileInfo.moduleName,
-            fileInfo.fileUri,
-            ClassTypeFlags.None,
-            ParseTreeUtils.getTypeSourceId(errorNode),
-            /* declaredMetaclass */ undefined,
-            effectiveMetaclass,
-            type1.shared.docString
-        );
-
-        newClassType.shared.baseClasses = [type1, type2];
-        computeMroLinearization(newClassType);
-
-        newClassType = addConditionToType(newClassType, type1.props?.condition);
-        newClassType = addConditionToType(newClassType, type2.props?.condition);
-
-        if (createClassObject) {
-            newClassType = ClassType.cloneAsInstantiable(newClassType);
-        }
-
-        return newClassType;
-    }
-
-    function buildTypeParamsFromTypeArgs(classType: ClassType): TypeVarType[] {
-        const typeParams: TypeVarType[] = [];
-        const typeArgs = classType.priv.typeArgs ?? [];
-
-        typeArgs.forEach((typeArg, index) => {
-            if (isTypeVar(typeArg)) {
-                typeParams.push(typeArg);
-                return;
-            }
-
-            // Synthesize a dummy type parameter.
-            const typeVar = TypeVarType.createInstance(`__P${index}`);
-            typeVar.shared.isSynthesized = true;
-            typeParams.push(typeVar);
-        });
-
-        return typeParams;
-    }
-
-    function computeEffectiveMetaclass(classType: ClassType, errorNode: ParseNode) {
-        let effectiveMetaclass = classType.shared.declaredMetaclass;
-        let reportedMetaclassConflict = false;
-
-        if (!effectiveMetaclass || isInstantiableClass(effectiveMetaclass)) {
-            for (const baseClass of classType.shared.baseClasses) {
-                if (isInstantiableClass(baseClass)) {
-                    const baseClassMeta =
-                        baseClass.shared.effectiveMetaclass ?? contextDependencies.prefetched?.typeClass;
-                    if (baseClassMeta && isInstantiableClass(baseClassMeta)) {
-                        // Make sure there is no metaclass conflict.
-                        if (!effectiveMetaclass) {
-                            effectiveMetaclass = baseClassMeta;
-                        } else if (
-                            derivesFromClassRecursive(baseClassMeta, effectiveMetaclass, /* ignoreUnknown */ false)
-                        ) {
-                            effectiveMetaclass = baseClassMeta;
-                        } else if (
-                            !derivesFromClassRecursive(effectiveMetaclass, baseClassMeta, /* ignoreUnknown */ false)
-                        ) {
-                            if (!reportedMetaclassConflict) {
-                                const diag = new DiagnosticAddendum();
-
-                                diag.addMessage(
-                                    LocAddendum.metaclassConflict().format({
-                                        metaclass1: printType(convertToInstance(effectiveMetaclass)),
-                                        metaclass2: printType(convertToInstance(baseClassMeta)),
-                                    })
-                                );
-                                addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    LocMessage.metaclassConflict() + diag.getString(),
-                                    errorNode
-                                );
-
-                                // Don't report more than once.
-                                reportedMetaclassConflict = true;
-                            }
-                        }
-                    } else {
-                        effectiveMetaclass = baseClassMeta ? UnknownType.create() : undefined;
-                        break;
-                    }
-                } else {
-                    // If one of the base classes is unknown, then the effective
-                    // metaclass is also unknowable.
-                    effectiveMetaclass = UnknownType.create();
-                    break;
-                }
-            }
-        }
-
-        // If we haven't found an effective metaclass, assume "type", which
-        // is the metaclass for "object".
-        if (!effectiveMetaclass) {
-            const typeMetaclass = getBuiltInType(errorNode, 'type');
-            effectiveMetaclass =
-                typeMetaclass && isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create();
-        }
-
-        classType.shared.effectiveMetaclass = effectiveMetaclass;
-
-        return effectiveMetaclass;
     }
 
     function adjustParamAnnotatedType(param: ParameterNode, type: Type): Type {
@@ -2865,191 +2471,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         return false;
     }
 
-    function inferReturnTypeForCallSite(type: FunctionType, callSiteInfo: CallSiteEvaluationInfo): Type | undefined {
-        const args = callSiteInfo.args;
-        let contextualReturnType: Type | undefined;
-
-        if (!type.shared.declaration) {
-            return undefined;
-        }
-        const functionNode = type.shared.declaration.node;
-        const codeFlowComplexity = nodeInfo.getCodeFlowComplexity(functionNode);
-
-        if (codeFlowComplexity >= maxReturnCallSiteTypeInferenceCodeFlowComplexity) {
-            return undefined;
-        }
-
-        // If an arg hasn't been matched to a specific named parameter,
-        // it's an unpacked value that corresponds to multiple parameters.
-        // That's an edge case that we don't handle here.
-        if (args.some((arg) => !arg.paramName)) {
-            return undefined;
-        }
-
-        // Detect recurrence. If a function invokes itself either directly
-        // or indirectly, we won't attempt to infer contextual return
-        // types any further.
-        if (returnTypeInferenceContextStack.some((context) => context.functionNode === functionNode)) {
-            return undefined;
-        }
-
-        const functionTypeResult = getTypeOfFunction(functionNode);
-        if (!functionTypeResult) {
-            return undefined;
-        }
-
-        // Very complex functions with many arguments can take a long time to analyze,
-        // so we'll use a heuristic and avoiding this inference technique for any
-        // call site that involves too many arguments.
-        if (args.length > maxReturnTypeInferenceArgCount) {
-            return undefined;
-        }
-
-        // Don't explore arbitrarily deep in the call graph.
-        if (returnTypeInferenceContextStack.length >= maxReturnTypeInferenceStackSize) {
-            return undefined;
-        }
-
-        const paramTypes: Type[] = [];
-        let isResultFromCache = false;
-
-        // If the call is located in a loop, don't use literal argument types
-        // for the same reason we don't do literal math in loops.
-        const stripLiteralArgTypes = ParseTreeUtils.isWithinLoop(callSiteInfo.errorNode);
-
-        // Suppress diagnostics because we don't want to generate errors.
-        suppressDiagnostics(functionNode, () => {
-            // Argument expressions belong to the caller's contextual cache.
-            const argTypes = functionNode.d.params.map((param) => {
-                const arg = args.find((arg) => param.d.name?.d.value === arg.paramName);
-                return arg?.argument.valueExpression
-                    ? getTypeOfExpression(arg.argument.valueExpression).type
-                    : undefined;
-            });
-
-            // Allocate a new temporary type cache for the context of just
-            // this function so we can analyze it separately without polluting
-            // the main type cache.
-            const prevTypeCache = contextDependencies.returnTypeInferenceTypeCache;
-            const prevTypeFormTypeCache = contextDependencies.returnTypeInferenceTypeFormTypeCache;
-            returnTypeInferenceContextStack.push({
-                functionNode,
-                codeFlowAnalyzer: codeFlowEngine.createCodeFlowAnalyzer(),
-            });
-
-            try {
-                contextDependencies.returnTypeInferenceTypeCache = new Map<number, TypeCacheEntry>();
-                contextDependencies.returnTypeInferenceTypeFormTypeCache = new Map<number, TypeFormTypeCacheEntry[]>();
-
-                let allArgTypesAreUnknown = true;
-                functionNode.d.params.forEach((param, index) => {
-                    if (param.d.name) {
-                        let paramType = argTypes[index];
-
-                        if (paramType) {
-                            if (!isUnknown(paramType)) {
-                                allArgTypesAreUnknown = false;
-                            }
-                        } else if (param.d.defaultValue) {
-                            paramType = getTypeOfExpression(param.d.defaultValue).type;
-                            if (!isUnknown(paramType)) {
-                                allArgTypesAreUnknown = false;
-                            }
-                        } else if (index === 0) {
-                            // If this is an instance or class method, use the implied
-                            // parameter type for the "self" or "cls" parameter.
-                            if (
-                                FunctionType.isInstanceMethod(functionTypeResult.functionType) ||
-                                FunctionType.isClassMethod(functionTypeResult.functionType)
-                            ) {
-                                if (functionTypeResult.functionType.shared.parameters.length > 0) {
-                                    if (functionNode.d.params[0].d.name) {
-                                        paramType = FunctionType.getParamType(functionTypeResult.functionType, 0);
-                                    }
-                                }
-                            }
-                        }
-
-                        if (!paramType) {
-                            paramType = UnknownType.create();
-                        }
-
-                        if (stripLiteralArgTypes) {
-                            paramType = stripTypeForm(
-                                convertSpecialFormToRuntimeValue(
-                                    stripLiteralValue(paramType),
-                                    EvalFlags.None,
-                                    /* convertModule */ true
-                                )
-                            );
-                        }
-
-                        paramTypes.push(paramType);
-                        writeTypeCache(param.d.name, { type: paramType }, EvalFlags.None);
-                    }
-                });
-
-                // Don't bother trying to determine the contextual return
-                // type if none of the argument types are known.
-                if (!allArgTypesAreUnknown) {
-                    // See if the return type is already cached. If so, skip the
-                    // inference step, which is potentially very expensive.
-                    const cacheEntry = functionTypeResult.functionType.priv.callSiteReturnTypeCache?.find((entry) => {
-                        return (
-                            entry.paramTypes.length === paramTypes.length &&
-                            entry.paramTypes.every((t, i) => isTypeSame(t, paramTypes[i]))
-                        );
-                    });
-
-                    if (cacheEntry) {
-                        contextualReturnType = cacheEntry.returnType;
-                        isResultFromCache = true;
-                    } else {
-                        // Speculative results also depend on these temporary parameter bindings,
-                        // not just the expected types used during overload resolution.
-                        contextualReturnType = speculativeTypeTracker.useSpeculativeTypeCacheIsolation(() =>
-                            inferFunctionReturnType(
-                                functionNode,
-                                FunctionType.isAbstractMethod(type),
-                                callSiteInfo?.errorNode
-                            )
-                        )?.type;
-                    }
-                }
-            } finally {
-                returnTypeInferenceContextStack.pop();
-                contextDependencies.returnTypeInferenceTypeCache = prevTypeCache;
-                contextDependencies.returnTypeInferenceTypeFormTypeCache = prevTypeFormTypeCache;
-            }
-        });
-
-        if (contextualReturnType) {
-            contextualReturnType = removeUnbound(contextualReturnType);
-
-            if (!isResultFromCache) {
-                // Cache the resulting type.
-                if (!functionTypeResult.functionType.priv.callSiteReturnTypeCache) {
-                    functionTypeResult.functionType.priv.callSiteReturnTypeCache = [];
-                }
-                if (
-                    functionTypeResult.functionType.priv.callSiteReturnTypeCache.length >=
-                    maxCallSiteReturnTypeCacheSize
-                ) {
-                    functionTypeResult.functionType.priv.callSiteReturnTypeCache =
-                        functionTypeResult.functionType.priv.callSiteReturnTypeCache.slice(1);
-                }
-                functionTypeResult.functionType.priv.callSiteReturnTypeCache.push({
-                    paramTypes,
-                    returnType: contextualReturnType,
-                });
-            }
-
-            return contextualReturnType;
-        }
-
-        return undefined;
-    }
-
     function isSpecialFormClass(classType: ClassType, flags: AssignTypeFlags): boolean {
         if ((flags & AssignTypeFlags.AllowIsinstanceSpecialForms) !== 0) {
             return false;
@@ -3471,96 +2892,7 @@ export function createEvaluatorCore(contextDependencies: Context) {
         return false;
     }
 
-    function printSrcDestTypes(
-        srcType: Type,
-        destType: Type,
-        options?: PrintTypeOptions
-    ): { sourceType: string; destType: string } {
-        const simpleSrcType = printType(srcType, options);
-        const simpleDestType = printType(destType, options);
-
-        if (simpleSrcType !== simpleDestType) {
-            return { sourceType: simpleSrcType, destType: simpleDestType };
-        }
-
-        const fullSrcType = printType(srcType, { ...(options ?? {}), useFullyQualifiedNames: true });
-        const fullDestType = printType(destType, { ...(options ?? {}), useFullyQualifiedNames: true });
-
-        if (fullSrcType !== fullDestType) {
-            return { sourceType: fullSrcType, destType: fullDestType };
-        }
-
-        return { sourceType: simpleSrcType, destType: simpleDestType };
-    }
-
-    function parseStringAsTypeAnnotation(node: StringListNode, reportErrors: boolean): ExpressionNode | undefined {
-        const fileInfo = nodeInfo.getFileInfo(node);
-        const parser = new Parser();
-        const textValue = node.d.strings[0].d.value;
-
-        // Determine the offset within the file where the string
-        // literal's contents begin.
-        let valueOffset = node.d.strings[0].start;
-        if (node.d.strings[0].nodeType === ParseNodeType.String) {
-            valueOffset += node.d.strings[0].d.token.prefixLength + node.d.strings[0].d.token.quoteMarkLength;
-        }
-
-        // Construct a temporary dummy string with the text value at the appropriate
-        // offset so as to mimic the original file. This will keep all of the token
-        // and diagnostic offsets correct.
-        const dummyFileContents = ' '.repeat(valueOffset) + textValue;
-
-        const parseOptions = new ParseOptions();
-        parseOptions.isStubFile = fileInfo.isStubFile;
-        parseOptions.pythonVersion = fileInfo.executionEnvironment.pythonVersion;
-        parseOptions.reportErrorsForParsedStringContents = true;
-
-        const parseResults = parser.parseTextExpression(
-            dummyFileContents,
-            valueOffset,
-            textValue.length,
-            parseOptions,
-            ParseTextMode.Expression,
-            /* initialParenDepth */ undefined,
-            fileInfo.typingSymbolAliases,
-            node.a
-        );
-
-        if (parseResults.parseTree) {
-            // If there are errors but we are not reporting them, return
-            // undefined to indicate that the parse failed.
-            if (!reportErrors && parseResults.diagnostics.length > 0) {
-                return undefined;
-            }
-
-            const fileInfo = nodeInfo.getFileInfo(node);
-            parseResults.diagnostics.forEach((diag) => {
-                fileInfo.diagnosticSink.addDiagnosticWithTextRange('error', diag.message, node);
-            });
-
-            parseResults.parseTree.parent = node;
-
-            // Optionally add the new subtree to the parse tree so it can
-            // participate in language server operations like find and replace.
-            if (reportErrors) {
-                nodeInfo.setStringAnnotation(node, parseResults.parseTree, parseResults.stringAnnotations);
-            }
-
-            return parseResults.parseTree;
-        }
-
-        return undefined;
-    }
-
-    function getLineNum(node: ParseNode) {
-        const fileInfo = nodeInfo.getFileInfo(node);
-        const range = convertOffsetsToRange(node.start, node.start + node.length, fileInfo.lines);
-        return (range.start.line + 1).toString();
-    }
-
     return {
-        isNodeInReturnTypeInferenceContext,
-        getCodeFlowAnalyzerForReturnTypeInferenceContext,
         getIndexOfSymbolResolution,
         validateTypeIsInstantiable,
         solveAndApplyConstraints,
@@ -3592,8 +2924,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         verifyTypeVarDefaultIsCompatible,
         getTypeVarTupleDefaultType,
         getFunctionFullName,
-        createNewType,
-        createClassFromMetaclass,
         verifySetEntryOrDictKeyIsHashable,
         inferTypeArgFromExpectedEntryType,
         reportPossibleUnknownAssignment,
@@ -3601,9 +2931,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         cloneBuiltinObjectWithLiteral,
         cloneBuiltinClassWithLiteral,
         createSelfType,
-        createSubclass,
-        buildTypeParamsFromTypeArgs,
-        computeEffectiveMetaclass,
         adjustParamAnnotatedType,
         inferParamTypeFromDefaultValue,
         transformVariadicParamType,
@@ -3615,7 +2942,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         getDeclarationFromKeywordParam,
         getAliasFromImport,
         isUnambiguousInference,
-        inferReturnTypeForCallSite,
         isSpecialFormClass,
         isTypeSubsumedByOtherType,
         isProperSubtype,
@@ -3625,8 +2951,5 @@ export function createEvaluatorCore(contextDependencies: Context) {
         isFinalVariableDeclaration,
         isLegalTypeAliasExpressionForm,
         isPossibleTypeDictFactoryCall,
-        printSrcDestTypes,
-        parseStringAsTypeAnnotation,
-        getLineNum,
     };
 }

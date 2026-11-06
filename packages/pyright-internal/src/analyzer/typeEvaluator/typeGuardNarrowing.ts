@@ -1,5 +1,5 @@
 /*
- * narrowing.ts
+ * typeGuardNarrowing.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
@@ -9,7 +9,7 @@
 import { assert } from '../../common/debug';
 import { ArgCategory, ExpressionNode, NameNode, ParamCategory, ParseNodeType } from '../../parser/parseNodes';
 import { KeywordType, OperatorType } from '../../parser/tokenizerTypes';
-import { getInfoReader, AnalyzerNodeInfoAccessor } from '../analyzerNodeInfo';
+import { AnalyzerNodeInfoAccessor, getInfoReader } from '../analyzerNodeInfo';
 import { ConstraintTracker } from '../constraintTracker';
 import { transformTypeForEnumMember } from '../enums';
 import { customMetaclassSupportsMethod } from '../operations';
@@ -24,10 +24,9 @@ import {
     combineTypes,
     EnumLiteral,
     FunctionType,
-    TupleTypeArg,
-    isClass,
     isAny,
     isAnyOrUnknown,
+    isClass,
     isClassInstance,
     isFunction,
     isInstantiableClass,
@@ -35,9 +34,10 @@ import {
     isParamSpec,
     isTypeSame,
     isTypeVar,
-    isUnpackedTypeVarTuple,
     isUnion,
+    isUnpackedTypeVarTuple,
     maxTypeRecursionCount,
+    TupleTypeArg,
     Type,
     TypeBase,
     TypedDictEntry,
@@ -52,10 +52,10 @@ import {
     convertToInstantiable,
     derivesFromStdlibClass,
     doForEachSubtype,
+    getSpecializedTupleType,
     getTypeCondition,
     getTypeVarScopeIds,
     getUnknownTypeForCallable,
-    getSpecializedTupleType,
     isLiteralLikeType,
     isLiteralType,
     isLiteralTypeOrUnion,

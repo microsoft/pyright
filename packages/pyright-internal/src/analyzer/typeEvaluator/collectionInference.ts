@@ -15,16 +15,12 @@ import {
     ComprehensionNode,
     DictionaryNode,
     ExpressionNode,
-    FormatStringNode,
     isExpressionNode,
     ListNode,
     ParseNode,
     ParseNodeType,
     SetNode,
-    StringListNode,
-    StringNode,
 } from '../../parser/parseNodes';
-import { StringTokenFlags } from '../../parser/tokenizerTypes';
 import * as AnalyzerNodeInfo from '../analyzerNodeInfo';
 import { addConstraintsForExpectedType } from '../constraintSolver';
 import { ConstraintTracker } from '../constraintTracker';
@@ -52,7 +48,6 @@ import {
     isClassInstance,
     isInstantiableClass,
     isTypeSame,
-    LiteralValue,
     ModuleType,
     NeverType,
     OverloadedType,
@@ -97,11 +92,9 @@ interface Context {
         flags?: AssignTypeFlags,
         recursionCount?: number
     ) => boolean;
-    readonly cloneBuiltinObjectWithLiteral: (node: ParseNode, builtInName: string, value: LiteralValue) => Type;
     readonly convertSpecialFormToRuntimeValue: (type: Type, flags: EvalFlags, convertModule?: boolean) => Type;
     readonly evaluateComprehensionForIf: (node: ComprehensionForIfNode) => boolean;
     readonly evaluatorInterface: TypeEvaluator;
-    readonly expectedTypeWantsTypeForm: (expectedType: Type) => boolean;
     readonly getBuiltInObject: (
         node: ParseNode,
         name: string,
@@ -126,8 +119,6 @@ interface Context {
         flags?: EvalFlags,
         inferenceContext?: InferenceContext
     ) => TypeResult;
-    readonly getTypeOfString: (node: StringNode | FormatStringNode) => TypeResult;
-    readonly getTypeOfStringListAsType: (node: StringListNode, flags: EvalFlags) => TypeResult;
     readonly getTypeVarScopesForNode: (node: ParseNode) => string[];
     readonly getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     readonly inferTypeArgFromExpectedEntryType: (
@@ -158,18 +149,14 @@ export function createCollectionInference(context: Context) {
     const {
         addDiagnostic,
         assignType,
-        cloneBuiltinObjectWithLiteral,
         convertSpecialFormToRuntimeValue,
         evaluateComprehensionForIf,
         evaluatorInterface,
-        expectedTypeWantsTypeForm,
         getBuiltInObject,
         getBuiltInType,
         getNoneType,
         getObjectType,
         getTypeOfExpression,
-        getTypeOfString,
-        getTypeOfStringListAsType,
         getTypeVarScopesForNode,
         getTypingType,
         inferTypeArgFromExpectedEntryType,
@@ -181,159 +168,6 @@ export function createCollectionInference(context: Context) {
         stripLiteralValue,
         verifySetEntryOrDictKeyIsHashable,
     } = context;
-
-    function getTypeOfStringList(
-        node: StringListNode,
-        flags: EvalFlags,
-        inferenceContext?: InferenceContext
-    ): TypeResult {
-        let typeResult: TypeResult | undefined;
-
-        if (
-            (flags & EvalFlags.StrLiteralAsType) !== 0 &&
-            ((flags & EvalFlags.TypeFormArg) === 0 || (flags & EvalFlags.NoConvertSpecialForm) !== 0)
-        ) {
-            return getTypeOfStringListAsType(node, flags);
-        }
-
-        const isBytesNode = (node: StringNode | FormatStringNode) =>
-            (node.d.token.flags & StringTokenFlags.Bytes) !== 0;
-        const isTemplateNode = (node: StringNode | FormatStringNode) =>
-            (node.d.token.flags & StringTokenFlags.Template) !== 0;
-
-        // Check for mixing of t-string literals with str, bytes, or f-string
-        // literals. CPython reports this as a SyntaxError (PEP 750).
-        const firstTemplateIndex = node.d.strings.findIndex(isTemplateNode);
-        const firstNonTemplateIndex = node.d.strings.findIndex((str) => !isTemplateNode(str));
-        if (firstTemplateIndex >= 0 && firstNonTemplateIndex >= 0) {
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.mixingTemplateAndStr(),
-                node.d.strings[Math.max(firstTemplateIndex, firstNonTemplateIndex)]
-            );
-
-            return { type: UnknownType.create() };
-        }
-
-        // Check for mixing of bytes and str, which is not allowed.
-        const firstStrIndex = node.d.strings.findIndex((str) => !isBytesNode(str));
-        const firstBytesIndex = node.d.strings.findIndex((str) => isBytesNode(str));
-        if (firstStrIndex >= 0 && firstBytesIndex >= 0) {
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.mixingBytesAndStr(),
-                node.d.strings[Math.max(firstBytesIndex, firstStrIndex)]
-            );
-
-            return { type: UnknownType.create() };
-        }
-
-        const isBytes = firstBytesIndex >= 0;
-        let isLiteralString = true;
-        let isIncomplete = false;
-        let isTemplate = false;
-
-        node.d.strings.forEach((expr) => {
-            // Handle implicit concatenation.
-            const typeResult = getTypeOfString(expr);
-
-            if (typeResult.isIncomplete) {
-                isIncomplete = true;
-            }
-
-            let isExprLiteralString = false;
-
-            if (isClassInstance(typeResult.type)) {
-                if (ClassType.isBuiltIn(typeResult.type, 'str') && typeResult.type.priv.literalValue !== undefined) {
-                    isExprLiteralString = true;
-                } else if (ClassType.isBuiltIn(typeResult?.type, 'LiteralString')) {
-                    isExprLiteralString = true;
-                }
-
-                if (typeResult.type.shared.name === 'Template') {
-                    isTemplate = true;
-                }
-            }
-
-            if (!isExprLiteralString) {
-                isLiteralString = false;
-            }
-        });
-
-        if (isTemplate) {
-            const templateType =
-                context.prefetched?.templateClass && isInstantiableClass(context.prefetched?.templateClass)
-                    ? ClassType.cloneAsInstance(context.prefetched.templateClass)
-                    : UnknownType.create();
-
-            typeResult = { type: templateType, isIncomplete };
-        } else if (node.d.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {
-            if (isLiteralString) {
-                const literalStringType = getTypingType(node, 'LiteralString');
-                if (literalStringType && isInstantiableClass(literalStringType)) {
-                    typeResult = { type: ClassType.cloneAsInstance(literalStringType) };
-                }
-            }
-
-            if (!typeResult) {
-                typeResult = {
-                    type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
-                    isIncomplete,
-                };
-            }
-        } else {
-            typeResult = {
-                type: cloneBuiltinObjectWithLiteral(
-                    node,
-                    isBytes ? 'bytes' : 'str',
-                    node.d.strings.map((s) => s.d.value).join('')
-                ),
-                isIncomplete,
-            };
-        }
-
-        if (node.d.strings.length !== 1 || node.d.strings[0].nodeType !== ParseNodeType.String) {
-            return typeResult;
-        }
-
-        // Only attempt to interpret the string as a TypeForm forward reference when
-        // there's a signal that a TypeForm value is wanted in this context. Doing it
-        // unconditionally can trigger expensive (and recursion-prone) type lookups
-        // for plain string literals in non-type contexts.
-        const wantsTypeForm =
-            (flags & EvalFlags.TypeFormArg) !== 0 ||
-            (inferenceContext !== undefined && expectedTypeWantsTypeForm(inferenceContext.expectedType));
-        if (!wantsTypeForm) {
-            return typeResult;
-        }
-
-        // For performance reasons, do not attempt to treat the string literal
-        // as a TypeForm if it's going to fail anyway or is unlikely to be a
-        // TypeForm (really long, triple-quoted, etc.).
-        const stringNode = node.d.strings[0];
-        const tokenFlags = stringNode.d.token.flags;
-        const disallowedTokenFlags =
-            StringTokenFlags.Bytes |
-            StringTokenFlags.Raw |
-            StringTokenFlags.Format |
-            StringTokenFlags.Template |
-            StringTokenFlags.Triplicate;
-        const maxTypeFormStringLength = 256;
-
-        if (
-            (tokenFlags & disallowedTokenFlags) !== 0 ||
-            stringNode.d.token.escapedValue.length >= maxTypeFormStringLength
-        ) {
-            return typeResult;
-        }
-
-        const typeFormResult = getTypeOfStringListAsType(node, flags);
-        if (typeFormResult.type.props?.typeForm) {
-            typeResult.type = TypeBase.cloneWithTypeForm(typeResult.type, typeFormResult.type.props.typeForm);
-        }
-
-        return typeResult;
-    }
 
     function getTypeOfDictionaryWithContext(
         node: DictionaryNode,
@@ -1222,7 +1056,6 @@ export function createCollectionInference(context: Context) {
     }
 
     return {
-        getTypeOfStringList,
         getTypeOfDictionaryWithContext,
         getTypeOfDictionaryInferred,
         getKeyAndValueTypesFromDictionary,

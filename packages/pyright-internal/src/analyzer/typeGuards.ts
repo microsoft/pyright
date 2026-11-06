@@ -30,7 +30,7 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { Symbol, SymbolFlags } from './symbol';
-import * as TypeEvaluatorNarrowing from './typeEvaluator/narrowing';
+import * as TypeEvaluatorNarrowing from './typeEvaluator/typeGuardNarrowing';
 import { AssignTypeFlags, EvalFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,

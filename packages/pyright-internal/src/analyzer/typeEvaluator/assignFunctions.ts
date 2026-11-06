@@ -6,6 +6,7 @@
  * assignFunctions implementation, using evaluator-owned dependencies and state.
  */
 
+import { appendArray } from '../../common/collectionUtils';
 import { assert } from '../../common/debug';
 import { DiagnosticAddendum } from '../../common/diagnostic';
 import { LocAddendum } from '../../localization/localize';
@@ -27,6 +28,7 @@ import {
     combineTypes,
     findSubtype,
     FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
     InheritanceChain,
@@ -46,6 +48,7 @@ import {
     isUnpacked,
     isUnpackedClass,
     isUnpackedTypeVarTuple,
+    TupleTypeArg,
     Type,
     TypeAliasInfo,
     TypeBase,
@@ -77,10 +80,6 @@ import {
 } from '../typeUtils';
 
 interface Context {
-    readonly adjustSourceParamDetailsForDestVariadic: (
-        srcDetails: ParamListDetails,
-        destDetails: ParamListDetails
-    ) => void;
     readonly assignNamedParam: (
         destDetails: ParamListDetails,
         srcDetails: ParamListDetails,
@@ -146,7 +145,6 @@ interface Context {
 
 export function createAssignFunctions(context: Context) {
     const {
-        adjustSourceParamDetailsForDestVariadic,
         assignNamedParam,
         assignType,
         assignTypeArgs,
@@ -2058,6 +2056,103 @@ export function createAssignFunctions(context: Context) {
         }
 
         return canAssign;
+    }
+
+    function adjustSourceParamDetailsForDestVariadic(srcDetails: ParamListDetails, destDetails: ParamListDetails) {
+        // If there is no *args parameter in the dest, we have nothing to do.
+        if (destDetails.argsIndex === undefined) {
+            return;
+        }
+
+        // If the *args parameter isn't an unpacked TypeVarTuple or tuple,
+        // we have nothing to do.
+        if (!isUnpacked(destDetails.params[destDetails.argsIndex].type)) {
+            return;
+        }
+
+        // If the source doesn't have enough positional parameters, we have nothing to do.
+        if (srcDetails.params.length < destDetails.argsIndex) {
+            return;
+        }
+
+        let srcLastToPackIndex = srcDetails.params.findIndex((p, i) => {
+            assert(destDetails.argsIndex !== undefined);
+            return i >= destDetails.argsIndex && p.kind === ParamKind.Keyword;
+        });
+        if (srcLastToPackIndex < 0) {
+            srcLastToPackIndex = srcDetails.params.length;
+        }
+
+        // If both the source and dest have an *args parameter but the dest's is
+        // in a later position, then we can't assign the source's *args to the dest.
+        // Don't make any adjustment in this case.
+        if (srcDetails.argsIndex !== undefined && destDetails.argsIndex > srcDetails.argsIndex) {
+            return;
+        }
+
+        const destFirstNonPositional = destDetails.firstKeywordOnlyIndex ?? destDetails.params.length;
+        const suffixLength = destFirstNonPositional - destDetails.argsIndex - 1;
+        const srcPositionalsToPack = srcDetails.params.slice(destDetails.argsIndex, srcLastToPackIndex - suffixLength);
+        const srcTupleTypes: TupleTypeArg[] = [];
+        srcPositionalsToPack.forEach((entry) => {
+            if (entry.param.category === ParamCategory.ArgsList) {
+                if (isUnpackedTypeVarTuple(entry.type)) {
+                    srcTupleTypes.push({ type: entry.type, isUnbounded: false });
+                } else if (isUnpackedClass(entry.type) && entry.type.priv.tupleTypeArgs) {
+                    appendArray(srcTupleTypes, entry.type.priv.tupleTypeArgs);
+                } else {
+                    srcTupleTypes.push({ type: entry.type, isUnbounded: true });
+                }
+            } else {
+                srcTupleTypes.push({ type: entry.type, isUnbounded: false, isOptional: !!entry.defaultType });
+            }
+        });
+
+        if (srcTupleTypes.length !== 1 || !isTypeVarTuple(srcTupleTypes[0].type)) {
+            const srcPositionalsType = makeTupleObject(evaluatorInterface, srcTupleTypes, /* isUnpacked */ true);
+
+            // Snip out the portion of the source positionals that map to the variadic
+            // dest parameter and replace it with a single parameter that is typed as a
+            // tuple containing the individual types of the replaced parameters.
+            srcDetails.params = [
+                ...srcDetails.params.slice(0, destDetails.argsIndex),
+                {
+                    param: FunctionParam.create(
+                        ParamCategory.ArgsList,
+                        srcPositionalsType,
+                        FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                        '_arg_combined'
+                    ),
+                    type: srcPositionalsType,
+                    declaredType: srcPositionalsType,
+                    index: -1,
+                    kind: ParamKind.Positional,
+                },
+                ...srcDetails.params.slice(
+                    destDetails.argsIndex + srcPositionalsToPack.length,
+                    srcDetails.params.length
+                ),
+            ];
+
+            const argsIndex = srcDetails.params.findIndex((param) => param.param.category === ParamCategory.ArgsList);
+            srcDetails.argsIndex = argsIndex >= 0 ? argsIndex : undefined;
+
+            const kwargsIndex = srcDetails.params.findIndex(
+                (param) => param.param.category === ParamCategory.KwargsDict
+            );
+            srcDetails.kwargsIndex = kwargsIndex >= 0 ? kwargsIndex : undefined;
+
+            const firstKeywordOnlyIndex = srcDetails.params.findIndex((param) => param.kind === ParamKind.Keyword);
+            srcDetails.firstKeywordOnlyIndex = firstKeywordOnlyIndex >= 0 ? firstKeywordOnlyIndex : undefined;
+
+            srcDetails.positionOnlyParamCount = Math.max(
+                0,
+                srcDetails.params.findIndex(
+                    (p) =>
+                        p.kind !== ParamKind.Positional || p.param.category !== ParamCategory.Simple || !!p.defaultType
+                )
+            );
+        }
     }
 
     return {

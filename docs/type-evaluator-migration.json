@@ -37,7 +37,7 @@
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/flowAnalysis.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts"
       ]
     },
     {
@@ -56,7 +56,7 @@
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/flowAnalysis.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts"
       ]
     },
     {
@@ -74,7 +74,7 @@
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts"
       ]
     },
     {
@@ -84,7 +84,7 @@
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts"
       ]
     },
     {
@@ -101,7 +101,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -112,7 +112,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -123,7 +123,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -134,7 +134,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -144,7 +144,7 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -155,7 +155,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -166,7 +166,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -177,7 +177,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -188,7 +188,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -198,7 +198,7 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -209,7 +209,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -220,7 +220,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -231,7 +231,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -241,7 +241,7 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -252,7 +252,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -270,7 +270,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -281,7 +281,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -292,7 +292,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -303,7 +303,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -313,7 +313,7 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -324,7 +324,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -335,7 +335,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -346,7 +346,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -357,7 +357,7 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeGuards.ts"
       ]
     },
@@ -374,7 +374,7 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorNarrowing.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/narrowing.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/typeGuardNarrowing.ts"
       ]
     },
     {
@@ -412,8 +412,12 @@
         "docs/type-evaluator-architecture.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -422,8 +426,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -432,8 +440,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -442,8 +454,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -452,8 +468,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -462,8 +482,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -472,8 +496,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -482,8 +510,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -492,8 +524,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -502,8 +538,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -512,8 +552,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -522,8 +566,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -532,8 +580,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -542,8 +594,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -559,8 +615,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -569,8 +629,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -579,8 +643,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -589,8 +657,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -606,8 +678,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -616,8 +692,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -626,8 +706,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -644,8 +728,12 @@
         ".github/copilot-instructions.md",
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -654,8 +742,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -664,8 +756,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -674,8 +770,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -684,8 +784,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -694,8 +798,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -704,8 +812,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -721,8 +833,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -731,8 +847,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -748,8 +868,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -758,8 +882,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -768,8 +896,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -785,8 +917,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -795,8 +931,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -805,8 +945,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -815,8 +959,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -867,9 +1015,13 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/internals.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -878,8 +1030,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -895,9 +1051,13 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/internals.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -913,8 +1073,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -930,8 +1094,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -940,8 +1108,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -957,8 +1129,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -974,9 +1150,13 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/internals.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -985,9 +1165,13 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/internals.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -996,8 +1180,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1006,8 +1194,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1023,9 +1215,13 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/internals.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1034,8 +1230,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1044,8 +1244,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1054,8 +1258,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1064,8 +1272,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1074,8 +1286,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1084,9 +1300,13 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/internals.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1095,8 +1315,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1105,8 +1329,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1115,8 +1343,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1125,8 +1357,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1135,8 +1371,12 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1145,18 +1385,27 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
       "source": "a0e6234c91e6dee5b6dfa45297569493707ae47a",
       "subject": "Phase 7: split evaluatorCore.ts into topic-focused modules",
       "currentFiles": [
+        "packages/pyright-internal/src/analyzer/typeEvaluator/assignFunctions.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/pureHelpers.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/specialFormCreation.ts"
       ]
     },
@@ -1173,9 +1422,13 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/collectionInference.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1184,9 +1437,13 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/collectionInference.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1196,8 +1453,12 @@
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/assignFunctions.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1213,9 +1474,13 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/overrideValidation.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/overrideValidation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1225,8 +1490,12 @@
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/assignFunctions.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1242,10 +1511,13 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/collectionInference.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1254,9 +1526,13 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/collectionInference.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/typeVarHandling.ts"
       ]
     },
@@ -1273,9 +1549,13 @@
       "currentFiles": [
         "packages/pyright-internal/src/analyzer/typeEvaluator.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/boundMethodSpecialization.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/classConstruction.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/diagnostics.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/evaluatorCore.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/expressionEvaluation.ts",
         "packages/pyright-internal/src/analyzer/typeEvaluator/literalTypes.ts",
-        "packages/pyright-internal/src/analyzer/typeEvaluator/memberResolution.ts"
+        "packages/pyright-internal/src/analyzer/typeEvaluator/memberResolution.ts",
+        "packages/pyright-internal/src/analyzer/typeEvaluator/returnTypeInference.ts"
       ]
     },
     {
@@ -1329,13 +1609,13 @@
       "name": "isNodeInReturnTypeInferenceContext",
       "oldModule": "evaluatorCore",
       "resolution": "ported",
-      "currentModule": "evaluatorCore"
+      "currentModule": "returnTypeInference"
     },
     {
       "name": "getCodeFlowAnalyzerForReturnTypeInferenceContext",
       "oldModule": "evaluatorCore",
       "resolution": "ported",
-      "currentModule": "evaluatorCore"
+      "currentModule": "returnTypeInference"
     },
     {
       "name": "getIndexOfSymbolResolution",
@@ -1395,7 +1675,7 @@
       "name": "getTypeOfStringList",
       "oldModule": "collectionInference",
       "resolution": "ported",
-      "currentModule": "collectionInference"
+      "currentModule": "expressionEvaluation"
     },
     {
       "name": "getTypeOfStringListAsType",
@@ -1887,13 +2167,13 @@
       "name": "createNewType",
       "oldModule": "evaluatorCore",
       "resolution": "ported",
-      "currentModule": "evaluatorCore"
+      "currentModule": "classConstruction"
     },
     {
       "name": "createClassFromMetaclass",
       "oldModule": "evaluatorCore",
       "resolution": "ported",
-      "currentModule": "evaluatorCore"
+      "currentModule": "classConstruction"
     },
     {
       "name": "getTypeOfConstant",
@@ -2133,13 +2413,13 @@
       "name": "createSubclass",
       "oldModule": "evaluatorCore",
       "resolution": "ported",
-      "currentModule": "evaluatorCore"
+      "currentModule": "classConstruction"
     },
     {
       "name": "buildTypeParamsFromTypeArgs",
       "oldModule": "evaluatorCore",
       "resolution": "ported",
-      "currentModule": "evaluatorCore"
+      "currentModule": "classConstruction"
     },
     {
       "name": "validateTypeParamDefault",
@@ -2157,7 +2437,7 @@
       "name": "computeEffectiveMetaclass",
       "oldModule": "evaluatorCore",
       "resolution": "ported",
-      "currentModule": "evaluatorCore"
+      "currentModule": "classConstruction"
     },
     {
       "name": "verifyGenericTypeParams",
@@ -2301,7 +2581,7 @@
       "name": "inferReturnTypeForCallSite",
       "oldModule": "evaluatorCore",
       "resolution": "ported",
-      "currentModule": "evaluatorCore"
+      "currentModule": "returnTypeInference"
     },
     {
       "name": "getDeclaredReturnType",
@@ -2409,7 +2689,7 @@
       "name": "adjustSourceParamDetailsForDestVariadic",
       "oldModule": "specialFormCreation",
       "resolution": "ported",
-      "currentModule": "specialFormCreation"
+      "currentModule": "assignFunctions"
     },
     {
       "name": "assignFunction",
@@ -2505,7 +2785,7 @@
       "name": "printSrcDestTypes",
       "oldModule": "evaluatorCore",
       "resolution": "ported",
-      "currentModule": "evaluatorCore"
+      "currentModule": "diagnostics"
     },
     {
       "name": "isTypeFormSupported",
@@ -2517,7 +2797,7 @@
       "name": "parseStringAsTypeAnnotation",
       "oldModule": "evaluatorCore",
       "resolution": "ported",
-      "currentModule": "evaluatorCore"
+      "currentModule": "expressionEvaluation"
     },
     {
       "name": "narrowConstrainedTypeVar",
@@ -2529,7 +2809,7 @@
       "name": "getLineNum",
       "oldModule": "evaluatorCore",
       "resolution": "ported",
-      "currentModule": "evaluatorCore"
+      "currentModule": "diagnostics"
     },
     {
       "name": "printControlFlowGraph",
@@ -2619,187 +2899,187 @@
       "name": "narrowTypeForTruthiness",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForTruthiness",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTupleTypeForIsNone",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTupleTypeForIsNone",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForIsNone",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForIsNone",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForIsEllipsis",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForIsEllipsis",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForClassComparison",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForClassComparison",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForLiteralComparison",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForLiteralComparison",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForDiscriminatedDictEntryComparison",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForDiscriminatedDictEntryComparison",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForDiscriminatedTupleComparison",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForDiscriminatedTupleComparison",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForDiscriminatedLiteralFieldComparison",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForDiscriminatedLiteralFieldComparison",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForDiscriminatedFieldNoneComparison",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForDiscriminatedFieldNoneComparison",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForTypeIs",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForTypeIs",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForUserDefinedTypeGuard",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForUserDefinedTypeGuard",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForInstanceOrSubclass",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForInstanceOrSubclass",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForTupleLength",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForTupleLength",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForContainerType",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForContainerType",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getElementTypeForContainerNarrowing",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getElementTypeForContainerNarrowing",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForContainerElementType",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForContainerElementType",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "narrowTypeForTypedDictKey",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "narrowTypeForTypedDictKey",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "enumerateLiteralsForType",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "enumerateLiteralsForType",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getIsInstanceClassTypes",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getIsInstanceClassTypes",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "isNameSameScope",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "isNameSameScope",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getNoneEllipsisNarrowingInfo",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getNoneEllipsisNarrowingInfo",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getTypeIsCallNarrowingInfo",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getTypeIsCallNarrowingInfo",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getIsLiteralOrClassNarrowingInfo",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getIsLiteralOrClassNarrowingInfo",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getIndexedLiteralNarrowingInfo",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getIndexedLiteralNarrowingInfo",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getEqualsLiteralNarrowingInfo",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getEqualsLiteralNarrowingInfo",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getMemberAccessNarrowingInfo",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getMemberAccessNarrowingInfo",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getLenComparisonNarrowingInfo",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getLenComparisonNarrowingInfo",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getInOperatorNarrowingInfo",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getInOperatorNarrowingInfo",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getIsInstanceCallNarrowingInfo",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getIsInstanceCallNarrowingInfo",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getBoolCallNarrowingInfo",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getBoolCallNarrowingInfo",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getTypeGuardCallNarrowingInfo",
@@ -2817,7 +3097,7 @@
       "name": "getNotExpressionNarrowingInfo",
       "resolution": "moved-to-narrowing",
       "currentImplementation": "getNotExpressionNarrowingInfo",
-      "currentFile": "analyzer/typeEvaluator/narrowing.ts"
+      "currentFile": "analyzer/typeEvaluator/typeGuardNarrowing.ts"
     },
     {
       "name": "getTypeNarrowingCallbackForAliasedCondition<TCallback>",

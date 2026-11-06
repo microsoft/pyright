@@ -8,6 +8,7 @@
 
 import { DiagnosticLevel } from '../../common/configOptions';
 import { DiagnosticRule } from '../../common/diagnosticRules';
+import { convertOffsetsToRange } from '../../common/positionUtils';
 import { TextRange } from '../../common/textRange';
 import { LocMessage } from '../../localization/localize';
 import { ParseNode } from '../../parser/parseNodes';
@@ -17,14 +18,15 @@ import { getFunctionInfoFromDecorators } from '../decorators';
 import * as ParseTreeUtils from '../parseTreeUtils';
 import { SpeculativeTypeTracker } from '../typeCacheUtils';
 import { EvaluatorOptions, SuppressedNodeStackEntry } from '../typeEvaluator/internals';
-import { Reachability, TypeEvaluator } from '../typeEvaluatorTypes';
-import { FunctionTypeFlags } from '../types';
+import { PrintTypeOptions, Reachability, TypeEvaluator } from '../typeEvaluatorTypes';
+import { FunctionTypeFlags, Type } from '../types';
 
 interface Context {
     readonly evaluatorInterface: TypeEvaluator;
     readonly evaluatorOptions: EvaluatorOptions;
     readonly isNodeReachable: (node: ParseNode, sourceNode?: ParseNode) => boolean;
     readonly nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor;
+    readonly printType: (type: Type, options?: PrintTypeOptions) => string;
     readonly speculativeTypeTracker: SpeculativeTypeTracker;
     readonly suppressedNodeStack: SuppressedNodeStackEntry[];
 }
@@ -35,6 +37,7 @@ export function createDiagnostics(context: Context) {
         evaluatorOptions,
         isNodeReachable,
         nodeInfo,
+        printType,
         speculativeTypeTracker,
         suppressedNodeStack,
     } = context;
@@ -217,6 +220,34 @@ export function createDiagnostics(context: Context) {
         }
     }
 
+    function printSrcDestTypes(
+        srcType: Type,
+        destType: Type,
+        options?: PrintTypeOptions
+    ): { sourceType: string; destType: string } {
+        const simpleSrcType = printType(srcType, options);
+        const simpleDestType = printType(destType, options);
+
+        if (simpleSrcType !== simpleDestType) {
+            return { sourceType: simpleSrcType, destType: simpleDestType };
+        }
+
+        const fullSrcType = printType(srcType, { ...(options ?? {}), useFullyQualifiedNames: true });
+        const fullDestType = printType(destType, { ...(options ?? {}), useFullyQualifiedNames: true });
+
+        if (fullSrcType !== fullDestType) {
+            return { sourceType: fullSrcType, destType: fullDestType };
+        }
+
+        return { sourceType: simpleSrcType, destType: simpleDestType };
+    }
+
+    function getLineNum(node: ParseNode) {
+        const fileInfo = nodeInfo.getFileInfo(node);
+        const range = convertOffsetsToRange(node.start, node.start + node.length, fileInfo.lines);
+        return (range.start.line + 1).toString();
+    }
+
     return {
         addInformation,
         addUnreachableCode,
@@ -227,5 +258,7 @@ export function createDiagnostics(context: Context) {
         addDiagnostic,
         addDiagnosticForTextRange,
         suppressDiagnostics,
+        printSrcDestTypes,
+        getLineNum,
     };
 }

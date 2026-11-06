@@ -509,6 +509,7 @@ export { EvaluatorOptions, MemberAccessTypeResult } from './typeEvaluator/intern
 
 import { createAssignFunctions } from './typeEvaluator/assignFunctions';
 import { createBoundMethodSpecialization } from './typeEvaluator/boundMethodSpecialization';
+import { createClassConstruction } from './typeEvaluator/classConstruction';
 import { createCollectionInference } from './typeEvaluator/collectionInference';
 import { createDiagnostics } from './typeEvaluator/diagnostics';
 import { createEvaluatorCore } from './typeEvaluator/evaluatorCore';
@@ -518,6 +519,7 @@ import { createFlowAnalysis } from './typeEvaluator/flowAnalysis';
 import { createMemberResolution } from './typeEvaluator/memberResolution';
 import { createOverrideValidation } from './typeEvaluator/overrideValidation';
 import { applyUnpackToTupleLike } from './typeEvaluator/pureHelpers';
+import { createReturnTypeInference } from './typeEvaluator/returnTypeInference';
 import { createSpecialFormCreation } from './typeEvaluator/specialFormCreation';
 import { createTypeVarHandling } from './typeEvaluator/typeVarHandling';
 export function createTypeEvaluator(
@@ -875,11 +877,11 @@ export function createTypeEvaluator(
     // are currently analyzing in the context of parameter types
     // defined by a call site.
     function isNodeInReturnTypeInferenceContext(node: ParseNode) {
-        return evaluatorCore.isNodeInReturnTypeInferenceContext(node);
+        return returnTypeInference.isNodeInReturnTypeInferenceContext(node);
     }
 
     function getCodeFlowAnalyzerForReturnTypeInferenceContext() {
-        return evaluatorCore.getCodeFlowAnalyzerForReturnTypeInferenceContext();
+        return returnTypeInference.getCodeFlowAnalyzerForReturnTypeInferenceContext();
     }
 
     function getIndexOfSymbolResolution(symbol: Symbol, declaration: Declaration) {
@@ -1636,11 +1638,7 @@ export function createTypeEvaluator(
         flags: EvalFlags,
         inferenceContext?: InferenceContext
     ): TypeResult {
-        return collectionInference.getTypeOfStringList(node, flags, inferenceContext);
-    }
-
-    function getTypeOfStringListAsType(node: StringListNode, flags: EvalFlags): TypeResult {
-        return expressionEvaluation.getTypeOfStringListAsType(node, flags);
+        return expressionEvaluation.getTypeOfStringList(node, flags, inferenceContext);
     }
 
     function getTypeOfString(node: StringNode | FormatStringNode): TypeResult {
@@ -10913,7 +10911,7 @@ export function createTypeEvaluator(
     // in the Python specification: The static type checker will treat
     // the new type as if it were a subclass of the original type.
     function createNewType(errorNode: ExpressionNode, argList: Arg[]): ClassType | undefined {
-        return evaluatorCore.createNewType(errorNode, argList);
+        return classConstruction.createNewType(errorNode, argList);
     }
 
     function getBaseClassesFromTypeCall(baseTupleType: ClassType): Type[] | undefined {
@@ -10933,7 +10931,7 @@ export function createTypeEvaluator(
         argList: Arg[],
         metaclass: ClassType
     ): ClassType | undefined {
-        return evaluatorCore.createClassFromMetaclass(errorNode, argList, metaclass);
+        return classConstruction.createClassFromMetaclass(errorNode, argList, metaclass);
     }
 
     function getTypeOfConstant(node: ConstantNode, flags: EvalFlags): TypeResult {
@@ -12280,7 +12278,7 @@ export function createTypeEvaluator(
 
     // Creates a new class type that is a subclass of two other specified classes.
     function createSubclass(errorNode: ExpressionNode, type1: ClassType, type2: ClassType): ClassType {
-        return evaluatorCore.createSubclass(errorNode, type1, type2);
+        return classConstruction.createSubclass(errorNode, type1, type2);
     }
 
     function getTypeOfClass(node: ClassNode): ClassTypeResult | undefined {
@@ -13235,7 +13233,7 @@ export function createTypeEvaluator(
     }
 
     function buildTypeParamsFromTypeArgs(classType: ClassType): TypeVarType[] {
-        return evaluatorCore.buildTypeParamsFromTypeArgs(classType);
+        return classConstruction.buildTypeParamsFromTypeArgs(classType);
     }
 
     // Determines whether the type parameters has a default that refers to another
@@ -13279,7 +13277,7 @@ export function createTypeEvaluator(
     }
 
     function computeEffectiveMetaclass(classType: ClassType, errorNode: ParseNode) {
-        return evaluatorCore.computeEffectiveMetaclass(classType, errorNode);
+        return classConstruction.computeEffectiveMetaclass(classType, errorNode);
     }
 
     // Verifies that the type variables provided outside of "Generic"
@@ -17234,7 +17232,7 @@ export function createTypeEvaluator(
     }
 
     function inferReturnTypeForCallSite(type: FunctionType, callSiteInfo: CallSiteEvaluationInfo): Type | undefined {
-        return evaluatorCore.inferReturnTypeForCallSite(type, callSiteInfo);
+        return returnTypeInference.inferReturnTypeForCallSite(type, callSiteInfo);
     }
 
     // If the function has an explicitly-declared return type, it is returned
@@ -18638,12 +18636,6 @@ export function createTypeEvaluator(
         return assignFunctions.assignParam(destType, srcType, paramIndex, diag, constraints, flags, recursionCount);
     }
 
-    // Determines whether we need to pack some of the source positionals
-    // into a tuple that matches a variadic *args parameter in the destination.
-    function adjustSourceParamDetailsForDestVariadic(srcDetails: ParamListDetails, destDetails: ParamListDetails) {
-        return specialFormCreation.adjustSourceParamDetailsForDestVariadic(srcDetails, destDetails);
-    }
-
     // Determines whether the source's variadic **kwargs keyword parameter
     // is assignable to the keyword form of a destination positional-or-keyword
     // parameter.
@@ -18863,7 +18855,7 @@ export function createTypeEvaluator(
         destType: Type,
         options?: PrintTypeOptions
     ): { sourceType: string; destType: string } {
-        return evaluatorCore.printSrcDestTypes(srcType, destType, options);
+        return diagnostics.printSrcDestTypes(srcType, destType, options);
     }
 
     function printType(type: Type, options?: PrintTypeOptions): string {
@@ -18897,17 +18889,6 @@ export function createTypeEvaluator(
         return TypePrinter.printType(type, flags, getEffectiveReturnType);
     }
 
-    // Calls back into the parser to parse the contents of a string literal.
-    // This is unfortunately needed in some cases — specifically where the
-    // parser couldn't determine that the string literal would be used in
-    // a context where it should be treated as a forward-declared type. This
-    // call produces an expression tree that is not attached to the main parse
-    // expression tree because we don't want to mutate the latter; the
-    // expression tree created by this function is therefore used only temporarily.
-    function parseStringAsTypeAnnotation(node: StringListNode, reportErrors: boolean): ExpressionNode | undefined {
-        return evaluatorCore.parseStringAsTypeAnnotation(node, reportErrors);
-    }
-
     // Given a code flow node and a constrained TypeVar, determines whether that type
     // var can be "narrowed" to a single one of its constraints based on isinstance
     // checks within the code flow.
@@ -18920,7 +18901,7 @@ export function createTypeEvaluator(
     }
 
     function getLineNum(node: ParseNode) {
-        return evaluatorCore.getLineNum(node);
+        return diagnostics.getLineNum(node);
     }
 
     function printControlFlowGraph(
@@ -19111,6 +19092,7 @@ export function createTypeEvaluator(
         collectLiteralEnumClasses,
         convertNodeToArg,
         evaluatorInterface,
+        expectedTypeWantsTypeForm,
         getBoundMagicMethod,
         getBuiltInObject,
         getBuiltInType,
@@ -19136,7 +19118,6 @@ export function createTypeEvaluator(
         mapSubtypesExpandTypeVars,
         nodeInfo,
         normalizeEnumTypes,
-        parseStringAsTypeAnnotation,
         get prefetched() {
             return prefetched;
         },
@@ -19150,55 +19131,17 @@ export function createTypeEvaluator(
         validateSymbolIsTypeExpression,
     });
 
-    const evaluatorCore = createEvaluatorCore({
-        addDiagnostic,
-        assignType,
-        assignTypeToExpression,
+    const returnTypeInference = createReturnTypeInference({
         codeFlowEngine,
-        convertTypeArgToInstance,
-        createAnnotatedType,
-        createCallableType,
-        createClassVarType,
-        createConcatenateType,
-        createFinalType,
-        createGenericType,
-        createOptionalType,
-        createRequiredOrReadOnlyType,
-        createSpecialType,
-        createTypeFormType,
-        createTypeGuardType,
-        createUnionType,
-        createUnpackType,
-        evaluatorInterface,
-        getBaseClassesFromTypeCall,
-        getEffectiveTypeOfSymbol,
-        getScopeForNode,
-        getScopeIdForNode,
-        getTypeOfAnnotation,
-        getTypeOfArg,
-        getTypeOfBoundMember,
-        getTypeOfClass,
+        convertSpecialFormToRuntimeValue,
         getTypeOfExpression,
-        getTypeOfExpressionExpectingType,
         getTypeOfFunction,
-        getTypeOfIterator,
         inferFunctionReturnType,
-        inferReturnTypeIfNecessary,
-        inferVarianceForClass,
-        isTypeFormClass,
-        isTypePromotionRelated,
-        makeTopLevelTypeVarsConcrete,
-        mapSubtypesExpandTypeVars,
         maxCallSiteReturnTypeCacheSize,
         maxReturnCallSiteTypeInferenceCodeFlowComplexity,
         maxReturnTypeInferenceArgCount,
         maxReturnTypeInferenceStackSize,
-        maxSingleOverloadArgTypeExpansionCount,
         nodeInfo,
-        get prefetched() {
-            return prefetched;
-        },
-        printType,
         returnTypeInferenceContextStack,
         get returnTypeInferenceTypeCache() {
             return returnTypeInferenceTypeCache;
@@ -19215,16 +19158,74 @@ export function createTypeEvaluator(
         speculativeTypeTracker,
         stripLiteralValue,
         suppressDiagnostics,
+        writeTypeCache,
+    });
+
+    const classConstruction = createClassConstruction({
+        addDiagnostic,
+        assignType,
+        getBaseClassesFromTypeCall,
+        getBuiltInType,
+        getNoneType,
+        getTypeOfArg,
+        getTypeOfArgExpectingType,
+        nodeInfo,
+        get prefetched() {
+            return prefetched;
+        },
+        printType,
+    });
+
+    const evaluatorCore = createEvaluatorCore({
+        addDiagnostic,
+        assignType,
+        assignTypeToExpression,
+        convertTypeArgToInstance,
+        createAnnotatedType,
+        createCallableType,
+        createClassVarType,
+        createConcatenateType,
+        createFinalType,
+        createGenericType,
+        createOptionalType,
+        createRequiredOrReadOnlyType,
+        createSpecialType,
+        createTypeFormType,
+        createTypeGuardType,
+        createUnionType,
+        createUnpackType,
+        evaluatorInterface,
+        getEffectiveTypeOfSymbol,
+        getScopeForNode,
+        getScopeIdForNode,
+        getTypeOfAnnotation,
+        getTypeOfBoundMember,
+        getTypeOfClass,
+        getTypeOfExpression,
+        getTypeOfExpressionExpectingType,
+        getTypeOfIterator,
+        inferReturnTypeIfNecessary,
+        inferVarianceForClass,
+        isTypeFormClass,
+        isTypePromotionRelated,
+        makeTopLevelTypeVarsConcrete,
+        mapSubtypesExpandTypeVars,
+        maxSingleOverloadArgTypeExpansionCount,
+        nodeInfo,
+        get prefetched() {
+            return prefetched;
+        },
+        printType,
+        stripLiteralValue,
+        suppressDiagnostics,
         symbolResolutionStack,
         transformTypeArgsForParamSpec,
         validateCallArgs,
         validateTypeArg,
         validateTypeVarTupleIsUnpacked,
-        writeTypeCache,
     });
 
     const assignFunctions = createAssignFunctions({
-        adjustSourceParamDetailsForDestVariadic,
         assignNamedParam,
         assignType,
         assignTypeArgs,
@@ -19247,18 +19248,14 @@ export function createTypeEvaluator(
     const collectionInference = createCollectionInference({
         addDiagnostic,
         assignType,
-        cloneBuiltinObjectWithLiteral,
         convertSpecialFormToRuntimeValue,
         evaluateComprehensionForIf,
         evaluatorInterface,
-        expectedTypeWantsTypeForm,
         getBuiltInObject,
         getBuiltInType,
         getNoneType,
         getObjectType,
         getTypeOfExpression,
-        getTypeOfString,
-        getTypeOfStringListAsType,
         getTypeVarScopesForNode,
         getTypingType,
         inferTypeArgFromExpectedEntryType,
@@ -19330,6 +19327,7 @@ export function createTypeEvaluator(
         evaluatorOptions,
         isNodeReachable,
         nodeInfo,
+        printType,
         speculativeTypeTracker,
         suppressedNodeStack,
     });
