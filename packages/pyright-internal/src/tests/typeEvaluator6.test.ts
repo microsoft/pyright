@@ -945,7 +945,7 @@ test('MatchUnnecessary1', () => {
 
     configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['matchUnnecessary1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 7);
+    TestUtils.validateResults(analysisResults2, 11);
 });
 
 test('List1', () => {
