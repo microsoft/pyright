@@ -81,7 +81,7 @@ export function getBoundNewMethod(
 
 // Fetches and binds the __init__ method from a class instance.
 export function getBoundInitMethod(
-    evaluator: TypeEvaluator,
+    evaluator: Pick<TypeEvaluator, 'getTypeOfBoundMember'>,
     errorNode: ExpressionNode,
     type: ClassType,
     diag: DiagnosticAddendum | undefined = undefined,
