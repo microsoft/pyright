@@ -1510,9 +1510,10 @@ function validateArithmeticOperation(
                         ) {
                             decliningReflectedResult = undefined;
                         } else {
-                            resultTypeResult = isNever(acceptedType)
-                                ? undefined
-                                : { ...resultTypeResult, type: acceptedType };
+                            resultTypeResult =
+                                acceptedType !== resultTypeResult.type && isNever(acceptedType)
+                                    ? undefined
+                                    : { ...resultTypeResult, type: acceptedType };
                         }
                     }
 
