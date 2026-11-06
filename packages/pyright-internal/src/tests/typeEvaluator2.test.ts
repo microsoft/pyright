@@ -1089,3 +1089,10 @@ test('Sentinel5', () => {
         );
     }
 });
+
+test('Frozendict1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_15;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['frozendict1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4);
+});
