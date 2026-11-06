@@ -2,11 +2,11 @@
 # even when the binding is not a CONSTANT_NAME.
 
 from dataclasses import dataclass
-from typing_extensions import Sentinel  # pyright: ignore[reportMissingModuleSource]
+from typing_extensions import sentinel
 
 
-Empty = Sentinel("Empty")
-MISSING = Sentinel("MISSING")
+Empty = sentinel("Empty")
+MISSING = sentinel("MISSING")
 
 
 def func1(value: int | Empty) -> None:
@@ -46,7 +46,7 @@ def update_not_missing(address: Address, email: str | MISSING) -> None:
 
 class ClassA:
     def __init__(self) -> None:
-        self.missing = Sentinel("missing")
+        self.missing = sentinel("missing")
 
 
 def func3(a: ClassA) -> None:
@@ -57,7 +57,7 @@ def func3(a: ClassA) -> None:
 
 
 def func4() -> None:
-    local_empty = Sentinel("local_empty")
+    local_empty = sentinel("local_empty")
     reveal_type(local_empty, expected_text="local_empty")
 
     alias = Empty
@@ -67,7 +67,7 @@ def func4() -> None:
     reveal_type(local_empty, expected_text="Literal[3]")
 
 
-Reassigned = Sentinel("Reassigned")
+Reassigned = sentinel("Reassigned")
 Reassigned = 3
 
 
