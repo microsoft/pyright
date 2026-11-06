@@ -17,8 +17,10 @@ bindings such as prefetched builtins and contextual-return inference caches use
 live getters and, where necessary, setters into the original evaluator closure.
 Collections that are mutated in place retain their original identity.
 
-Functions within one topic call each other directly. The main evaluator calls
-topic entry points directly rather than adding forwarding declarations.
+Functions within one topic call each other directly. Prefer direct calls from
+the main evaluator to topic entry points rather than adding forwarding declarations.
+Some facade and dispatch bridges remain, including `getTypeOfEllipsis` and
+`getTypeOfTypeVarTupleCall`; these are not direct private topic calls.
 Frequently used entry points can be destructured once after factory initialization
 to keep call sites short without introducing wrappers or duplicate signatures.
 Injected dependencies use direct producer references when the producer is
@@ -59,6 +61,13 @@ passes its existing context and no longer retains the full evaluator interface.
 construction passes the special-form context without gaining the full interface.
 Diagnostic decorator inspection likewise passes its existing context, which
 provides `getTypeOfExpression`, rather than retaining the full evaluator interface.
+
+The module-level narrowing matchers called from `typeGuards.ts` differ from the
+per-evaluator topic factories. Their temporary capability contexts are constructed
+per uncached narrowing attempt, including attempts that reject a match. This adds
+fixed object and closure creation work, not a new subtype traversal. Its impact
+requires measurement; passing CI benchmarks does not establish negligible overhead
+or equivalent warm-editor behavior.
 
 ## Initialization and re-entry contracts
 
@@ -140,7 +149,7 @@ the operation to its topic:
 | Member access or declaration lookup | `memberResolution.ts` -> receiver binding in `boundMethodSpecialization.ts` |
 | Class type arguments and defaults | `specialFormCreation.ts` -> `createSpecializedClassType` -> private `resolveClassTypeArguments` |
 | Special forms, Self or Literal | `specialFormCreation.ts`; the dispatcher and construction helpers call locally |
-| TypeVar and TypeVarTuple defaults | `typeVarHandling.ts`; constructor syntax calls locally, and PEP 695 evaluation calls its entry points directly |
+| TypeVar and TypeVarTuple defaults | `typeVarHandling.ts`; constructor dispatch retains main-evaluator bridges, while PEP 695 evaluation also calls topic entry points directly |
 | Call matching and overload selection | Main evaluator -> argument expansion in `expressionEvaluation.ts` -> `typeCompatibility.ts` |
 | Conditional or type guard test | `typeGuards.ts` -> `typeGuardNarrowing.ts` -> evaluator narrowing primitives |
 | Contextual return type at a call site | `returnTypeInference.ts`; ordinary function return inference remains in the main evaluator |

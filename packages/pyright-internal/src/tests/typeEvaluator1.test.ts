@@ -10,7 +10,9 @@
 
 import * as assert from 'assert';
 
+import { AnalyzerNodeInfoAccessor } from '../analyzer/analyzerNodeInfo';
 import { ScopeType } from '../analyzer/scope';
+import { getTypeNarrowingCallback } from '../analyzer/typeGuards';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import {
@@ -24,6 +26,7 @@ import {
 import { Uri } from '../common/uri/uri';
 import { getChildNodes } from '../parser/parseTreeUtils';
 import { getParserStringAnnotation, ParseNode, ParseNodeType, StringListNode } from '../parser/parseNodes';
+import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
 
 function getNodes(root: ParseNode) {
@@ -368,6 +371,88 @@ test('TypeNarrowingIsNone2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsNone2.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingMemberNone1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingMemberNone1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [29, 40, 47, 58].map((line) => [line, DiagnosticRule.reportOperatorIssue])
+    );
+});
+
+test('TypeNarrowingComparisonRhs1', () => {
+    const cases = [
+        { parameterType: 'Literal[1, 2]', left: 'x', right: '1', positive: 'Literal[1]', negative: 'Literal[2]' },
+        {
+            parameterType: 'Literal[1, 2]',
+            left: '(saved := x)',
+            right: '1',
+            positive: 'Literal[1]',
+            negative: 'Literal[2]',
+        },
+        {
+            parameterType: 'type[int] | type[str]',
+            left: 'x',
+            right: 'int',
+            positive: 'type[int] | type[str]',
+            negative: 'type[int] | type[str]',
+        },
+        { parameterType: 'object', left: 'x', right: 'other', positive: undefined, negative: undefined },
+    ];
+    for (const testCase of cases) {
+        for (const operator of ['==', '!=']) {
+            for (const isPositiveTest of [true, false]) {
+                const left = testCase.left.replace('x', '/*reference*/x');
+                const state = parseAndGetTestState(`// @filename: test.py
+////from typing import Literal
+////def compare(x: ${testCase.parameterType}, other: object) -> None:
+////    if ${left} ${operator} ${testCase.right}:
+////        pass
+`).state;
+                const evaluator = state.program.evaluator!;
+                const reference = getNodeAtMarker(state, 'reference');
+                assert.ok(reference.nodeType === ParseNodeType.Name);
+                let comparison = reference.parent;
+                if (comparison?.nodeType === ParseNodeType.AssignmentExpression) {
+                    comparison = comparison.parent;
+                }
+                assert.ok(comparison?.nodeType === ParseNodeType.BinaryOperation);
+                evaluator.getTypeOfExpression(comparison);
+                const inputType = evaluator.getTypeOfExpression(reference).type;
+                const rightExpression = comparison.d.rightExpr;
+                const original = evaluator.getTypeOfExpression;
+                const spy = jest.spyOn(evaluator, 'getTypeOfExpression').mockImplementation((node, ...args) => {
+                    const result = original(node, ...args);
+                    return node === rightExpression ? { ...result, isIncomplete: true } : result;
+                });
+                try {
+                    const callback = getTypeNarrowingCallback(
+                        evaluator,
+                        reference,
+                        comparison,
+                        isPositiveTest,
+                        new AnalyzerNodeInfoAccessor(evaluator.getAnalyzerNodeInfoReader())
+                    );
+                    assert.strictEqual(spy.mock.calls.filter(([node]) => node === rightExpression).length, 1);
+                    const expected = isPositiveTest === (operator === '==') ? testCase.positive : testCase.negative;
+                    if (expected === undefined) {
+                        assert.strictEqual(callback, undefined);
+                    } else {
+                        assert.ok(callback);
+                        const result = callback(inputType);
+                        assert.ok(result);
+                        assert.strictEqual(evaluator.printType(result.type), expected);
+                        assert.strictEqual(result.isIncomplete, true);
+                    }
+                } finally {
+                    spy.mockRestore();
+                }
+            }
+        }
+    }
 });
 
 test('TypeNarrowingAny1', () => {

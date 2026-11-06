@@ -78,19 +78,20 @@ import {
     transformPossibleRecursiveTypeAlias,
 } from '../typeUtils';
 
-export interface EqualsLiteralNarrowingContext {
+export interface EqualsNarrowingContext {
     getTypeOfExpression: (expression: ExpressionNode) => { type: Type; isIncomplete?: boolean };
     isMatchingExpression: (reference: ExpressionNode, expression: ExpressionNode) => boolean;
     isMatchingExpressionOrWalrusRhs: (reference: ExpressionNode, expression: ExpressionNode) => boolean;
 }
 
-export interface EqualsLiteralNarrowingInfo {
-    kind: 'literal' | 'index';
+export type EqualsNarrowingInfo = {
     adjIsPositiveTest: boolean;
     isIncomplete: boolean;
-    indexType?: ClassType;
-    rightType: Type;
-}
+} & (
+    | { kind: 'literal'; rightType: ClassType }
+    | { kind: 'class'; rightType: ClassType }
+    | { kind: 'index'; indexType: ClassType; rightType: Type }
+);
 
 export interface MemberAccessNarrowingContext {
     getTypeOfExpression: (expression: ExpressionNode) => { type: Type; isIncomplete?: boolean };
@@ -589,12 +590,12 @@ export function getNotExpressionNarrowingInfo(
     return undefined;
 }
 
-export function getEqualsLiteralNarrowingInfo(
-    ctx: EqualsLiteralNarrowingContext,
+export function getEqualsNarrowingInfo(
+    ctx: EqualsNarrowingContext,
     reference: ExpressionNode,
     testExpression: ExpressionNode,
     isPositiveTest: boolean
-): EqualsLiteralNarrowingInfo | undefined {
+): EqualsNarrowingInfo | undefined {
     if (testExpression.nodeType !== ParseNodeType.BinaryOperation) {
         return undefined;
     }
@@ -614,6 +615,15 @@ export function getEqualsLiteralNarrowingInfo(
         if (isClassInstance(rightType) && rightType.priv.literalValue !== undefined) {
             return {
                 kind: 'literal',
+                rightType,
+                adjIsPositiveTest,
+                isIncomplete: !!rightTypeResult.isIncomplete,
+            };
+        }
+
+        if (isInstantiableClass(rightType)) {
+            return {
+                kind: 'class',
                 rightType,
                 adjIsPositiveTest,
                 isIncomplete: !!rightTypeResult.isIncomplete,
@@ -681,6 +691,7 @@ export function getMemberAccessNarrowingInfo(
             : !isPositiveTest;
 
     if (
+        isOrIsNotOperator &&
         testExpression.d.rightExpr.nodeType === ParseNodeType.Constant &&
         testExpression.d.rightExpr.d.constType === KeywordType.None
     ) {
@@ -696,7 +707,8 @@ export function getMemberAccessNarrowingInfo(
     const rightType = rightTypeResult.type;
 
     if (isClassInstance(rightType)) {
-        const isLiteralEqualsCase = equalsOrNotEqualsOperator && rightType.priv.literalValue !== undefined;
+        const isLiteralEqualsCase =
+            equalsOrNotEqualsOperator && (rightType.priv.literalValue !== undefined || isNoneInstance(rightType));
         const isLiteralIdentityCase =
             isOrIsNotOperator &&
             (ClassType.isEnumClass(rightType) || ClassType.isBuiltIn(rightType, 'bool')) &&
