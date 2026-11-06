@@ -37,6 +37,7 @@ import {
     ResolvedAliasInfo,
     synthesizeAliasDeclaration,
 } from '../declarationUtils';
+import { getParamListDetails } from '../parameterUtils';
 import * as ParseTreeUtils from '../parseTreeUtils';
 import { Scope, ScopeType, SymbolWithScope } from '../scope';
 import { Symbol, SynthesizedTypeInfo } from '../symbol';
@@ -46,6 +47,7 @@ import {
     Arg,
     CallResult,
     ClassTypeResult,
+    EffectiveTypeResult,
     EvaluatorUsage,
     ExpectedTypeOptions,
     ExpectedTypeResult,
@@ -60,6 +62,7 @@ import {
 import {
     AnyType,
     ClassType,
+    findSubtype,
     FunctionType,
     isAnyOrUnknown,
     isClass,
@@ -94,6 +97,8 @@ import {
     mapSignatures,
     MemberAccessFlags,
     partiallySpecializeType,
+    requiresSpecialization,
+    selfSpecializeClass,
     specializeWithDefaultTypeArgs,
 } from '../typeUtils';
 
@@ -104,31 +109,23 @@ interface Context {
         decls: Declaration[],
         synthesizedTypes: SynthesizedTypeInfo[]
     ) => void;
-    readonly addSymbolDeclInfo: (
-        symbol: Symbol,
-        decls: Declaration[],
-        synthesizedTypes: SynthesizedTypeInfo[],
-        preferTypedDeclarations?: boolean
-    ) => void;
-    readonly shouldFallBackToClassEntryForKeywordArg: (baseType: ClassType, paramName: string) => boolean;
-    readonly tryAddPartialKeywordParamDecls: (
-        baseType: Type,
-        callNode: CallNode,
-        paramName: string,
-        decls: Declaration[]
-    ) => boolean;
     readonly addDiagnostic: (
         rule: DiagnosticRule,
         message: string,
         node: ParseNode,
         range?: TextRange
     ) => Diagnostic | undefined;
+    readonly addSymbolDeclInfo: (
+        symbol: Symbol,
+        decls: Declaration[],
+        synthesizedTypes: SynthesizedTypeInfo[],
+        preferTypedDeclarations?: boolean
+    ) => void;
     readonly codeFlowEngine: CodeFlowEngine;
     readonly evaluateTypesForStatement: (node: ParseNode) => void;
     readonly evaluatorInterface: TypeEvaluator;
     readonly evaluatorOptions: EvaluatorOptions;
     readonly getAbstractSymbolInfo: (classType: ClassType, symbolName: string) => AbstractSymbol | undefined;
-    readonly getAliasFromImport: (node: NameNode) => NameNode | undefined;
     readonly getBoundMagicMethod: (
         classType: ClassType,
         memberName: string,
@@ -137,9 +134,13 @@ interface Context {
         diag?: DiagnosticAddendum,
         recursionCount?: number
     ) => FunctionType | OverloadedType | undefined;
-    readonly getDeclarationFromKeywordParam: (type: FunctionType, paramName: string) => Declaration | undefined;
+    readonly getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
+    readonly getEffectiveTypeOfSymbolForUsage: (
+        symbol: Symbol,
+        usageNode?: NameNode,
+        useLastDecl?: boolean
+    ) => EffectiveTypeResult;
     readonly getExpectedType: (node: ExpressionNode) => ExpectedTypeResult | undefined;
-    readonly getIndexOfSymbolResolution: (symbol: Symbol, declaration: Declaration) => number;
     readonly getInferredTypeOfDeclaration: (symbol: Symbol, decl: Declaration) => Type | undefined;
     readonly getScopeForNode: (node: ParseNode) => Scope | undefined;
     readonly getScopeIdForNode: (node: ParseNode) => string;
@@ -158,7 +159,7 @@ interface Context {
     ) => TypeResult | undefined;
     readonly getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     readonly getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
-    readonly getTypeOfMember: (member: ClassMember) => Type;
+    readonly inferReturnTypeIfNecessary: (type: Type) => void;
     readonly isClassWithAsymmetricAttributeAccessor: (classType: ClassType) => boolean;
     readonly isFlowPathBetweenNodes: (sourceNode: ParseNode, sinkNode: ParseNode, allowSelf?: boolean) => boolean;
     readonly isLegalTypeAliasExpressionForm: (node: ExpressionNode, allowStrLiteral: boolean) => boolean;
@@ -183,7 +184,14 @@ interface Context {
         resolveLocalNames: boolean,
         options?: ResolveAliasOptions
     ) => ResolvedAliasInfo | undefined;
+    readonly shouldFallBackToClassEntryForKeywordArg: (baseType: ClassType, paramName: string) => boolean;
     readonly symbolResolutionStack: SymbolResolutionStackEntry[];
+    readonly tryAddPartialKeywordParamDecls: (
+        baseType: Type,
+        callNode: CallNode,
+        paramName: string,
+        decls: Declaration[]
+    ) => boolean;
     readonly validateCallArgs: (
         errorNode: ExpressionNode,
         argList: Arg[],
@@ -196,6 +204,7 @@ interface Context {
     readonly validateInitSubclassArgs: (node: ClassNode, classType: ClassType) => void;
 }
 
+// Resolves names, members and declarations; member return types are inferred before specialization.
 export function createMemberResolution(context: Context) {
     const {
         addClassEntryDeclsForKeywordArgIfPresent: _addClassEntryDeclsForKeywordArgIfPresent,
@@ -208,11 +217,10 @@ export function createMemberResolution(context: Context) {
         evaluatorInterface,
         evaluatorOptions,
         getAbstractSymbolInfo,
-        getAliasFromImport,
         getBoundMagicMethod,
-        getDeclarationFromKeywordParam,
+        getEffectiveTypeOfSymbol,
+        getEffectiveTypeOfSymbolForUsage,
         getExpectedType,
-        getIndexOfSymbolResolution,
         getInferredTypeOfDeclaration,
         getScopeForNode,
         getScopeIdForNode,
@@ -222,7 +230,7 @@ export function createMemberResolution(context: Context) {
         getTypeOfBoundMember,
         getTypeOfClass,
         getTypeOfFunction,
-        getTypeOfMember,
+        inferReturnTypeIfNecessary,
         isClassWithAsymmetricAttributeAccessor,
         isFlowPathBetweenNodes,
         isLegalTypeAliasExpressionForm,
@@ -235,6 +243,12 @@ export function createMemberResolution(context: Context) {
         validateCallArgs,
         validateInitSubclassArgs,
     } = context;
+
+    function getIndexOfSymbolResolution(symbol: Symbol, declaration: Declaration) {
+        return symbolResolutionStack.findIndex(
+            (entry) => entry.symbolId === symbol.id && entry.declaration === declaration
+        );
+    }
 
     function pushSymbolResolution(symbol: Symbol, declaration: Declaration) {
         const index = getIndexOfSymbolResolution(symbol, declaration);
@@ -312,6 +326,94 @@ export function createMemberResolution(context: Context) {
 
         addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeAnnotationVariable(), node);
         return UnknownType.create();
+    }
+
+    function getTypeOfMember(member: ClassMember): Type {
+        if (isInstantiableClass(member.classType)) {
+            return partiallySpecializeType(
+                getEffectiveTypeOfSymbol(member.symbol),
+                member.classType,
+                getTypeClassType(),
+                /* selfClass */ undefined
+            );
+        }
+        return UnknownType.create();
+    }
+
+    function getTypeOfMemberInternal(
+        errorNode: ExpressionNode | undefined,
+        member: ClassMember,
+        selfClass: ClassType | TypeVarType | undefined,
+        flags: MemberAccessFlags
+    ): TypeResult | undefined {
+        if (isAnyOrUnknown(member.classType)) {
+            return {
+                type: member.classType,
+                isIncomplete: false,
+            };
+        }
+
+        if (!isInstantiableClass(member.classType)) {
+            return undefined;
+        }
+
+        const typeResult = getEffectiveTypeOfSymbolForUsage(member.symbol);
+
+        if (!typeResult) {
+            return undefined;
+        }
+
+        // Report inappropriate use of variables in type expressions.
+        if ((flags & MemberAccessFlags.TypeExpression) !== 0 && errorNode) {
+            typeResult.type = validateSymbolIsTypeExpression(
+                errorNode,
+                typeResult.type,
+                !!typeResult.includesVariableDecl
+            );
+        }
+
+        // If the type is a function or overloaded function, infer
+        // and cache the return type if necessary. This needs to be done
+        // prior to specializing.
+        inferReturnTypeIfNecessary(typeResult.type);
+
+        // Check for ambiguous accesses to attributes with generic types?
+        if (
+            errorNode &&
+            selfClass &&
+            isClass(selfClass) &&
+            member.isInstanceMember &&
+            isClass(member.unspecializedClassType) &&
+            (flags & MemberAccessFlags.DisallowGenericInstanceVariableAccess) !== 0 &&
+            requiresSpecialization(typeResult.type, { ignoreSelf: true, ignoreImplicitTypeArgs: true })
+        ) {
+            const specializedType = partiallySpecializeType(
+                typeResult.type,
+                member.unspecializedClassType,
+                getTypeClassType(),
+                selfSpecializeClass(selfClass, { overrideTypeArgs: true })
+            );
+
+            if (
+                findSubtype(
+                    specializedType,
+                    (subtype) =>
+                        !isFunctionOrOverloaded(subtype) &&
+                        requiresSpecialization(subtype, { ignoreSelf: true, ignoreImplicitTypeArgs: true })
+                )
+            ) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.genericInstanceVariableAccess(),
+                    errorNode
+                );
+            }
+        }
+
+        return {
+            type: partiallySpecializeType(typeResult.type, member.classType, getTypeClassType(), selfClass),
+            isIncomplete: !!typeResult.isIncomplete,
+        };
     }
 
     function bindMethodForMemberAccess(
@@ -791,6 +893,51 @@ export function createMemberResolution(context: Context) {
         }
 
         return symbolWithScope;
+    }
+
+    function getDeclarationFromKeywordParam(type: FunctionType, paramName: string): Declaration | undefined {
+        if (isFunction(type)) {
+            if (type.shared.declaration) {
+                const functionDecl = type.shared.declaration;
+                if (functionDecl.type === DeclarationType.Function) {
+                    const functionNode = functionDecl.node;
+                    const functionScope = nodeInfo.getScope(functionNode);
+                    if (functionScope) {
+                        const paramSymbol = functionScope.lookUpSymbol(paramName)!;
+                        if (paramSymbol) {
+                            return paramSymbol.getDeclarations().find((decl) => decl.type === DeclarationType.Param);
+                        }
+
+                        const parameterDetails = getParamListDetails(type);
+                        if (parameterDetails.unpackedKwargsTypedDictType) {
+                            const lookupResults = lookUpClassMember(
+                                parameterDetails.unpackedKwargsTypedDictType,
+                                paramName
+                            );
+                            if (lookupResults) {
+                                return lookupResults.symbol
+                                    .getDeclarations()
+                                    .find((decl) => decl.type === DeclarationType.Variable);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return undefined;
+    }
+
+    function getAliasFromImport(node: NameNode): NameNode | undefined {
+        if (
+            node.parent &&
+            node.parent.nodeType === ParseNodeType.ImportFromAs &&
+            node.parent.d.alias &&
+            node === node.parent.d.name
+        ) {
+            return node.parent.d.alias;
+        }
+        return undefined;
     }
 
     function getDeclInfoForStringNode(node: StringNode): SymbolDeclInfo | undefined {
@@ -1330,5 +1477,10 @@ export function createMemberResolution(context: Context) {
         isExplicitTypeAliasDeclaration,
         isPossibleTypeAliasDeclaration,
         isLegalImplicitTypeAliasType,
+        getTypeOfMember,
+        getTypeOfMemberInternal,
+        getIndexOfSymbolResolution,
+        getDeclarationFromKeywordParam,
+        getAliasFromImport,
     };
 }

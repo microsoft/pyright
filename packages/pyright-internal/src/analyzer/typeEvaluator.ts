@@ -507,7 +507,6 @@ import {
 } from './typeEvaluator/internals';
 export { EvaluatorOptions, MemberAccessTypeResult } from './typeEvaluator/internals';
 
-import { createAssignFunctions } from './typeEvaluator/assignFunctions';
 import { createBoundMethodSpecialization } from './typeEvaluator/boundMethodSpecialization';
 import { createClassConstruction } from './typeEvaluator/classConstruction';
 import { createCollectionInference } from './typeEvaluator/collectionInference';
@@ -518,9 +517,10 @@ import { createExpressionEvaluation } from './typeEvaluator/expressionEvaluation
 import { createFlowAnalysis } from './typeEvaluator/flowAnalysis';
 import { createMemberResolution } from './typeEvaluator/memberResolution';
 import { createOverrideValidation } from './typeEvaluator/overrideValidation';
-import { applyUnpackToTupleLike } from './typeEvaluator/pureHelpers';
 import { createReturnTypeInference } from './typeEvaluator/returnTypeInference';
 import { createSpecialFormCreation } from './typeEvaluator/specialFormCreation';
+import { applyUnpackToTupleLike } from './typeEvaluator/tupleUnpacking';
+import { createTypeCompatibility } from './typeEvaluator/typeCompatibility';
 import { createTypeVarHandling } from './typeEvaluator/typeVarHandling';
 export function createTypeEvaluator(
     importLookup: ImportLookup,
@@ -885,7 +885,7 @@ export function createTypeEvaluator(
     }
 
     function getIndexOfSymbolResolution(symbol: Symbol, declaration: Declaration) {
-        return evaluatorCore.getIndexOfSymbolResolution(symbol, declaration);
+        return memberResolution.getIndexOfSymbolResolution(symbol, declaration);
     }
 
     function pushSymbolResolution(symbol: Symbol, declaration: Declaration) {
@@ -7597,7 +7597,7 @@ export function createTypeEvaluator(
         contextFreeArgTypes: Type[],
         expandedArgTypes: (Type | undefined)[][]
     ): (Type | undefined)[][] | undefined {
-        return typeVarHandling.expandArgTypes(contextFreeArgTypes, expandedArgTypes);
+        return expressionEvaluation.expandArgTypes(contextFreeArgTypes, expandedArgTypes);
     }
 
     function expandArgType(type: Type): Type[] | undefined {
@@ -8551,7 +8551,7 @@ export function createTypeEvaluator(
 
     // Expands any unpacked tuples within an argument list.
     function expandArgList(argList: Arg[]): Arg[] {
-        return typeVarHandling.expandArgList(argList);
+        return expressionEvaluation.expandArgList(argList);
     }
 
     // Matches the arguments passed to a function to the corresponding parameters in that
@@ -11135,18 +11135,6 @@ export function createTypeEvaluator(
         return collectionInference.getTypeOfListOrSetInferred(node, flags, hasExpectedType);
     }
 
-    function verifySetEntryOrDictKeyIsHashable(entry: ExpressionNode, type: Type, isDictKey: boolean) {
-        return evaluatorCore.verifySetEntryOrDictKeyIsHashable(entry, type, isDictKey);
-    }
-
-    function inferTypeArgFromExpectedEntryType(
-        inferenceContext: InferenceContext,
-        entryTypes: Type[],
-        isNarrowable: boolean
-    ): Type | undefined {
-        return evaluatorCore.inferTypeArgFromExpectedEntryType(inferenceContext, entryTypes, isNarrowable);
-    }
-
     function getTypeOfYield(node: YieldNode): TypeResult {
         return expressionEvaluation.getTypeOfYield(node);
     }
@@ -11487,7 +11475,7 @@ export function createTypeEvaluator(
     }
 
     function evaluateComprehensionForIf(node: ComprehensionForIfNode) {
-        return evaluatorCore.evaluateComprehensionForIf(node);
+        return collectionInference.evaluateComprehensionForIf(node);
     }
 
     function getTypeOfSlice(node: SliceNode): TypeResult {
@@ -15801,7 +15789,7 @@ export function createTypeEvaluator(
     }
 
     function getDeclarationFromKeywordParam(type: FunctionType, paramName: string): Declaration | undefined {
-        return evaluatorCore.getDeclarationFromKeywordParam(type, paramName);
+        return memberResolution.getDeclarationFromKeywordParam(type, paramName);
     }
 
     // functools.partial(func, kw=value) forwards keyword arguments to the wrapped callable, but
@@ -15916,7 +15904,7 @@ export function createTypeEvaluator(
     }
 
     function getAliasFromImport(node: NameNode): NameNode | undefined {
-        return evaluatorCore.getAliasFromImport(node);
+        return memberResolution.getAliasFromImport(node);
     }
 
     function getDeclInfoForNameNode(node: NameNode, skipUnreachableCode = true): SymbolDeclInfo | undefined {
@@ -17243,7 +17231,7 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfMember(member: ClassMember): Type {
-        return expressionEvaluation.getTypeOfMember(member);
+        return memberResolution.getTypeOfMember(member);
     }
 
     function getTypeOfMemberInternal(
@@ -17252,7 +17240,7 @@ export function createTypeEvaluator(
         selfClass: ClassType | TypeVarType | undefined,
         flags: MemberAccessFlags
     ): TypeResult | undefined {
-        return expressionEvaluation.getTypeOfMemberInternal(errorNode, member, selfClass, flags);
+        return memberResolution.getTypeOfMemberInternal(errorNode, member, selfClass, flags);
     }
 
     function assignClass(
@@ -17264,7 +17252,7 @@ export function createTypeEvaluator(
         recursionCount: number,
         reportErrorsUsingObjType: boolean
     ): boolean {
-        return assignFunctions.assignClass(
+        return typeCompatibility.assignClass(
             destType,
             srcType,
             diag,
@@ -18472,7 +18460,7 @@ export function createTypeEvaluator(
         flags = AssignTypeFlags.Default,
         recursionCount = 0
     ) {
-        return assignFunctions.assignRecursiveTypeAliasToSelf(
+        return typeCompatibility.assignRecursiveTypeAliasToSelf(
             destAliasInfo,
             srcAliasInfo,
             diag,
@@ -18543,7 +18531,7 @@ export function createTypeEvaluator(
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
-        return assignFunctions.assignFromUnionType(destType, srcType, diag, constraints, flags, recursionCount);
+        return typeCompatibility.assignFromUnionType(destType, srcType, diag, constraints, flags, recursionCount);
     }
 
     function isSpecialFormClass(classType: ClassType, flags: AssignTypeFlags): boolean {
@@ -18606,11 +18594,11 @@ export function createTypeEvaluator(
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
-        return assignFunctions.assignToUnionType(destType, srcType, diag, constraints, flags, recursionCount);
+        return typeCompatibility.assignToUnionType(destType, srcType, diag, constraints, flags, recursionCount);
     }
 
     function assignConditionalTypeToTypeVar(destType: TypeVarType, srcType: Type, recursionCount: number): boolean {
-        return assignFunctions.assignConditionalTypeToTypeVar(destType, srcType, recursionCount);
+        return typeCompatibility.assignConditionalTypeToTypeVar(destType, srcType, recursionCount);
     }
 
     // If the class is a protocol and it has a `__call__` method but no other methods
@@ -18633,7 +18621,7 @@ export function createTypeEvaluator(
         flags: AssignTypeFlags,
         recursionCount: number
     ) {
-        return assignFunctions.assignParam(destType, srcType, paramIndex, diag, constraints, flags, recursionCount);
+        return typeCompatibility.assignParam(destType, srcType, paramIndex, diag, constraints, flags, recursionCount);
     }
 
     // Determines whether the source's variadic **kwargs keyword parameter
@@ -18728,7 +18716,7 @@ export function createTypeEvaluator(
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
-        return assignFunctions.assignFunction(destType, srcType, diag, constraints, flags, recursionCount);
+        return typeCompatibility.assignFunction(destType, srcType, diag, constraints, flags, recursionCount);
     }
 
     // When a value is assigned to a variable with a declared type,
@@ -19044,20 +19032,17 @@ export function createTypeEvaluator(
 
     const memberResolution = createMemberResolution({
         addClassEntryDeclsForKeywordArgIfPresent: _addClassEntryDeclsForKeywordArgIfPresent,
-        addSymbolDeclInfo: _addSymbolDeclInfo,
-        shouldFallBackToClassEntryForKeywordArg: _shouldFallBackToClassEntryForKeywordArg,
-        tryAddPartialKeywordParamDecls: _tryAddPartialKeywordParamDecls,
         addDiagnostic,
+        addSymbolDeclInfo: _addSymbolDeclInfo,
         codeFlowEngine,
         evaluateTypesForStatement,
         evaluatorInterface,
         evaluatorOptions,
         getAbstractSymbolInfo,
-        getAliasFromImport,
         getBoundMagicMethod,
-        getDeclarationFromKeywordParam,
+        getEffectiveTypeOfSymbol,
+        getEffectiveTypeOfSymbolForUsage,
         getExpectedType,
-        getIndexOfSymbolResolution,
         getInferredTypeOfDeclaration,
         getScopeForNode,
         getScopeIdForNode,
@@ -19067,7 +19052,7 @@ export function createTypeEvaluator(
         getTypeOfBoundMember,
         getTypeOfClass,
         getTypeOfFunction,
-        getTypeOfMember,
+        inferReturnTypeIfNecessary,
         isClassWithAsymmetricAttributeAccessor,
         isFlowPathBetweenNodes,
         isLegalTypeAliasExpressionForm,
@@ -19079,7 +19064,9 @@ export function createTypeEvaluator(
             return prefetched;
         },
         resolveAliasDeclarationWithInfo,
+        shouldFallBackToClassEntryForKeywordArg: _shouldFallBackToClassEntryForKeywordArg,
         symbolResolutionStack,
+        tryAddPartialKeywordParamDecls: _tryAddPartialKeywordParamDecls,
         validateCallArgs,
         validateInitSubclassArgs,
     });
@@ -19092,18 +19079,17 @@ export function createTypeEvaluator(
         collectLiteralEnumClasses,
         convertNodeToArg,
         evaluatorInterface,
+        expandArgType,
         expectedTypeWantsTypeForm,
         getBoundMagicMethod,
         getBuiltInObject,
         getBuiltInType,
         getDeclaredTypeOfSymbol,
         getEffectiveTypeOfSymbol,
-        getEffectiveTypeOfSymbolForUsage,
         getIndexAccessMagicMethodName,
         getNoneType,
         getObjectType,
         getScopeForNode,
-        getTypeClassType,
         getTypeOfArgExpectingType,
         getTypeOfAwaitable,
         getTypeOfClass,
@@ -19111,7 +19097,6 @@ export function createTypeEvaluator(
         getTypeOfFunction,
         getTypeVarScopesForNode,
         getTypingType,
-        inferReturnTypeIfNecessary,
         isSpeculativeModeInUse,
         lookUpSymbolRecursive,
         makeTopLevelTypeVarsConcrete,
@@ -19128,7 +19113,6 @@ export function createTypeEvaluator(
         stripTypeGuard,
         useSpeculativeMode,
         validateCallArgs,
-        validateSymbolIsTypeExpression,
     });
 
     const returnTypeInference = createReturnTypeInference({
@@ -19179,7 +19163,6 @@ export function createTypeEvaluator(
     const evaluatorCore = createEvaluatorCore({
         addDiagnostic,
         assignType,
-        assignTypeToExpression,
         convertTypeArgToInstance,
         createAnnotatedType,
         createCallableType,
@@ -19203,7 +19186,6 @@ export function createTypeEvaluator(
         getTypeOfClass,
         getTypeOfExpression,
         getTypeOfExpressionExpectingType,
-        getTypeOfIterator,
         inferReturnTypeIfNecessary,
         inferVarianceForClass,
         isTypeFormClass,
@@ -19218,14 +19200,13 @@ export function createTypeEvaluator(
         printType,
         stripLiteralValue,
         suppressDiagnostics,
-        symbolResolutionStack,
         transformTypeArgsForParamSpec,
         validateCallArgs,
         validateTypeArg,
         validateTypeVarTupleIsUnpacked,
     });
 
-    const assignFunctions = createAssignFunctions({
+    const typeCompatibility = createTypeCompatibility({
         assignNamedParam,
         assignType,
         assignTypeArgs,
@@ -19248,27 +19229,29 @@ export function createTypeEvaluator(
     const collectionInference = createCollectionInference({
         addDiagnostic,
         assignType,
+        assignTypeToExpression,
         convertSpecialFormToRuntimeValue,
-        evaluateComprehensionForIf,
         evaluatorInterface,
         getBuiltInObject,
         getBuiltInType,
         getNoneType,
         getObjectType,
+        getTupleClassType,
         getTypeOfExpression,
+        getTypeOfIterator,
         getTypeVarScopesForNode,
         getTypingType,
-        inferTypeArgFromExpectedEntryType,
         inferVarianceForClass,
+        isTypeHashable: evaluatorCore.isTypeHashable,
         makeTopLevelTypeVarsConcrete,
         maxEntriesToUseForInference,
         nodeInfo,
         get prefetched() {
             return prefetched;
         },
+        printType,
         solveAndApplyConstraints,
         stripLiteralValue,
-        verifySetEntryOrDictKeyIsHashable,
     });
 
     const specialFormCreation = createSpecialFormCreation({
@@ -19294,11 +19277,9 @@ export function createTypeEvaluator(
         createSelfType,
         createTypeFormType,
         evaluatorInterface,
-        expandArgType,
         getBooleanValue,
         getBuiltInType,
         getObjectType,
-        getTypeOfArg,
         getTypeOfExpressionExpectingType,
         getTypeVarScopesForNode,
         getTypeVarTupleDefaultType,

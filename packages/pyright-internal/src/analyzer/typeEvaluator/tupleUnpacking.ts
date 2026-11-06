@@ -1,5 +1,5 @@
 /*
- * pureHelpers.ts
+ * tupleUnpacking.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  */

@@ -63,6 +63,7 @@ interface Context {
     ) => Type;
 }
 
+// Applies truthiness and assignment narrowing; conditional/type-guard dispatch is a separate layer.
 export function createEvaluatorNarrowing(context: Context) {
     const { assignType, evaluatorInterface, getTypeOfMember, makeTopLevelTypeVarsConcrete } = context;
 

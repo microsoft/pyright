@@ -18,7 +18,6 @@ import {
     ArgumentNode,
     AssignmentNode,
     ClassNode,
-    ComprehensionForIfNode,
     ExpressionNode,
     NameNode,
     ParamCategory,
@@ -35,7 +34,6 @@ import { ConstraintTracker } from '../constraintTracker';
 import { validateConstructorArgs } from '../constructors';
 import { Declaration, DeclarationType, FunctionDeclaration } from '../declaration';
 import { FunctionDecoratorInfo, getFunctionInfoFromDecorators } from '../decorators';
-import { getParamListDetails } from '../parameterUtils';
 import * as ParseTreeUtils from '../parseTreeUtils';
 import { Scope } from '../scope';
 import * as ScopeUtils from '../scopeUtils';
@@ -43,7 +41,6 @@ import { Symbol } from '../symbol';
 import { isPrivateOrProtectedName } from '../symbolNameUtils';
 import { getLastTypedDeclarationForSymbol } from '../symbolUtils';
 import { expandTuple, makeTupleObject } from '../tuples';
-import { SymbolResolutionStackEntry } from '../typeEvaluator/internals';
 import {
     AbstractSymbol,
     Arg,
@@ -71,7 +68,6 @@ import {
     FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
-    isAny,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -108,7 +104,6 @@ import {
 import {
     applySolvedTypeVars,
     ApplyTypeVarOptions,
-    containsLiteralType,
     convertToInstance,
     derivesFromClassRecursive,
     derivesFromStdlibClass,
@@ -155,14 +150,6 @@ interface Context {
         flags?: AssignTypeFlags,
         recursionCount?: number
     ) => boolean;
-    readonly assignTypeToExpression: (
-        target: ExpressionNode,
-        typeResult: TypeResult,
-        srcExpr: ExpressionNode,
-        ignoreEmptyContainers?: boolean,
-        allowAssignmentToFinalVar?: boolean,
-        expectedTypeDiagAddendum?: DiagnosticAddendum
-    ) => void;
     readonly convertTypeArgToInstance: (type: Type, flags: EvalFlags) => Type;
     readonly createAnnotatedType: (
         classType: ClassType,
@@ -263,12 +250,6 @@ interface Context {
         inferenceContext?: InferenceContext
     ) => TypeResult;
     readonly getTypeOfExpressionExpectingType: (node: ExpressionNode, options?: ExpectedTypeOptions) => TypeResult;
-    readonly getTypeOfIterator: (
-        typeResult: TypeResult,
-        isAsync: boolean,
-        errorNode: ExpressionNode,
-        emitNotIterableError?: boolean
-    ) => TypeResult | undefined;
     readonly inferReturnTypeIfNecessary: (type: Type) => void;
     readonly inferVarianceForClass: (classType: ClassType) => void;
     readonly isTypeFormClass: (type: ClassType) => boolean;
@@ -294,7 +275,6 @@ interface Context {
         callback: () => T,
         diagCallback?: (suppressedDiags: string[]) => void
     ) => T;
-    readonly symbolResolutionStack: SymbolResolutionStackEntry[];
     readonly transformTypeArgsForParamSpec: (
         typeParams: TypeVarType[],
         typeArgs: TypeResultWithNode[] | undefined,
@@ -313,11 +293,11 @@ interface Context {
     readonly validateTypeVarTupleIsUnpacked: (type: TypeVarTupleType, node: ParseNode) => boolean;
 }
 
+// Shared type-expression and specialization operations not yet isolated into narrower topics.
 export function createEvaluatorCore(contextDependencies: Context) {
     const {
         addDiagnostic,
         assignType,
-        assignTypeToExpression,
         convertTypeArgToInstance,
         createAnnotatedType,
         createCallableType,
@@ -341,7 +321,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         getTypeOfClass,
         getTypeOfExpression,
         getTypeOfExpressionExpectingType,
-        getTypeOfIterator,
         inferReturnTypeIfNecessary,
         inferVarianceForClass,
         isTypeFormClass,
@@ -353,18 +332,11 @@ export function createEvaluatorCore(contextDependencies: Context) {
         printType,
         stripLiteralValue,
         suppressDiagnostics,
-        symbolResolutionStack,
         transformTypeArgsForParamSpec,
         validateCallArgs,
         validateTypeArg,
         validateTypeVarTupleIsUnpacked,
     } = contextDependencies;
-
-    function getIndexOfSymbolResolution(symbol: Symbol, declaration: Declaration) {
-        return symbolResolutionStack.findIndex(
-            (entry) => entry.symbolId === symbol.id && entry.declaration === declaration
-        );
-    }
 
     function validateTypeIsInstantiable(typeResult: TypeResult, flags: EvalFlags, node: ExpressionNode) {
         // If the type is incomplete, don't log any diagnostics yet.
@@ -1388,77 +1360,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         return nameParts.reverse().join('.');
     }
 
-    function verifySetEntryOrDictKeyIsHashable(entry: ExpressionNode, type: Type, isDictKey: boolean) {
-        // Verify that the type is hashable.
-        if (!isTypeHashable(type)) {
-            const diag = new DiagnosticAddendum();
-            diag.addMessage(LocAddendum.unhashableType().format({ type: printType(type) }));
-
-            const message = isDictKey ? LocMessage.unhashableDictKey() : LocMessage.unhashableSetEntry();
-
-            addDiagnostic(DiagnosticRule.reportUnhashable, message + diag.getString(), entry);
-        }
-    }
-
-    function inferTypeArgFromExpectedEntryType(
-        inferenceContext: InferenceContext,
-        entryTypes: Type[],
-        isNarrowable: boolean
-    ): Type | undefined {
-        // If the expected type is Any, the resulting type becomes Any.
-        if (isAny(inferenceContext.expectedType)) {
-            return inferenceContext.expectedType;
-        }
-
-        const constraints = new ConstraintTracker();
-        const expectedType = inferenceContext.expectedType;
-        let isCompatible = true;
-
-        entryTypes.forEach((entryType) => {
-            if (isCompatible && !assignType(expectedType, entryType, /* diag */ undefined, constraints)) {
-                isCompatible = false;
-            }
-        });
-
-        if (!isCompatible) {
-            return undefined;
-        }
-
-        if (isNarrowable && entryTypes.length > 0) {
-            const combinedTypes = combineTypes(entryTypes);
-            return containsLiteralType(inferenceContext.expectedType)
-                ? combinedTypes
-                : stripLiteralValue(combinedTypes);
-        }
-
-        return mapSubtypes(
-            solveAndApplyConstraints(inferenceContext.expectedType, constraints, {
-                replaceUnsolved: {
-                    scopeIds: [],
-                    tupleClassType: getTupleClassType(),
-                },
-            }),
-            (subtype) => {
-                if (entryTypes.length !== 1) {
-                    return subtype;
-                }
-                const entryType = entryTypes[0];
-
-                // If the entry type is a TypedDict instance, clone it with additional information.
-                if (
-                    isTypeSame(subtype, entryType, { ignoreTypedDictNarrowEntries: true }) &&
-                    isClass(subtype) &&
-                    isClass(entryType) &&
-                    ClassType.isTypedDictClass(entryType)
-                ) {
-                    return ClassType.cloneForNarrowedTypedDictEntries(subtype, entryType.priv.typedDictNarrowedEntries);
-                }
-
-                return subtype;
-            }
-        );
-    }
-
     function reportPossibleUnknownAssignment(
         diagLevel: DiagnosticLevel,
         rule: DiagnosticRule,
@@ -1500,37 +1401,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
                 );
             }
         }
-    }
-
-    function evaluateComprehensionForIf(node: ComprehensionForIfNode) {
-        let isIncomplete = false;
-
-        if (node.nodeType === ParseNodeType.ComprehensionFor) {
-            const iterableTypeResult = getTypeOfExpression(node.d.iterableExpr);
-            if (iterableTypeResult.isIncomplete) {
-                isIncomplete = true;
-            }
-            const iterableType = stripLiteralValue(iterableTypeResult.type);
-            const itemTypeResult = getTypeOfIterator(
-                { type: iterableType, isIncomplete: iterableTypeResult.isIncomplete },
-                !!node.d.isAsync,
-                node.d.iterableExpr
-            ) ?? { type: UnknownType.create(), isIncomplete: iterableTypeResult.isIncomplete };
-
-            const targetExpr = node.d.targetExpr;
-            assignTypeToExpression(targetExpr, itemTypeResult, node.d.iterableExpr);
-        } else {
-            assert(node.nodeType === ParseNodeType.ComprehensionIf);
-
-            // Evaluate the test expression to validate it and mark symbols
-            // as referenced. This doesn't affect the type of the evaluated
-            // comprehension, but it is important for evaluating intermediate
-            // expressions such as assignment expressions that can affect other
-            // subexpressions.
-            getTypeOfExpression(node.d.testExpr);
-        }
-
-        return isIncomplete;
     }
 
     function cloneBuiltinObjectWithLiteral(node: ParseNode, builtInName: string, value: LiteralValue): Type {
@@ -2366,51 +2236,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         return nameType;
     }
 
-    function getDeclarationFromKeywordParam(type: FunctionType, paramName: string): Declaration | undefined {
-        if (isFunction(type)) {
-            if (type.shared.declaration) {
-                const functionDecl = type.shared.declaration;
-                if (functionDecl.type === DeclarationType.Function) {
-                    const functionNode = functionDecl.node;
-                    const functionScope = nodeInfo.getScope(functionNode);
-                    if (functionScope) {
-                        const paramSymbol = functionScope.lookUpSymbol(paramName)!;
-                        if (paramSymbol) {
-                            return paramSymbol.getDeclarations().find((decl) => decl.type === DeclarationType.Param);
-                        }
-
-                        const parameterDetails = getParamListDetails(type);
-                        if (parameterDetails.unpackedKwargsTypedDictType) {
-                            const lookupResults = lookUpClassMember(
-                                parameterDetails.unpackedKwargsTypedDictType,
-                                paramName
-                            );
-                            if (lookupResults) {
-                                return lookupResults.symbol
-                                    .getDeclarations()
-                                    .find((decl) => decl.type === DeclarationType.Variable);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return undefined;
-    }
-
-    function getAliasFromImport(node: NameNode): NameNode | undefined {
-        if (
-            node.parent &&
-            node.parent.nodeType === ParseNodeType.ImportFromAs &&
-            node.parent.d.alias &&
-            node === node.parent.d.name
-        ) {
-            return node.parent.d.alias;
-        }
-        return undefined;
-    }
-
     function isUnambiguousInference(symbol: Symbol, decl: Declaration, inferredType: Type): boolean {
         const nonSlotsDecls = symbol.getDeclarations().filter((decl) => {
             return decl.type !== DeclarationType.Variable || !decl.isInferenceAllowedInPyTyped;
@@ -2893,7 +2718,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
     }
 
     return {
-        getIndexOfSymbolResolution,
         validateTypeIsInstantiable,
         solveAndApplyConstraints,
         getBoundMagicMethod,
@@ -2924,10 +2748,7 @@ export function createEvaluatorCore(contextDependencies: Context) {
         verifyTypeVarDefaultIsCompatible,
         getTypeVarTupleDefaultType,
         getFunctionFullName,
-        verifySetEntryOrDictKeyIsHashable,
-        inferTypeArgFromExpectedEntryType,
         reportPossibleUnknownAssignment,
-        evaluateComprehensionForIf,
         cloneBuiltinObjectWithLiteral,
         cloneBuiltinClassWithLiteral,
         createSelfType,
@@ -2939,8 +2760,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         getTypeOfArgExpectingType,
         getBuiltInType,
         getBuiltInObject,
-        getDeclarationFromKeywordParam,
-        getAliasFromImport,
         isUnambiguousInference,
         isSpecialFormClass,
         isTypeSubsumedByOtherType,

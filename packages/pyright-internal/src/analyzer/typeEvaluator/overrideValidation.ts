@@ -45,6 +45,7 @@ interface Context {
     ) => Type;
 }
 
+// Validates overrides and reports mismatches through evaluator compatibility and diagnostic callbacks.
 export function createOverrideValidation(context: Context) {
     const { assignType, getEffectiveReturnType, printType, solveAndApplyConstraints } = context;
 

@@ -45,6 +45,7 @@ interface Context {
     ) => Type;
 }
 
+// Specializes bound methods for a receiver using the evaluator's type-solving callbacks.
 export function createBoundMethodSpecialization(context: Context) {
     const { assignType, getEffectiveReturnType, printType, solveAndApplyConstraints } = context;
 

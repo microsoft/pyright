@@ -6,10 +6,11 @@
  * collectionInference implementation, using evaluator-owned dependencies and state.
  */
 
+import { assert } from '../../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../../common/diagnostic';
 import { DiagnosticRule } from '../../common/diagnosticRules';
 import { TextRange } from '../../common/textRange';
-import { LocMessage } from '../../localization/localize';
+import { LocAddendum, LocMessage } from '../../localization/localize';
 import {
     ComprehensionForIfNode,
     ComprehensionNode,
@@ -33,6 +34,7 @@ import {
     maxInferredContainerDepth,
     maxSubtypesForInferredType,
     PrefetchedTypes,
+    PrintTypeOptions,
     SolveConstraintsOptions,
     TypeEvaluator,
     TypeResult,
@@ -43,6 +45,7 @@ import {
     ClassType,
     combineTypes,
     FunctionType,
+    isAny,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -71,12 +74,12 @@ import {
     isLiteralType,
     isTupleClass,
     makeInferenceContext,
+    mapSubtypes,
     selfSpecializeClass,
     stripTypeForm,
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
 } from '../typeUtils';
-
 interface Context {
     readonly addDiagnostic: (
         rule: DiagnosticRule,
@@ -92,8 +95,15 @@ interface Context {
         flags?: AssignTypeFlags,
         recursionCount?: number
     ) => boolean;
+    readonly assignTypeToExpression: (
+        target: ExpressionNode,
+        typeResult: TypeResult,
+        srcExpr: ExpressionNode,
+        ignoreEmptyContainers?: boolean,
+        allowAssignmentToFinalVar?: boolean,
+        expectedTypeDiagAddendum?: DiagnosticAddendum
+    ) => void;
     readonly convertSpecialFormToRuntimeValue: (type: Type, flags: EvalFlags, convertModule?: boolean) => Type;
-    readonly evaluateComprehensionForIf: (node: ComprehensionForIfNode) => boolean;
     readonly evaluatorInterface: TypeEvaluator;
     readonly getBuiltInObject: (
         node: ParseNode,
@@ -114,19 +124,22 @@ interface Context {
     readonly getBuiltInType: (node: ParseNode, name: string) => Type;
     readonly getNoneType: () => Type;
     readonly getObjectType: () => Type;
+    readonly getTupleClassType: () => ClassType | undefined;
     readonly getTypeOfExpression: (
         node: ExpressionNode,
         flags?: EvalFlags,
         inferenceContext?: InferenceContext
     ) => TypeResult;
+    readonly getTypeOfIterator: (
+        typeResult: TypeResult,
+        isAsync: boolean,
+        errorNode: ExpressionNode,
+        emitNotIterableError?: boolean
+    ) => TypeResult | undefined;
     readonly getTypeVarScopesForNode: (node: ParseNode) => string[];
     readonly getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
-    readonly inferTypeArgFromExpectedEntryType: (
-        inferenceContext: InferenceContext,
-        entryTypes: Type[],
-        isNarrowable: boolean
-    ) => Type | undefined;
     readonly inferVarianceForClass: (classType: ClassType) => void;
+    readonly isTypeHashable: (type: Type) => boolean;
     readonly makeTopLevelTypeVarsConcrete: (
         type: Type,
         makeParamSpecsConcrete?: boolean,
@@ -135,6 +148,7 @@ interface Context {
     readonly maxEntriesToUseForInference: 64;
     readonly nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor;
     readonly prefetched: Partial<PrefetchedTypes> | undefined;
+    readonly printType: (type: Type, options?: PrintTypeOptions) => string;
     readonly solveAndApplyConstraints: (
         type: Type,
         constraints: ConstraintTracker,
@@ -142,31 +156,33 @@ interface Context {
         solveOptions?: SolveConstraintsOptions
     ) => Type;
     readonly stripLiteralValue: (type: Type) => Type;
-    readonly verifySetEntryOrDictKeyIsHashable: (entry: ExpressionNode, type: Type, isDictKey: boolean) => void;
 }
 
+// Infers collection entries and comprehension clauses, including assignment and diagnostic effects.
 export function createCollectionInference(context: Context) {
     const {
         addDiagnostic,
         assignType,
+        assignTypeToExpression,
         convertSpecialFormToRuntimeValue,
-        evaluateComprehensionForIf,
         evaluatorInterface,
         getBuiltInObject,
         getBuiltInType,
         getNoneType,
         getObjectType,
+        getTupleClassType,
         getTypeOfExpression,
+        getTypeOfIterator,
         getTypeVarScopesForNode,
         getTypingType,
-        inferTypeArgFromExpectedEntryType,
         inferVarianceForClass,
+        isTypeHashable,
         makeTopLevelTypeVarsConcrete,
         maxEntriesToUseForInference,
         nodeInfo,
+        printType,
         solveAndApplyConstraints,
         stripLiteralValue,
-        verifySetEntryOrDictKeyIsHashable,
     } = context;
 
     function getTypeOfDictionaryWithContext(
@@ -1055,6 +1071,108 @@ export function createCollectionInference(context: Context) {
         return { type, isIncomplete, typeErrors };
     }
 
+    function verifySetEntryOrDictKeyIsHashable(entry: ExpressionNode, type: Type, isDictKey: boolean) {
+        // Verify that the type is hashable.
+        if (!isTypeHashable(type)) {
+            const diag = new DiagnosticAddendum();
+            diag.addMessage(LocAddendum.unhashableType().format({ type: printType(type) }));
+
+            const message = isDictKey ? LocMessage.unhashableDictKey() : LocMessage.unhashableSetEntry();
+
+            addDiagnostic(DiagnosticRule.reportUnhashable, message + diag.getString(), entry);
+        }
+    }
+
+    function inferTypeArgFromExpectedEntryType(
+        inferenceContext: InferenceContext,
+        entryTypes: Type[],
+        isNarrowable: boolean
+    ): Type | undefined {
+        // If the expected type is Any, the resulting type becomes Any.
+        if (isAny(inferenceContext.expectedType)) {
+            return inferenceContext.expectedType;
+        }
+
+        const constraints = new ConstraintTracker();
+        const expectedType = inferenceContext.expectedType;
+        let isCompatible = true;
+
+        entryTypes.forEach((entryType) => {
+            if (isCompatible && !assignType(expectedType, entryType, /* diag */ undefined, constraints)) {
+                isCompatible = false;
+            }
+        });
+
+        if (!isCompatible) {
+            return undefined;
+        }
+
+        if (isNarrowable && entryTypes.length > 0) {
+            const combinedTypes = combineTypes(entryTypes);
+            return containsLiteralType(inferenceContext.expectedType)
+                ? combinedTypes
+                : stripLiteralValue(combinedTypes);
+        }
+
+        return mapSubtypes(
+            solveAndApplyConstraints(inferenceContext.expectedType, constraints, {
+                replaceUnsolved: {
+                    scopeIds: [],
+                    tupleClassType: getTupleClassType(),
+                },
+            }),
+            (subtype) => {
+                if (entryTypes.length !== 1) {
+                    return subtype;
+                }
+                const entryType = entryTypes[0];
+
+                // If the entry type is a TypedDict instance, clone it with additional information.
+                if (
+                    isTypeSame(subtype, entryType, { ignoreTypedDictNarrowEntries: true }) &&
+                    isClass(subtype) &&
+                    isClass(entryType) &&
+                    ClassType.isTypedDictClass(entryType)
+                ) {
+                    return ClassType.cloneForNarrowedTypedDictEntries(subtype, entryType.priv.typedDictNarrowedEntries);
+                }
+
+                return subtype;
+            }
+        );
+    }
+
+    function evaluateComprehensionForIf(node: ComprehensionForIfNode) {
+        let isIncomplete = false;
+
+        if (node.nodeType === ParseNodeType.ComprehensionFor) {
+            const iterableTypeResult = getTypeOfExpression(node.d.iterableExpr);
+            if (iterableTypeResult.isIncomplete) {
+                isIncomplete = true;
+            }
+            const iterableType = stripLiteralValue(iterableTypeResult.type);
+            const itemTypeResult = getTypeOfIterator(
+                { type: iterableType, isIncomplete: iterableTypeResult.isIncomplete },
+                !!node.d.isAsync,
+                node.d.iterableExpr
+            ) ?? { type: UnknownType.create(), isIncomplete: iterableTypeResult.isIncomplete };
+
+            const targetExpr = node.d.targetExpr;
+            assignTypeToExpression(targetExpr, itemTypeResult, node.d.iterableExpr);
+        } else {
+            assert(node.nodeType === ParseNodeType.ComprehensionIf);
+
+            // Evaluate the test expression to validate it and mark symbols
+            // as referenced. This doesn't affect the type of the evaluated
+            // comprehension, but it is important for evaluating intermediate
+            // expressions such as assignment expressions that can affect other
+            // subexpressions.
+            getTypeOfExpression(node.d.testExpr);
+        }
+
+        return isIncomplete;
+    }
+
     return {
         getTypeOfDictionaryWithContext,
         getTypeOfDictionaryInferred,
@@ -1064,5 +1182,6 @@ export function createCollectionInference(context: Context) {
         getTypeOfListOrSetInferred,
         getTypeOfComprehension,
         getElementTypeFromComprehension,
+        evaluateComprehensionForIf,
     };
 }

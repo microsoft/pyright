@@ -29,7 +29,7 @@ Stateless literal and unpacking helpers use ordinary module exports.
 | Module | Responsibility |
 | --- | --- |
 | `literalTypes.ts` | Literal, TypeGuard and TypeIs normalization |
-| `pureHelpers.ts` | Stateless tuple-like unpacking |
+| `tupleUnpacking.ts` | Stateless tuple-like unpacking |
 | `diagnostics.ts` | Evaluator diagnostics and diagnostic context |
 | `flowAnalysis.ts` | Reachability and code flow adapters |
 | `evaluatorNarrowing.ts` | Evaluator truthiness and assignment narrowing |
@@ -41,9 +41,9 @@ Stateless literal and unpacking helpers use ordinary module exports.
 | `memberResolution.ts` | Member access, declarations and symbol resolution |
 | `boundMethodSpecialization.ts` | Current bound receiver and method specialization |
 | `classConstruction.ts` | Class synthesis and effective metaclass selection |
-| `returnTypeInference.ts` | Contextual return inference and inference-frame queries |
+| `returnTypeInference.ts` | Contextual call-site return inference and inference-frame queries |
 | `expressionEvaluation.ts` | Expression evaluation and argument handling |
-| `assignFunctions.ts` | Type assignment and compatibility |
+| `typeCompatibility.ts` | Class, union, parameter and callable type compatibility |
 | `evaluatorCore.ts` | Remaining evaluator lookup, validation and specialization helpers |
 | `internals.ts` | Private contracts shared by implementation modules |
 
@@ -51,7 +51,27 @@ The two narrowing modules are separate layers: `evaluatorNarrowing.ts` provides
 truthiness and assignment primitives; `typeGuardNarrowing.ts` applies conditional
 and type guard tests using those primitives. Scalar string evaluation and
 forward-annotation parsing belong to `expressionEvaluation.ts`, while callable
-parameter packing is private to `assignFunctions.ts`.
+parameter packing is private to `typeCompatibility.ts`.
+
+## Where to start
+
+This is a navigation map, not an acyclic dependency graph. Start in
+`typeEvaluator.ts` for dispatch, orchestration and evaluator state, then follow
+the operation to its topic:
+
+| Operation | Implementation path |
+| --- | --- |
+| Expression or call argument | Expression dispatch -> `expressionEvaluation.ts` |
+| List, set, dictionary or comprehension | `collectionInference.ts`, including entry inference and clause evaluation |
+| Member access or declaration lookup | `memberResolution.ts` -> receiver binding in `boundMethodSpecialization.ts` |
+| Call matching and overload selection | Main evaluator -> argument expansion in `expressionEvaluation.ts` -> `typeCompatibility.ts` |
+| Conditional or type guard test | `typeGuards.ts` -> `typeGuardNarrowing.ts` -> evaluator narrowing primitives |
+| Contextual return type at a call site | `returnTypeInference.ts`; ordinary function return inference remains in the main evaluator |
+
+Each factory's returned functions are private implementation entry points.
+Some back public evaluator methods through the facade, but those methods are
+defined by `TypeEvaluator` in `typeEvaluatorTypes.ts`. A topic export does not
+itself extend that interface.
 
 `returnTypeInference.ts` uses the original evaluator-owned inference stack and
 live cache getters/setters. It does not own replacement evaluator state.

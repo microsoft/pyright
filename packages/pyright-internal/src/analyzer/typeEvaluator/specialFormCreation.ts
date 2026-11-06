@@ -93,6 +93,7 @@ interface Context {
     readonly validateTypeMetadata: (errorNode: ExpressionNode, baseType: Type, metaArg: TypeResultWithNode) => boolean;
 }
 
+// Synthesizes typing special forms and validates their arguments through evaluator callbacks.
 export function createSpecialFormCreation(context: Context) {
     const {
         addDiagnostic,

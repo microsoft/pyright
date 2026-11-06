@@ -48,6 +48,7 @@ interface Context {
     readonly nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor;
 }
 
+// Answers reachability and exception-flow questions using the evaluator-owned code-flow engine.
 export function createFlowAnalysis(context: Context) {
     const {
         addDiagnosticForTextRange,

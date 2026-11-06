@@ -31,6 +31,7 @@ interface Context {
     readonly suppressedNodeStack: SuppressedNodeStackEntry[];
 }
 
+// Formats and emits diagnostics; suppression and evaluation state remain evaluator-owned.
 export function createDiagnostics(context: Context) {
     const {
         evaluatorInterface,

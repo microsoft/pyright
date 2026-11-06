@@ -55,6 +55,7 @@ interface Context {
     ) => void;
 }
 
+// Infers contextual call-site returns; the evaluator owns the live caches and inference stack.
 export function createReturnTypeInference(context: Context) {
     const {
         codeFlowEngine,

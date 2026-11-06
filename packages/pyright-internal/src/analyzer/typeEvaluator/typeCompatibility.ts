@@ -1,9 +1,9 @@
 /*
- * assignFunctions.ts
+ * typeCompatibility.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * assignFunctions implementation, using evaluator-owned dependencies and state.
+ * typeCompatibility implementation, using evaluator-owned dependencies and state.
  */
 
 import { appendArray } from '../../common/collectionUtils';
@@ -143,7 +143,8 @@ interface Context {
     readonly typePromotions: Map<string, string[]>;
 }
 
-export function createAssignFunctions(context: Context) {
+// Checks assignability, accumulating constraints and diagnostics through evaluator callbacks.
+export function createTypeCompatibility(context: Context) {
     const {
         assignNamedParam,
         assignType,

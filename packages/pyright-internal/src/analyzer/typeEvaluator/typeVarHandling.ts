@@ -13,7 +13,7 @@ import { PythonVersion, pythonVersion3_13 } from '../../common/pythonVersion';
 import { TextRange } from '../../common/textRange';
 import { Uri } from '../../common/uri/uri';
 import { LocMessage } from '../../localization/localize';
-import { ArgCategory, ExpressionNode, ParamCategory, ParseNode, ParseNodeType } from '../../parser/parseNodes';
+import { ExpressionNode, ParamCategory, ParseNode, ParseNodeType } from '../../parser/parseNodes';
 import * as AnalyzerNodeInfo from '../analyzerNodeInfo';
 import { ConstraintTracker } from '../constraintTracker';
 import { makeTupleObject } from '../tuples';
@@ -58,14 +58,11 @@ import {
 } from '../types';
 import {
     addConditionToType,
-    combineSameSizedTuples,
     convertToInstance,
     convertToInstantiable,
     doForEachSubtype,
     getTypeCondition,
     getTypeVarArgsRecursive,
-    InferenceContext,
-    isTupleClass,
     makeTypeVarsBound,
     mapSubtypes,
     partiallySpecializeType,
@@ -116,11 +113,9 @@ interface Context {
         typeArgs: TypeResultWithNode[] | undefined
     ) => Type;
     readonly evaluatorInterface: TypeEvaluator;
-    readonly expandArgType: (type: Type) => Type[] | undefined;
     readonly getBooleanValue: (node: ExpressionNode) => boolean;
     readonly getBuiltInType: (node: ParseNode, name: string) => Type;
     readonly getObjectType: () => Type;
-    readonly getTypeOfArg: (arg: Arg, inferenceContext: InferenceContext | undefined) => TypeResult;
     readonly getTypeOfExpressionExpectingType: (node: ExpressionNode, options?: ExpectedTypeOptions) => TypeResult;
     readonly getTypeVarScopesForNode: (node: ParseNode) => string[];
     readonly getTypeVarTupleDefaultType: (node: ExpressionNode, isPep695Syntax: boolean) => Type | undefined;
@@ -142,6 +137,7 @@ interface Context {
     readonly verifyTypeVarDefaultIsCompatible: (typeVar: TypeVarType, defaultValueNode: ExpressionNode) => void;
 }
 
+// Builds and specializes type variables and ParamSpecs; scoped evaluation stays in the evaluator.
 export function createTypeVarHandling(context: Context) {
     const {
         addDiagnostic,
@@ -151,11 +147,9 @@ export function createTypeVarHandling(context: Context) {
         createSelfType,
         createTypeFormType,
         evaluatorInterface,
-        expandArgType,
         getBooleanValue,
         getBuiltInType,
         getObjectType,
-        getTypeOfArg,
         getTypeOfExpressionExpectingType,
         getTypeVarScopesForNode,
         getTypeVarTupleDefaultType,
@@ -602,105 +596,6 @@ export function createTypeVarHandling(context: Context) {
         updateUsageVariancesRecursive(type, typeParams, usageVariances, Variance.Covariant);
 
         return usageVariances;
-    }
-
-    function expandArgTypes(
-        contextFreeArgTypes: Type[],
-        expandedArgTypes: (Type | undefined)[][]
-    ): (Type | undefined)[][] | undefined {
-        // Find the rightmost already-expanded argument.
-        let indexToExpand = contextFreeArgTypes.length - 1;
-        while (indexToExpand >= 0 && !expandedArgTypes[0][indexToExpand]) {
-            indexToExpand--;
-        }
-
-        // Move to the next candidate for expansion.
-        indexToExpand++;
-
-        if (indexToExpand >= contextFreeArgTypes.length) {
-            return undefined;
-        }
-
-        let expandedTypes: Type[] | undefined;
-        while (indexToExpand < contextFreeArgTypes.length) {
-            // Is this a union type? If so, we can expand it.
-            const argType = contextFreeArgTypes[indexToExpand];
-
-            expandedTypes = expandArgType(argType);
-            if (expandedTypes) {
-                break;
-            }
-            indexToExpand++;
-        }
-
-        // We have nothing left to expand.
-        if (!expandedTypes) {
-            return undefined;
-        }
-
-        // Expand entry indexToExpand.
-        const newExpandedArgTypes: (Type | undefined)[][] = [];
-
-        expandedArgTypes.forEach((preExpandedTypes) => {
-            expandedTypes.forEach((subtype) => {
-                const expandedTypes = [...preExpandedTypes];
-                expandedTypes[indexToExpand] = subtype;
-                newExpandedArgTypes.push(expandedTypes);
-            });
-        });
-
-        return newExpandedArgTypes;
-    }
-
-    function expandArgList(argList: Arg[]): Arg[] {
-        const expandedArgList: Arg[] = [];
-
-        for (const arg of argList) {
-            if (arg.argCategory === ArgCategory.UnpackedList) {
-                const argType = getTypeOfArg(arg, /* inferenceContext */ undefined).type;
-
-                // If this is a tuple with specified element types, use those
-                // specified types rather than using the more generic iterator
-                // type which will be a union of all element types.
-                const combinedArgType = combineSameSizedTuples(
-                    makeTopLevelTypeVarsConcrete(argType),
-                    context.prefetched?.tupleClass
-                );
-
-                if (isClassInstance(combinedArgType) && isTupleClass(combinedArgType)) {
-                    const tupleTypeArgs = combinedArgType.priv.tupleTypeArgs ?? [];
-
-                    if (tupleTypeArgs.length !== 1 || !tupleTypeArgs[0].isUnbounded) {
-                        for (const tupleTypeArg of tupleTypeArgs) {
-                            if (tupleTypeArg.isUnbounded) {
-                                expandedArgList.push({
-                                    ...arg,
-                                    argCategory: ArgCategory.UnpackedList,
-                                    valueExpression: undefined,
-                                    typeResult: {
-                                        type: makeTupleObject(evaluatorInterface, [tupleTypeArg]),
-                                    },
-                                });
-                            } else {
-                                expandedArgList.push({
-                                    ...arg,
-                                    argCategory: ArgCategory.Simple,
-                                    valueExpression: undefined,
-                                    typeResult: {
-                                        type: tupleTypeArg.type,
-                                    },
-                                });
-                            }
-                        }
-                        continue;
-                    }
-                }
-            }
-
-            expandedArgList.push(arg);
-        }
-
-        return expandedArgList;
     }
 
     function getUnknownExemptTypeVarsForReturnType(functionType: FunctionType, returnType: Type): TypeVarType[] {
@@ -1163,8 +1058,6 @@ export function createTypeVarHandling(context: Context) {
         mapSubtypesExpandTypeVars,
         addTypeFormForSymbol,
         inferVarianceForTypeAlias,
-        expandArgTypes,
-        expandArgList,
         getUnknownExemptTypeVarsForReturnType,
         createTypeVarType,
         createTypeVarTupleType,

@@ -51,7 +51,6 @@ import {
     CallResult,
     ClassTypeResult,
     DeclaredSymbolTypeInfo,
-    EffectiveTypeResult,
     EvalFlags,
     EvaluatorUsage,
     ExpectedTypeOptions,
@@ -68,7 +67,6 @@ import {
     AnyType,
     ClassType,
     combineTypes,
-    findSubtype,
     FunctionParam,
     FunctionParamFlags,
     FunctionType,
@@ -105,7 +103,7 @@ import {
 } from '../types';
 import {
     addConditionToType,
-    ClassMember,
+    combineSameSizedTuples,
     convertToInstance,
     derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
@@ -128,9 +126,7 @@ import {
     makeTypeVarsBound,
     mapSubtypes,
     MemberAccessFlags,
-    partiallySpecializeType,
     removeNoneFromUnion,
-    requiresSpecialization,
     selfSpecializeClass,
     specializeForBaseClass,
     synthesizeTypeVarForSelfCls,
@@ -160,6 +156,7 @@ interface Context {
     ) => ClassType[];
     readonly convertNodeToArg: (node: ArgumentNode) => ArgWithExpression;
     readonly evaluatorInterface: TypeEvaluator;
+    readonly expandArgType: (type: Type) => Type[] | undefined;
     readonly expectedTypeWantsTypeForm: (expectedType: Type) => boolean;
     readonly getBoundMagicMethod: (
         classType: ClassType,
@@ -188,16 +185,10 @@ interface Context {
     readonly getBuiltInType: (node: ParseNode, name: string) => Type;
     readonly getDeclaredTypeOfSymbol: (symbol: Symbol, usageNode?: NameNode) => DeclaredSymbolTypeInfo;
     readonly getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
-    readonly getEffectiveTypeOfSymbolForUsage: (
-        symbol: Symbol,
-        usageNode?: NameNode,
-        useLastDecl?: boolean
-    ) => EffectiveTypeResult;
     readonly getIndexAccessMagicMethodName: (usage: EvaluatorUsage) => string;
     readonly getNoneType: () => Type;
     readonly getObjectType: () => Type;
     readonly getScopeForNode: (node: ParseNode) => Scope | undefined;
-    readonly getTypeClassType: () => ClassType | undefined;
     readonly getTypeOfArgExpectingType: (arg: Arg, options?: ExpectedTypeOptions) => TypeResult;
     readonly getTypeOfAwaitable: (typeResult: TypeResult, errorNode?: ExpressionNode) => TypeResult;
     readonly getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
@@ -209,7 +200,6 @@ interface Context {
     readonly getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
     readonly getTypeVarScopesForNode: (node: ParseNode) => string[];
     readonly getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
-    readonly inferReturnTypeIfNecessary: (type: Type) => void;
     readonly isSpeculativeModeInUse: (node: ParseNode | undefined) => boolean;
     readonly lookUpSymbolRecursive: (
         node: ParseNode,
@@ -265,9 +255,9 @@ interface Context {
         inferenceContext: InferenceContext | undefined,
         recursionCount?: number
     ) => CallResult;
-    readonly validateSymbolIsTypeExpression: (node: ExpressionNode, type: Type, includesVarDecl: boolean) => Type;
 }
 
+// Evaluates expression forms and expands call arguments using evaluator-owned caches and callbacks.
 export function createExpressionEvaluation(context: Context) {
     const {
         addDiagnostic,
@@ -277,18 +267,17 @@ export function createExpressionEvaluation(context: Context) {
         collectLiteralEnumClasses,
         convertNodeToArg,
         evaluatorInterface,
+        expandArgType,
         expectedTypeWantsTypeForm,
         getBoundMagicMethod,
         getBuiltInObject,
         getBuiltInType,
         getDeclaredTypeOfSymbol,
         getEffectiveTypeOfSymbol,
-        getEffectiveTypeOfSymbolForUsage,
         getIndexAccessMagicMethodName,
         getNoneType,
         getObjectType,
         getScopeForNode,
-        getTypeClassType,
         getTypeOfArgExpectingType,
         getTypeOfAwaitable,
         getTypeOfClass,
@@ -296,7 +285,6 @@ export function createExpressionEvaluation(context: Context) {
         getTypeOfFunction,
         getTypeVarScopesForNode,
         getTypingType,
-        inferReturnTypeIfNecessary,
         isSpeculativeModeInUse,
         lookUpSymbolRecursive,
         makeTopLevelTypeVarsConcrete,
@@ -310,7 +298,6 @@ export function createExpressionEvaluation(context: Context) {
         stripTypeGuard,
         useSpeculativeMode,
         validateCallArgs,
-        validateSymbolIsTypeExpression,
     } = context;
 
     function getTypeOfEllipsis(flags: EvalFlags, typeResult: TypeResult | undefined, node: ExpressionNode) {
@@ -371,6 +358,225 @@ export function createExpressionEvaluation(context: Context) {
                 unpackedType: iterType,
                 isIncomplete: iteratorTypeResult.isIncomplete,
             };
+        }
+
+        return typeResult;
+    }
+
+    // Calls back into the parser to parse the contents of a string literal.
+    // This is unfortunately needed in some cases — specifically where the
+    // parser couldn't determine that the string literal would be used in
+    // a context where it should be treated as a forward-declared type. This
+    // call produces an expression tree that is not attached to the main parse
+    // expression tree because we don't want to mutate the latter; the
+    // expression tree created by this function is therefore used only temporarily.
+    function parseStringAsTypeAnnotation(node: StringListNode, reportErrors: boolean): ExpressionNode | undefined {
+        const fileInfo = nodeInfo.getFileInfo(node);
+        const parser = new Parser();
+        const textValue = node.d.strings[0].d.value;
+
+        // Determine the offset within the file where the string
+        // literal's contents begin.
+        let valueOffset = node.d.strings[0].start;
+        if (node.d.strings[0].nodeType === ParseNodeType.String) {
+            valueOffset += node.d.strings[0].d.token.prefixLength + node.d.strings[0].d.token.quoteMarkLength;
+        }
+
+        // Construct a temporary dummy string with the text value at the appropriate
+        // offset so as to mimic the original file. This will keep all of the token
+        // and diagnostic offsets correct.
+        const dummyFileContents = ' '.repeat(valueOffset) + textValue;
+
+        const parseOptions = new ParseOptions();
+        parseOptions.isStubFile = fileInfo.isStubFile;
+        parseOptions.pythonVersion = fileInfo.executionEnvironment.pythonVersion;
+        parseOptions.reportErrorsForParsedStringContents = true;
+
+        const parseResults = parser.parseTextExpression(
+            dummyFileContents,
+            valueOffset,
+            textValue.length,
+            parseOptions,
+            ParseTextMode.Expression,
+            /* initialParenDepth */ undefined,
+            fileInfo.typingSymbolAliases,
+            node.a
+        );
+
+        if (parseResults.parseTree) {
+            // If there are errors but we are not reporting them, return
+            // undefined to indicate that the parse failed.
+            if (!reportErrors && parseResults.diagnostics.length > 0) {
+                return undefined;
+            }
+
+            const fileInfo = nodeInfo.getFileInfo(node);
+            parseResults.diagnostics.forEach((diag) => {
+                fileInfo.diagnosticSink.addDiagnosticWithTextRange('error', diag.message, node);
+            });
+
+            parseResults.parseTree.parent = node;
+
+            // Optionally add the new subtree to the parse tree so it can
+            // participate in language server operations like find and replace.
+            if (reportErrors) {
+                nodeInfo.setStringAnnotation(node, parseResults.parseTree, parseResults.stringAnnotations);
+            }
+
+            return parseResults.parseTree;
+        }
+
+        return undefined;
+    }
+
+    function getTypeOfStringList(
+        node: StringListNode,
+        flags: EvalFlags,
+        inferenceContext?: InferenceContext
+    ): TypeResult {
+        let typeResult: TypeResult | undefined;
+
+        if (
+            (flags & EvalFlags.StrLiteralAsType) !== 0 &&
+            ((flags & EvalFlags.TypeFormArg) === 0 || (flags & EvalFlags.NoConvertSpecialForm) !== 0)
+        ) {
+            return getTypeOfStringListAsType(node, flags);
+        }
+
+        const isBytesNode = (node: StringNode | FormatStringNode) =>
+            (node.d.token.flags & StringTokenFlags.Bytes) !== 0;
+        const isTemplateNode = (node: StringNode | FormatStringNode) =>
+            (node.d.token.flags & StringTokenFlags.Template) !== 0;
+
+        // Check for mixing of t-string literals with str, bytes, or f-string
+        // literals. CPython reports this as a SyntaxError (PEP 750).
+        const firstTemplateIndex = node.d.strings.findIndex(isTemplateNode);
+        const firstNonTemplateIndex = node.d.strings.findIndex((str) => !isTemplateNode(str));
+        if (firstTemplateIndex >= 0 && firstNonTemplateIndex >= 0) {
+            addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.mixingTemplateAndStr(),
+                node.d.strings[Math.max(firstTemplateIndex, firstNonTemplateIndex)]
+            );
+
+            return { type: UnknownType.create() };
+        }
+
+        // Check for mixing of bytes and str, which is not allowed.
+        const firstStrIndex = node.d.strings.findIndex((str) => !isBytesNode(str));
+        const firstBytesIndex = node.d.strings.findIndex((str) => isBytesNode(str));
+        if (firstStrIndex >= 0 && firstBytesIndex >= 0) {
+            addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.mixingBytesAndStr(),
+                node.d.strings[Math.max(firstBytesIndex, firstStrIndex)]
+            );
+
+            return { type: UnknownType.create() };
+        }
+
+        const isBytes = firstBytesIndex >= 0;
+        let isLiteralString = true;
+        let isIncomplete = false;
+        let isTemplate = false;
+
+        node.d.strings.forEach((expr) => {
+            // Handle implicit concatenation.
+            const typeResult = getTypeOfString(expr);
+
+            if (typeResult.isIncomplete) {
+                isIncomplete = true;
+            }
+
+            let isExprLiteralString = false;
+
+            if (isClassInstance(typeResult.type)) {
+                if (ClassType.isBuiltIn(typeResult.type, 'str') && typeResult.type.priv.literalValue !== undefined) {
+                    isExprLiteralString = true;
+                } else if (ClassType.isBuiltIn(typeResult?.type, 'LiteralString')) {
+                    isExprLiteralString = true;
+                }
+
+                if (typeResult.type.shared.name === 'Template') {
+                    isTemplate = true;
+                }
+            }
+
+            if (!isExprLiteralString) {
+                isLiteralString = false;
+            }
+        });
+
+        if (isTemplate) {
+            const templateType =
+                context.prefetched?.templateClass && isInstantiableClass(context.prefetched?.templateClass)
+                    ? ClassType.cloneAsInstance(context.prefetched.templateClass)
+                    : UnknownType.create();
+
+            typeResult = { type: templateType, isIncomplete };
+        } else if (node.d.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {
+            if (isLiteralString) {
+                const literalStringType = getTypingType(node, 'LiteralString');
+                if (literalStringType && isInstantiableClass(literalStringType)) {
+                    typeResult = { type: ClassType.cloneAsInstance(literalStringType) };
+                }
+            }
+
+            if (!typeResult) {
+                typeResult = {
+                    type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
+                    isIncomplete,
+                };
+            }
+        } else {
+            typeResult = {
+                type: cloneBuiltinObjectWithLiteral(
+                    node,
+                    isBytes ? 'bytes' : 'str',
+                    node.d.strings.map((s) => s.d.value).join('')
+                ),
+                isIncomplete,
+            };
+        }
+
+        if (node.d.strings.length !== 1 || node.d.strings[0].nodeType !== ParseNodeType.String) {
+            return typeResult;
+        }
+
+        // Only attempt to interpret the string as a TypeForm forward reference when
+        // there's a signal that a TypeForm value is wanted in this context. Doing it
+        // unconditionally can trigger expensive (and recursion-prone) type lookups
+        // for plain string literals in non-type contexts.
+        const wantsTypeForm =
+            (flags & EvalFlags.TypeFormArg) !== 0 ||
+            (inferenceContext !== undefined && expectedTypeWantsTypeForm(inferenceContext.expectedType));
+        if (!wantsTypeForm) {
+            return typeResult;
+        }
+
+        // For performance reasons, do not attempt to treat the string literal
+        // as a TypeForm if it's going to fail anyway or is unlikely to be a
+        // TypeForm (really long, triple-quoted, etc.).
+        const stringNode = node.d.strings[0];
+        const tokenFlags = stringNode.d.token.flags;
+        const disallowedTokenFlags =
+            StringTokenFlags.Bytes |
+            StringTokenFlags.Raw |
+            StringTokenFlags.Format |
+            StringTokenFlags.Template |
+            StringTokenFlags.Triplicate;
+        const maxTypeFormStringLength = 256;
+
+        if (
+            (tokenFlags & disallowedTokenFlags) !== 0 ||
+            stringNode.d.token.escapedValue.length >= maxTypeFormStringLength
+        ) {
+            return typeResult;
+        }
+
+        const typeFormResult = getTypeOfStringListAsType(node, flags);
+        if (typeFormResult.type.props?.typeForm) {
+            typeResult.type = TypeBase.cloneWithTypeForm(typeResult.type, typeFormResult.type.props.typeForm);
         }
 
         return typeResult;
@@ -2402,311 +2608,103 @@ export function createExpressionEvaluation(context: Context) {
         return getTypeOfExpression(node, flags);
     }
 
-    function getTypeOfMember(member: ClassMember): Type {
-        if (isInstantiableClass(member.classType)) {
-            return partiallySpecializeType(
-                getEffectiveTypeOfSymbol(member.symbol),
-                member.classType,
-                getTypeClassType(),
-                /* selfClass */ undefined
-            );
-        }
-        return UnknownType.create();
-    }
-
-    function getTypeOfMemberInternal(
-        errorNode: ExpressionNode | undefined,
-        member: ClassMember,
-        selfClass: ClassType | TypeVarType | undefined,
-        flags: MemberAccessFlags
-    ): TypeResult | undefined {
-        if (isAnyOrUnknown(member.classType)) {
-            return {
-                type: member.classType,
-                isIncomplete: false,
-            };
+    function expandArgTypes(
+        contextFreeArgTypes: Type[],
+        expandedArgTypes: (Type | undefined)[][]
+    ): (Type | undefined)[][] | undefined {
+        // Find the rightmost already-expanded argument.
+        let indexToExpand = contextFreeArgTypes.length - 1;
+        while (indexToExpand >= 0 && !expandedArgTypes[0][indexToExpand]) {
+            indexToExpand--;
         }
 
-        if (!isInstantiableClass(member.classType)) {
+        // Move to the next candidate for expansion.
+        indexToExpand++;
+
+        if (indexToExpand >= contextFreeArgTypes.length) {
             return undefined;
         }
 
-        const typeResult = getEffectiveTypeOfSymbolForUsage(member.symbol);
+        let expandedTypes: Type[] | undefined;
+        while (indexToExpand < contextFreeArgTypes.length) {
+            // Is this a union type? If so, we can expand it.
+            const argType = contextFreeArgTypes[indexToExpand];
 
-        if (!typeResult) {
+            expandedTypes = expandArgType(argType);
+            if (expandedTypes) {
+                break;
+            }
+            indexToExpand++;
+        }
+
+        // We have nothing left to expand.
+        if (!expandedTypes) {
             return undefined;
         }
 
-        // Report inappropriate use of variables in type expressions.
-        if ((flags & MemberAccessFlags.TypeExpression) !== 0 && errorNode) {
-            typeResult.type = validateSymbolIsTypeExpression(
-                errorNode,
-                typeResult.type,
-                !!typeResult.includesVariableDecl
-            );
-        }
+        // Expand entry indexToExpand.
+        const newExpandedArgTypes: (Type | undefined)[][] = [];
 
-        // If the type is a function or overloaded function, infer
-        // and cache the return type if necessary. This needs to be done
-        // prior to specializing.
-        inferReturnTypeIfNecessary(typeResult.type);
-
-        // Check for ambiguous accesses to attributes with generic types?
-        if (
-            errorNode &&
-            selfClass &&
-            isClass(selfClass) &&
-            member.isInstanceMember &&
-            isClass(member.unspecializedClassType) &&
-            (flags & MemberAccessFlags.DisallowGenericInstanceVariableAccess) !== 0 &&
-            requiresSpecialization(typeResult.type, { ignoreSelf: true, ignoreImplicitTypeArgs: true })
-        ) {
-            const specializedType = partiallySpecializeType(
-                typeResult.type,
-                member.unspecializedClassType,
-                getTypeClassType(),
-                selfSpecializeClass(selfClass, { overrideTypeArgs: true })
-            );
-
-            if (
-                findSubtype(
-                    specializedType,
-                    (subtype) =>
-                        !isFunctionOrOverloaded(subtype) &&
-                        requiresSpecialization(subtype, { ignoreSelf: true, ignoreImplicitTypeArgs: true })
-                )
-            ) {
-                addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    LocMessage.genericInstanceVariableAccess(),
-                    errorNode
-                );
-            }
-        }
-
-        return {
-            type: partiallySpecializeType(typeResult.type, member.classType, getTypeClassType(), selfClass),
-            isIncomplete: !!typeResult.isIncomplete,
-        };
-    }
-
-    // Calls back into the parser to parse the contents of a string literal.
-    // This is unfortunately needed in some cases — specifically where the
-    // parser couldn't determine that the string literal would be used in
-    // a context where it should be treated as a forward-declared type. This
-    // call produces an expression tree that is not attached to the main parse
-    // expression tree because we don't want to mutate the latter; the
-    // expression tree created by this function is therefore used only temporarily.
-    function parseStringAsTypeAnnotation(node: StringListNode, reportErrors: boolean): ExpressionNode | undefined {
-        const fileInfo = nodeInfo.getFileInfo(node);
-        const parser = new Parser();
-        const textValue = node.d.strings[0].d.value;
-
-        // Determine the offset within the file where the string
-        // literal's contents begin.
-        let valueOffset = node.d.strings[0].start;
-        if (node.d.strings[0].nodeType === ParseNodeType.String) {
-            valueOffset += node.d.strings[0].d.token.prefixLength + node.d.strings[0].d.token.quoteMarkLength;
-        }
-
-        // Construct a temporary dummy string with the text value at the appropriate
-        // offset so as to mimic the original file. This will keep all of the token
-        // and diagnostic offsets correct.
-        const dummyFileContents = ' '.repeat(valueOffset) + textValue;
-
-        const parseOptions = new ParseOptions();
-        parseOptions.isStubFile = fileInfo.isStubFile;
-        parseOptions.pythonVersion = fileInfo.executionEnvironment.pythonVersion;
-        parseOptions.reportErrorsForParsedStringContents = true;
-
-        const parseResults = parser.parseTextExpression(
-            dummyFileContents,
-            valueOffset,
-            textValue.length,
-            parseOptions,
-            ParseTextMode.Expression,
-            /* initialParenDepth */ undefined,
-            fileInfo.typingSymbolAliases,
-            node.a
-        );
-
-        if (parseResults.parseTree) {
-            // If there are errors but we are not reporting them, return
-            // undefined to indicate that the parse failed.
-            if (!reportErrors && parseResults.diagnostics.length > 0) {
-                return undefined;
-            }
-
-            const fileInfo = nodeInfo.getFileInfo(node);
-            parseResults.diagnostics.forEach((diag) => {
-                fileInfo.diagnosticSink.addDiagnosticWithTextRange('error', diag.message, node);
+        expandedArgTypes.forEach((preExpandedTypes) => {
+            expandedTypes.forEach((subtype) => {
+                const expandedTypes = [...preExpandedTypes];
+                expandedTypes[indexToExpand] = subtype;
+                newExpandedArgTypes.push(expandedTypes);
             });
-
-            parseResults.parseTree.parent = node;
-
-            // Optionally add the new subtree to the parse tree so it can
-            // participate in language server operations like find and replace.
-            if (reportErrors) {
-                nodeInfo.setStringAnnotation(node, parseResults.parseTree, parseResults.stringAnnotations);
-            }
-
-            return parseResults.parseTree;
-        }
-
-        return undefined;
-    }
-
-    function getTypeOfStringList(
-        node: StringListNode,
-        flags: EvalFlags,
-        inferenceContext?: InferenceContext
-    ): TypeResult {
-        let typeResult: TypeResult | undefined;
-
-        if (
-            (flags & EvalFlags.StrLiteralAsType) !== 0 &&
-            ((flags & EvalFlags.TypeFormArg) === 0 || (flags & EvalFlags.NoConvertSpecialForm) !== 0)
-        ) {
-            return getTypeOfStringListAsType(node, flags);
-        }
-
-        const isBytesNode = (node: StringNode | FormatStringNode) =>
-            (node.d.token.flags & StringTokenFlags.Bytes) !== 0;
-        const isTemplateNode = (node: StringNode | FormatStringNode) =>
-            (node.d.token.flags & StringTokenFlags.Template) !== 0;
-
-        // Check for mixing of t-string literals with str, bytes, or f-string
-        // literals. CPython reports this as a SyntaxError (PEP 750).
-        const firstTemplateIndex = node.d.strings.findIndex(isTemplateNode);
-        const firstNonTemplateIndex = node.d.strings.findIndex((str) => !isTemplateNode(str));
-        if (firstTemplateIndex >= 0 && firstNonTemplateIndex >= 0) {
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.mixingTemplateAndStr(),
-                node.d.strings[Math.max(firstTemplateIndex, firstNonTemplateIndex)]
-            );
-
-            return { type: UnknownType.create() };
-        }
-
-        // Check for mixing of bytes and str, which is not allowed.
-        const firstStrIndex = node.d.strings.findIndex((str) => !isBytesNode(str));
-        const firstBytesIndex = node.d.strings.findIndex((str) => isBytesNode(str));
-        if (firstStrIndex >= 0 && firstBytesIndex >= 0) {
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.mixingBytesAndStr(),
-                node.d.strings[Math.max(firstBytesIndex, firstStrIndex)]
-            );
-
-            return { type: UnknownType.create() };
-        }
-
-        const isBytes = firstBytesIndex >= 0;
-        let isLiteralString = true;
-        let isIncomplete = false;
-        let isTemplate = false;
-
-        node.d.strings.forEach((expr) => {
-            // Handle implicit concatenation.
-            const typeResult = getTypeOfString(expr);
-
-            if (typeResult.isIncomplete) {
-                isIncomplete = true;
-            }
-
-            let isExprLiteralString = false;
-
-            if (isClassInstance(typeResult.type)) {
-                if (ClassType.isBuiltIn(typeResult.type, 'str') && typeResult.type.priv.literalValue !== undefined) {
-                    isExprLiteralString = true;
-                } else if (ClassType.isBuiltIn(typeResult?.type, 'LiteralString')) {
-                    isExprLiteralString = true;
-                }
-
-                if (typeResult.type.shared.name === 'Template') {
-                    isTemplate = true;
-                }
-            }
-
-            if (!isExprLiteralString) {
-                isLiteralString = false;
-            }
         });
 
-        if (isTemplate) {
-            const templateType =
-                context.prefetched?.templateClass && isInstantiableClass(context.prefetched?.templateClass)
-                    ? ClassType.cloneAsInstance(context.prefetched.templateClass)
-                    : UnknownType.create();
+        return newExpandedArgTypes;
+    }
 
-            typeResult = { type: templateType, isIncomplete };
-        } else if (node.d.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {
-            if (isLiteralString) {
-                const literalStringType = getTypingType(node, 'LiteralString');
-                if (literalStringType && isInstantiableClass(literalStringType)) {
-                    typeResult = { type: ClassType.cloneAsInstance(literalStringType) };
+    function expandArgList(argList: Arg[]): Arg[] {
+        const expandedArgList: Arg[] = [];
+
+        for (const arg of argList) {
+            if (arg.argCategory === ArgCategory.UnpackedList) {
+                const argType = getTypeOfArg(arg, /* inferenceContext */ undefined).type;
+
+                // If this is a tuple with specified element types, use those
+                // specified types rather than using the more generic iterator
+                // type which will be a union of all element types.
+                const combinedArgType = combineSameSizedTuples(
+                    makeTopLevelTypeVarsConcrete(argType),
+                    context.prefetched?.tupleClass
+                );
+
+                if (isClassInstance(combinedArgType) && isTupleClass(combinedArgType)) {
+                    const tupleTypeArgs = combinedArgType.priv.tupleTypeArgs ?? [];
+
+                    if (tupleTypeArgs.length !== 1 || !tupleTypeArgs[0].isUnbounded) {
+                        for (const tupleTypeArg of tupleTypeArgs) {
+                            if (tupleTypeArg.isUnbounded) {
+                                expandedArgList.push({
+                                    ...arg,
+                                    argCategory: ArgCategory.UnpackedList,
+                                    valueExpression: undefined,
+                                    typeResult: {
+                                        type: makeTupleObject(evaluatorInterface, [tupleTypeArg]),
+                                    },
+                                });
+                            } else {
+                                expandedArgList.push({
+                                    ...arg,
+                                    argCategory: ArgCategory.Simple,
+                                    valueExpression: undefined,
+                                    typeResult: {
+                                        type: tupleTypeArg.type,
+                                    },
+                                });
+                            }
+                        }
+                        continue;
+                    }
                 }
             }
 
-            if (!typeResult) {
-                typeResult = {
-                    type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
-                    isIncomplete,
-                };
-            }
-        } else {
-            typeResult = {
-                type: cloneBuiltinObjectWithLiteral(
-                    node,
-                    isBytes ? 'bytes' : 'str',
-                    node.d.strings.map((s) => s.d.value).join('')
-                ),
-                isIncomplete,
-            };
+            expandedArgList.push(arg);
         }
 
-        if (node.d.strings.length !== 1 || node.d.strings[0].nodeType !== ParseNodeType.String) {
-            return typeResult;
-        }
-
-        // Only attempt to interpret the string as a TypeForm forward reference when
-        // there's a signal that a TypeForm value is wanted in this context. Doing it
-        // unconditionally can trigger expensive (and recursion-prone) type lookups
-        // for plain string literals in non-type contexts.
-        const wantsTypeForm =
-            (flags & EvalFlags.TypeFormArg) !== 0 ||
-            (inferenceContext !== undefined && expectedTypeWantsTypeForm(inferenceContext.expectedType));
-        if (!wantsTypeForm) {
-            return typeResult;
-        }
-
-        // For performance reasons, do not attempt to treat the string literal
-        // as a TypeForm if it's going to fail anyway or is unlikely to be a
-        // TypeForm (really long, triple-quoted, etc.).
-        const stringNode = node.d.strings[0];
-        const tokenFlags = stringNode.d.token.flags;
-        const disallowedTokenFlags =
-            StringTokenFlags.Bytes |
-            StringTokenFlags.Raw |
-            StringTokenFlags.Format |
-            StringTokenFlags.Template |
-            StringTokenFlags.Triplicate;
-        const maxTypeFormStringLength = 256;
-
-        if (
-            (tokenFlags & disallowedTokenFlags) !== 0 ||
-            stringNode.d.token.escapedValue.length >= maxTypeFormStringLength
-        ) {
-            return typeResult;
-        }
-
-        const typeFormResult = getTypeOfStringListAsType(node, flags);
-        if (typeFormResult.type.props?.typeForm) {
-            typeResult.type = TypeBase.cloneWithTypeForm(typeResult.type, typeFormResult.type.props.typeForm);
-        }
-
-        return typeResult;
+        return expandedArgList;
     }
 
     return {
@@ -2732,8 +2730,8 @@ export function createExpressionEvaluation(context: Context) {
         createLiteralType,
         getTypeOfArg,
         getTypeOfExpressionExpectingType,
-        getTypeOfMember,
-        getTypeOfMemberInternal,
         getTypeOfStringList,
+        expandArgTypes,
+        expandArgList,
     };
 }

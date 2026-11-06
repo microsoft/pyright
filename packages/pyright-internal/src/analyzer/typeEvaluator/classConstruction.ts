@@ -75,6 +75,7 @@ interface Context {
     readonly printType: (type: Type, options?: PrintTypeOptions) => string;
 }
 
+// Synthesizes classes and resolves effective metaclasses, delegating evaluation and diagnostics.
 export function createClassConstruction(context: Context) {
     const {
         addDiagnostic,
