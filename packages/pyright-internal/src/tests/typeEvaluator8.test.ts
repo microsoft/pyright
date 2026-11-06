@@ -552,6 +552,18 @@ test('Enum21', () => {
     );
 });
 
+test('Enum22', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum22.py']);
+
+    TestUtils.validateResults(analysisResults, 18);
+    analysisResults[0].errors.forEach((error) =>
+        assert.ok(
+            error.getRule() === DiagnosticRule.reportAttributeAccessIssue ||
+                error.getRule() === DiagnosticRule.reportReturnType
+        )
+    );
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

@@ -419,7 +419,7 @@ export function getTypeOfIntFlagMember(
     const zeroType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(intClass), 0);
     if (
         !nonNegativeValues &&
-        (!hasStandardFlagConstruction(classType) || !isEnumClassWithMembers(evaluator, classType, nodeInfo))
+        (!hasStandardFlagValueAccess(classType) || !isEnumClassWithMembers(evaluator, classType, nodeInfo))
     ) {
         return intResult;
     }
@@ -576,7 +576,13 @@ function getIntFlagReturnType(
                 ) {
                     return flagReturn;
                 }
-                const valueType = getIntFlagOperandValueType(evaluator, method, other, intClass, mask !== undefined);
+                const valueType =
+                    isClassInstance(concreteOther) &&
+                    ClassType.isSameGenericClass(classType, concreteOther) &&
+                    concreteOther.priv.literalValue instanceof EnumLiteral &&
+                    hasStandardFlagValueAccess(concreteOther)
+                        ? concreteOther.priv.literalValue.itemType
+                        : getIntFlagOperandValueType(evaluator, method, other, intClass, mask !== undefined);
                 if (
                     valueType &&
                     isClassInstance(valueType) &&
@@ -589,9 +595,35 @@ function getIntFlagReturnType(
                     if (mask !== undefined && method.shared.name === '__and__') {
                         return flagReturn;
                     }
+                    const memberValueType =
+                        classType.priv.literalValue instanceof EnumLiteral
+                            ? classType.priv.literalValue.itemType
+                            : undefined;
+                    if (
+                        mask === undefined &&
+                        memberValueType &&
+                        isClassInstance(memberValueType) &&
+                        ClassType.isBuiltIn(memberValueType, ['int', 'bool']) &&
+                        (typeof memberValueType.priv.literalValue === 'number' ||
+                            typeof memberValueType.priv.literalValue === 'bigint' ||
+                            typeof memberValueType.priv.literalValue === 'boolean') &&
+                        hasStandardFlagValueAccess(classType)
+                    ) {
+                        const memberValue = BigInt(memberValueType.priv.literalValue);
+                        const result =
+                            method.shared.name === '__or__'
+                                ? memberValue | value
+                                : method.shared.name === '__xor__'
+                                ? memberValue ^ value
+                                : memberValue & value;
+                        // Enum construction reuses an existing member before considering EJECT.
+                        if (result === memberValue) {
+                            return flagReturn;
+                        }
+                    }
                     if (
                         value === BigInt(0) &&
-                        hasStandardFlagConstruction(classType) &&
+                        hasStandardFlagValueAccess(classType) &&
                         isEnumClassWithMembers(evaluator, classType, getInfoReader(evaluator))
                     ) {
                         return flagReturn;
@@ -690,7 +722,7 @@ function getNonNegativeFlagMask(
     classType: ClassType,
     nodeInfo: AnalyzerNodeInfoReader
 ): bigint | undefined {
-    if (!hasStandardFlagConstruction(classType)) {
+    if (!hasStandardFlagValueAccess(classType)) {
         return undefined;
     }
 
@@ -777,6 +809,15 @@ function getNonNegativeFlagMask(
         }
     }
     return foundMember ? mask : undefined;
+}
+
+function hasStandardFlagValueAccess(classType: ClassType): boolean {
+    const member = lookUpClassMember(classType, '__getattribute__');
+    // Flag operators read _value_; builtin int operators use the numeric payload instead.
+    return (
+        hasStandardFlagConstruction(classType) &&
+        (!member || !isClass(member.classType) || ClassType.isBuiltIn(member.classType))
+    );
 }
 
 function hasStandardFlagConstruction(classType: ClassType): boolean {
