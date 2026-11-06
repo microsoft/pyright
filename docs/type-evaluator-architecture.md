@@ -19,6 +19,8 @@ Collections that are mutated in place retain their original identity.
 
 Functions within one topic call each other directly. The main evaluator calls
 topic entry points directly rather than adding forwarding declarations.
+Frequently used entry points can be destructured once after factory initialization
+to keep call sites short without introducing wrappers or duplicate signatures.
 Injected dependencies use direct producer references when the producer is
 already initialized; genuine initialization or re-entry dependencies retain
 lazy evaluator-owned callbacks. Extracted modules must not import `typeEvaluator.ts`;

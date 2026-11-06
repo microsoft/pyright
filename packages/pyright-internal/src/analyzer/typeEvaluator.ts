@@ -6837,7 +6837,7 @@ export function createTypeEvaluator(
         let isTypeIncomplete = false;
         let overloadsUsedForCall: FunctionType[] = [];
         let isDefinitiveMatchFound = false;
-        const speculativeNode = evaluatorCore.getSpeculativeNodeForCall(errorNode);
+        const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         for (let expandedTypesIndex = 0; expandedTypesIndex < expandedArgTypes.length; expandedTypesIndex++) {
             let matchedOverload: FunctionType | undefined;
@@ -7149,7 +7149,7 @@ export function createTypeEvaluator(
     ): FunctionType | undefined {
         let overloadIndex = 0;
         const matches: MatchArgsToParamsResult[] = [];
-        const speculativeNode = evaluatorCore.getSpeculativeNodeForCall(errorNode);
+        const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         useSignatureTracker(errorNode, () => {
             // Create a list of potential overload matches based on arguments.
@@ -7364,7 +7364,7 @@ export function createTypeEvaluator(
         let isTypeIncomplete = !!typeResult.isIncomplete;
         const type = typeResult.type;
         const overloads = candidateOverloads ?? OverloadedType.getOverloads(type);
-        const speculativeNode = evaluatorCore.getSpeculativeNodeForCall(errorNode);
+        const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         // Start by evaluating the types of the arguments without any expected
         // type. Also, filter the list of overloads based on the number of
@@ -7506,7 +7506,7 @@ export function createTypeEvaluator(
             // We didn't find an overload match. Try to expand the next union
             // argument type into individual types and retry with the expanded types.
             if (!contextFreeArgTypes) {
-                useSpeculativeMode(evaluatorCore.getSpeculativeNodeForCall(errorNode), () => {
+                useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () => {
                     // Evaluate the types of each argument expression without regard to
                     // the context. We'll use this to determine whether we need to do
                     // union expansion.
@@ -7613,7 +7613,7 @@ export function createTypeEvaluator(
                         lambdaTypeCache.branchIndex++;
                     }
                     return useSpeculativeMode(
-                        isLastIteration ? undefined : evaluatorCore.getSpeculativeNodeForCall(errorNode),
+                        isLastIteration ? undefined : getSpeculativeNodeForCall(errorNode),
                         () => {
                             const callResult = validateCallArgsForSubtype(
                                 errorNode,
@@ -7982,7 +7982,7 @@ export function createTypeEvaluator(
         const returnTypes: Type[] = [];
         const overloadsUsedForCall = new Set<FunctionType>();
 
-        const succeeded = useSpeculativeMode(evaluatorCore.getSpeculativeNodeForCall(errorNode), () => {
+        const succeeded = useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () => {
             for (const keySubtype of keySubtypes) {
                 // Avoid revalidating unrelated keys and their default parameters.
                 const candidates = overloads.filter((candidate) => {
@@ -9613,7 +9613,7 @@ export function createTypeEvaluator(
         // expected type is a union, we may need to perform multiple evaluations
         // to determine whether one of the subtypes works.
         if (expectedType) {
-            expectedType = useSpeculativeMode(evaluatorCore.getSpeculativeNodeForCall(errorNode), () => {
+            expectedType = useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () => {
                 let validExpectedSubtype: Type | undefined;
                 let bestSubtypeScore = -1;
 
@@ -9726,7 +9726,7 @@ export function createTypeEvaluator(
         let argumentMatchScore = 0;
         let specializedInitSelfType: Type | undefined;
         let anyOrUnknownArg: UnknownType | AnyType | undefined;
-        const speculativeNode = evaluatorCore.getSpeculativeNodeForCall(errorNode);
+        const speculativeNode = getSpeculativeNodeForCall(errorNode);
         const typeCondition = getTypeCondition(type);
         const paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
 
@@ -10106,7 +10106,7 @@ export function createTypeEvaluator(
 
         const filteredSets: ConstraintSet[] = [];
         const constraintTrackers: (ConstraintTracker | undefined)[] = [];
-        const speculativeNode = evaluatorCore.getSpeculativeNodeForCall(errorNode);
+        const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         sets.forEach((context) => {
             // Use speculative mode to avoid emitting errors or caching types.
@@ -11234,7 +11234,7 @@ export function createTypeEvaluator(
                 } else if (param.d.defaultValue) {
                     // If there is no inference context but we have a default value,
                     // use the default value to infer the parameter's type.
-                    paramType = evaluatorCore.inferParamTypeFromDefaultValue(param.d.defaultValue);
+                    paramType = inferParamTypeFromDefaultValue(param.d.defaultValue);
                 }
 
                 if (param.d.defaultValue) {
@@ -11257,11 +11257,7 @@ export function createTypeEvaluator(
                     writeTypeCache(
                         param.d.name,
                         {
-                            type: evaluatorCore.transformVariadicParamType(
-                                node,
-                                param.d.category,
-                                paramType ?? UnknownType.create()
-                            ),
+                            type: transformVariadicParamType(node, param.d.category, paramType ?? UnknownType.create()),
                         },
                         EvalFlags.None
                     );
@@ -13601,7 +13597,7 @@ export function createTypeEvaluator(
                 }
 
                 if (annotatedType) {
-                    const adjustedAnnotatedType = evaluatorCore.adjustParamAnnotatedType(param, annotatedType);
+                    const adjustedAnnotatedType = adjustParamAnnotatedType(param, annotatedType);
                     if (adjustedAnnotatedType !== annotatedType) {
                         annotatedType = adjustedAnnotatedType;
                     }
@@ -13724,11 +13720,7 @@ export function createTypeEvaluator(
                 }
 
                 if (param.d.name) {
-                    const variadicParamType = evaluatorCore.transformVariadicParamType(
-                        node,
-                        param.d.category,
-                        paramType
-                    );
+                    const variadicParamType = transformVariadicParamType(node, param.d.category, paramType);
                     paramTypes.push(variadicParamType);
                 } else {
                     paramTypes.push(paramType);
@@ -13942,7 +13934,7 @@ export function createTypeEvaluator(
         // type from this information.
         const paramValueExpr = functionNode.d.params[paramIndex].d.defaultValue;
         if (paramValueExpr) {
-            return evaluatorCore.inferParamTypeFromDefaultValue(paramValueExpr);
+            return inferParamTypeFromDefaultValue(paramValueExpr);
         }
 
         return undefined;
@@ -15156,10 +15148,10 @@ export function createTypeEvaluator(
             const liveTypeVarScopes = getTypeVarScopesForNode(param);
             annotatedType = makeTypeVarsBound(annotatedType, liveTypeVarScopes);
 
-            const adjType = evaluatorCore.transformVariadicParamType(
+            const adjType = transformVariadicParamType(
                 node,
                 node.d.category,
-                evaluatorCore.adjustParamAnnotatedType(param, annotatedType)
+                adjustParamAnnotatedType(param, annotatedType)
             );
 
             writeTypeCache(node.d.name, { type: adjType }, EvalFlags.None);
@@ -15202,7 +15194,7 @@ export function createTypeEvaluator(
 
         writeTypeCache(
             node.d.name,
-            { type: evaluatorCore.transformVariadicParamType(node, node.d.category, inferredParamType) },
+            { type: transformVariadicParamType(node, node.d.category, inferredParamType) },
             EvalFlags.None
         );
     }
@@ -15770,10 +15762,10 @@ export function createTypeEvaluator(
                     declaredType = makeTypeVarsBound(declaredType, liveTypeVarScopes);
 
                     return {
-                        type: evaluatorCore.transformVariadicParamType(
+                        type: transformVariadicParamType(
                             declaration.node,
                             declaration.node.d.category,
-                            evaluatorCore.adjustParamAnnotatedType(declaration.node, declaredType)
+                            adjustParamAnnotatedType(declaration.node, declaredType)
                         ),
                     };
                 }
@@ -18943,6 +18935,13 @@ export function createTypeEvaluator(
         suppressDiagnostics,
         validateCallArgs,
     });
+
+    const {
+        getSpeculativeNodeForCall,
+        adjustParamAnnotatedType,
+        inferParamTypeFromDefaultValue,
+        transformVariadicParamType,
+    } = evaluatorCore;
 
     const typeCompatibility = createTypeCompatibility({
         assignNamedParam,
