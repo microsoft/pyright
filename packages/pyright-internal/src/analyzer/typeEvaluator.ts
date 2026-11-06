@@ -3368,6 +3368,7 @@ export function createTypeEvaluator(
                                 MemberAccessFlags.DeclaredTypesOnly
                             );
 
+                            selfType = isTypeVar(baseType) ? baseType : baseSubtype;
                             classOrObjectBase = baseSubtype;
                             memberAccessClass = classMemberInfo?.classType;
                             symbol = classMemberInfo?.symbol;
@@ -3383,6 +3384,7 @@ export function createTypeEvaluator(
                                 MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.DeclaredTypesOnly
                             );
 
+                            selfType = isTypeVar(baseType) ? baseType : baseSubtype;
                             classOrObjectBase = baseSubtype;
                             memberAccessClass = classMemberInfo?.classType;
                             symbol = classMemberInfo?.symbol;

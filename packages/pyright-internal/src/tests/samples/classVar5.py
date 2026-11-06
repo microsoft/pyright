@@ -14,3 +14,25 @@ class Parent:
     @classmethod
     def __init_subclass__(cls):
         cls.x = {}
+
+
+class Baz:
+    values: ClassVar[list[Self]]
+
+
+Baz.values = []
+Baz.values = [Baz()]
+
+# This should generate an error.
+Baz.values = [1]
+
+
+class Child(Baz):
+    pass
+
+
+Child.values = []
+Child.values = [Child()]
+
+# This should generate an error.
+Child.values = [Baz()]
