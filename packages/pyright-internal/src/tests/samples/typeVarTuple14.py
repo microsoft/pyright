@@ -1,7 +1,7 @@
 # This sample tests the matching of a traditional *args parameter
 # and a *args unpacked Tuple to a *args TypeVarTuple.
 
-from typing import Callable, TypeVar
+from typing import Any, Callable, TypeVar
 from typing_extensions import TypeVarTuple  # pyright: ignore[reportMissingModuleSource]
 
 Ts = TypeVarTuple("Ts")
@@ -107,3 +107,16 @@ func5(1, "")
 
 # This should generate an error.
 func5(1, "", "")
+
+
+def func6(func: Callable[[*Ts], None], t: tuple[Any, ...], a: Any):
+    func(*t)
+    func(*a)
+
+
+def func7(func: Callable[[*Ts], None], t: tuple[int, ...], u: tuple[Any, int]):
+    # This should generate an error.
+    func(*t)
+
+    # This should generate an error.
+    func(*u)

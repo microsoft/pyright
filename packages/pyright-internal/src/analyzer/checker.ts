@@ -170,6 +170,8 @@ import {
     isUnbound,
     isUnion,
     isUnknown,
+    isUnpackedTypeVar,
+    isUnpackedTypeVarTuple,
 } from './types';
 import {
     ClassMember,
@@ -179,6 +181,7 @@ import {
     convertToInstance,
     derivesFromClassRecursive,
     doForEachSubtype,
+    expandUnpackedTypeVarsInTupleArgs,
     getClassFieldsRecursive,
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
@@ -1263,11 +1266,20 @@ export class Checker extends ParseTreeWalker {
             doForEachSubtype(baseType, (subtype) => {
                 const tupleType = getSpecializedTupleType(subtype);
 
-                if (!isClassInstance(subtype) || !tupleType?.priv.tupleTypeArgs || isUnboundedTupleClass(tupleType)) {
+                if (!isClassInstance(subtype) || !tupleType?.priv.tupleTypeArgs) {
                     return;
                 }
 
-                const tupleLength = tupleType.priv.tupleTypeArgs.length;
+                const tupleTypeArgs = expandUnpackedTypeVarsInTupleArgs(tupleType.priv.tupleTypeArgs);
+                if (
+                    tupleTypeArgs.some(
+                        (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
+                    )
+                ) {
+                    return;
+                }
+
+                const tupleLength = tupleTypeArgs.length;
 
                 if (
                     node.d.items.length !== 1 ||
