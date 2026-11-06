@@ -1494,22 +1494,18 @@ export function isUnboundedTupleClass(type: ClassType) {
 
 // Indicates whether the specified index is within range and its type is unambiguous
 // in that it doesn't involve any element ranges that are of indeterminate length.
-export function isTupleIndexUnambiguous(type: ClassType, index: number) {
-    if (!type.priv.tupleTypeArgs) {
-        return false;
-    }
-
-    const unboundedIndex = type.priv.tupleTypeArgs.findIndex(
+export function isTupleIndexUnambiguous(tupleTypeArgs: TupleTypeArg[], index: number) {
+    const unboundedIndex = tupleTypeArgs.findIndex(
         (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
     );
 
     if (index < 0) {
         const lowerIndexLimit = unboundedIndex < 0 ? 0 : unboundedIndex;
-        index += type.priv.tupleTypeArgs.length;
+        index += tupleTypeArgs.length;
         return index >= lowerIndexLimit;
     }
 
-    const upperIndexLimit = unboundedIndex < 0 ? type.priv.tupleTypeArgs.length : unboundedIndex;
+    const upperIndexLimit = unboundedIndex < 0 ? tupleTypeArgs.length : unboundedIndex;
     return index < upperIndexLimit;
 }
 

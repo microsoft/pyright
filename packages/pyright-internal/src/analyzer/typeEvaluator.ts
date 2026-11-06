@@ -8927,7 +8927,7 @@ export function createTypeEvaluator(
                 if (tupleType && tupleType.priv.tupleTypeArgs) {
                     const tupleTypeArgs = expandUnpackedTypeVarsInTupleArgs(tupleType.priv.tupleTypeArgs);
 
-                    if (isTupleIndexUnambiguous(specializeTupleClass(tupleType, tupleTypeArgs), indexValue)) {
+                    if (isTupleIndexUnambiguous(tupleTypeArgs, indexValue)) {
                         if (indexValue >= 0 && indexValue < tupleTypeArgs.length) {
                             return { type: tupleTypeArgs[indexValue].type };
                         } else if (indexValue < 0 && tupleTypeArgs.length + indexValue >= 0) {

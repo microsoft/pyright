@@ -170,6 +170,8 @@ import {
     isUnbound,
     isUnion,
     isUnknown,
+    isUnpackedTypeVar,
+    isUnpackedTypeVarTuple,
 } from './types';
 import {
     ClassMember,
@@ -200,7 +202,6 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     selfSpecializeClass,
-    specializeTupleClass,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 
@@ -1270,7 +1271,11 @@ export class Checker extends ParseTreeWalker {
                 }
 
                 const tupleTypeArgs = expandUnpackedTypeVarsInTupleArgs(tupleType.priv.tupleTypeArgs);
-                if (isUnboundedTupleClass(specializeTupleClass(tupleType, tupleTypeArgs))) {
+                if (
+                    tupleTypeArgs.some(
+                        (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
+                    )
+                ) {
                     return;
                 }
 
