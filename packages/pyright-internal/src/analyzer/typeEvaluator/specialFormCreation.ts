@@ -28,7 +28,6 @@ import {
     ClassTypeResult,
     EvalFlags,
     PrefetchedTypes,
-    TypeEvaluator,
     TypeResult,
     TypeResultWithNode,
     ValidateTypeArgsOptions,
@@ -83,9 +82,9 @@ interface Context {
         range?: TextRange
     ) => Diagnostic | undefined;
     readonly applyUnpackToTupleLike: (type: Type) => Type | undefined;
-    readonly evaluatorInterface: TypeEvaluator;
     readonly getScopeIdForNode: (node: ParseNode) => string;
     readonly getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
+    readonly getTupleClassType: () => ClassType | undefined;
     readonly getTypeVarScopesForNode: (node: ParseNode) => string[];
     readonly getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     readonly nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor;
@@ -98,7 +97,6 @@ export function createSpecialFormCreation(context: Context) {
     const {
         addDiagnostic,
         applyUnpackToTupleLike,
-        evaluatorInterface,
         getScopeIdForNode,
         getTypeOfClass,
         getTypeVarScopesForNode,
@@ -280,7 +278,7 @@ export function createSpecialFormCreation(context: Context) {
                         });
                     }
 
-                    const tupleObject = makeTupleObject(evaluatorInterface, variadicTypes, /* isUnpacked */ true);
+                    const tupleObject = makeTupleObject(context, variadicTypes, /* isUnpacked */ true);
 
                     typeArgs = [
                         ...typeArgs.slice(0, variadicIndex),
@@ -292,7 +290,7 @@ export function createSpecialFormCreation(context: Context) {
                 // Add an empty tuple that maps to the TypeVarTuple type parameter.
                 typeArgs.push({
                     node: errorNode,
-                    type: makeTupleObject(evaluatorInterface, [], /* isUnpacked */ true),
+                    type: makeTupleObject(context, [], /* isUnpacked */ true),
                 });
             }
         }

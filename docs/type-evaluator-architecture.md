@@ -24,6 +24,12 @@ Private shared contracts live in `internals.ts`. The existing `EvaluatorOptions`
 and `MemberAccessTypeResult` exports remain available from `typeEvaluator.ts`.
 Stateless literal and unpacking helpers use ordinary module exports.
 
+Pass only the capabilities a shared helper needs. `makeTupleObject` requires
+only `getTupleClassType`, so special-form creation and TypeVar handling pass
+their existing contexts rather than retaining the full evaluator interface.
+This lookup uses the same evaluator-owned callback and remains lazy; it does
+not add a wrapper, construct a per-call adapter, or remove recursive evaluation.
+
 ## Topic boundaries
 
 | Module | Responsibility |

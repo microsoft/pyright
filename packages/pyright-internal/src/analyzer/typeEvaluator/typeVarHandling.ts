@@ -24,7 +24,6 @@ import {
     ExpectedTypeOptions,
     MapSubtypesOptions,
     PrefetchedTypes,
-    TypeEvaluator,
     TypeResult,
     TypeResultWithNode,
 } from '../typeEvaluatorTypes';
@@ -112,10 +111,10 @@ interface Context {
         errorNode: ExpressionNode,
         typeArgs: TypeResultWithNode[] | undefined
     ) => Type;
-    readonly evaluatorInterface: TypeEvaluator;
     readonly getBooleanValue: (node: ExpressionNode) => boolean;
     readonly getBuiltInType: (node: ParseNode, name: string) => Type;
     readonly getObjectType: () => Type;
+    readonly getTupleClassType: () => ClassType | undefined;
     readonly getTypeOfExpressionExpectingType: (node: ExpressionNode, options?: ExpectedTypeOptions) => TypeResult;
     readonly getTypeVarScopesForNode: (node: ParseNode) => string[];
     readonly getTypeVarTupleDefaultType: (node: ExpressionNode, isPep695Syntax: boolean) => Type | undefined;
@@ -146,7 +145,6 @@ export function createTypeVarHandling(context: Context) {
         assignType,
         createSelfType,
         createTypeFormType,
-        evaluatorInterface,
         getBooleanValue,
         getBuiltInType,
         getObjectType,
@@ -291,7 +289,7 @@ export function createTypeVarHandling(context: Context) {
         return mapSubtypes(type, (subtype) => {
             if (isParamSpec(subtype)) {
                 if (subtype.priv.paramSpecAccess === 'args') {
-                    return makeTupleObject(evaluatorInterface, [{ type: getObjectType(), isUnbounded: true }]);
+                    return makeTupleObject(context, [{ type: getObjectType(), isUnbounded: true }]);
                 } else if (subtype.priv.paramSpecAccess === 'kwargs') {
                     if (
                         context.prefetched?.dictClass &&
@@ -335,11 +333,7 @@ export function createTypeVarHandling(context: Context) {
                 }
 
                 // Fall back to "*tuple[object, ...]".
-                return makeTupleObject(
-                    evaluatorInterface,
-                    [{ type: getObjectType(), isUnbounded: true }],
-                    /* isUnpacked */ true
-                );
+                return makeTupleObject(context, [{ type: getObjectType(), isUnbounded: true }], /* isUnpacked */ true);
             }
 
             if (isTypeVar(subtype)) {
@@ -842,9 +836,7 @@ export function createTypeVarHandling(context: Context) {
             TypeVarType.createInstantiable(typeVarName, TypeVarKind.TypeVarTuple),
             ClassType.cloneAsInstance(classType)
         );
-        typeVar.shared.defaultType = makeTupleObject(evaluatorInterface, [
-            { type: UnknownType.create(), isUnbounded: true },
-        ]);
+        typeVar.shared.defaultType = makeTupleObject(context, [{ type: UnknownType.create(), isUnbounded: true }]);
 
         // Parse the remaining parameters.
         for (let i = 1; i < argList.length; i++) {
