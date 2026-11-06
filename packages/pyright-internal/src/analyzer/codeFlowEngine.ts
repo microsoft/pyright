@@ -1234,23 +1234,31 @@ export function getCodeFlowEngine(
                         // any antecedent path, assume that some recursive call further
                         // up the stack will be able to produce a valid type.
                         let reportIncomplete = sawIncomplete;
+                        let isWaitingForOtherEvaluation = false;
                         if (
                             sawIncomplete &&
                             !sawPending &&
-                            !isGetTypeFromCodeFlowPending(referenceKeyWithSymbolId) &&
                             effectiveType &&
                             !isIncompleteUnknown(effectiveType) &&
                             !firstAntecedentTypeIsIncomplete
                         ) {
-                            reportIncomplete = false;
+                            if (isGetTypeFromCodeFlowPending(referenceKeyWithSymbolId)) {
+                                isWaitingForOtherEvaluation = true;
+                            } else {
+                                reportIncomplete = false;
+                            }
                         }
 
                         // If we saw a pending or incomplete entry, do not save over the top
                         // of the cache entry because we'll overwrite the partial result.
                         if (sawPending || sawIncomplete) {
-                            if (!reportIncomplete) {
-                                // Bump the generation count because we need to recalculate
-                                // other incomplete types based on this now-complete type.
+                            // Bump the generation count because we need to recalculate
+                            // other incomplete types based on this now-complete type.
+                            // If the type is incomplete only because the evaluation of
+                            // another expression is pending, bump it as well so the
+                            // incomplete cache entry isn't reused after that evaluation
+                            // completes.
+                            if (!reportIncomplete || isWaitingForOtherEvaluation) {
                                 flowIncompleteGeneration++;
                             }
 
