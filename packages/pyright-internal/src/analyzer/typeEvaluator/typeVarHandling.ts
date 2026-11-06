@@ -7,23 +7,24 @@
  */
 
 import { assert } from '../../common/debug';
-import { Diagnostic, DiagnosticAddendum } from '../../common/diagnostic';
+import { Diagnostic } from '../../common/diagnostic';
 import { DiagnosticRule } from '../../common/diagnosticRules';
 import { PythonVersion, pythonVersion3_13 } from '../../common/pythonVersion';
 import { TextRange } from '../../common/textRange';
 import { Uri } from '../../common/uri/uri';
 import { LocMessage } from '../../localization/localize';
 import { ExpressionNode, ParamCategory, ParseNode, ParseNodeType } from '../../parser/parseNodes';
+import { KeywordType } from '../../parser/tokenizerTypes';
 import * as AnalyzerNodeInfo from '../analyzerNodeInfo';
 import { ConstraintTracker } from '../constraintTracker';
 import { makeTupleObject } from '../tuples';
 import {
     Arg,
-    AssignTypeFlags,
     EvalFlags,
     ExpectedTypeOptions,
     MapSubtypesOptions,
     PrefetchedTypes,
+    TypeEvaluator,
     TypeResult,
     TypeResultWithNode,
 } from '../typeEvaluatorTypes';
@@ -44,6 +45,8 @@ import {
     isTypeVar,
     isTypeVarTuple,
     isUnion,
+    isUnpackedTypeVarTuple,
+    maxTypeRecursionCount,
     ParamSpecType,
     Type,
     TypeBase,
@@ -62,6 +65,8 @@ import {
     doForEachSubtype,
     getTypeCondition,
     getTypeVarArgsRecursive,
+    getTypeVarScopeIds,
+    isTupleClass,
     makeTypeVarsBound,
     mapSubtypes,
     partiallySpecializeType,
@@ -80,11 +85,6 @@ interface Context {
         node: ParseNode,
         range?: TextRange
     ) => Diagnostic | undefined;
-    readonly applyConditionFilterToType: (
-        type: Type,
-        conditionFilter: TypeCondition[],
-        recursionCount: number
-    ) => Type | undefined;
     readonly assignClassToSelf: (
         destType: ClassType,
         srcType: ClassType,
@@ -92,14 +92,7 @@ interface Context {
         ignoreBaseClassVariance?: boolean,
         recursionCount?: number
     ) => boolean;
-    readonly assignType: (
-        destType: Type,
-        srcType: Type,
-        diag?: DiagnosticAddendum,
-        constraints?: ConstraintTracker,
-        flags?: AssignTypeFlags,
-        recursionCount?: number
-    ) => boolean;
+    readonly assignType: TypeEvaluator['assignType'];
     readonly createSelfType: (
         classType: ClassType,
         errorNode: ParseNode,
@@ -111,18 +104,17 @@ interface Context {
         errorNode: ExpressionNode,
         typeArgs: TypeResultWithNode[] | undefined
     ) => Type;
-    readonly getBooleanValue: (node: ExpressionNode) => boolean;
     readonly getBuiltInType: (node: ParseNode, name: string) => Type;
     readonly getObjectType: () => Type;
     readonly getTupleClassType: () => ClassType | undefined;
     readonly getTypeOfExpressionExpectingType: (node: ExpressionNode, options?: ExpectedTypeOptions) => TypeResult;
     readonly getTypeVarScopesForNode: (node: ParseNode) => string[];
-    readonly getTypeVarTupleDefaultType: (node: ExpressionNode, isPep695Syntax: boolean) => Type | undefined;
     readonly isSymbolValidTypeExpression: (type: Type, includesVarDecl: boolean) => boolean;
     readonly isTypeFormClass: (type: ClassType) => boolean;
     readonly nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoAccessor;
     readonly prefetched: Partial<PrefetchedTypes> | undefined;
     readonly rejectBareSpecialFormInTypeForm: (type: ClassType, node: ExpressionNode) => Type | undefined;
+    readonly solveAndApplyConstraints: TypeEvaluator['solveAndApplyConstraints'];
     readonly specializeTypeAliasWithDefaults: (type: Type, errorNode: ExpressionNode | undefined) => Type;
     readonly typePromotions: Map<string, string[]>;
     readonly updateUsageVariancesRecursive: (
@@ -133,32 +125,29 @@ interface Context {
         pendingTypes?: { type: Type; key: string | undefined }[],
         recursionCount?: number
     ) => void;
-    readonly verifyTypeVarDefaultIsCompatible: (typeVar: TypeVarType, defaultValueNode: ExpressionNode) => void;
 }
 
 // Builds and specializes type variables and ParamSpecs; scoped evaluation stays in the evaluator.
 export function createTypeVarHandling(context: Context) {
     const {
         addDiagnostic,
-        applyConditionFilterToType,
         assignClassToSelf,
         assignType,
         createSelfType,
         createTypeFormType,
-        getBooleanValue,
         getBuiltInType,
         getObjectType,
+        getTupleClassType,
         getTypeOfExpressionExpectingType,
         getTypeVarScopesForNode,
-        getTypeVarTupleDefaultType,
         isSymbolValidTypeExpression,
         isTypeFormClass,
         nodeInfo,
         rejectBareSpecialFormInTypeForm,
+        solveAndApplyConstraints,
         specializeTypeAliasWithDefaults,
         typePromotions,
         updateUsageVariancesRecursive,
-        verifyTypeVarDefaultIsCompatible,
     } = context;
 
     function expandTypedKwargs(functionType: FunctionType): FunctionType {
@@ -813,6 +802,75 @@ export function createTypeVarHandling(context: Context) {
         return typeVar;
     }
 
+    function verifyTypeVarDefaultIsCompatible(typeVar: TypeVarType, defaultValueNode: ExpressionNode) {
+        assert(typeVar.shared.isDefaultExplicit);
+
+        const constraints = new ConstraintTracker();
+        const concreteDefaultType = makeTopLevelTypeVarsConcrete(
+            solveAndApplyConstraints(typeVar.shared.defaultType, constraints, {
+                replaceUnsolved: {
+                    scopeIds: getTypeVarScopeIds(typeVar),
+                    tupleClassType: getTupleClassType(),
+                },
+            })
+        );
+
+        if (typeVar.shared.boundType) {
+            if (!assignType(typeVar.shared.boundType, concreteDefaultType)) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeVarDefaultBoundMismatch(),
+                    defaultValueNode
+                );
+            }
+        } else if (TypeVarType.hasConstraints(typeVar)) {
+            let isConstraintCompatible = true;
+
+            // If the default type is a constrained TypeVar, make sure all of its constraints
+            // are also constraints in typeVar. If the default type is not a constrained TypeVar,
+            // use its concrete type to compare against the constraints.
+            if (isTypeVar(typeVar.shared.defaultType) && TypeVarType.hasConstraints(typeVar.shared.defaultType)) {
+                for (const constraint of typeVar.shared.defaultType.shared.constraints) {
+                    if (!typeVar.shared.constraints.some((c) => isTypeSame(c, constraint))) {
+                        isConstraintCompatible = false;
+                    }
+                }
+            } else if (
+                !typeVar.shared.constraints.some((constraint) =>
+                    isTypeSame(constraint, concreteDefaultType, { ignoreConditions: true })
+                )
+            ) {
+                isConstraintCompatible = false;
+            }
+
+            if (!isConstraintCompatible) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeVarDefaultConstraintMismatch(),
+                    defaultValueNode
+                );
+            }
+        }
+    }
+
+    function getTypeVarTupleDefaultType(node: ExpressionNode, isPep695Syntax: boolean): Type | undefined {
+        const argType = getTypeOfExpressionExpectingType(node, {
+            allowUnpackedTuple: true,
+            allowTypeVarsWithoutScopeId: true,
+            forwardRefs: isPep695Syntax,
+            typeExpression: true,
+        }).type;
+        const isUnpackedTuple = isClass(argType) && isTupleClass(argType) && argType.priv.isUnpacked;
+        const isUnpackedTypeVar = isUnpackedTypeVarTuple(argType);
+
+        if (!isUnpackedTuple && !isUnpackedTypeVar) {
+            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.typeVarTupleDefaultNotUnpacked(), node);
+            return undefined;
+        }
+
+        return convertToInstance(argType);
+    }
+
     function createTypeVarTupleType(errorNode: ExpressionNode, classType: ClassType, argList: Arg[]): Type | undefined {
         let typeVarName = '';
 
@@ -1043,6 +1101,83 @@ export function createTypeVarHandling(context: Context) {
         });
     }
 
+    function applyConditionFilterToType(
+        type: Type,
+        conditionFilter: TypeCondition[],
+        recursionCount: number
+    ): Type | undefined {
+        if (recursionCount > maxTypeRecursionCount) {
+            return type;
+        }
+        recursionCount++;
+
+        // If the type has a condition associated with it, make sure it's compatible.
+        if (!TypeCondition.isCompatible(getTypeCondition(type), conditionFilter)) {
+            return undefined;
+        }
+
+        // If the type is generic, see if any of its type arguments should be filtered.
+        // This is possible only in cases where the type parameter is covariant.
+
+        // TODO - handle functions and tuples
+        if (isClass(type) && type.priv.typeArgs && !type.priv.tupleTypeArgs) {
+            inferVarianceForClass(type);
+
+            let typeWasTransformed = false;
+
+            const filteredTypeArgs = type.priv.typeArgs.map((typeArg, index) => {
+                if (index >= type.shared.typeParams.length) {
+                    return typeArg;
+                }
+
+                const variance = TypeVarType.getVariance(type.shared.typeParams[index]);
+                if (variance !== Variance.Covariant) {
+                    return typeArg;
+                }
+
+                // Don't expand recursive type aliases because they can
+                // cause infinite recursion.
+                if (isTypeVar(typeArg) && typeArg.shared.recursiveAlias) {
+                    return typeArg;
+                }
+
+                const filteredTypeArg = mapSubtypesExpandTypeVars(
+                    typeArg,
+                    { conditionFilter },
+                    (expandedSubtype) => {
+                        return expandedSubtype;
+                    },
+                    recursionCount
+                );
+
+                if (filteredTypeArg !== typeArg) {
+                    typeWasTransformed = true;
+                }
+
+                return filteredTypeArg;
+            });
+
+            if (typeWasTransformed) {
+                return ClassType.specialize(type, filteredTypeArgs);
+            }
+        }
+
+        return type;
+    }
+
+    function getBooleanValue(node: ExpressionNode): boolean {
+        if (node.nodeType === ParseNodeType.Constant) {
+            if (node.d.constType === KeywordType.False) {
+                return false;
+            } else if (node.d.constType === KeywordType.True) {
+                return true;
+            }
+        }
+
+        addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.expectedBoolLiteral(), node);
+        return false;
+    }
+
     return {
         expandTypedKwargs,
         expandPromotionTypes,
@@ -1053,6 +1188,8 @@ export function createTypeVarHandling(context: Context) {
         getUnknownExemptTypeVarsForReturnType,
         createTypeVarType,
         createTypeVarTupleType,
+        verifyTypeVarDefaultIsCompatible,
+        getTypeVarTupleDefaultType,
         getPseudoGenericTypeVarName,
         inferVarianceForClass,
         convertToTypeFormType,

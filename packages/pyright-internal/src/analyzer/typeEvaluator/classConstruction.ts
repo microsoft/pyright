@@ -13,15 +13,14 @@ import { TextRange } from '../../common/textRange';
 import { LocAddendum, LocMessage } from '../../localization/localize';
 import { ArgCategory, ExpressionNode, ParamCategory, ParseNode, ParseNodeType } from '../../parser/parseNodes';
 import * as AnalyzerNodeInfo from '../analyzerNodeInfo';
-import { ConstraintTracker } from '../constraintTracker';
 import * as ParseTreeUtils from '../parseTreeUtils';
 import { Symbol, SymbolFlags } from '../symbol';
 import {
     Arg,
-    AssignTypeFlags,
     ExpectedTypeOptions,
     PrefetchedTypes,
     PrintTypeOptions,
+    TypeEvaluator,
     TypeResult,
 } from '../typeEvaluatorTypes';
 import {
@@ -57,14 +56,7 @@ interface Context {
         node: ParseNode,
         range?: TextRange
     ) => Diagnostic | undefined;
-    readonly assignType: (
-        destType: Type,
-        srcType: Type,
-        diag?: DiagnosticAddendum,
-        constraints?: ConstraintTracker,
-        flags?: AssignTypeFlags,
-        recursionCount?: number
-    ) => boolean;
+    readonly assignType: TypeEvaluator['assignType'];
     readonly getBaseClassesFromTypeCall: (baseTupleType: ClassType) => Type[] | undefined;
     readonly getBuiltInType: (node: ParseNode, name: string) => Type;
     readonly getNoneType: () => Type;

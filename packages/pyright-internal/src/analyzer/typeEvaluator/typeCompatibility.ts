@@ -89,14 +89,7 @@ interface Context {
         flags: AssignTypeFlags,
         recursionCount: number
     ) => boolean;
-    readonly assignType: (
-        destType: Type,
-        srcType: Type,
-        diag?: DiagnosticAddendum,
-        constraints?: ConstraintTracker,
-        flags?: AssignTypeFlags,
-        recursionCount?: number
-    ) => boolean;
+    readonly assignType: TypeEvaluator['assignType'];
     readonly assignTypeArgs: (
         destType: ClassType,
         srcType: ClassType,
@@ -2158,7 +2151,6 @@ export function createTypeCompatibility(context: Context) {
 
     return {
         assignClass,
-        assignClassWithTypeArgs,
         assignRecursiveTypeAliasToSelf,
         assignFromUnionType,
         assignToUnionType,

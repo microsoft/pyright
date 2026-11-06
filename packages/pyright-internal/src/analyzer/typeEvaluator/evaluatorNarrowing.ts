@@ -6,10 +6,8 @@
  * evaluatorNarrowing implementation, using evaluator-owned dependencies and state.
  */
 
-import { DiagnosticAddendum } from '../../common/diagnostic';
-import { ConstraintTracker } from '../constraintTracker';
 import { getTypedDictMembersForClass } from '../typedDicts';
-import { AssignTypeFlags, TypeEvaluator, TypeResult } from '../typeEvaluatorTypes';
+import { TypeEvaluator, TypeResult } from '../typeEvaluatorTypes';
 import {
     ClassType,
     combineTypes,
@@ -46,14 +44,7 @@ import {
 } from '../typeUtils';
 
 interface Context {
-    readonly assignType: (
-        destType: Type,
-        srcType: Type,
-        diag?: DiagnosticAddendum,
-        constraints?: ConstraintTracker,
-        flags?: AssignTypeFlags,
-        recursionCount?: number
-    ) => boolean;
+    readonly assignType: TypeEvaluator['assignType'];
     readonly evaluatorInterface: TypeEvaluator;
     readonly getTypeOfMember: (member: ClassMember) => Type;
     readonly makeTopLevelTypeVarsConcrete: (
@@ -481,5 +472,11 @@ export function createEvaluatorNarrowing(context: Context) {
         };
     }
 
-    return { canBeFalsy, canBeTruthy, removeTruthinessFromType, removeFalsinessFromType, narrowTypeBasedOnAssignment };
+    return {
+        canBeFalsy,
+        canBeTruthy,
+        removeTruthinessFromType,
+        removeFalsinessFromType,
+        narrowTypeBasedOnAssignment,
+    };
 }

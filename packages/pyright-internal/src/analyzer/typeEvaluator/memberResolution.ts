@@ -108,18 +108,25 @@ interface Context {
         decls: Declaration[],
         synthesizedTypes: SynthesizedTypeInfo[]
     ) => void;
-    readonly addDiagnostic: (
-        rule: DiagnosticRule,
-        message: string,
-        node: ParseNode,
-        range?: TextRange
-    ) => Diagnostic | undefined;
     readonly addSymbolDeclInfo: (
         symbol: Symbol,
         decls: Declaration[],
         synthesizedTypes: SynthesizedTypeInfo[],
         preferTypedDeclarations?: boolean
     ) => void;
+    readonly shouldFallBackToClassEntryForKeywordArg: (baseType: ClassType, paramName: string) => boolean;
+    readonly tryAddPartialKeywordParamDecls: (
+        baseType: Type,
+        callNode: CallNode,
+        paramName: string,
+        decls: Declaration[]
+    ) => boolean;
+    readonly addDiagnostic: (
+        rule: DiagnosticRule,
+        message: string,
+        node: ParseNode,
+        range?: TextRange
+    ) => Diagnostic | undefined;
     readonly codeFlowEngine: CodeFlowEngine;
     readonly evaluateTypesForStatement: (node: ParseNode) => void;
     readonly evaluatorOptions: EvaluatorOptions;
@@ -158,7 +165,6 @@ interface Context {
     readonly getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     readonly getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
     readonly inferReturnTypeIfNecessary: (type: Type) => void;
-    readonly isClassWithAsymmetricAttributeAccessor: (classType: ClassType) => boolean;
     readonly isFlowPathBetweenNodes: (sourceNode: ParseNode, sinkNode: ParseNode, allowSelf?: boolean) => boolean;
     readonly isLegalTypeAliasExpressionForm: (node: ExpressionNode, allowStrLiteral: boolean) => boolean;
     readonly isSymbolValidTypeExpression: (type: Type, includesVarDecl: boolean) => boolean;
@@ -182,14 +188,7 @@ interface Context {
         resolveLocalNames: boolean,
         options?: ResolveAliasOptions
     ) => ResolvedAliasInfo | undefined;
-    readonly shouldFallBackToClassEntryForKeywordArg: (baseType: ClassType, paramName: string) => boolean;
     readonly symbolResolutionStack: SymbolResolutionStackEntry[];
-    readonly tryAddPartialKeywordParamDecls: (
-        baseType: Type,
-        callNode: CallNode,
-        paramName: string,
-        decls: Declaration[]
-    ) => boolean;
     readonly validateCallArgs: (
         errorNode: ExpressionNode,
         argList: Arg[],
@@ -228,7 +227,6 @@ export function createMemberResolution(context: Context) {
         getTypeOfClass,
         getTypeOfFunction,
         inferReturnTypeIfNecessary,
-        isClassWithAsymmetricAttributeAccessor,
         isFlowPathBetweenNodes,
         isLegalTypeAliasExpressionForm,
         isSymbolValidTypeExpression,
@@ -633,17 +631,6 @@ export function createMemberResolution(context: Context) {
             typeErrors: callResult.argumentErrors,
             isAsymmetricAccessor,
         };
-    }
-
-    function getIndexAccessMagicMethodName(usage: EvaluatorUsage): string {
-        if (usage.method === 'get') {
-            return '__getitem__';
-        } else if (usage.method === 'set') {
-            return '__setitem__';
-        } else {
-            assert(usage.method === 'del');
-            return '__delitem__';
-        }
     }
 
     function synthesizeTypeAliasPlaceholder(nameNode: NameNode, isTypeAliasType: boolean = false): TypeVarType {
@@ -1450,6 +1437,43 @@ export function createMemberResolution(context: Context) {
         return isLegal;
     }
 
+    function isClassWithAsymmetricAttributeAccessor(classType: ClassType): boolean {
+        // If the value has already been cached in this type, return the cached value.
+        if (classType.priv.isAsymmetricAttributeAccessor !== undefined) {
+            return classType.priv.isAsymmetricAttributeAccessor;
+        }
+
+        let isAsymmetric = false;
+
+        const getterSymbolResult = lookUpClassMember(classType, '__getattr__', MemberAccessFlags.SkipBaseClasses);
+        const setterSymbolResult = lookUpClassMember(classType, '__setattr__', MemberAccessFlags.SkipBaseClasses);
+
+        if (!getterSymbolResult || !setterSymbolResult) {
+            isAsymmetric = false;
+        } else {
+            const getterType = getEffectiveTypeOfSymbol(getterSymbolResult.symbol);
+            const setterType = getEffectiveTypeOfSymbol(setterSymbolResult.symbol);
+
+            // If either the setter or getter is an overload (or some other non-function type),
+            // conservatively assume that it's not asymmetric.
+            if (isFunction(getterType) && isFunction(setterType)) {
+                // If there's no declared return type on the getter, assume it's symmetric.
+                if (setterType.shared.parameters.length >= 3 && getterType.shared.declaredReturnType) {
+                    const setterValueType = FunctionType.getParamType(setterType, 2);
+                    const getterReturnType = FunctionType.getEffectiveReturnType(getterType) ?? UnknownType.create();
+
+                    if (!isTypeSame(setterValueType, getterReturnType)) {
+                        isAsymmetric = true;
+                    }
+                }
+            }
+        }
+
+        // Cache the value for next time.
+        classType.priv.isAsymmetricAttributeAccessor = isAsymmetric;
+        return isAsymmetric;
+    }
+
     return {
         pushSymbolResolution,
         popSymbolResolution,
@@ -1460,7 +1484,6 @@ export function createMemberResolution(context: Context) {
         bindMethodForMemberAccess,
         isAsymmetricDescriptorClass,
         applyAttributeAccessOverride,
-        getIndexAccessMagicMethodName,
         synthesizeTypeAliasPlaceholder,
         getAliasedSymbolTypeForName,
         lookUpSymbolRecursive,

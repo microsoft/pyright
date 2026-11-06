@@ -106,14 +106,7 @@ interface Context {
         node: ParseNode,
         range?: TextRange
     ) => Diagnostic | undefined;
-    readonly assignType: (
-        destType: Type,
-        srcType: Type,
-        diag?: DiagnosticAddendum,
-        constraints?: ConstraintTracker,
-        flags?: AssignTypeFlags,
-        recursionCount?: number
-    ) => boolean;
+    readonly assignType: TypeEvaluator['assignType'];
     readonly assignTypeToExpression: (
         target: ExpressionNode,
         typeResult: TypeResult,
@@ -1129,10 +1122,8 @@ export function createCollectionInference(context: Context) {
         getTypeOfDictionaryWithContext,
         getTypeOfDictionaryInferred,
         getTypeOfListOrSetWithContext,
-        getExpectedEntryTypeForIterable,
         getTypeOfListOrSetInferred,
         getTypeOfComprehension,
-        getElementTypeFromComprehension,
         evaluateComprehensionForIf,
     };
 }

@@ -253,8 +253,6 @@ export function createDiagnostics(context: Context) {
         addInformation,
         addUnreachableCode,
         addDeprecated,
-        addDiagnosticWithSuppressionCheck,
-        isDiagnosticSuppressedForNode,
         canSkipDiagnosticForNode,
         addDiagnostic,
         addDiagnosticForTextRange,

@@ -12,7 +12,7 @@ import { ParamCategory } from '../../parser/parseNodes';
 import { ConstraintTracker } from '../constraintTracker';
 import { getParamListDetails, ParamKind } from '../parameterUtils';
 import { isPrivateOrProtectedName } from '../symbolNameUtils';
-import { AssignTypeFlags, PrintTypeOptions, SolveConstraintsOptions } from '../typeEvaluatorTypes';
+import { AssignTypeFlags, PrintTypeOptions, SolveConstraintsOptions, TypeEvaluator } from '../typeEvaluatorTypes';
 import {
     ClassType,
     FunctionParam,
@@ -27,14 +27,7 @@ import {
 import { ApplyTypeVarOptions } from '../typeUtils';
 
 interface Context {
-    readonly assignType: (
-        destType: Type,
-        srcType: Type,
-        diag?: DiagnosticAddendum,
-        constraints?: ConstraintTracker,
-        flags?: AssignTypeFlags,
-        recursionCount?: number
-    ) => boolean;
+    readonly assignType: TypeEvaluator['assignType'];
     readonly getEffectiveReturnType: (type: FunctionType) => Type;
     readonly printType: (type: Type, options?: PrintTypeOptions) => string;
     readonly solveAndApplyConstraints: (
@@ -640,5 +633,7 @@ export function createOverrideValidation(context: Context) {
         return canOverride;
     }
 
-    return { validateOverrideMethod, isOverrideMethodApplicable, validateOverrideMethodInternal };
+    return {
+        validateOverrideMethod,
+    };
 }

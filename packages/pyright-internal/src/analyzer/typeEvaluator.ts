@@ -270,7 +270,6 @@ import {
     TypeVarKind,
     TypeVarScopeId,
     TypeVarScopeType,
-    TypeVarTupleType,
     TypeVarType,
     UnboundType,
     UnionType,
@@ -513,7 +512,7 @@ import { createCollectionInference } from './typeEvaluator/collectionInference';
 import { createDiagnostics } from './typeEvaluator/diagnostics';
 import { createEvaluatorCore } from './typeEvaluator/evaluatorCore';
 import { createEvaluatorNarrowing } from './typeEvaluator/evaluatorNarrowing';
-import { createExpressionEvaluation } from './typeEvaluator/expressionEvaluation';
+import { createExpressionEvaluation, getIndexAccessMagicMethodName } from './typeEvaluator/expressionEvaluation';
 import { createFlowAnalysis } from './typeEvaluator/flowAnalysis';
 import { createMemberResolution } from './typeEvaluator/memberResolution';
 import { createOverrideValidation } from './typeEvaluator/overrideValidation';
@@ -2917,14 +2916,6 @@ export function createTypeEvaluator(
         return typeVarHandling.mapSubtypesExpandTypeVars(type, options, callback, recursionCount);
     }
 
-    function applyConditionFilterToType(
-        type: Type,
-        conditionFilter: TypeCondition[],
-        recursionCount: number
-    ): Type | undefined {
-        return evaluatorCore.applyConditionFilterToType(type, conditionFilter, recursionCount);
-    }
-
     function markNamesAccessed(node: ParseNode, names: string[]) {
         const fileInfo = nodeInfo.getFileInfo(node);
         const scope = getScopeForNode(node);
@@ -5326,10 +5317,6 @@ export function createTypeEvaluator(
         return memberResolution.isAsymmetricDescriptorClass(classType);
     }
 
-    function isClassWithAsymmetricAttributeAccessor(classType: ClassType): boolean {
-        return evaluatorCore.isClassWithAsymmetricAttributeAccessor(classType);
-    }
-
     // Applies the __getattr__, __setattr__ or __delattr__ method if present.
     // If it's not applicable, returns undefined.
     function applyAttributeAccessOverride(
@@ -5441,21 +5428,6 @@ export function createTypeEvaluator(
         return indexTypeResult;
     }
 
-    // If the list of type parameters includes a TypeVarTuple, we may need to adjust
-    // the supplied type arguments to map to the type parameter list.
-    function adjustTypeArgsForTypeVarTuple(
-        typeArgs: TypeResultWithNode[],
-        typeParams: TypeVarType[],
-        errorNode: ExpressionNode
-    ): TypeResultWithNode[] {
-        return specialFormCreation.adjustTypeArgsForTypeVarTuple(typeArgs, typeParams, errorNode);
-    }
-
-    // If the variadic type variable is not unpacked, report an error.
-    function validateTypeVarTupleIsUnpacked(type: TypeVarTupleType, node: ParseNode) {
-        return specialFormCreation.validateTypeVarTupleIsUnpacked(type, node);
-    }
-
     // If the type is a generic type alias that is not specialized, provides
     // default type arguments for the type alias. It optionally logs diagnostics
     // for missing type arguments.
@@ -5501,7 +5473,7 @@ export function createTypeEvaluator(
 
         const typeParams = aliasInfo.shared.typeParams;
         let typeArgs: TypeResultWithNode[] | undefined;
-        typeArgs = adjustTypeArgsForTypeVarTuple(getTypeArgs(node, flags), typeParams, node);
+        typeArgs = specialFormCreation.adjustTypeArgsForTypeVarTuple(getTypeArgs(node, flags), typeParams, node);
         let reportedError = false;
 
         typeArgs = transformTypeArgsForParamSpec(typeParams, typeArgs, node);
@@ -5886,7 +5858,7 @@ export function createTypeEvaluator(
 
                     if (ClassType.isSpecialBuiltIn(concreteSubtype, 'Literal')) {
                         // Special-case Literal types.
-                        return createLiteralType(concreteSubtype, node, flags);
+                        return specialFormCreation.createLiteralType(concreteSubtype, node, flags);
                     }
 
                     if (ClassType.isBuiltIn(concreteSubtype, 'InitVar')) {
@@ -5958,7 +5930,11 @@ export function createTypeEvaluator(
                     });
 
                     if (!isAnnotatedClass) {
-                        typeArgs = adjustTypeArgsForTypeVarTuple(typeArgs, concreteSubtype.shared.typeParams, node);
+                        typeArgs = specialFormCreation.adjustTypeArgsForTypeVarTuple(
+                            typeArgs,
+                            concreteSubtype.shared.typeParams,
+                            node
+                        );
                     }
 
                     // If this is a custom __class_getitem__, there's no need to specialize the class.
@@ -5978,7 +5954,12 @@ export function createTypeEvaluator(
                         return concreteSubtype;
                     }
 
-                    const result = createSpecializedClassType(concreteSubtype, typeArgs, flags, node);
+                    const result = specialFormCreation.createSpecializedClassType(
+                        concreteSubtype,
+                        typeArgs,
+                        flags,
+                        node
+                    );
                     if (result.isRequired) {
                         isRequired = true;
                     } else if (result.isNotRequired) {
@@ -6171,10 +6152,6 @@ export function createTypeEvaluator(
         if (isRecursiveTypeAlias) {
             pendingTypes.pop();
         }
-    }
-
-    function getIndexAccessMagicMethodName(usage: EvaluatorUsage): string {
-        return memberResolution.getIndexAccessMagicMethodName(usage);
     }
 
     function getTypeOfIndexedObjectOrClass(
@@ -7560,7 +7537,7 @@ export function createTypeEvaluator(
                 });
             }
 
-            expandedArgTypes = expandArgTypes(contextFreeArgTypes!, expandedArgTypes);
+            expandedArgTypes = expressionEvaluation.expandArgTypes(contextFreeArgTypes!, expandedArgTypes);
 
             // Check for combinatoric explosion and break out of loop.
             if (!expandedArgTypes || expandedArgTypes.length > maxTotalOverloadArgTypeExpansionCount) {
@@ -7584,24 +7561,6 @@ export function createTypeEvaluator(
         }
 
         return { argumentErrors: true, isTypeIncomplete, overloadsUsedForCall: [] };
-    }
-
-    // Replaces each item in the expandedArgTypes with n items where n is
-    // the number of subtypes in a union or other expandable type.
-    // The contextFreeArgTypes parameter represents the types of the arguments
-    // evaluated with no bidirectional type inference (i.e. without the help of
-    // the corresponding parameter's expected type). If the function returns
-    // undefined, that indicates that all types have been expanded, and no
-    // more expansion is possible.
-    function expandArgTypes(
-        contextFreeArgTypes: Type[],
-        expandedArgTypes: (Type | undefined)[][]
-    ): (Type | undefined)[][] | undefined {
-        return expressionEvaluation.expandArgTypes(contextFreeArgTypes, expandedArgTypes);
-    }
-
-    function expandArgType(type: Type): Type[] | undefined {
-        return evaluatorCore.expandArgType(type);
     }
 
     // Validates that the arguments can be assigned to the call's parameter
@@ -8549,11 +8508,6 @@ export function createTypeEvaluator(
         return expressionEvaluation.evaluateCastCall(argList, errorNode);
     }
 
-    // Expands any unpacked tuples within an argument list.
-    function expandArgList(argList: Arg[]): Arg[] {
-        return expressionEvaluation.expandArgList(argList);
-    }
-
     // Matches the arguments passed to a function to the corresponding parameters in that
     // function. This matching is done based on positions and keywords. Type evaluation and
     // validation is left to the caller.
@@ -8576,7 +8530,7 @@ export function createTypeEvaluator(
         let isTypeVarTupleFullyMatched = false;
 
         // Expand any unpacked tuples in the arg list.
-        argList = expandArgList(argList);
+        argList = expressionEvaluation.expandArgList(argList);
 
         // Construct an object that racks which parameters have been assigned arguments.
         const paramTracker = new ParamAssignmentTracker(paramDetails.params);
@@ -10612,16 +10566,8 @@ export function createTypeEvaluator(
         return typeVarHandling.createTypeVarType(errorNode, classType, argList);
     }
 
-    function verifyTypeVarDefaultIsCompatible(typeVar: TypeVarType, defaultValueNode: ExpressionNode) {
-        return evaluatorCore.verifyTypeVarDefaultIsCompatible(typeVar, defaultValueNode);
-    }
-
     function createTypeVarTupleType(errorNode: ExpressionNode, classType: ClassType, argList: Arg[]): Type | undefined {
         return typeVarHandling.createTypeVarTupleType(errorNode, classType, argList);
-    }
-
-    function getTypeVarTupleDefaultType(node: ExpressionNode, isPep695Syntax: boolean): Type | undefined {
-        return evaluatorCore.getTypeVarTupleDefaultType(node, isPep695Syntax);
     }
 
     function createParamSpecType(errorNode: ExpressionNode, classType: ClassType, argList: Arg[]): Type | undefined {
@@ -10897,10 +10843,6 @@ export function createTypeEvaluator(
             /* typeParamNodes */ undefined,
             () => typeParams
         );
-    }
-
-    function getBooleanValue(node: ExpressionNode): boolean {
-        return specialFormCreation.getBooleanValue(node);
     }
 
     function getFunctionFullName(functionNode: ParseNode, moduleName: string, functionName: string): string {
@@ -11487,127 +11429,8 @@ export function createTypeEvaluator(
         return specialFormCreation.validateTypeArg(argResult, options);
     }
 
-    // Evaluates the type arguments for a Callable type. It should have zero
-    // to two arguments.The first argument, if present, should be an ellipsis,
-    // a ParamSpec, a Concatenate, or a list of positional parameter types.
-    // The second argument, if present, should specify the return type.
-    function createCallableType(
-        classType: ClassType,
-        typeArgs: TypeResultWithNode[] | undefined,
-        errorNode: ParseNode
-    ): FunctionType {
-        return specialFormCreation.createCallableType(classType, typeArgs, errorNode);
-    }
-
-    // Creates an Optional[X] type.
-    function createOptionalType(
-        classType: ClassType,
-        errorNode: ParseNode,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags
-    ): Type {
-        return specialFormCreation.createOptionalType(classType, errorNode, typeArgs, flags);
-    }
-
     function cloneBuiltinObjectWithLiteral(node: ParseNode, builtInName: string, value: LiteralValue): Type {
         return evaluatorCore.cloneBuiltinObjectWithLiteral(node, builtInName, value);
-    }
-
-    function cloneBuiltinClassWithLiteral(
-        node: ParseNode,
-        literalClassType: ClassType,
-        builtInName: string,
-        value: LiteralValue
-    ): Type {
-        return evaluatorCore.cloneBuiltinClassWithLiteral(node, literalClassType, builtInName, value);
-    }
-
-    // Creates a type that represents a Literal.
-    function createLiteralType(classType: ClassType, node: IndexNode, flags: EvalFlags): Type {
-        return expressionEvaluation.createLiteralType(classType, node, flags);
-    }
-
-    // Creates a ClassVar type.
-    function createClassVarType(
-        classType: ClassType,
-        errorNode: ParseNode,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags
-    ): Type {
-        return specialFormCreation.createClassVarType(classType, errorNode, typeArgs, flags);
-    }
-
-    function createTypeFormType(
-        classType: ClassType,
-        errorNode: ExpressionNode,
-        typeArgs: TypeResultWithNode[] | undefined
-    ): Type {
-        return specialFormCreation.createTypeFormType(classType, errorNode, typeArgs);
-    }
-
-    // Creates a "TypeGuard" and "TypeIs" type.
-    function createTypeGuardType(
-        classType: ClassType,
-        errorNode: ParseNode,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags
-    ): Type {
-        return specialFormCreation.createTypeGuardType(classType, errorNode, typeArgs, flags);
-    }
-
-    function createSelfType(
-        classType: ClassType,
-        errorNode: ParseNode,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags
-    ) {
-        return evaluatorCore.createSelfType(classType, errorNode, typeArgs, flags);
-    }
-
-    function createRequiredOrReadOnlyType(
-        classType: ClassType,
-        errorNode: ParseNode,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags
-    ): TypeResult {
-        return specialFormCreation.createRequiredOrReadOnlyType(classType, errorNode, typeArgs, flags);
-    }
-
-    function createUnpackType(
-        classType: ClassType,
-        errorNode: ParseNode,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags
-    ): Type {
-        return specialFormCreation.createUnpackType(classType, errorNode, typeArgs, flags);
-    }
-
-    // Creates a "Final" type.
-    function createFinalType(
-        classType: ClassType,
-        errorNode: ParseNode,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags
-    ): Type {
-        return specialFormCreation.createFinalType(classType, errorNode, typeArgs, flags);
-    }
-
-    function createConcatenateType(
-        classType: ClassType,
-        errorNode: ParseNode,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags
-    ): Type {
-        return specialFormCreation.createConcatenateType(classType, errorNode, typeArgs, flags);
-    }
-
-    function createAnnotatedType(
-        classType: ClassType,
-        errorNode: ExpressionNode,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags
-    ): TypeResult {
-        return specialFormCreation.createAnnotatedType(classType, errorNode, typeArgs, flags);
     }
 
     // Determines whether the metadata object is compatible with the base type.
@@ -11615,40 +11438,6 @@ export function createTypeEvaluator(
         // This function was added for draft PEP 746, but the functionality
         // has been removed for now while the PEP is being revised.
         return true;
-    }
-
-    // Creates one of several "special" types that are defined in typing.pyi
-    // but not declared in their entirety. This includes the likes of "Tuple",
-    // "Dict", etc.
-    function createSpecialType(
-        classType: ClassType,
-        typeArgs: TypeResultWithNode[] | undefined,
-        paramLimit?: number,
-        allowParamSpec = false,
-        isSpecialForm = true
-    ): Type {
-        return specialFormCreation.createSpecialType(classType, typeArgs, paramLimit, allowParamSpec, isSpecialForm);
-    }
-
-    // Unpacks the index expression for a "Union[X, Y, Z]" type annotation.
-    function createUnionType(
-        classType: ClassType,
-        errorNode: ParseNode,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags
-    ): Type {
-        return specialFormCreation.createUnionType(classType, errorNode, typeArgs, flags);
-    }
-
-    // Creates a type that represents "Generic[T1, T2, ...]", used in the
-    // definition of a generic class.
-    function createGenericType(
-        classType: ClassType,
-        errorNode: ParseNode,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags
-    ): Type {
-        return specialFormCreation.createGenericType(classType, errorNode, typeArgs, flags);
     }
 
     function transformTypeForTypeAlias(
@@ -15620,19 +15409,6 @@ export function createTypeEvaluator(
         return flowAnalysis.getFlowTypeOfReference(reference, startNode, options);
     }
 
-    // Specializes the specified (potentially generic) class type using
-    // the specified type arguments, reporting errors as appropriate.
-    // Returns the specialized type and a boolean indicating whether
-    // the type indicates a class type (true) or an object type (false).
-    function createSpecializedClassType(
-        classType: ClassType,
-        typeArgs: TypeResultWithNode[] | undefined,
-        flags: EvalFlags,
-        errorNode: ExpressionNode
-    ): TypeResult {
-        return evaluatorCore.createSpecializedClassType(classType, typeArgs, flags, errorNode);
-    }
-
     // PEP 612 says that if the class has only one type parameter consisting
     // of a ParamSpec, the list of arguments does not need to be enclosed in
     // a list. We'll handle that case specially here.
@@ -16190,7 +15966,7 @@ export function createTypeEvaluator(
             }
         } else if (node.d.typeParamKind === TypeParamKind.TypeVarTuple) {
             const defaultType = node.d.defaultExpr
-                ? getTypeVarTupleDefaultType(node.d.defaultExpr, /* isPep695Syntax */ true)
+                ? typeVarHandling.getTypeVarTupleDefaultType(node.d.defaultExpr, /* isPep695Syntax */ true)
                 : undefined;
 
             if (defaultType) {
@@ -16222,7 +15998,7 @@ export function createTypeEvaluator(
         // If a default is provided, make sure it is compatible with the bound
         // or constraint.
         if (typeVar.shared.isDefaultExplicit && node.d.defaultExpr) {
-            verifyTypeVarDefaultIsCompatible(typeVar, node.d.defaultExpr);
+            typeVarHandling.verifyTypeVarDefaultIsCompatible(typeVar, node.d.defaultExpr);
         }
 
         // Associate the type variable with the owning scope.
@@ -19034,8 +18810,10 @@ export function createTypeEvaluator(
 
     const memberResolution = createMemberResolution({
         addClassEntryDeclsForKeywordArgIfPresent: _addClassEntryDeclsForKeywordArgIfPresent,
-        addDiagnostic,
         addSymbolDeclInfo: _addSymbolDeclInfo,
+        shouldFallBackToClassEntryForKeywordArg: _shouldFallBackToClassEntryForKeywordArg,
+        tryAddPartialKeywordParamDecls: _tryAddPartialKeywordParamDecls,
+        addDiagnostic,
         codeFlowEngine,
         evaluateTypesForStatement,
         evaluatorOptions,
@@ -19054,7 +18832,6 @@ export function createTypeEvaluator(
         getTypeOfClass,
         getTypeOfFunction,
         inferReturnTypeIfNecessary,
-        isClassWithAsymmetricAttributeAccessor,
         isFlowPathBetweenNodes,
         isLegalTypeAliasExpressionForm,
         isSymbolValidTypeExpression,
@@ -19065,9 +18842,7 @@ export function createTypeEvaluator(
             return prefetched;
         },
         resolveAliasDeclarationWithInfo,
-        shouldFallBackToClassEntryForKeywordArg: _shouldFallBackToClassEntryForKeywordArg,
         symbolResolutionStack,
-        tryAddPartialKeywordParamDecls: _tryAddPartialKeywordParamDecls,
         validateCallArgs,
         validateInitSubclassArgs,
     });
@@ -19075,19 +18850,16 @@ export function createTypeEvaluator(
     const expressionEvaluation = createExpressionEvaluation({
         addDiagnostic,
         addInformation,
-        cloneBuiltinClassWithLiteral,
         cloneBuiltinObjectWithLiteral,
         collectLiteralEnumClasses,
         convertNodeToArg,
         evaluatorInterface,
-        expandArgType,
         expectedTypeWantsTypeForm,
         getBoundMagicMethod,
         getBuiltInObject,
         getBuiltInType,
         getDeclaredTypeOfSymbol,
         getEffectiveTypeOfSymbol,
-        getIndexAccessMagicMethodName,
         getNoneType,
         getObjectType,
         getScopeForNode,
@@ -19114,6 +18886,7 @@ export function createTypeEvaluator(
         stripTypeGuard,
         useSpeculativeMode,
         validateCallArgs,
+        maxSingleOverloadArgTypeExpansionCount,
     });
 
     const returnTypeInference = createReturnTypeInference({
@@ -19162,38 +18935,22 @@ export function createTypeEvaluator(
     });
 
     const evaluatorCore = createEvaluatorCore({
+        // Core is initialized before special forms; defer this recursive lookup until evaluation.
+        createSpecializedClassType: (classType, typeArgs, flags, errorNode) =>
+            specialFormCreation.createSpecializedClassType(classType, typeArgs, flags, errorNode),
         addDiagnostic,
         assignType,
-        convertTypeArgToInstance,
-        createAnnotatedType,
-        createCallableType,
-        createClassVarType,
-        createConcatenateType,
-        createFinalType,
-        createGenericType,
-        createOptionalType,
-        createRequiredOrReadOnlyType,
-        createSpecialType,
-        createTypeFormType,
-        createTypeGuardType,
-        createUnionType,
-        createUnpackType,
         evaluatorInterface,
         getEffectiveTypeOfSymbol,
         getScopeForNode,
         getScopeIdForNode,
-        getTypeOfAnnotation,
         getTypeOfBoundMember,
-        getTypeOfClass,
         getTypeOfExpression,
         getTypeOfExpressionExpectingType,
         inferReturnTypeIfNecessary,
-        inferVarianceForClass,
         isTypeFormClass,
         isTypePromotionRelated,
         makeTopLevelTypeVarsConcrete,
-        mapSubtypesExpandTypeVars,
-        maxSingleOverloadArgTypeExpansionCount,
         nodeInfo,
         get prefetched() {
             return prefetched;
@@ -19201,10 +18958,7 @@ export function createTypeEvaluator(
         printType,
         stripLiteralValue,
         suppressDiagnostics,
-        transformTypeArgsForParamSpec,
         validateCallArgs,
-        validateTypeArg,
-        validateTypeVarTupleIsUnpacked,
     });
 
     const typeCompatibility = createTypeCompatibility({
@@ -19269,22 +19023,27 @@ export function createTypeEvaluator(
             return prefetched;
         },
         validateTypeMetadata,
+        assignType,
+        convertTypeArgToInstance,
+        getTypeOfAnnotation,
+        makeTopLevelTypeVarsConcrete,
+        printType,
+        getBuiltInType,
+        solveAndApplyConstraints,
+        getTypeOfExpression,
     });
 
     const typeVarHandling = createTypeVarHandling({
         addDiagnostic,
-        applyConditionFilterToType,
         assignClassToSelf,
         assignType,
-        createSelfType,
-        createTypeFormType,
-        getBooleanValue,
+        createSelfType: specialFormCreation.createSelfType,
+        createTypeFormType: specialFormCreation.createTypeFormType,
         getBuiltInType,
         getObjectType,
         getTupleClassType,
         getTypeOfExpressionExpectingType,
         getTypeVarScopesForNode,
-        getTypeVarTupleDefaultType,
         isSymbolValidTypeExpression,
         isTypeFormClass,
         nodeInfo,
@@ -19292,10 +19051,10 @@ export function createTypeEvaluator(
             return prefetched;
         },
         rejectBareSpecialFormInTypeForm,
+        solveAndApplyConstraints,
         specializeTypeAliasWithDefaults,
         typePromotions,
         updateUsageVariancesRecursive,
-        verifyTypeVarDefaultIsCompatible,
     });
 
     const overrideValidation = createOverrideValidation({

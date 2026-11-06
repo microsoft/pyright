@@ -34,7 +34,7 @@ import {
     YieldNode,
 } from '../../parser/parseNodes';
 import { ParseOptions, Parser, ParseTextMode } from '../../parser/parser';
-import { KeywordType, OperatorType, StringTokenFlags } from '../../parser/tokenizerTypes';
+import { KeywordType, StringTokenFlags } from '../../parser/tokenizerTypes';
 import { isAnnotationEvaluationPostponed } from '../analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzerNodeInfo';
 import { ConstraintTracker } from '../constraintTracker';
@@ -42,7 +42,7 @@ import { getFunctionInfoFromDecorators } from '../decorators';
 import * as ParseTreeUtils from '../parseTreeUtils';
 import { Scope, ScopeType, SymbolWithScope } from '../scope';
 import { Symbol } from '../symbol';
-import { getSlicedTupleType, makeTupleObject } from '../tuples';
+import { expandTuple, getSlicedTupleType, makeTupleObject } from '../tuples';
 import { SpeculativeModeOptions } from '../typeCacheUtils';
 import { createTypedDictTypeInlined, getTypeOfIndexedTypedDict } from '../typedDicts';
 import {
@@ -63,6 +63,7 @@ import {
     TypeResult,
     TypeResultWithNode,
 } from '../typeEvaluatorTypes';
+import { enumerateLiteralsForType } from '../typeGuards';
 import {
     AnyType,
     ClassType,
@@ -133,6 +134,17 @@ import {
     transformPossibleRecursiveTypeAlias,
 } from '../typeUtils';
 
+export function getIndexAccessMagicMethodName(usage: EvaluatorUsage): string {
+    if (usage.method === 'get') {
+        return '__getitem__';
+    } else if (usage.method === 'set') {
+        return '__setitem__';
+    } else {
+        assert(usage.method === 'del');
+        return '__delitem__';
+    }
+}
+
 interface Context {
     readonly addDiagnostic: (
         rule: DiagnosticRule,
@@ -141,12 +153,6 @@ interface Context {
         range?: TextRange
     ) => Diagnostic | undefined;
     readonly addInformation: (message: string, node: ParseNode, range?: TextRange) => Diagnostic | undefined;
-    readonly cloneBuiltinClassWithLiteral: (
-        node: ParseNode,
-        literalClassType: ClassType,
-        builtInName: string,
-        value: LiteralValue
-    ) => Type;
     readonly cloneBuiltinObjectWithLiteral: (node: ParseNode, builtInName: string, value: LiteralValue) => Type;
     readonly collectLiteralEnumClasses: (
         type: Type,
@@ -156,7 +162,6 @@ interface Context {
     ) => ClassType[];
     readonly convertNodeToArg: (node: ArgumentNode) => ArgWithExpression;
     readonly evaluatorInterface: TypeEvaluator;
-    readonly expandArgType: (type: Type) => Type[] | undefined;
     readonly expectedTypeWantsTypeForm: (expectedType: Type) => boolean;
     readonly getBoundMagicMethod: (
         classType: ClassType,
@@ -185,7 +190,6 @@ interface Context {
     readonly getBuiltInType: (node: ParseNode, name: string) => Type;
     readonly getDeclaredTypeOfSymbol: (symbol: Symbol, usageNode?: NameNode) => DeclaredSymbolTypeInfo;
     readonly getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
-    readonly getIndexAccessMagicMethodName: (usage: EvaluatorUsage) => string;
     readonly getNoneType: () => Type;
     readonly getObjectType: () => Type;
     readonly getScopeForNode: (node: ParseNode) => Scope | undefined;
@@ -255,6 +259,7 @@ interface Context {
         inferenceContext: InferenceContext | undefined,
         recursionCount?: number
     ) => CallResult;
+    readonly maxSingleOverloadArgTypeExpansionCount: 64;
 }
 
 // Evaluates expression forms and expands call arguments using evaluator-owned caches and callbacks.
@@ -262,19 +267,16 @@ export function createExpressionEvaluation(context: Context) {
     const {
         addDiagnostic,
         addInformation,
-        cloneBuiltinClassWithLiteral,
         cloneBuiltinObjectWithLiteral,
         collectLiteralEnumClasses,
         convertNodeToArg,
         evaluatorInterface,
-        expandArgType,
         expectedTypeWantsTypeForm,
         getBoundMagicMethod,
         getBuiltInObject,
         getBuiltInType,
         getDeclaredTypeOfSymbol,
         getEffectiveTypeOfSymbol,
-        getIndexAccessMagicMethodName,
         getNoneType,
         getObjectType,
         getScopeForNode,
@@ -298,6 +300,7 @@ export function createExpressionEvaluation(context: Context) {
         stripTypeGuard,
         useSpeculativeMode,
         validateCallArgs,
+        maxSingleOverloadArgTypeExpansionCount,
     } = context;
 
     function getTypeOfEllipsis(flags: EvalFlags, typeResult: TypeResult | undefined, node: ExpressionNode) {
@@ -2360,155 +2363,6 @@ export function createExpressionEvaluation(context: Context) {
         return { type: ClassType.specialize(sliceType, [startType, endType, stepType]), isIncomplete };
     }
 
-    function createLiteralType(classType: ClassType, node: IndexNode, flags: EvalFlags): Type {
-        if (node.d.items.length === 0) {
-            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalEmptyArgs(), node.d.leftExpr);
-            return UnknownType.create();
-        }
-
-        // As per the specification, we support None, int, bool, str, bytes literals
-        // plus enum values.
-        const literalTypes: Type[] = [];
-        let isValidTypeForm = true;
-
-        for (const item of node.d.items) {
-            let type: Type | undefined;
-            const itemExpr = item.d.valueExpr;
-
-            if (item.d.argCategory !== ArgCategory.Simple) {
-                if ((flags & EvalFlags.TypeExpression) !== 0) {
-                    addDiagnostic(
-                        DiagnosticRule.reportInvalidTypeForm,
-                        LocMessage.unpackedArgInTypeArgument(),
-                        itemExpr
-                    );
-                    type = UnknownType.create();
-                    isValidTypeForm = false;
-                }
-            } else if (item.d.name) {
-                if ((flags & EvalFlags.TypeExpression) !== 0) {
-                    addDiagnostic(
-                        DiagnosticRule.reportInvalidTypeForm,
-                        LocMessage.keywordArgInTypeArgument(),
-                        itemExpr
-                    );
-                    type = UnknownType.create();
-                    isValidTypeForm = false;
-                }
-            } else if (
-                itemExpr.nodeType === ParseNodeType.StringList &&
-                itemExpr.d.strings.every((stringNode) => stringNode.nodeType === ParseNodeType.String)
-            ) {
-                const isBytes = (itemExpr.d.strings[0].d.token.flags & StringTokenFlags.Bytes) !== 0;
-                const value = itemExpr.d.strings.map((s) => s.d.value).join('');
-                if (isBytes) {
-                    type = cloneBuiltinClassWithLiteral(node, classType, 'bytes', value);
-                } else {
-                    type = cloneBuiltinClassWithLiteral(node, classType, 'str', value);
-                }
-
-                if ((flags & EvalFlags.TypeExpression) !== 0) {
-                    itemExpr.d.strings.forEach((stringNode) => {
-                        if ((stringNode.d.token.flags & StringTokenFlags.NamedUnicodeEscape) !== 0) {
-                            addDiagnostic(
-                                DiagnosticRule.reportInvalidTypeForm,
-                                LocMessage.literalNamedUnicodeEscape(),
-                                stringNode
-                            );
-                            isValidTypeForm = false;
-                        }
-                    });
-                }
-            } else if (itemExpr.nodeType === ParseNodeType.Number) {
-                if (!itemExpr.d.isImaginary && itemExpr.d.isInteger) {
-                    type = cloneBuiltinClassWithLiteral(node, classType, 'int', itemExpr.d.value);
-                }
-            } else if (itemExpr.nodeType === ParseNodeType.Constant) {
-                if (itemExpr.d.constType === KeywordType.True) {
-                    type = cloneBuiltinClassWithLiteral(node, classType, 'bool', true);
-                } else if (itemExpr.d.constType === KeywordType.False) {
-                    type = cloneBuiltinClassWithLiteral(node, classType, 'bool', false);
-                } else if (itemExpr.d.constType === KeywordType.None) {
-                    type = context.prefetched?.noneTypeClass ?? UnknownType.create();
-                }
-            } else if (itemExpr.nodeType === ParseNodeType.UnaryOperation) {
-                if (itemExpr.d.operator === OperatorType.Subtract || itemExpr.d.operator === OperatorType.Add) {
-                    if (itemExpr.d.expr.nodeType === ParseNodeType.Number) {
-                        if (!itemExpr.d.expr.d.isImaginary && itemExpr.d.expr.d.isInteger) {
-                            type = cloneBuiltinClassWithLiteral(
-                                node,
-                                classType,
-                                'int',
-                                itemExpr.d.operator === OperatorType.Subtract
-                                    ? -itemExpr.d.expr.d.value
-                                    : itemExpr.d.expr.d.value
-                            );
-                        }
-                    }
-                }
-            }
-
-            if (!type) {
-                const exprType = getTypeOfExpression(
-                    itemExpr,
-                    (flags & (EvalFlags.ForwardRefs | EvalFlags.TypeExpression)) | EvalFlags.NoConvertSpecialForm
-                );
-
-                // Is this an enum type?
-                if (
-                    isClassInstance(exprType.type) &&
-                    ClassType.isEnumClass(exprType.type) &&
-                    exprType.type.priv.literalValue !== undefined
-                ) {
-                    type = ClassType.cloneAsInstantiable(exprType.type);
-                } else {
-                    // Is this a type alias to an existing literal type?
-                    let isLiteralType = true;
-
-                    doForEachSubtype(exprType.type, (subtype) => {
-                        if (!isInstantiableClass(subtype) || subtype.priv.literalValue === undefined) {
-                            if (!isNoneTypeClass(subtype)) {
-                                isLiteralType = false;
-                            }
-                        }
-                    });
-
-                    if (isLiteralType) {
-                        type = exprType.type;
-                    }
-                }
-            }
-
-            if (!type) {
-                if ((flags & EvalFlags.TypeExpression) !== 0) {
-                    addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalUnsupportedType(), item);
-                    type = UnknownType.create();
-                    isValidTypeForm = false;
-                } else {
-                    return ClassType.cloneAsInstance(classType);
-                }
-            }
-
-            literalTypes.push(type);
-        }
-
-        let result = combineTypes(literalTypes, { skipElideRedundantLiterals: true });
-
-        if (
-            isUnion(result) &&
-            context.prefetched?.unionTypeClass &&
-            isInstantiableClass(context.prefetched.unionTypeClass)
-        ) {
-            result = TypeBase.cloneAsSpecialForm(result, ClassType.cloneAsInstance(context.prefetched.unionTypeClass));
-        }
-
-        if (isValidTypeForm) {
-            result = TypeBase.cloneWithTypeForm(result, convertToInstance(result));
-        }
-
-        return result;
-    }
-
     function getTypeOfArg(arg: Arg, inferenceContext: InferenceContext | undefined): TypeResult {
         if (arg.typeResult) {
             const type = arg.typeResult.type;
@@ -2707,6 +2561,35 @@ export function createExpressionEvaluation(context: Context) {
         return expandedArgList;
     }
 
+    function expandArgType(type: Type): Type[] | undefined {
+        const expandedTypes: Type[] = [];
+
+        // Expand any top-level type variables with constraints.
+        type = makeTopLevelTypeVarsConcrete(type);
+
+        doForEachSubtype(type, (subtype) => {
+            if (isClassInstance(subtype)) {
+                // Expand any bool or Enum literals.
+                const expandedLiteralTypes = enumerateLiteralsForType(evaluatorInterface, subtype);
+                if (expandedLiteralTypes && expandedLiteralTypes.length <= maxSingleOverloadArgTypeExpansionCount) {
+                    appendArray(expandedTypes, expandedLiteralTypes);
+                    return;
+                }
+
+                // Expand any fixed-size tuples.
+                const expandedTuples = expandTuple(subtype, maxSingleOverloadArgTypeExpansionCount);
+                if (expandedTuples) {
+                    appendArray(expandedTypes, expandedTuples);
+                    return;
+                }
+            }
+
+            expandedTypes.push(subtype);
+        });
+
+        return expandedTypes.length > 1 ? expandedTypes : undefined;
+    }
+
     return {
         getTypeOfEllipsis,
         getTypeOfUnpackOperator,
@@ -2727,7 +2610,6 @@ export function createExpressionEvaluation(context: Context) {
         getTypeOfYield,
         getTypeOfYieldFrom,
         getTypeOfSlice,
-        createLiteralType,
         getTypeOfArg,
         getTypeOfExpressionExpectingType,
         getTypeOfStringList,
