@@ -988,6 +988,65 @@ test('Descriptor7', () => {
     );
 });
 
+test('Descriptor8', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportSelfClsParameterName = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor8.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 2, 0, 6);
+    assert.deepStrictEqual(analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()).sort(), [
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportSelfClsParameterName,
+    ]);
+});
+
+test.each([21, 24])('DescriptorFiniteChain%i', (depth) => {
+    const returnType = 'Callable[..., '.repeat(depth) + 'int' + ']'.repeat(depth);
+    const lines = [
+        'from typing import Any, Callable, assert_type, cast',
+        'class D0:',
+        `    def __get__(self, obj: object, owner: type | None = None) -> ${returnType}:`,
+        '        return cast(Any, None)',
+        ...Array.from({ length: depth }, (_, index) => `class D${index + 1}:\n    __get__ = D${index}()`),
+        'class BaseH:',
+        `    value = D${depth}()`,
+        'class H(BaseH):',
+        '    pass',
+        'def wants_str(value: str) -> None:',
+        '    pass',
+        'def check(base: BaseH, h: H) -> int:',
+        '    assert_type(base.value, int)',
+        '    assert_type(BaseH.value, int)',
+        '    assert_type(h.value, int)',
+        '    assert_type(H.value, int)',
+        '    wants_str(h.value)',
+        '    wants_str(H.value)',
+        '    return h.value + 1',
+    ];
+    const code =
+        '// @filename: test.py\n' +
+        lines
+            .join('\n')
+            .split('\n')
+            .map((line) => `////${line}`)
+            .join('\n');
+    const state = parseAndGetTestState(code).state;
+    try {
+        const analysisResults = TestUtils.getAnalysisResults(
+            state.program,
+            [state.activeFile.fileUri],
+            state.configOptions
+        );
+        TestUtils.validateResults(analysisResults, 2);
+        analysisResults[0].errors.forEach((diagnostic) => {
+            assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportArgumentType);
+            assert.ok(diagnostic.message.includes('Argument of type "int"'));
+        });
+    } finally {
+        state.dispose();
+    }
+});
+
 test('MethodDescriptor1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodDescriptor1.py']);
 
