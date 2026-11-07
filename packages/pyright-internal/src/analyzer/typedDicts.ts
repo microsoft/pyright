@@ -41,6 +41,7 @@ import {
 } from './typeEvaluatorTypes';
 import {
     AnyType,
+    ClassDetailsShared,
     ClassType,
     ClassTypeFlags,
     combineTypes,
@@ -53,6 +54,7 @@ import {
     isClassInstance,
     isInstantiableClass,
     isNever,
+    isTypeSame,
     maxTypeRecursionCount,
     NeverType,
     OverloadedType,
@@ -68,12 +70,37 @@ import {
     buildSolutionFromSpecializedClass,
     computeMroLinearization,
     convertToInstance,
+    doForEachSubtype,
     getTypeVarScopeId,
     isLiteralType,
     mapSubtypes,
     partiallySpecializeType,
     specializeTupleClass,
 } from './typeUtils';
+
+interface TypedDictAssignment {
+    destType: ClassType;
+    srcType: ClassType;
+    flags: AssignTypeFlags;
+}
+
+interface TypedDictCompatibility extends TypedDictAssignment {
+    isCompatible: boolean;
+    recursionCount: number;
+    generation: number;
+    preConstraints: ConstraintTracker | undefined;
+    postConstraints: ConstraintTracker | undefined;
+}
+
+interface TypedDictAssignmentContext {
+    stack: TypedDictAssignment[];
+    cache: Map<ClassDetailsShared, Map<ClassDetailsShared, TypedDictCompatibility[]>>;
+    generation: number;
+}
+
+const typedDictAssignmentContexts = new WeakMap<TypeEvaluator, TypedDictAssignmentContext>();
+// Bound specialized comparisons within each nominal source/destination pair.
+const maxTypedDictCompatibilityCacheEntries = 64;
 
 // Creates a new custom TypedDict "alternate syntax" factory class.
 export function createTypedDictType(
@@ -831,7 +858,8 @@ export function synthesizeTypedDictClassMethods(
 export function getTypedDictMembersForClass(
     evaluator: TypeEvaluator,
     classType: ClassType,
-    allowNarrowed = false
+    allowNarrowed = false,
+    keyNames?: readonly string[]
 ): TypedDictEntries {
     // Were the entries already calculated and cached?
     if (!classType.shared.typedDictEntries) {
@@ -858,13 +886,13 @@ export function getTypedDictMembersForClass(
 
     // Create a specialized copy of the entries so the caller can mutate them.
     const entries = new Map<string, TypedDictEntry>();
-    classType.shared.typedDictEntries!.knownItems.forEach((value, key) => {
+    const addEntry = (value: TypedDictEntry, key: string, isNarrowed: boolean) => {
         const tdEntry = { ...value };
         tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, solution);
 
         // If the class is "Partial", make all entries optional and convert all
         // read-only entries to Never.
-        if (classType.priv.isTypedDictPartial) {
+        if (classType.priv.isTypedDictPartial && !isNarrowed) {
             tdEntry.isRequired = false;
 
             if (tdEntry.isReadOnly) {
@@ -875,15 +903,24 @@ export function getTypedDictMembersForClass(
         }
 
         entries.set(key, tdEntry);
-    });
+    };
 
-    // Apply narrowed types on top of existing entries if present.
-    if (allowNarrowed && classType.priv.typedDictNarrowedEntries) {
-        classType.priv.typedDictNarrowedEntries.forEach((value, key) => {
-            const tdEntry = { ...value };
-            tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, solution);
-            entries.set(key, tdEntry);
+    if (keyNames) {
+        // Avoid specializing unrelated fields when the caller needs only a few keys.
+        keyNames.forEach((key) => {
+            const narrowedEntry = allowNarrowed ? classType.priv.typedDictNarrowedEntries?.get(key) : undefined;
+            const entry = narrowedEntry ?? classType.shared.typedDictEntries!.knownItems.get(key);
+            if (entry) {
+                addEntry(entry, key, narrowedEntry !== undefined);
+            }
         });
+    } else {
+        classType.shared.typedDictEntries!.knownItems.forEach((value, key) => addEntry(value, key, false));
+
+        // Apply narrowed types on top of existing entries if present.
+        if (allowNarrowed && classType.priv.typedDictNarrowedEntries) {
+            classType.priv.typedDictNarrowedEntries.forEach((value, key) => addEntry(value, key, true));
+        }
     }
 
     let extraItems = classType.shared.typedDictEntries?.extraItems;
@@ -1170,6 +1207,155 @@ export function assignTypedDictToTypedDict(
     constraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
     recursionCount = 0
+) {
+    let context = typedDictAssignmentContexts.get(evaluator);
+    if (!context) {
+        context = { stack: [], cache: new Map(), generation: 0 };
+        typedDictAssignmentContexts.set(evaluator, context);
+    }
+
+    // Both early exits must preserve callable defaults and other call behavior
+    // within specialized type arguments.
+    const matches = (entry: TypedDictAssignment) =>
+        entry.flags === flags &&
+        isTypeSame(entry.destType, destType, {
+            honorIsTypeArgExplicit: true,
+            honorTypeForm: true,
+            honorCallBehavior: true,
+        }) &&
+        isTypeSame(entry.srcType, srcType, {
+            honorIsTypeArgExplicit: true,
+            honorTypeForm: true,
+            honorCallBehavior: true,
+        });
+
+    // Recursive TypedDicts are compatible if all nonrecursive members are
+    // compatible. The enclosing comparison will check those members.
+    if (context.stack.some(matches)) {
+        return true;
+    }
+
+    // Generic comparisons must populate the caller's constraint tracker.
+    const canCache =
+        !constraints || (destType.shared.typeParams.length === 0 && srcType.shared.typeParams.length === 0);
+    // Keep distinct nominal destination classes out of the same specialization
+    // budget and avoid scanning their unrelated comparison results.
+    const pairEntries = context.cache.get(srcType.shared)?.get(destType.shared);
+    // A result obtained near the recursion cutoff cannot establish compatibility
+    // for a shallower comparison that can inspect more of the types.
+    const cached = canCache
+        ? pairEntries?.find(
+              (entry) =>
+                  matches(entry) &&
+                  entry.recursionCount === recursionCount &&
+                  (!entry.isCompatible || entry.generation === context.generation) &&
+                  isTypedDictConstraintTrackerSame(constraints, entry.preConstraints)
+          )
+        : undefined;
+    // Raw addendum nesting does not determine rendered depth. Rebuild failures
+    // whenever their diagnostic details are requested.
+    if (cached && (cached.isCompatible || !diag)) {
+        if (cached.postConstraints) {
+            constraints?.copyFromClone(cached.postConstraints);
+        }
+        return cached.isCompatible;
+    }
+
+    // Inline dictionaries can capture type variables without declaring class
+    // type parameters. Preserve their inference effects when reusing a result.
+    const preConstraints = canCache ? constraints?.clone() : undefined;
+    context.stack.push({ destType, srcType, flags });
+
+    try {
+        const isCompatible = assignTypedDictToTypedDictInternal(
+            evaluator,
+            destType,
+            srcType,
+            diag,
+            constraints,
+            flags,
+            recursionCount
+        );
+
+        // A success may depend on an unfinished recursive comparison. Keep it
+        // local to this assignment and discard all such assumptions on failure.
+        // Failures remain valid even when recursive pairs were assumed compatible.
+        if (!isCompatible) {
+            context.generation++;
+        }
+
+        if (canCache && !cached) {
+            const sourceCache =
+                context.cache.get(srcType.shared) ?? new Map<ClassDetailsShared, TypedDictCompatibility[]>();
+            const entries = (sourceCache.get(destType.shared) ?? []).filter(
+                (entry) => !entry.isCompatible || entry.generation === context.generation
+            );
+            entries.push({
+                destType,
+                srcType,
+                flags,
+                isCompatible,
+                recursionCount,
+                generation: context.generation,
+                preConstraints,
+                postConstraints: constraints?.clone(),
+            });
+            if (entries.length > maxTypedDictCompatibilityCacheEntries) {
+                entries.shift();
+            }
+            sourceCache.set(destType.shared, entries);
+            context.cache.set(srcType.shared, sourceCache);
+        }
+
+        return isCompatible;
+    } finally {
+        context.stack.pop();
+        if (context.stack.length === 0) {
+            typedDictAssignmentContexts.delete(evaluator);
+        }
+    }
+}
+
+function isTypedDictConstraintTrackerSame(
+    constraints: ConstraintTracker | undefined,
+    cachedConstraints: ConstraintTracker | undefined
+): boolean {
+    if (!constraints || !cachedConstraints) {
+        return constraints === cachedConstraints;
+    }
+
+    if (!constraints.isSame(cachedConstraints)) {
+        return false;
+    }
+
+    // isSame compares bounds but not signature scopes or literal retention.
+    return constraints.getConstraintSets().every((set, index) => {
+        const cachedSet = cachedConstraints.getConstraintSet(index);
+        const scopeIds = set.getScopeIds();
+        const cachedScopeIds = cachedSet.getScopeIds();
+        if (scopeIds.size !== cachedScopeIds.size || [...scopeIds].some((scopeId) => !cachedScopeIds.has(scopeId))) {
+            return false;
+        }
+
+        return set.getTypeVars().every((entry) => {
+            const cachedEntry = cachedSet.getTypeVar(entry.typeVar);
+            return (
+                cachedEntry !== undefined &&
+                entry.retainLiterals === cachedEntry.retainLiterals &&
+                isTypeSame(entry.typeVar, cachedEntry.typeVar, { honorIsTypeArgExplicit: true, honorTypeForm: true })
+            );
+        });
+    });
+}
+
+function assignTypedDictToTypedDictInternal(
+    evaluator: TypeEvaluator,
+    destType: ClassType,
+    srcType: ClassType,
+    diag: DiagnosticAddendum | undefined,
+    constraints: ConstraintTracker | undefined,
+    flags: AssignTypeFlags,
+    recursionCount: number
 ) {
     let typesAreConsistent = true;
     const destEntries = getTypedDictMembersForClass(evaluator, destType);
@@ -1656,6 +1842,43 @@ export function narrowForKeyAssignment(classType: ClassType, key: string) {
         isReadOnly: tdEntry.isReadOnly,
         valueType: tdEntry.valueType,
     });
+
+    return ClassType.cloneForNarrowedTypedDictEntries(classType, narrowedEntries);
+}
+
+// Forget optional-key narrowing for every key that the deletion could remove.
+export function narrowForKeyDeletion(classType: ClassType, keyType: Type) {
+    if (!classType.shared.typedDictEntries || !classType.priv.typedDictNarrowedEntries) {
+        return classType;
+    }
+
+    const deletedKeys = new Set<string>();
+    let mayDeleteAnyKey = false;
+    doForEachSubtype(keyType, (subtype) => {
+        if (
+            isClassInstance(subtype) &&
+            ClassType.isBuiltIn(subtype, 'str') &&
+            typeof subtype.priv.literalValue === 'string'
+        ) {
+            deletedKeys.add(subtype.priv.literalValue);
+        } else {
+            mayDeleteAnyKey = true;
+        }
+    });
+
+    const narrowedEntries = new Map(classType.priv.typedDictNarrowedEntries);
+    narrowedEntries.forEach((_, key) => {
+        if (
+            (mayDeleteAnyKey || deletedKeys.has(key)) &&
+            !classType.shared.typedDictEntries!.knownItems.get(key)?.isRequired
+        ) {
+            narrowedEntries.delete(key);
+        }
+    });
+
+    if (narrowedEntries.size === classType.priv.typedDictNarrowedEntries.size) {
+        return classType;
+    }
 
     return ClassType.cloneForNarrowedTypedDictEntries(classType, narrowedEntries);
 }

@@ -158,11 +158,36 @@ export async function loadSource(request: Request, repository: string, handoff: 
     const runAttempt = positiveInteger(context.runAttempt);
     const parameters = { ...repositoryParameters(repository), run_id: runId };
     const run = record((await request('GET /repos/{owner}/{repo}/actions/runs/{run_id}', parameters)).data);
-    const headSha = text(run.head_sha);
+    let source = run;
+    if (run.event === 'workflow_run') {
+        const match = /^Run mypy_primer after Validation #(\d+)$/.exec(text(run.display_title));
+        if (!match) {
+            throw new Error('The primer run does not identify its source Validation run');
+        }
+        const validationId = positiveInteger(Number(match[1]));
+        source = record(
+            (
+                await request('GET /repos/{owner}/{repo}/actions/runs/{run_id}', {
+                    ...repositoryParameters(repository),
+                    run_id: validationId,
+                })
+            ).data
+        );
+        if (
+            source.id !== validationId ||
+            source.event !== 'pull_request' ||
+            source.path !== '.github/workflows/validation.yml' ||
+            source.conclusion !== 'success' ||
+            record(source.repository).full_name !== repository
+        ) {
+            throw new Error('The primer run does not follow successful pull request Validation');
+        }
+    }
+    const headSha = text(source.head_sha);
     if (
         run.id !== runId ||
         run.run_attempt !== runAttempt ||
-        run.event !== 'pull_request' ||
+        (run.event !== 'pull_request' && run.event !== 'workflow_run') ||
         run.path !== '.github/workflows/mypy_primer_pr.yaml' ||
         run.conclusion !== 'success' ||
         record(run.repository).full_name !== repository ||
@@ -210,9 +235,9 @@ export async function loadSource(request: Request, repository: string, handoff: 
         runId,
         runAttempt,
         headSha,
-        headRepository: text(record(run.head_repository).full_name),
-        headBranch: text(run.head_branch),
-        pullRequests: array(run.pull_requests).map((pr) => positiveInteger(record(pr).number)),
+        headRepository: text(record(source.head_repository).full_name),
+        headBranch: text(source.head_branch),
+        pullRequests: array(source.pull_requests).map((pr) => positiveInteger(record(pr).number)),
     };
 }
 
@@ -294,8 +319,14 @@ export function parseDiff(contents: string, shard: number): ProjectDiff[] {
             const delta =
                 project!.added.filter((d) => d.severity === severity).length -
                 project!.removed.filter((d) => d.severity === severity).length;
-            // Unchanged totals are omitted from the diff altogether.
-            if (delta !== (after && before ? after[index] - before[index] : 0)) {
+            const totalDelta = after && before ? after[index] - before[index] : 0;
+            // Unchanged totals are omitted from the diff altogether. Concise diffs can also
+            // omit canonically equivalent headers, so the observed delta may undercount the
+            // total, but it must still be nonzero in the same direction and cannot exceed it.
+            if (
+                delta !== totalDelta &&
+                (delta === 0 || Math.sign(delta) !== Math.sign(totalDelta) || Math.abs(delta) > Math.abs(totalDelta))
+            ) {
                 throw new Error(`Diagnostic counts do not match the totals for ${project!.name}`);
             }
         });
@@ -337,7 +368,7 @@ export function parseDiff(contents: string, shard: number): ProjectDiff[] {
             continue;
         }
         const rule = /\((report\w+)\)$/.exec(line)?.[1] ?? 'unspecified';
-        const diagnostic = /^[+-] {3}(\S.*:\d+:\d+ - (error|warning|information): .+)$/.exec(line);
+        const diagnostic = /^[+-](?: | {3})(\S.*:\d+:\d+ - (error|warning|information): .+)$/.exec(line);
         if (diagnostic) {
             const entry = { severity: diagnostic[2], text: diagnostic[1], rule };
             (sign === '+' ? project.added : project.removed).push(entry);
@@ -686,19 +717,7 @@ export function renderReport(manifest: Manifest, report: unknown, analysisRunId:
             : []),
         ...footer,
     ].join('\n');
-    let body = expandedBody.length <= 60000 ? expandedBody : compactBody;
-    const onlyProject = manifest.projects.length === 1 ? manifest.projects[0] : undefined;
-    if (onlyProject?.name === 'sympy' && onlyProject.url === 'https://github.com/sympy/sympy') {
-        body = [
-            ...provenance,
-            '**Only SymPy changed.** These differences are treated as non-blocking primer noise; no other project changed.',
-            '',
-            `Recorded changes: ${onlyProject.added} added / ${onlyProject.removed} removed diagnostic headers; ` +
-                `${onlyProject.detailLinesAdded} added / ${onlyProject.detailLinesRemoved} removed detail lines.`,
-            '',
-            ...footer,
-        ].join('\n');
-    }
+    const body = expandedBody.length <= 60000 ? expandedBody : compactBody;
     if (body.length > 60000) {
         throw new Error('The report exceeds the comment limit; refusing to omit projects');
     }

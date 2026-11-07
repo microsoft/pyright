@@ -24,6 +24,8 @@ import {
     isSurrogateChar,
 } from './characters';
 import { CharacterStream } from './characterStream';
+import { ModuleNode } from './parseNodes';
+import { ParseTreeTokenCursor, TokensByType } from './parseTreeTokenReuse';
 import {
     Comment,
     CommentType,
@@ -658,6 +660,7 @@ export class Tokenizer {
     private _comments: Comment[] | undefined;
     private _fStringStack: FStringContext[] = [];
     private _activeFString: FStringContext | undefined;
+    private _retainedTokenCursor: ParseTreeTokenCursor | undefined;
 
     // Total times CR, CR/LF, and LF are used to terminate
     // lines. Used to determine the predominant line ending.
@@ -694,130 +697,144 @@ export class Tokenizer {
     private static readonly _identifierCacheMask = Tokenizer._identifierCacheSize - 1;
     private _identifierCache: Array<string | undefined> = new Array(Tokenizer._identifierCacheSize);
 
+    // A retained tree must correspond to the same text and lexical options. Omit it for initial lexing.
+    // Each recovery walks the tree to preserve its token identities without retaining a recovery index.
     tokenize(
         text: string,
         start?: number,
         length?: number,
         initialParenDepth = 0,
-        useNotebookMode = false
+        useNotebookMode = false,
+        retainedTree?: ModuleNode
     ): TokenizerOutput {
-        if (start === undefined) {
-            start = 0;
-        } else if (start < 0 || start > text.length) {
-            throw new Error(`Invalid range start (start=${start}, text.length=${text.length})`);
+        if (
+            retainedTree &&
+            ((start !== undefined && start !== 0) ||
+                (length !== undefined && length !== text.length) ||
+                initialParenDepth !== 0)
+        ) {
+            throw new Error('Token recovery requires complete-file tokenization');
         }
-
-        if (length === undefined) {
-            length = text.length;
-        } else if (length < 0 || start + length > text.length) {
-            throw new Error(`Invalid range length (start=${start}, length=${length}, text.length=${text.length})`);
-        } else if (start + length < text.length) {
-            text = text.slice(0, start + length);
-        }
-
-        this._cs = new CharacterStream(text);
-        this._cs.position = start;
-        this._tokens = [];
-        this._prevLineStart = 0;
-        this._parenDepth = initialParenDepth;
-        this._lineRanges = [];
-        this._indentAmounts = [];
-        this._useNotebookMode = useNotebookMode;
-        // Clear per-source identifier intern cache.
-        this._identifierCache.fill(undefined);
-
-        const end = start + length;
-
-        if (start === 0) {
-            this._readIndentationAfterNewLine();
-        }
-
-        while (!this._cs.isEndOfStream()) {
-            this._addNextToken();
-
-            if (this._cs.position >= end) {
-                break;
+        this._retainedTokenCursor = retainedTree ? new ParseTreeTokenCursor(retainedTree) : undefined;
+        try {
+            if (start === undefined) {
+                start = 0;
+            } else if (start < 0 || start > text.length) {
+                throw new Error(`Invalid range start (start=${start}, text.length=${text.length})`);
             }
-        }
 
-        // Insert any implied FStringEnd tokens.
-        while (this._activeFString) {
-            this._tokens.push(
-                FStringEndToken.create(
+            if (length === undefined) {
+                length = text.length;
+            } else if (length < 0 || start + length > text.length) {
+                throw new Error(`Invalid range length (start=${start}, length=${length}, text.length=${text.length})`);
+            } else if (start + length < text.length) {
+                text = text.slice(0, start + length);
+            }
+
+            this._cs = new CharacterStream(text);
+            this._cs.position = start;
+            this._tokens = [];
+            this._prevLineStart = 0;
+            this._parenDepth = initialParenDepth;
+            this._lineRanges = [];
+            this._indentAmounts = [];
+            this._useNotebookMode = useNotebookMode;
+            // Clear per-source identifier intern cache.
+            this._identifierCache.fill(undefined);
+
+            const end = start + length;
+
+            if (start === 0) {
+                this._readIndentationAfterNewLine();
+            }
+
+            while (!this._cs.isEndOfStream()) {
+                this._addNextToken();
+
+                if (this._cs.position >= end) {
+                    break;
+                }
+            }
+
+            // Insert any implied FStringEnd tokens.
+            while (this._activeFString) {
+                this._addFStringEndToken(
                     this._cs.position,
                     0,
                     this._activeFString.startToken.flags | StringTokenFlags.Unterminated
-                )
-            );
-            this._activeFString = this._fStringStack.pop();
-        }
-
-        // Insert an implied new line to make parsing easier.
-        if (this._tokens.length === 0 || this._tokens[this._tokens.length - 1].type !== TokenType.NewLine) {
-            if (this._parenDepth === 0) {
-                this._tokens.push(NewLineToken.create(this._cs.position, 0, NewLineType.Implied, this._getComments()));
+                );
+                this._activeFString = this._fStringStack.pop();
             }
-        }
 
-        // Insert any implied dedent tokens.
-        this._setIndent(this._cs.position, 0, 0, /* isSpacePresent */ false, /* isTabPresent */ false);
-
-        // Add a final end-of-stream token to make parsing easier.
-        this._tokens.push(Token.create(TokenType.EndOfStream, this._cs.position, 0, this._getComments()));
-
-        // Add the final line range.
-        this._addLineRange();
-
-        // If the last line ended in a line-end character, add an empty line.
-        if (this._lineRanges.length > 0) {
-            const lastLine = this._lineRanges[this._lineRanges.length - 1];
-            const lastCharOfLastLine = text.charCodeAt(lastLine.start + lastLine.length - 1);
-            if (lastCharOfLastLine === Char.CarriageReturn || lastCharOfLastLine === Char.LineFeed) {
-                this._lineRanges.push({ start: this._cs.position, length: 0 });
+            // Insert an implied new line to make parsing easier.
+            if (this._tokens.length === 0 || this._tokens[this._tokens.length - 1].type !== TokenType.NewLine) {
+                if (this._parenDepth === 0) {
+                    this._addNewLineToken(this._cs.position, 0, NewLineType.Implied);
+                }
             }
-        }
 
-        let predominantEndOfLineSequence = '\n';
-        if (this._crCount > this._crLfCount && this._crCount > this._lfCount) {
-            predominantEndOfLineSequence = '\r';
-        } else if (this._crLfCount > this._crCount && this._crLfCount > this._lfCount) {
-            predominantEndOfLineSequence = '\r\n';
-        }
+            // Insert any implied dedent tokens.
+            this._setIndent(this._cs.position, 0, 0, /* isSpacePresent */ false, /* isTabPresent */ false);
 
-        let predominantTabSequence = '    ';
-        let hasPredominantTabSequence = false;
-        // If more than half of the indents use tab sequences,
-        // assume we're using tabs rather than spaces.
-        if (this._indentTabCount > this._indentCount / 2) {
-            hasPredominantTabSequence = true;
-            predominantTabSequence = '\t';
-        } else if (this._indentCount > 0) {
-            hasPredominantTabSequence = true;
-            // Compute the average number of spaces per indent
-            // to estimate the predominant tab value.
-            let averageSpacePerIndent = Math.round(this._indentSpacesTotal / this._indentCount);
-            if (averageSpacePerIndent < 1) {
-                averageSpacePerIndent = 1;
-            } else if (averageSpacePerIndent > defaultTabSize) {
-                averageSpacePerIndent = defaultTabSize;
+            // Add a final end-of-stream token to make parsing easier.
+            this._addToken(TokenType.EndOfStream, this._cs.position, 0);
+
+            // Add the final line range.
+            this._addLineRange();
+
+            // If the last line ended in a line-end character, add an empty line.
+            if (this._lineRanges.length > 0) {
+                const lastLine = this._lineRanges[this._lineRanges.length - 1];
+                const lastCharOfLastLine = text.charCodeAt(lastLine.start + lastLine.length - 1);
+                if (lastCharOfLastLine === Char.CarriageReturn || lastCharOfLastLine === Char.LineFeed) {
+                    this._lineRanges.push({ start: this._cs.position, length: 0 });
+                }
             }
-            predominantTabSequence = '';
-            for (let i = 0; i < averageSpacePerIndent; i++) {
-                predominantTabSequence += ' ';
-            }
-        }
 
-        return {
-            tokens: new TextRangeCollection(this._tokens),
-            lines: new TextRangeCollection(this._lineRanges),
-            typeIgnoreLines: this._typeIgnoreLines,
-            typeIgnoreAll: this._typeIgnoreAll,
-            pyrightIgnoreLines: this._pyrightIgnoreLines,
-            predominantEndOfLineSequence,
-            hasPredominantTabSequence,
-            predominantTabSequence,
-            predominantSingleQuoteCharacter: this._singleQuoteCount >= this._doubleQuoteCount ? "'" : '"',
-        };
+            let predominantEndOfLineSequence = '\n';
+            if (this._crCount > this._crLfCount && this._crCount > this._lfCount) {
+                predominantEndOfLineSequence = '\r';
+            } else if (this._crLfCount > this._crCount && this._crLfCount > this._lfCount) {
+                predominantEndOfLineSequence = '\r\n';
+            }
+
+            let predominantTabSequence = '    ';
+            let hasPredominantTabSequence = false;
+            // If more than half of the indents use tab sequences,
+            // assume we're using tabs rather than spaces.
+            if (this._indentTabCount > this._indentCount / 2) {
+                hasPredominantTabSequence = true;
+                predominantTabSequence = '\t';
+            } else if (this._indentCount > 0) {
+                hasPredominantTabSequence = true;
+                // Compute the average number of spaces per indent
+                // to estimate the predominant tab value.
+                let averageSpacePerIndent = Math.round(this._indentSpacesTotal / this._indentCount);
+                if (averageSpacePerIndent < 1) {
+                    averageSpacePerIndent = 1;
+                } else if (averageSpacePerIndent > defaultTabSize) {
+                    averageSpacePerIndent = defaultTabSize;
+                }
+                predominantTabSequence = '';
+                for (let i = 0; i < averageSpacePerIndent; i++) {
+                    predominantTabSequence += ' ';
+                }
+            }
+
+            return {
+                tokens: new TextRangeCollection(this._tokens),
+                lines: new TextRangeCollection(this._lineRanges),
+                typeIgnoreLines: this._typeIgnoreLines,
+                typeIgnoreAll: this._typeIgnoreAll,
+                pyrightIgnoreLines: this._pyrightIgnoreLines,
+                predominantEndOfLineSequence,
+                hasPredominantTabSequence,
+                predominantTabSequence,
+                predominantSingleQuoteCharacter: this._singleQuoteCount >= this._doubleQuoteCount ? "'" : '"',
+            };
+        } finally {
+            this._retainedTokenCursor = undefined;
+        }
     }
 
     static getOperatorInfo(operatorType: OperatorType): OperatorFlags {
@@ -996,7 +1013,7 @@ export class Tokenizer {
 
             case Char.OpenParenthesis: {
                 this._parenDepth++;
-                this._tokens.push(Token.create(TokenType.OpenParenthesis, this._cs.position, 1, this._getComments()));
+                this._addToken(TokenType.OpenParenthesis, this._cs.position, 1);
                 break;
             }
 
@@ -1004,13 +1021,13 @@ export class Tokenizer {
                 if (this._parenDepth > 0) {
                     this._parenDepth--;
                 }
-                this._tokens.push(Token.create(TokenType.CloseParenthesis, this._cs.position, 1, this._getComments()));
+                this._addToken(TokenType.CloseParenthesis, this._cs.position, 1);
                 break;
             }
 
             case Char.OpenBracket: {
                 this._parenDepth++;
-                this._tokens.push(Token.create(TokenType.OpenBracket, this._cs.position, 1, this._getComments()));
+                this._addToken(TokenType.OpenBracket, this._cs.position, 1);
                 break;
             }
 
@@ -1018,13 +1035,13 @@ export class Tokenizer {
                 if (this._parenDepth > 0) {
                     this._parenDepth--;
                 }
-                this._tokens.push(Token.create(TokenType.CloseBracket, this._cs.position, 1, this._getComments()));
+                this._addToken(TokenType.CloseBracket, this._cs.position, 1);
                 break;
             }
 
             case Char.OpenBrace: {
                 this._parenDepth++;
-                this._tokens.push(Token.create(TokenType.OpenCurlyBrace, this._cs.position, 1, this._getComments()));
+                this._addToken(TokenType.OpenCurlyBrace, this._cs.position, 1);
 
                 if (this._activeFString) {
                     // Are we starting a new replacement field?
@@ -1059,22 +1076,22 @@ export class Tokenizer {
                 if (this._parenDepth > 0) {
                     this._parenDepth--;
                 }
-                this._tokens.push(Token.create(TokenType.CloseCurlyBrace, this._cs.position, 1, this._getComments()));
+                this._addToken(TokenType.CloseCurlyBrace, this._cs.position, 1);
                 break;
             }
 
             case Char.Comma: {
-                this._tokens.push(Token.create(TokenType.Comma, this._cs.position, 1, this._getComments()));
+                this._addToken(TokenType.Comma, this._cs.position, 1);
                 break;
             }
 
             case Char.Backtick: {
-                this._tokens.push(Token.create(TokenType.Backtick, this._cs.position, 1, this._getComments()));
+                this._addToken(TokenType.Backtick, this._cs.position, 1);
                 break;
             }
 
             case Char.Semicolon: {
-                this._tokens.push(Token.create(TokenType.Semicolon, this._cs.position, 1, this._getComments()));
+                this._addToken(TokenType.Semicolon, this._cs.position, 1);
                 break;
             }
 
@@ -1085,15 +1102,13 @@ export class Tokenizer {
                         !this._activeFString.activeReplacementField ||
                         this._activeFString.activeReplacementField.parenDepth !== this._parenDepth
                     ) {
-                        this._tokens.push(
-                            OperatorToken.create(this._cs.position, 2, OperatorType.Walrus, this._getComments())
-                        );
+                        this._addOperatorToken(this._cs.position, 2, OperatorType.Walrus);
                         this._cs.advance(1);
                         break;
                     }
                 }
 
-                this._tokens.push(Token.create(TokenType.Colon, this._cs.position, 1, this._getComments()));
+                this._addToken(TokenType.Colon, this._cs.position, 1);
 
                 if (
                     this._activeFString?.activeReplacementField &&
@@ -1113,11 +1128,11 @@ export class Tokenizer {
 
                 if (this._cs.currentChar === Char.Period) {
                     if (this._cs.nextChar === Char.Period && this._cs.lookAhead(2) === Char.Period) {
-                        this._tokens.push(Token.create(TokenType.Ellipsis, this._cs.position, 3, this._getComments()));
+                        this._addToken(TokenType.Ellipsis, this._cs.position, 3);
                         this._cs.advance(3);
                         return true;
                     }
-                    this._tokens.push(Token.create(TokenType.Dot, this._cs.position, 1, this._getComments()));
+                    this._addToken(TokenType.Dot, this._cs.position, 1);
                     break;
                 }
 
@@ -1146,7 +1161,7 @@ export class Tokenizer {
             // New lines are ignored within parentheses.
             // We'll also avoid adding multiple newlines in a row to simplify parsing.
             if (this._tokens.length === 0 || this._tokens[this._tokens.length - 1].type !== TokenType.NewLine) {
-                this._tokens.push(NewLineToken.create(this._cs.position, length, newLineType, this._getComments()));
+                this._addNewLineToken(this._cs.position, length, newLineType);
             }
         }
         if (newLineType === NewLineType.CarriageReturn) {
@@ -1239,7 +1254,7 @@ export class Tokenizer {
                     isSpacePresent,
                     isTabPresent,
                 });
-                this._tokens.push(IndentToken.create(startOffset, tab1Spaces, tab8Spaces, false, this._getComments()));
+                this._addIndentToken(startOffset, tab1Spaces, tab8Spaces, false);
             }
         } else {
             const prevTabInfo = this._indentAmounts[this._indentAmounts.length - 1];
@@ -1265,18 +1280,14 @@ export class Tokenizer {
                     isTabPresent,
                 });
 
-                this._tokens.push(
-                    IndentToken.create(startOffset, tab1Spaces, tab8Spaces, isIndentAmbiguous, this._getComments())
-                );
+                this._addIndentToken(startOffset, tab1Spaces, tab8Spaces, isIndentAmbiguous);
             } else if (prevTabInfo.tab8Spaces === tab8Spaces) {
                 // The Python spec says that if there is ambiguity about how tabs should
                 // be translated into spaces because the user has intermixed tabs and
                 // spaces, it should be an error. We'll record this condition in the token
                 // so the parser can later report it.
                 if ((prevTabInfo.isSpacePresent && isTabPresent) || (prevTabInfo.isTabPresent && isSpacePresent)) {
-                    this._tokens.push(
-                        IndentToken.create(startOffset, tab1Spaces, tab8Spaces, true, this._getComments())
-                    );
+                    this._addIndentToken(startOffset, tab1Spaces, tab8Spaces, true);
                 }
             } else {
                 // The Python spec says that if there is ambiguity about how tabs should
@@ -1307,14 +1318,15 @@ export class Tokenizer {
                     const matchesIndent = index < dedentPoints.length - 1 || dedentAmount === tab8Spaces;
                     const actualDedentAmount = index < dedentPoints.length - 1 ? dedentAmount : tab8Spaces;
                     this._tokens.push(
-                        DedentToken.create(
-                            this._cs.position,
-                            0,
-                            actualDedentAmount,
-                            matchesIndent,
-                            isDedentAmbiguous,
-                            this._getComments()
-                        )
+                        (this._retainedTokenCursor && this._reuseToken(TokenType.Dedent, this._cs.position, 0)) ??
+                            DedentToken.create(
+                                this._cs.position,
+                                0,
+                                actualDedentAmount,
+                                matchesIndent,
+                                isDedentAmbiguous,
+                                this._getComments()
+                            )
                     );
 
                     isDedentAmbiguous = false;
@@ -1380,10 +1392,16 @@ export class Tokenizer {
             const keywordType = getKeywordTypeFromTextSlice(text, start, length);
 
             if (keywordType !== undefined) {
-                this._tokens.push(KeywordToken.create(start, length, keywordType, this._getComments()));
+                this._tokens.push(
+                    (this._retainedTokenCursor && this._reuseToken(TokenType.Keyword, start, length)) ??
+                        KeywordToken.create(start, length, keywordType, this._getComments())
+                );
             } else {
                 const value = this._internIdentifier(text, start, end, length);
-                this._tokens.push(IdentifierToken.create(start, length, value, this._getComments()));
+                this._tokens.push(
+                    (this._retainedTokenCursor && this._reuseToken(TokenType.Identifier, start, length)) ??
+                        IdentifierToken.create(start, length, value, this._getComments())
+                );
             }
             return true;
         }
@@ -1492,9 +1510,7 @@ export class Tokenizer {
                         intValue = bigIntValue;
                     }
 
-                    this._tokens.push(
-                        NumberToken.create(start, end - start, intValue, true, false, this._getComments())
-                    );
+                    this._addNumberToken(start, end - start, intValue, true, false);
                     return true;
                 }
             }
@@ -1555,9 +1571,7 @@ export class Tokenizer {
                     tokenLength += 1;
                 }
 
-                this._tokens.push(
-                    NumberToken.create(start, tokenLength, intValue, true, isImaginary, this._getComments())
-                );
+                this._addNumberToken(start, tokenLength, intValue, true, isImaginary);
                 return true;
             }
         }
@@ -1580,9 +1594,7 @@ export class Tokenizer {
                         this._cs.moveNext();
                         tokenLength += 1;
                     }
-                    this._tokens.push(
-                        NumberToken.create(start, tokenLength, value, false, isImaginary, this._getComments())
-                    );
+                    this._addNumberToken(start, tokenLength, value, false, isImaginary);
                     return true;
                 }
             }
@@ -1602,14 +1614,14 @@ export class Tokenizer {
             const twoCharKey = (currentChar << 8) | nextChar;
             const specialTokenType = _twoCharSpecialTokenTypeMap.get(twoCharKey);
             if (specialTokenType !== undefined) {
-                this._tokens.push(Token.create(specialTokenType, this._cs.position, 2, this._getComments()));
+                this._addToken(specialTokenType, this._cs.position, 2);
                 this._cs.advance(2);
                 return true;
             }
 
             const twoCharOperatorType = _twoCharOperatorTypeMap.get(twoCharKey);
             if (twoCharOperatorType !== undefined) {
-                this._tokens.push(OperatorToken.create(this._cs.position, 2, twoCharOperatorType, this._getComments()));
+                this._addOperatorToken(this._cs.position, 2, twoCharOperatorType);
                 this._cs.advance(2);
                 return true;
             }
@@ -1622,14 +1634,7 @@ export class Tokenizer {
                     const operatorType = hasTrailingEqual
                         ? _repeatedCharEqualOperatorTypeTable[currentChar]
                         : repeatedOperatorType;
-                    this._tokens.push(
-                        OperatorToken.create(
-                            this._cs.position,
-                            repeatedLength,
-                            operatorType as OperatorType,
-                            this._getComments()
-                        )
-                    );
+                    this._addOperatorToken(this._cs.position, repeatedLength, operatorType as OperatorType);
                     this._cs.advance(repeatedLength);
                     return true;
                 }
@@ -1648,7 +1653,7 @@ export class Tokenizer {
                     operatorType = singleCharOperatorType as OperatorType;
                 }
 
-                this._tokens.push(OperatorToken.create(this._cs.position, length, operatorType, this._getComments()));
+                this._addOperatorToken(this._cs.position, length, operatorType);
                 this._cs.advance(length);
                 return true;
             }
@@ -1657,7 +1662,7 @@ export class Tokenizer {
         // `!=` is handled by the 2-char fast path above.
         if (currentChar === Char.ExclamationMark && this._activeFString) {
             // Handle the conversion separator (!) within an f-string.
-            this._tokens.push(Token.create(TokenType.ExclamationMark, this._cs.position, 1, this._getComments()));
+            this._addToken(TokenType.ExclamationMark, this._cs.position, 1);
             this._cs.advance(1);
             return true;
         }
@@ -1686,10 +1691,72 @@ export class Tokenizer {
         }
         const length = this._cs.position - start;
         if (length > 0) {
-            this._tokens.push(Token.create(TokenType.Invalid, start, length, this._getComments()));
+            this._addToken(TokenType.Invalid, start, length);
             return true;
         }
         return false;
+    }
+
+    private _addToken(type: TokenType, start: number, length: number) {
+        this._tokens.push(
+            (this._retainedTokenCursor && this._reuseToken(type, start, length)) ??
+                Token.create(type, start, length, this._getComments())
+        );
+    }
+
+    private _addOperatorToken(start: number, length: number, operatorType: OperatorType) {
+        this._tokens.push(
+            (this._retainedTokenCursor && this._reuseToken(TokenType.Operator, start, length)) ??
+                OperatorToken.create(start, length, operatorType, this._getComments())
+        );
+    }
+
+    private _addNewLineToken(start: number, length: number, newLineType: NewLineType) {
+        this._tokens.push(
+            (this._retainedTokenCursor && this._reuseToken(TokenType.NewLine, start, length)) ??
+                NewLineToken.create(start, length, newLineType, this._getComments())
+        );
+    }
+
+    private _addIndentToken(start: number, length: number, indentAmount: number, isIndentAmbiguous: boolean) {
+        this._tokens.push(
+            (this._retainedTokenCursor && this._reuseToken(TokenType.Indent, start, length)) ??
+                IndentToken.create(start, length, indentAmount, isIndentAmbiguous, this._getComments())
+        );
+    }
+
+    private _addNumberToken(
+        start: number,
+        length: number,
+        value: number | bigint,
+        isInteger: boolean,
+        isImaginary: boolean
+    ) {
+        this._tokens.push(
+            (this._retainedTokenCursor && this._reuseToken(TokenType.Number, start, length)) ??
+                NumberToken.create(start, length, value, isInteger, isImaginary, this._getComments())
+        );
+    }
+
+    private _addFStringEndToken(start: number, length: number, flags: StringTokenFlags) {
+        this._tokens.push(
+            (this._retainedTokenCursor &&
+                this._reuseToken(TokenType.FStringEnd, start, length, /* consumeComments */ false)) ??
+                FStringEndToken.create(start, length, flags)
+        );
+    }
+
+    private _reuseToken<Type extends TokenType>(
+        type: Type,
+        start: number,
+        length: number,
+        consumeComments = true
+    ): TokensByType[Type] | undefined {
+        const token = this._retainedTokenCursor!.next(start, length, type);
+        if (token && consumeComments) {
+            this._getComments();
+        }
+        return token;
     }
 
     private _getComments(): Comment[] | undefined {
@@ -1946,13 +2013,9 @@ export class Tokenizer {
 
             const end = this._cs.position;
 
-            const fStringStartToken = FStringStartToken.create(
-                start,
-                end - start,
-                flags,
-                stringPrefixLength,
-                this._getComments()
-            );
+            const fStringStartToken =
+                (this._retainedTokenCursor && this._reuseToken(TokenType.FStringStart, start, end - start)) ??
+                FStringStartToken.create(start, end - start, flags, stringPrefixLength, this._getComments());
 
             // Create a new f-string context and push it on the stack.
             const fStringContext: FStringContext = {
@@ -2018,14 +2081,15 @@ export class Tokenizer {
             }
 
             this._tokens.push(
-                StringToken.create(
-                    start,
-                    end - start,
-                    stringLiteralInfo.flags,
-                    stringLiteralInfo.escapedValue,
-                    stringPrefixLength,
-                    this._getComments()
-                )
+                (this._retainedTokenCursor && this._reuseToken(TokenType.String, start, end - start)) ??
+                    StringToken.create(
+                        start,
+                        end - start,
+                        stringLiteralInfo.flags,
+                        stringLiteralInfo.escapedValue,
+                        stringPrefixLength,
+                        this._getComments()
+                    )
             );
         }
     }
@@ -2051,22 +2115,22 @@ export class Tokenizer {
 
         if (middleTokenLength > 0 || isUnterminated) {
             this._tokens.push(
-                FStringMiddleToken.create(
-                    start,
-                    middleTokenLength,
-                    stringLiteralInfo.flags,
-                    stringLiteralInfo.escapedValue
-                )
+                (this._retainedTokenCursor &&
+                    this._reuseToken(TokenType.FStringMiddle, start, middleTokenLength, /* consumeComments */ false)) ??
+                    FStringMiddleToken.create(
+                        start,
+                        middleTokenLength,
+                        stringLiteralInfo.flags,
+                        stringLiteralInfo.escapedValue
+                    )
             );
         }
 
         if (sawEndQuote) {
-            this._tokens.push(
-                FStringEndToken.create(
-                    start + middleTokenLength,
-                    activeFString.startToken.quoteMarkLength,
-                    stringLiteralInfo.flags
-                )
+            this._addFStringEndToken(
+                start + middleTokenLength,
+                activeFString.startToken.quoteMarkLength,
+                stringLiteralInfo.flags
             );
 
             this._activeFString = this._fStringStack.pop();

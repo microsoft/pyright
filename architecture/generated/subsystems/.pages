@@ -1,6 +1,7 @@
 title: Files by analyzer area
 nav:
   - analyzer: analyzer.md
+  - ci: ci.md
   - commands: commands.md
   - common: common.md
   - languageService: languageservice.md
@@ -10,5 +11,6 @@ nav:
   - pprof: pprof.md
   - protocol: protocol.md
   - src: src.md
+  - trace: trace.md
   - typeServer: typeserver.md
   - uri: uri.md

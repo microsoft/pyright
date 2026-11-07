@@ -13,13 +13,7 @@ class RevocationEndpoint(BaseEndpoint):
     valid_request_methods: tuple[Literal["POST"]]
     request_validator: RequestValidator
     supported_token_types: tuple[str, ...]
-    enable_jsonp: bool
-    def __init__(
-        self,
-        request_validator: RequestValidator,
-        supported_token_types: tuple[str, ...] | None = None,
-        enable_jsonp: bool = False,
-    ) -> None: ...
+    def __init__(self, request_validator: RequestValidator, supported_token_types: tuple[str, ...] | None = None) -> None: ...
     def create_revocation_response(
         self, uri: str, http_method: _HTTPMethod = "POST", body: str | None = None, headers: dict[str, str] | None = None
     ) -> tuple[dict[str, str], str, int]: ...

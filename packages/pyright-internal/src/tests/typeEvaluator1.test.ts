@@ -10,8 +10,11 @@
 
 import * as assert from 'assert';
 
+import { AnalyzerNodeInfoAccessor } from '../analyzer/analyzerNodeInfo';
 import { ScopeType } from '../analyzer/scope';
+import { getTypeNarrowingCallback } from '../analyzer/typeGuards';
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
@@ -23,6 +26,7 @@ import {
 import { Uri } from '../common/uri/uri';
 import { getChildNodes } from '../parser/parseTreeUtils';
 import { getParserStringAnnotation, ParseNode, ParseNodeType, StringListNode } from '../parser/parseNodes';
+import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
 
 function getNodes(root: ParseNode) {
@@ -225,9 +229,8 @@ test('Builtins1', () => {
         'type',
         'vars',
         'zip',
-        // These really shouldn't be exposed but are defined by builtins.pyi currently.
+        // This really shouldn't be exposed but is defined by builtins.pyi currently.
         'function',
-        'ellipsis',
     ];
 
     const moduleScope = analysisResults[0].moduleScope;
@@ -330,13 +333,32 @@ test('TypeNarrowingAssert1', () => {
 test('TypeNarrowingTypeIs1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypeIs1.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
+    assert.ok(
+        analysisResults[0].errors.every((diagnostic) => diagnostic.getRule() === DiagnosticRule.reportReturnType)
+    );
+});
+
+test('TypeGuardMethod1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuardMethod1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [276, DiagnosticRule.reportAttributeAccessIssue],
+            [282, DiagnosticRule.reportAttributeAccessIssue],
+        ]
+    );
 });
 
 test('TypeNarrowingTypeEquals1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypeEquals1.py']);
 
     TestUtils.validateResults(analysisResults, 3);
+    assert.ok(
+        analysisResults[0].errors.every((diagnostic) => diagnostic.getRule() === DiagnosticRule.reportReturnType)
+    );
 });
 
 test('TypeNarrowingIsNone1', () => {
@@ -349,6 +371,88 @@ test('TypeNarrowingIsNone2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsNone2.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingMemberNone1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingMemberNone1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [29, 40, 47, 58].map((line) => [line, DiagnosticRule.reportOperatorIssue])
+    );
+});
+
+test('TypeNarrowingComparisonRhs1', () => {
+    const cases = [
+        { parameterType: 'Literal[1, 2]', left: 'x', right: '1', positive: 'Literal[1]', negative: 'Literal[2]' },
+        {
+            parameterType: 'Literal[1, 2]',
+            left: '(saved := x)',
+            right: '1',
+            positive: 'Literal[1]',
+            negative: 'Literal[2]',
+        },
+        {
+            parameterType: 'type[int] | type[str]',
+            left: 'x',
+            right: 'int',
+            positive: 'type[int] | type[str]',
+            negative: 'type[int] | type[str]',
+        },
+        { parameterType: 'object', left: 'x', right: 'other', positive: undefined, negative: undefined },
+    ];
+    for (const testCase of cases) {
+        for (const operator of ['==', '!=']) {
+            for (const isPositiveTest of [true, false]) {
+                const left = testCase.left.replace('x', '/*reference*/x');
+                const state = parseAndGetTestState(`// @filename: test.py
+////from typing import Literal
+////def compare(x: ${testCase.parameterType}, other: object) -> None:
+////    if ${left} ${operator} ${testCase.right}:
+////        pass
+`).state;
+                const evaluator = state.program.evaluator!;
+                const reference = getNodeAtMarker(state, 'reference');
+                assert.ok(reference.nodeType === ParseNodeType.Name);
+                let comparison = reference.parent;
+                if (comparison?.nodeType === ParseNodeType.AssignmentExpression) {
+                    comparison = comparison.parent;
+                }
+                assert.ok(comparison?.nodeType === ParseNodeType.BinaryOperation);
+                evaluator.getTypeOfExpression(comparison);
+                const inputType = evaluator.getTypeOfExpression(reference).type;
+                const rightExpression = comparison.d.rightExpr;
+                const original = evaluator.getTypeOfExpression;
+                const spy = jest.spyOn(evaluator, 'getTypeOfExpression').mockImplementation((node, ...args) => {
+                    const result = original(node, ...args);
+                    return node === rightExpression ? { ...result, isIncomplete: true } : result;
+                });
+                try {
+                    const callback = getTypeNarrowingCallback(
+                        evaluator,
+                        reference,
+                        comparison,
+                        isPositiveTest,
+                        new AnalyzerNodeInfoAccessor(evaluator.getAnalyzerNodeInfoReader())
+                    );
+                    assert.strictEqual(spy.mock.calls.filter(([node]) => node === rightExpression).length, 1);
+                    const expected = isPositiveTest === (operator === '==') ? testCase.positive : testCase.negative;
+                    if (expected === undefined) {
+                        assert.strictEqual(callback, undefined);
+                    } else {
+                        assert.ok(callback);
+                        const result = callback(inputType);
+                        assert.ok(result);
+                        assert.strictEqual(evaluator.printType(result.type), expected);
+                        assert.strictEqual(result.isIncomplete, true);
+                    }
+                } finally {
+                    spy.mockRestore();
+                }
+            }
+        }
+    }
 });
 
 test('TypeNarrowingAny1', () => {
@@ -529,6 +633,34 @@ test('TypeNarrowingIsinstance21', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance21.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingIsinstance22', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance22.py']);
+
+    TestUtils.validateResults(analysisResults, 4, 0, 80);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [70, DiagnosticRule.reportReturnType],
+            [107, DiagnosticRule.reportReturnType],
+            [115, DiagnosticRule.reportArgumentType],
+            [366, DiagnosticRule.reportReturnType],
+        ]
+    );
+});
+
+test('TypeNarrowingIsinstance23', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance23.py']);
+
+    TestUtils.validateResults(analysisResults, 1, 0, 15);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [[122, DiagnosticRule.reportReturnType]]
+    );
 });
 
 test('TypeNarrowingTupleLength1', () => {
@@ -781,7 +913,7 @@ test('Lambda3', () => {
 test('Lambda4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda4.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Lambda5', () => {
@@ -865,6 +997,33 @@ test('Lambda16', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda16.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Lambda17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda17.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Lambda18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda18.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportAssignmentType);
+});
+
+test('Lambda19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda19.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [11, DiagnosticRule.reportAssignmentType],
+            [12, DiagnosticRule.reportAssignmentType],
+            [13, DiagnosticRule.reportAssignmentType],
+        ]
+    );
 });
 
 test('Call1', () => {
@@ -1235,6 +1394,15 @@ test('Metaclass10', () => {
 test('Metaclass11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass11.py']);
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('Metaclass12', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass12.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('AssignmentExpr1', () => {

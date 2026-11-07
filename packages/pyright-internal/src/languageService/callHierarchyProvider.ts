@@ -227,10 +227,15 @@ export class CallHierarchyProvider {
             return null;
         }
 
+        const resolvedParseResults = this._program.getParseResults(resolvedDecl.uri);
+        if (!resolvedParseResults) {
+            return null;
+        }
+
         const callFinder = new FindOutgoingCallTreeWalker(
             this._program,
             parseRoot,
-            this._parseResults,
+            resolvedParseResults,
             this._evaluator,
             this._token
         );
@@ -457,7 +462,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         const fromRange: Range = convertOffsetsToRange(
             nameNode.start,
             nameNode.start + nameNode.length,
-            this._parseResults.tokenizerOutput.lines
+            this._parseResults.parserOutput.lines
         );
         outgoingCall.fromRanges.push(fromRange);
     }
@@ -556,15 +561,23 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             const declarations = this._getDeclarations(nameNode);
             if (declarations) {
                 if (this._targetDeclaration.type === DeclarationType.Alias) {
-                    const resolvedCurDecls = this._evaluator.resolveAliasDeclaration(
+                    const resolvedTargetDecl = this._evaluator.resolveAliasDeclaration(
                         this._targetDeclaration,
                         /* resolveLocalNames */ true
                     );
                     if (
-                        resolvedCurDecls &&
-                        declarations.some((decl) => DeclarationUtils.areDeclarationsSame(decl!, resolvedCurDecls))
+                        resolvedTargetDecl &&
+                        declarations.some((decl) => {
+                            const resolvedDecl = this._evaluator.resolveAliasDeclaration(
+                                decl,
+                                /* resolveLocalNames */ true
+                            );
+                            return (
+                                resolvedDecl && DeclarationUtils.areDeclarationsSame(resolvedDecl, resolvedTargetDecl)
+                            );
+                        })
                     ) {
-                        this._addIncomingCallForDeclaration(nameNode!);
+                        this._addIncomingCallForDeclaration(nameNode);
                     }
                 } else if (
                     declarations.some((decl) =>
@@ -656,7 +669,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         let callSource: CallHierarchyItem;
         const fileName = this._program.fileSystem.getOriginalUri(this._fileUri).fileName;
         if (executionNode.nodeType === ParseNodeType.Module) {
-            const moduleRange = convertOffsetsToRange(0, 0, this._parseResults.tokenizerOutput.lines);
+            const moduleRange = convertOffsetsToRange(0, 0, this._parseResults.parserOutput.lines);
 
             callSource = {
                 name: `(module) ${fileName}`,
@@ -669,7 +682,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             const lambdaRange = convertOffsetsToRange(
                 executionNode.start,
                 executionNode.start + executionNode.length,
-                this._parseResults.tokenizerOutput.lines
+                this._parseResults.parserOutput.lines
             );
 
             callSource = {
@@ -684,13 +697,13 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             const functionRange = convertOffsetsToRange(
                 executionNode.start,
                 executionNode.start + executionNode.length,
-                this._parseResults.tokenizerOutput.lines
+                this._parseResults.parserOutput.lines
             );
 
             const functionSelectionRange = convertOffsetsToRange(
                 executionNode.d.name.start,
                 executionNode.d.name.start + executionNode.d.name.length,
-                this._parseResults.tokenizerOutput.lines
+                this._parseResults.parserOutput.lines
             );
             const classNode = ParseTreeUtils.getEnclosingClass(executionNode, /* stopAtFunction */ true);
 
@@ -732,7 +745,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         const fromRange: Range = convertOffsetsToRange(
             nameNode.start,
             nameNode.start + nameNode.length,
-            this._parseResults.tokenizerOutput.lines
+            this._parseResults.parserOutput.lines
         );
         incomingCall.fromRanges.push(fromRange);
     }

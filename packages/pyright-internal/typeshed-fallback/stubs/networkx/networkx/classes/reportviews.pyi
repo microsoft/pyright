@@ -62,13 +62,13 @@ class NodeDataView(AbstractSet[_Node], Generic[_Node, _NodeData, _EdgeData]):
 
 class DiDegreeView(Generic[_Node, _NodeData, _EdgeData]):
     def __init__(
-        self, G: Graph[_Node, _NodeData, _EdgeData], nbunch: _NBunch[_Node] = None, weight: None | bool | str = None
+        self, G: Graph[_Node, _NodeData, _EdgeData], nbunch: _NBunch[_Node] = None, weight: bool | str | None = None
     ) -> None: ...
 
     @overload  # Use this overload first in case _Node=str, since `str` matches `Iterable[str]`
-    def __call__(self, nbunch: _Node, weight: None | bool | str = None) -> int: ...  # type: ignore[overload-overlap]
+    def __call__(self, nbunch: _Node, weight: bool | str | None = None) -> int: ...  # type: ignore[overload-overlap]
     @overload
-    def __call__(self, nbunch: Iterable[_Node] | None = None, weight: None | bool | str = None) -> Self: ...
+    def __call__(self, nbunch: Iterable[_Node] | None = None, weight: bool | str | None = None) -> Self: ...
 
     def __getitem__(self, n: _Node) -> int: ...
     def __iter__(self) -> Iterator[tuple[_Node, int]]: ...

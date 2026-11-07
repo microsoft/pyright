@@ -102,7 +102,7 @@ class Plot:
         self,
         *,
         size: tuple[float, float] | Default = ...,
-        engine: str | None | Default = ...,
+        engine: str | Default | None = ...,
         extent: tuple[float, float, float, float] | Default = ...,
     ) -> Plot: ...
     def theme(self, config: dict[str, Any], /) -> Plot: ...

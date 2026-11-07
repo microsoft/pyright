@@ -6,7 +6,7 @@ from tensorflow import Tensor
 from tensorflow._aliases import FloatArray, FloatDataSequence, FloatTensorCompatible, Integer
 
 # The implementation uses isinstance so it must be dict and not any Mapping.
-_Activation: TypeAlias = str | None | Callable[[Tensor], Tensor] | dict[str, Any]
+_Activation: TypeAlias = str | Callable[[Tensor], Tensor] | dict[str, Any] | None
 # Ints are not allowed.
 _ActivationInput: TypeAlias = Tensor | FloatDataSequence | FloatArray | np.number[Any] | float
 

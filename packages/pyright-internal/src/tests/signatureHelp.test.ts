@@ -8,6 +8,7 @@
 
 import assert from 'assert';
 import { CancellationToken, MarkupKind, SignatureHelp } from 'vscode-languageserver';
+import { SourceMapper } from '../analyzer/sourceMapper';
 import { SignatureHelpProvider } from '../languageService/signatureHelpProvider';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
 import { PyrightDocStringService } from '../common/docStringService';
@@ -86,6 +87,45 @@ test('signature help shows source default values for stub ellipsis defaults', ()
     assert(actual, 'Expected signature help result');
     assert.strictEqual(actual.signatures.length, 1, 'Expected one signature');
     assert.strictEqual(actual.signatures[0].label, '(a: int, b: str = 3) -> None');
+});
+
+test('signature help reuses unresolved source mappings within a request', () => {
+    const code = `
+// @filename: mylib.pyi
+//// from typing import overload
+//// class Array:
+////     @overload
+////     def mean(self, axis: int = ...) -> int: ...
+////     @overload
+////     def mean(self, axis: str = ...) -> str: ...
+
+// @filename: mylib.py
+//// pass
+
+// @filename: test.py
+//// from mylib import Array
+//// Array().mean([|/*marker*/|])
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const sourcePaths = jest.spyOn(SourceMapper.prototype, 'getSourcePathsFromStub');
+    const countLookups = () => sourcePaths.mock.calls.filter(([uri]) => uri.getFilePath().endsWith('mylib.pyi')).length;
+
+    try {
+        const actual = getSignatureHelpForMarker(state, 'marker');
+        assert(actual);
+        assert.deepStrictEqual(
+            actual.signatures.map((signature) => signature.label),
+            ['(axis: int = ...) -> int', '(axis: str = ...) -> str']
+        );
+        assert.strictEqual(countLookups(), 2);
+
+        const nextRequest = getSignatureHelpForMarker(state, 'marker');
+        assert.deepStrictEqual(nextRequest, actual);
+        assert.strictEqual(countLookups(), 4);
+    } finally {
+        sourcePaths.mockRestore();
+    }
 });
 
 test('signature help substitutes multiple stub ellipsis defaults from source', () => {

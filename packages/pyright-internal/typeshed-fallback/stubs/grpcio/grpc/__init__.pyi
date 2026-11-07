@@ -262,6 +262,9 @@ class Channel(abc.ABC):
 class Server(abc.ABC):
     @abc.abstractmethod
     def add_generic_rpc_handlers(self, generic_rpc_handlers: Iterable[GenericRpcHandler]) -> None: ...
+    def add_registered_method_handlers(
+        self, service_name: str, method_handlers: Mapping[str, RpcMethodHandler[Any, Any]]
+    ) -> None: ...
 
     # Returns an integer port on which server will accept RPC requests.
     @abc.abstractmethod

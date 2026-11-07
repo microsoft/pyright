@@ -1,0 +1,52 @@
+name: Queue PR follow-up checks
+
+on:
+  workflow_run:
+    workflows: [Validation]
+    types: [requested, in_progress, completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+
+jobs:
+  report:
+    if: >-
+      ${{ github.repository == 'microsoft/pyright' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.path == '.github/workflows/validation.yml' &&
+      github.event.workflow_run.repository.id == github.event.repository.id &&
+      (github.event.action != 'completed' ||
+      github.event.workflow_run.conclusion != 'success') }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        check: [mypy_primer, Type checker benchmark]
+    concurrency:
+      group: pr-follow-up-${{ matrix.check }}-${{ github.event.workflow_run.head_sha }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          CHECK_NAME: ${{ matrix.check }}
+        with:
+          script: |
+            const report = require('./build/reportPullRequestCheck.js')
+            const failedValidation = context.payload.action === 'completed'
+            const resolve = require('./build/resolveValidatedPullRequest.js')
+            const validated = await resolve({ github, context, core, requireSuccess: false })
+            if (!validated) return
+            const headSha = validated.pullRequest.head.sha
+            await report({
+              github, context, name: process.env.CHECK_NAME, headSha,
+              status: failedValidation ? 'completed' : 'queued',
+              conclusion: failedValidation ? 'skipped' : undefined,
+              summary: failedValidation
+                ? 'Not run because Validation did not pass.'
+                : 'Waiting for Validation to pass.',
+            })
