@@ -12180,7 +12180,6 @@ export function createTypeEvaluator(
                         argType = UnknownType.create();
                     } else {
                         argType = getTypeOfExpression(arg.d.valueExpr, exprFlags).type;
-
                         if (
                             isTypeVar(argType) &&
                             argType.props?.specialForm &&
@@ -12204,6 +12203,27 @@ export function createTypeEvaluator(
                     // false positive errors.
                     if (isAny(argType) && argType.props?.specialForm) {
                         argType = AnyType.create();
+                    }
+
+                    // A union of base classes that includes Any or Unknown acts
+                    // as an Any or Unknown base class.
+                    if (isUnion(argType) && !UnionType.isOrIncludesSpecialForm(argType)) {
+                        const baseClasses = argType.priv.subtypes.map((subtype) =>
+                            isClassInstance(subtype) && isMetaclassInstance(subtype)
+                                ? subtype.priv.typeArgs?.[0] ?? UnknownType.create()
+                                : subtype
+                        );
+
+                        if (
+                            baseClasses.some((baseClass) => isAnyOrUnknown(baseClass)) &&
+                            baseClasses.every(
+                                (baseClass) => isAnyOrUnknown(baseClass) || isInstantiableClass(baseClass)
+                            )
+                        ) {
+                            argType = baseClasses.some((baseClass) => isUnknown(baseClass))
+                                ? UnknownType.create()
+                                : AnyType.create();
+                        }
                     }
 
                     argType = stripTypeFormRecursive(argType);

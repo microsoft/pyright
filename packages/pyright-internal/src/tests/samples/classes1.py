@@ -2,7 +2,7 @@
 # handle various class definition cases.
 
 
-from typing import Any, Self, TypeVar
+from typing import Any, Self, TypeVar, Union
 
 
 T = TypeVar("T")
@@ -65,6 +65,69 @@ def func1(x: type) -> object:
         pass
 
     return Y()
+
+
+def func4(t1: type | type[Any], t2: type[A] | Any):
+    class N1(t1):
+        pass
+
+    reveal_type(N1().x, expected_text="Unknown")
+
+    class N2(t2):
+        pass
+
+    reveal_type(N2().x, expected_text="Any")
+
+
+def func5(t1: type[A] | type[B], t2: int | Any):
+    # This should generate an error.
+    class N1(t1):
+        pass
+
+    # This should generate an error.
+    class N2(t2):
+        pass
+
+
+# This should generate an error.
+class O1(A | Any):
+    pass
+
+
+# This should generate an error.
+class O2(Union[A, Any]):
+    pass
+
+
+def func6(flag: bool, t1: Any):
+    t2 = Union[A, Any] if flag else t1
+
+    # This should generate an error.
+    class N1(t2):
+        pass
+
+    # This should generate an error.
+    class N2((A | Any) if flag else t1):
+        pass
+
+
+def func7(t1: Any):
+    t2 = t1 or Union[A, Any]
+
+    # This should generate an error.
+    class N1(t2):
+        pass
+
+
+def func8(flag: bool, t1: Any):
+    if flag:
+        t2 = Union[A, Any]
+    else:
+        t2 = t1
+
+    # This should generate an error.
+    class N1(t2):
+        pass
 
 
 # This should generate an error because a TypeVar can't be used as a base class.
