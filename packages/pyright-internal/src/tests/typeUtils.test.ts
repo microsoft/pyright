@@ -8,11 +8,19 @@
 
 import * as assert from 'assert';
 
-import { containsLiteralType, mapSignatures, transformExpectedType, transformTypePair } from '../analyzer/typeUtils';
+import { printType, PrintTypeFlags } from '../analyzer/typePrinter';
+import {
+    containsLiteralType,
+    mapSignatures,
+    mapSubtypes,
+    transformExpectedType,
+    transformTypePair,
+} from '../analyzer/typeUtils';
 import {
     AnyType,
     ClassType,
     ClassTypeFlags,
+    combineTypes,
     FunctionParam,
     FunctionType,
     FunctionTypeFlags,
@@ -20,9 +28,12 @@ import {
     isFunction,
     isOverloaded,
     isTypeVar,
+    isTypeSame,
+    isUnion,
     OverloadedType,
     OverloadResultType,
     Type,
+    TypeBase,
     TypeCategory,
     TypeVarScopeType,
     TypeVarType,
@@ -32,6 +43,77 @@ import {
 } from '../analyzer/types';
 import { Uri } from '../common/uri/uri';
 import { ParamCategory } from '../parser/parseNodes';
+
+test('Mapping union subtypes does not mutate a shared replacement union', () => {
+    const value = ClassType.cloneAsInstance(createClass('Value', 1));
+    const other = ClassType.cloneAsInstance(createClass('Other', 2));
+    const result = combineTypes([value, other]);
+    assert.ok(isUnion(result));
+
+    const first = ClassType.specialize(ClassType.cloneAsInstance(createClass('First', 3)), [result]);
+    const second = ClassType.specialize(ClassType.cloneAsInstance(createClass('Second', 4)), [result]);
+    const original = TypeBase.cloneForTypeAlias(combineTypes([first, second]), {
+        shared: {
+            name: 'Alias',
+            fullName: 'test.Alias',
+            moduleName: 'test',
+            fileUri: Uri.empty(),
+            typeVarScopeId: 'test.Alias',
+            isTypeAliasType: true,
+            typeParams: undefined,
+            computedVariance: undefined,
+        },
+        typeArgs: [result],
+    });
+
+    assert.ok(
+        isTypeSame(
+            mapSubtypes(original, () => result),
+            result
+        )
+    );
+    assert.strictEqual(result.priv.typeAliasSources, undefined);
+});
+
+test('Mapping union subtypes preserves aliases without modifying existing sources', () => {
+    const first = ClassType.cloneAsInstance(createClass('A', 1));
+    const second = ClassType.cloneAsInstance(createClass('B', 2));
+    const third = ClassType.cloneAsInstance(createClass('C', 3));
+    const aliasInfo = (name: string) => ({
+        shared: {
+            name,
+            fullName: `test.${name}`,
+            moduleName: 'test',
+            fileUri: Uri.empty(),
+            typeVarScopeId: `test.${name}`,
+            isTypeAliasType: true,
+            typeParams: undefined,
+            computedVariance: undefined,
+        },
+        typeArgs: undefined,
+    });
+    const original = TypeBase.cloneForTypeAlias(combineTypes([first, second]), aliasInfo('X'));
+    const result = combineTypes([first, second, third]);
+    assert.ok(isUnion(original) && isUnion(result));
+    const mapped = mapSubtypes(original, () => result);
+    assert.ok(isTypeSame(mapped, result));
+    assert.strictEqual(result.priv.typeAliasSources, undefined);
+    assert.strictEqual(
+        printType(mapped, PrintTypeFlags.PEP604, () => UnknownType.create()),
+        'X | C'
+    );
+
+    const existingAlias = TypeBase.cloneForTypeAlias(combineTypes([first, third]), aliasInfo('Y'));
+    assert.ok(isUnion(existingAlias));
+    const existingSources = new Set([existingAlias]);
+    result.priv.typeAliasSources = existingSources;
+    const mappedWithSources = mapSubtypes(original, () => result);
+    assert.ok(isUnion(mappedWithSources));
+    assert.strictEqual(result.priv.typeAliasSources, existingSources);
+    assert.deepStrictEqual([...existingSources], [existingAlias]);
+    assert.notStrictEqual(mappedWithSources.priv.typeAliasSources, existingSources);
+    assert.deepStrictEqual(mappedWithSources.priv.typeAliasSources, new Set([existingAlias, original]));
+});
 
 test('Expected types preserve borrowed bound variables but unify out-of-scope free variables', () => {
     const caller = TypeVarType.cloneForScopeId(
@@ -256,14 +338,14 @@ function createFunction(parameterType: Type, defaultType: Type, returnType: Type
     return functionType;
 }
 
-function createClass(name: string) {
+function createClass(name: string, typeSourceId = 0) {
     return ClassType.createInstantiable(
         name,
         'test',
         `test.${name}`,
         Uri.empty(),
         ClassTypeFlags.None,
-        0,
+        typeSourceId,
         /* declaredMetaclass */ undefined,
         /* effectiveMetaclass */ undefined
     );

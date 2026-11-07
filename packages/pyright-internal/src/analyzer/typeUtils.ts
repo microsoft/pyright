@@ -442,7 +442,15 @@ export function mapSubtypes(
                     }
                 } else {
                     // Do our best to retain type aliases.
-                    if (isUnion(newType)) {
+                    if (isUnion(newType) && (type.props?.typeAliasInfo || type.priv.typeAliasSources)) {
+                        // combineTypes can return a shared input union. Adding alias
+                        // sources to it can create cycles through the alias's type arguments.
+                        if (typesToCombine.includes(newType)) {
+                            newType = TypeBase.cloneType(newType);
+                            newType.priv.typeAliasSources = newType.priv.typeAliasSources
+                                ? new Set(newType.priv.typeAliasSources)
+                                : undefined;
+                        }
                         UnionType.addTypeAliasSource(newType, type);
                     }
                 }
