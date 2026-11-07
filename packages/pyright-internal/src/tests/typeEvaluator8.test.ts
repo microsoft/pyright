@@ -988,6 +988,18 @@ test('Descriptor7', () => {
     );
 });
 
+test('Descriptor8', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportSelfClsParameterName = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor8.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 2, 0, 5);
+    assert.deepStrictEqual(analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()).sort(), [
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportSelfClsParameterName,
+    ]);
+});
+
 test('MethodDescriptor1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodDescriptor1.py']);
 

@@ -4799,7 +4799,8 @@ export function createTypeEvaluator(
                         errorNode,
                         memberName,
                         usage,
-                        diag
+                        diag,
+                        recursionCount
                     );
 
                     if (descResult.isAsymmetricAccessor) {
@@ -4961,8 +4962,14 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         memberName: string,
         usage: EvaluatorUsage,
-        diag: DiagnosticAddendum | undefined
+        diag: DiagnosticAddendum | undefined,
+        recursionCount: number
     ): MemberAccessTypeResult {
+        // A descriptor accessor can itself be a descriptor, including a recursive one.
+        if (recursionCount > maxTypeRecursionCount) {
+            return { type: UnknownType.create() };
+        }
+
         const isAccessedThroughObject = TypeBase.isInstance(classType);
 
         let accessMethodName: string;
@@ -4982,7 +4989,9 @@ export function createTypeEvaluator(
             accessMethodName,
             /* usage */ undefined,
             subDiag,
-            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
+            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride,
+            /* selfType */ undefined,
+            recursionCount + 1
         );
 
         const deferredMethodType =
