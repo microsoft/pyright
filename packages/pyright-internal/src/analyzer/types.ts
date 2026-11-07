@@ -773,6 +773,11 @@ export interface ClassDetailsShared {
     // It's actually a map of ProtocolCompatibility objects.
     protocolCompatibility?: object;
 
+    // A cache of protocol specializations that every specialization of
+    // this class is compatible with, or undefined if the check failed.
+    // It's actually a map of ClassType objects.
+    universalProtocolCompatibility?: object;
+
     // Transforms to apply if this class is used as a metaclass
     // or a base class.
     classDataClassTransform?: DataClassBehaviors | undefined;
