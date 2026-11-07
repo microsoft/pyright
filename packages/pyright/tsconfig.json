@@ -19,6 +19,7 @@
         "node_modules",
         "dist",
         "out",
+        "src/browser",
         "index.js",
         "langserver.index.js"
     ]

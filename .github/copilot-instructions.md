@@ -13,6 +13,15 @@ For example: "Use pyright-issue-reviewer to analyze <issue URL> and draft a resp
 "Use pyright-issue-fixer to fix <issue URL>; prepare a patch and PR description, but do not publish."
 Posting comments, committing/pushing, or creating a PR requires explicit authorization; reviewer mode never publishes.
 
+## PR Reviews
+
+Select `pyright-pr-review` for the coordinated review workflow described in
+[PR review agents](../docs/pr-review-agents.md). Its five independent specialists include the ordinary
+`pyright-pr-monkey` adversarial reviewer and a dedicated `pyright-pr-safety-reviewer` using the
+[PR type-specification review skill](skills/pyright-pr-typespec-review/SKILL.md) for an additional investigation and example-led feedback.
+The skill also supports standalone assessments and QA callers with their own execution and result contracts.
+Specialists return evidence and drafts; the coordinator owns the final assessment and explicitly authorized publication.
+
 ## Build and Test
 
 ```bash
@@ -76,13 +85,15 @@ Source files are processed through these phases in order:
 
 ### Key Design Patterns
 
-**Type Evaluator closure pattern**: `typeEvaluator.ts` uses a single large `createTypeEvaluator()` factory function. Internal methods access the full closure for performance (same approach as the TypeScript compiler). The public API is defined as the `TypeEvaluator` interface in `typeEvaluatorTypes.ts`.
+**Type Evaluator ownership pattern**: `typeEvaluator.ts` keeps evaluator state in the `createTypeEvaluator()` closure. Topic modules in `analyzer/typeEvaluator/` receive narrow private contexts; mutable bindings use live accessors rather than snapshots. Keep the public `TypeEvaluator` API in `typeEvaluatorTypes.ts` unchanged, and do not back-import `typeEvaluator.ts` from extracted modules or `codeFlowEngine.ts`. See the [architecture guide](../docs/type-evaluator-architecture.md). Current upstream implementations supersede historical refactor algorithms.
 
 **Service → Program → SourceFile**: A `Service` manages a `Program`, which tracks `SourceFile` instances. The `Program` coordinates analysis ordering, prioritizing open editor files and their dependencies.
 
 **Typeshed fallback**: `packages/pyright-internal/typeshed-fallback/` contains a bundled copy of typeshed stubs. This provides the Python stdlib type stubs when no external typeshed is available.
 
 **Localized diagnostics**: All user-facing diagnostic messages come from `localization/localize.ts`, not inline strings.
+
+**CLI contracts**: Preserve documented exit statuses and JSON output schemas in `packages/pyright-internal/src/pyright.ts`.
 
 ### Evaluation tracing
 

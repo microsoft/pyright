@@ -11,6 +11,7 @@ import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { containsOnlyWhitespace } from '../common/core';
 import { assert, assertNever, fail } from '../common/debug';
 import { convertPositionToOffset, convertTextRangeToRange } from '../common/positionUtils';
+import { PythonVersion, pythonVersion3_12 } from '../common/pythonVersion';
 import { Position, Range, TextRange } from '../common/textRange';
 import { TextRangeCollection, getIndexContaining } from '../common/textRangeCollection';
 import {
@@ -736,6 +737,58 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
     }
 
     return undefined;
+}
+
+// Checks whether the evaluation scope can supply a first positional argument
+// for a zero-argument `super()` call. This is not proof of runtime validity:
+// the caller must check for an enclosing class, and this routine does not
+// establish compatibility of the implicit receiver or model annotation frames.
+export function isZeroArgSuperCallAllowed(
+    node: ParseNode,
+    pythonVersion: PythonVersion,
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+): boolean {
+    // Use the evaluation scope machinery to determine which frame executes
+    // the call. This handles decorators, parameter default values, class
+    // headers, lambdas, and comprehensions.
+    let curNode: ParseNode | undefined = getEvaluationScopeNode(node, nodeInfo).node;
+
+    while (curNode) {
+        switch (curNode.nodeType) {
+            case ParseNodeType.Function:
+            case ParseNodeType.Lambda: {
+                // The zero-argument form requires that the executing frame
+                // accept a first positional argument.
+                const firstParam = curNode.d.params.length > 0 ? curNode.d.params[0] : undefined;
+                return firstParam?.d.category === ParamCategory.Simple && firstParam.d.name !== undefined;
+            }
+
+            case ParseNodeType.Comprehension: {
+                // A separate comprehension frame receives its iterator as the
+                // first argument. That iterator could itself be an instance of
+                // the enclosing class, so this frame alone cannot prove failure.
+                if (curNode.d.isGenerator || PythonVersion.isLessThan(pythonVersion, pythonVersion3_12)) {
+                    return true;
+                }
+                break;
+            }
+
+            case ParseNodeType.TypeParameterList: {
+                // A type parameter scope is a proxy scope, so continue
+                // searching for the enclosing execution frame.
+                break;
+            }
+
+            default: {
+                // A class body or module frame receives no first argument.
+                return false;
+            }
+        }
+
+        curNode = curNode.parent ? getEvaluationScopeNode(curNode.parent, nodeInfo).node : undefined;
+    }
+
+    return false;
 }
 
 // This is similar to getEnclosingFunction except that it uses evaluation

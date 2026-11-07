@@ -3951,7 +3951,12 @@ export class TypeVarTransformer {
 
     transformGenericTypeAlias(type: Type, recursionCount: number) {
         const aliasInfo = type.props?.typeAliasInfo;
-        if (!aliasInfo || !aliasInfo.shared.typeParams || !aliasInfo.typeArgs) {
+        if (
+            !aliasInfo ||
+            !aliasInfo.shared.typeParams ||
+            !aliasInfo.typeArgs ||
+            (isTypeVar(type) && type.shared.recursiveAlias)
+        ) {
             return type;
         }
 
@@ -4061,6 +4066,10 @@ export class TypeVarTransformer {
 
             // If this is an empty tuple, don't recompute the non-tuple type argument.
             if (newTupleTypeArgs && newTupleTypeArgs.length > 0) {
+                if (!specializationNeeded) {
+                    return classType;
+                }
+
                 // Combine the tuple type args into a single non-tuple type argument.
                 newTypeArgs = [combineTupleTypeArgs(newTupleTypeArgs)];
             }
@@ -4772,7 +4781,8 @@ class UnificationTypeTransformer extends TypeVarTransformer {
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
-        if (!this._isTypeVarLive(typeVar)) {
+        // A borrowed caller variable remains bound even outside its lexical scope.
+        if (!TypeVarType.isBound(typeVar) && !this._isTypeVarLive(typeVar)) {
             return TypeVarType.cloneAsUnificationVar(typeVar, this._usageOffset);
         }
 

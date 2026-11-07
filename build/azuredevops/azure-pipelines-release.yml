@@ -73,7 +73,7 @@ extends:
         compiled:
           enabled: false
           justificationForDisabling: 'Running a scan on the Pyright-Build azure-pipelines.yml'
-      sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
+      sourceAnalysisPool: VSEng-MicroBuildVSStable
     pool:
       name: AzurePipelines-EO
       image: 1ESPT-Ubuntu22.04
@@ -88,7 +88,7 @@ extends:
             displayName: Build VSIX
             timeoutInMinutes: 60
             pool:
-              name: VSEngSS-MicroBuild2022-1ES # use windows for codesigning to make things easier https://dev.azure.com/devdiv/DevDiv/_wiki/wikis/DevDiv.wiki/650/MicroBuild-Signing
+              name: VSEng-MicroBuildVSStable # use windows for codesigning to make things easier https://dev.azure.com/devdiv/DevDiv/_wiki/wikis/DevDiv.wiki/650/MicroBuild-Signing
               os: windows
             templateContext:
               mb:
@@ -537,9 +537,9 @@ extends:
                 displayName: Publish package to registry
 
                 pool:
-                  name: VSEngSS-MicroBuild2022-1ES # This pool is required to have the certs needed to publish using ESRP.
+                  name: VSEng-MicroBuildVSStable # This pool is required to have the certs needed to publish using ESRP.
                   os: windows
-                  image: server2022-microbuildVS2022-1es
+                  image: server2025-microbuildVSStable
 
                 templateContext:
                   type: releaseJob

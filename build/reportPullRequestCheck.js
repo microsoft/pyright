@@ -27,7 +27,7 @@ module.exports = async ({ github, context, name, headSha, status, conclusion, su
         per_page: 100,
     });
     const existing = checks.find((check) => check.external_id === externalId);
-    // PR-open reporting can race with a fast Validation run. Never reset an active or finished check.
+    // Queue reporting can race with a fast Validation run. Never reset an active or finished check.
     if (existing && (status === 'queued' || (status === 'completed' && existing.status !== 'queued'))) {
         return;
     }

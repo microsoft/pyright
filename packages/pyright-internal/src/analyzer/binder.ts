@@ -3420,27 +3420,44 @@ export class Binder extends ParseTreeWalker {
                         });
                     }
 
-                    // Look for "type(X) is Y" or "type(X) is not Y".
+                    // Look for type(X) on either side without skipping references in the other operand.
+                    let isLeftNarrowing: boolean;
                     if (
-                        isOrIsNotOperator &&
                         expression.d.leftExpr.nodeType === ParseNodeType.Call &&
                         expression.d.leftExpr.d.leftExpr.nodeType === ParseNodeType.Name &&
                         expression.d.leftExpr.d.leftExpr.d.value === 'type' &&
                         expression.d.leftExpr.d.args.length === 1 &&
                         expression.d.leftExpr.d.args[0].d.argCategory === ArgCategory.Simple
                     ) {
-                        return this._isNarrowingExpression(
+                        isLeftNarrowing = this._isNarrowingExpression(
                             expression.d.leftExpr.d.args[0].d.valueExpr,
                             expressionList,
                             { ...options, isComplexExpression: true }
                         );
+                    } else {
+                        isLeftNarrowing = this._isNarrowingExpression(expression.d.leftExpr, expressionList, {
+                            ...options,
+                            isComplexExpression: true,
+                            allowDiscriminatedNarrowing: true,
+                        });
                     }
 
-                    const isLeftNarrowing = this._isNarrowingExpression(expression.d.leftExpr, expressionList, {
-                        ...options,
-                        isComplexExpression: true,
-                        allowDiscriminatedNarrowing: true,
-                    });
+                    // Look for "Y is type(X)", "Y is not type(X)", "Y == type(X)" or "Y != type(X)".
+                    if (
+                        expression.d.rightExpr.nodeType === ParseNodeType.Call &&
+                        expression.d.rightExpr.d.leftExpr.nodeType === ParseNodeType.Name &&
+                        expression.d.rightExpr.d.leftExpr.d.value === 'type' &&
+                        expression.d.rightExpr.d.args.length === 1 &&
+                        expression.d.rightExpr.d.args[0].d.argCategory === ArgCategory.Simple
+                    ) {
+                        const isRightNarrowing = this._isNarrowingExpression(
+                            expression.d.rightExpr.d.args[0].d.valueExpr,
+                            expressionList,
+                            { ...options, isComplexExpression: true }
+                        );
+
+                        return isLeftNarrowing || isRightNarrowing;
+                    }
 
                     // Look for "X is Y" or "X is not Y".
                     // Look for X == <literal> or X != <literal>
@@ -4694,9 +4711,9 @@ export class Binder extends ParseTreeWalker {
     }
 
     // Handles some special-case assignment statements that are found
-    // within the typings.pyi file.
+    // within typing.pyi, and annotation modifiers in typing_extensions.pyi.
     private _handleTypingStubAssignmentOrAnnotation(node: AssignmentNode | TypeAnnotationNode) {
-        if (!this._fileInfo.isTypingStubFile) {
+        if (!this._fileInfo.isTypingStubFile && !this._fileInfo.isTypingExtensionsStubFile) {
             return false;
         }
 
@@ -4740,11 +4757,19 @@ export class Binder extends ParseTreeWalker {
             'LiteralString',
             'OrderedDict',
             'TypeIs',
+            'TypeForm',
+            'Required',
+            'NotRequired',
+            'ReadOnly',
         ]);
 
         const assignedName = assignedNameNode.d.value;
 
-        if (!specialTypes.has(assignedName)) {
+        if (
+            !specialTypes.has(assignedName) ||
+            (!this._fileInfo.isTypingStubFile &&
+                !['TypeForm', 'Required', 'NotRequired', 'ReadOnly'].includes(assignedName))
+        ) {
             return false;
         }
 
