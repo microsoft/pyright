@@ -26,6 +26,19 @@ class MutualDescriptor2:
     __get__: MutualDescriptor1
 
 
+class ExpandingDescriptor[T]:
+    __get__: "ExpandingDescriptor[list[T]]"
+
+
+class GenericDescriptor[T]:
+    __get__: T
+
+
+class GenericGetter:
+    def __get__(self, obj: object, owner: type | None = None) -> Callable[..., Callable[..., int]]:
+        return lambda *args: lambda *args: 42
+
+
 class GetterDescriptor:
     def __get__(self, obj: object, owner: type | None = None) -> Callable[..., int]:
         return lambda *args: 42
@@ -39,6 +52,8 @@ class Host:
     recursive = RecursiveDescriptor()
     decorated = DecoratedDescriptor()
     mutual = MutualDescriptor1()
+    expanding = ExpandingDescriptor[int]()
+    generic = GenericDescriptor[GenericDescriptor[GenericGetter]]()
     nested = NestedDescriptor()
 
 
@@ -48,5 +63,8 @@ reveal_type(host.decorated, expected_text="Unknown")
 reveal_type(host.mutual, expected_text="Unknown")
 reveal_type(Host.recursive, expected_text="Unknown")
 reveal_type(RecursiveDescriptor.__get__, expected_text="Unknown")
+reveal_type(host.expanding, expected_text="Unknown")
+assert_type(host.generic, int)
+assert_type(Host.generic, int)
 assert_type(host.nested, int)
 assert_type(Host.nested, int)
