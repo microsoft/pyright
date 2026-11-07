@@ -76,11 +76,20 @@ import {
     isMetaclassInstance,
     isNoneInstance,
     isNoneTypeClass,
+    isOptionalType,
+    isProperty,
+    isSentinelLiteral,
+    isTupleClass,
     isTupleGradualForm,
     lookUpClassMember,
     makeTypeVarsFree,
     mapSubtypes,
     MemberAccessFlags,
+    removeNoneFromUnion,
+    specializeTupleClass,
+    someSubtypes,
+    specializeWithUnknownTypeArgs,
+    stripTypeForm,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 
@@ -368,7 +377,111 @@ export function getTypeNarrowingCallback(
                             ),
                             isIncomplete: isLiteralOrClassInfo.isIncomplete,
                         };
-                    };
+                    }
+
+                    // If the RHS is statically known not to be None, a positive
+                    // identity comparison proves that the LHS isn't None either.
+                    // This is intentionally limited to removing None. In
+                    // particular, don't attempt to intersect arbitrary nominal,
+                    // protocol, or generic types here.
+                    if (adjIsPositiveTest && !isAnyOrUnknown(rightType)) {
+                        const noneType = evaluator.getNoneType();
+                        const rightTypeCanBeNone = someSubtypes(rightType, (subtype) => {
+                            if (isAnyOrUnknown(subtype)) {
+                                return true;
+                            }
+
+                            if (isTypeVar(subtype)) {
+                                if (subtype.shared.boundType) {
+                                    return evaluator.assignType(subtype.shared.boundType, noneType);
+                                }
+
+                                if (subtype.shared.constraints.length > 0) {
+                                    return subtype.shared.constraints.some((constraint) =>
+                                        evaluator.assignType(constraint, noneType)
+                                    );
+                                }
+
+                                // An unconstrained TypeVar can be None.
+                                return true;
+                            }
+
+                            return evaluator.assignType(subtype, noneType);
+                        });
+
+                        if (!rightTypeCanBeNone) {
+                            return (type: Type) => {
+                                return {
+                                    type: isOptionalType(type) ? removeNoneFromUnion(type) : type,
+                                    isIncomplete: !!rightTypeResult.isIncomplete,
+                                };
+                            };
+                        }
+                    }
+                }
+
+                // Look for X[<literal>] is <literal> or X[<literal>] is not <literal>.
+                if (
+                    testExpression.d.leftExpr.nodeType === ParseNodeType.Index &&
+                    testExpression.d.leftExpr.d.items.length === 1 &&
+                    !testExpression.d.leftExpr.d.trailingComma &&
+                    testExpression.d.leftExpr.d.items[0].d.argCategory === ArgCategory.Simple &&
+                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpr.d.leftExpr, (ref, expr) =>
+                        isNameSameScope(evaluator, ref, expr)
+                    )
+                ) {
+                    const indexTypeResult = evaluator.getTypeOfExpression(
+                        testExpression.d.leftExpr.d.items[0].d.valueExpr
+                    );
+                    const indexType = indexTypeResult.type;
+
+                    if (isClassInstance(indexType) && isLiteralType(indexType)) {
+                        if (ClassType.isBuiltIn(indexType, 'str')) {
+                            const rightType = evaluator.getTypeOfExpression(testExpression.d.rightExpr).type;
+                            if (isClassInstance(rightType) && rightType.priv.literalValue !== undefined) {
+                                return (type: Type) => {
+                                    return {
+                                        type: narrowTypeForDiscriminatedDictEntryComparison(
+                                            evaluator,
+                                            type,
+                                            indexType,
+                                            rightType,
+                                            adjIsPositiveTest
+                                        ),
+                                        isIncomplete: !!indexTypeResult.isIncomplete,
+                                    };
+                                };
+                            }
+                        } else if (ClassType.isBuiltIn(indexType, 'int')) {
+                            const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
+                            const rightType = rightTypeResult.type;
+
+                            if (isClassInstance(rightType) && rightType.priv.literalValue !== undefined) {
+                                let canNarrow = false;
+                                // Narrowing can be applied only for bool or enum literals.
+                                if (ClassType.isBuiltIn(rightType, 'bool')) {
+                                    canNarrow = true;
+                                } else if (rightType.priv.literalValue instanceof EnumLiteral) {
+                                    canNarrow = true;
+                                }
+
+                                if (canNarrow) {
+                                    return (type: Type) => {
+                                        return {
+                                            type: narrowTypeForDiscriminatedTupleComparison(
+                                                evaluator,
+                                                type,
+                                                indexType,
+                                                rightType,
+                                                adjIsPositiveTest
+                                            ),
+                                            isIncomplete: !!rightTypeResult.isIncomplete,
+                                        };
+                                    };
+                                }
+                            }
+                        }
+                    }
                 }
 
                 const indexedLiteralInfo = TypeEvaluatorNarrowing.getIndexedLiteralNarrowingInfo(
