@@ -490,6 +490,80 @@ test('Operator12', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Operator13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator13.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportOperatorIssue);
+});
+
+test('Operator14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator14.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Enum17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum17.py']);
+
+    TestUtils.validateResults(analysisResults, 9);
+    analysisResults[0].errors.forEach((error) =>
+        assert.strictEqual(error.getRule(), DiagnosticRule.reportAttributeAccessIssue)
+    );
+});
+
+test('Enum18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum18.py']);
+
+    TestUtils.validateResults(analysisResults, 7);
+    analysisResults[0].errors.forEach((error) => assert.strictEqual(error.getRule(), DiagnosticRule.reportReturnType));
+});
+
+test('Enum19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum19.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+    analysisResults[0].errors.forEach((error) =>
+        assert.strictEqual(error.getRule(), DiagnosticRule.reportAttributeAccessIssue)
+    );
+});
+
+test('Enum20', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum20.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+    analysisResults[0].errors.forEach((error) =>
+        assert.ok(
+            error.getRule() === DiagnosticRule.reportAttributeAccessIssue ||
+                error.getRule() === DiagnosticRule.reportReturnType
+        )
+    );
+});
+
+test('Enum21', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum21.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+    analysisResults[0].errors.forEach((error) =>
+        assert.ok(
+            error.getRule() === DiagnosticRule.reportAttributeAccessIssue ||
+                error.getRule() === DiagnosticRule.reportReturnType
+        )
+    );
+});
+
+test('Enum22', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum22.py']);
+
+    TestUtils.validateResults(analysisResults, 18);
+    analysisResults[0].errors.forEach((error) =>
+        assert.ok(
+            error.getRule() === DiagnosticRule.reportAttributeAccessIssue ||
+                error.getRule() === DiagnosticRule.reportReturnType
+        )
+    );
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
