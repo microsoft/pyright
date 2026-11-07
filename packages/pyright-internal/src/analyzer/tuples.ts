@@ -58,7 +58,11 @@ import {
 // we default to tuple[Unknown, ...].
 const maxInferredTupleEntryCount = 256;
 
-export function makeTupleObject(evaluator: TypeEvaluator, typeArgs: TupleTypeArg[], isUnpacked = false) {
+export function makeTupleObject(
+    evaluator: Pick<TypeEvaluator, 'getTupleClassType'>,
+    typeArgs: TupleTypeArg[],
+    isUnpacked = false
+) {
     const tupleClass = evaluator.getTupleClassType();
     if (tupleClass && isInstantiableClass(tupleClass)) {
         return convertToInstance(specializeTupleClass(tupleClass, typeArgs, /* isTypeArgExplicit */ true, isUnpacked));
