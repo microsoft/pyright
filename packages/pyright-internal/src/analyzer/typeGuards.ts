@@ -121,9 +121,7 @@ export function applyTypeNarrowingCallback(
     };
 }
 
-function getEqualsLiteralNarrowingContext(
-    evaluator: TypeEvaluator
-): TypeEvaluatorNarrowing.EqualsLiteralNarrowingContext {
+function getEqualsNarrowingContext(evaluator: TypeEvaluator): TypeEvaluatorNarrowing.EqualsNarrowingContext {
     return {
         getTypeOfExpression: (expression) => evaluator.getTypeOfExpression(expression),
         isMatchingExpression: (reference, expression) =>
@@ -410,79 +408,68 @@ export function getTypeNarrowingCallback(
                 }
             }
 
-            if (equalsOrNotEqualsOperator) {
-                const adjIsPositiveTest =
-                    testExpression.d.operator === OperatorType.Equals ? isPositiveTest : !isPositiveTest;
-
-                if (isMatchingExpressionOrWalrusRhs(evaluator, reference, testExpression.d.leftExpr)) {
-                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
-                    const rightType = rightTypeResult.type;
-
-                    // Look for X == <class> or X != <class>.
-                    if (isInstantiableClass(rightType)) {
-                        return (type: Type) => {
-                            return {
-                                type: narrowTypeForClassComparison(
-                                    evaluator,
-                                    type,
-                                    rightType,
-                                    adjIsPositiveTest,
-                                    /* isIsOperator */ false
-                                ),
-                                isIncomplete: !!rightTypeResult.isIncomplete,
-                            };
-                        };
-                    }
-                }
-            }
-
-            const equalsLiteralInfo = TypeEvaluatorNarrowing.getEqualsLiteralNarrowingInfo(
-                getEqualsLiteralNarrowingContext(evaluator),
+            const equalsInfo = TypeEvaluatorNarrowing.getEqualsNarrowingInfo(
+                getEqualsNarrowingContext(evaluator),
                 reference,
                 testExpression,
                 isPositiveTest
             );
-            if (equalsLiteralInfo) {
-                if (equalsLiteralInfo.kind === 'literal') {
+            if (equalsInfo) {
+                if (equalsInfo.kind === 'literal') {
                     return (type: Type) => {
                         return {
                             type: narrowTypeForLiteralComparison(
                                 evaluator,
                                 type,
-                                equalsLiteralInfo.rightType as ClassType,
-                                equalsLiteralInfo.adjIsPositiveTest,
+                                equalsInfo.rightType,
+                                equalsInfo.adjIsPositiveTest,
                                 /* isIsOperator */ false
                             ),
-                            isIncomplete: equalsLiteralInfo.isIncomplete,
+                            isIncomplete: equalsInfo.isIncomplete,
+                        };
+                    };
+                }
+
+                if (equalsInfo.kind === 'class') {
+                    return (type: Type) => {
+                        return {
+                            type: narrowTypeForClassComparison(
+                                evaluator,
+                                type,
+                                equalsInfo.rightType,
+                                equalsInfo.adjIsPositiveTest,
+                                /* isIsOperator */ false
+                            ),
+                            isIncomplete: equalsInfo.isIncomplete,
                         };
                     };
                 }
 
                 return (type: Type) => {
                     let narrowedType: Type;
-                    const indexType = equalsLiteralInfo.indexType!;
+                    const indexType = equalsInfo.indexType;
 
                     if (ClassType.isBuiltIn(indexType, 'str')) {
                         narrowedType = narrowTypeForDiscriminatedDictEntryComparison(
                             evaluator,
                             type,
                             indexType,
-                            equalsLiteralInfo.rightType,
-                            equalsLiteralInfo.adjIsPositiveTest
+                            equalsInfo.rightType,
+                            equalsInfo.adjIsPositiveTest
                         );
                     } else {
                         narrowedType = narrowTypeForDiscriminatedTupleComparison(
                             evaluator,
                             type,
                             indexType,
-                            equalsLiteralInfo.rightType,
-                            equalsLiteralInfo.adjIsPositiveTest
+                            equalsInfo.rightType,
+                            equalsInfo.adjIsPositiveTest
                         );
                     }
 
                     return {
                         type: narrowedType,
-                        isIncomplete: equalsLiteralInfo.isIncomplete,
+                        isIncomplete: equalsInfo.isIncomplete,
                     };
                 };
             }
