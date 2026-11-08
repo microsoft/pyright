@@ -60,6 +60,11 @@ export type ShadowFileBinder = (stubFileUri: Uri, implFileUri: Uri) => SourceFil
 export type BoundSourceGetter = (fileUri: Uri) => SourceFileInfo | undefined;
 
 export class SourceMapper {
+    private readonly _functionDeclarationCache = new Map<
+        FunctionDeclaration,
+        readonly ClassOrFunctionOrVariableDeclaration[]
+    >();
+
     constructor(
         private _importResolver: ImportResolver,
         private _execEnv: ExecutionEnvironment,
@@ -96,7 +101,14 @@ export class SourceMapper {
         if (isClassDeclaration(stubDecl)) {
             return this._findClassOrTypeAliasDeclarations(stubDecl);
         } else if (isFunctionDeclaration(stubDecl)) {
-            return this._findFunctionOrTypeAliasDeclarations(stubDecl);
+            // Recursive results can be partial because of the active traversal stack.
+            // Cache only completed public lookups, including unsuccessful ones.
+            let declarations = this._functionDeclarationCache.get(stubDecl);
+            if (!declarations) {
+                declarations = this._findFunctionOrTypeAliasDeclarations(stubDecl);
+                this._functionDeclarationCache.set(stubDecl, declarations);
+            }
+            return [...declarations];
         } else if (isVariableDeclaration(stubDecl)) {
             return this._findVariableDeclarations(stubDecl);
         } else if (isParamDeclaration(stubDecl)) {
@@ -120,9 +132,7 @@ export class SourceMapper {
     }
 
     findFunctionDeclarations(stubDecl: FunctionDeclaration): FunctionDeclaration[] {
-        return this._findFunctionOrTypeAliasDeclarations(stubDecl)
-            .filter((d) => isFunctionDeclaration(d))
-            .map((d) => d);
+        return this.findDeclarations(stubDecl).filter(isFunctionDeclaration);
     }
 
     isUserCode(uri: Uri): boolean {

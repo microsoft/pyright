@@ -194,7 +194,7 @@ class GeoSeries(GeoPandasBase, pd.Series[BaseGeometry]):  # type: ignore[type-va
         check_circular: bool = True,
         allow_nan: bool = True,
         cls: type[json.JSONEncoder] | None = None,
-        indent: None | int | str = None,
+        indent: int | str | None = None,
         separators: tuple[str, str] | None = None,
         default: Callable[..., Any] | None = None,  # as typed in the json stdlib module
         sort_keys: bool = False,

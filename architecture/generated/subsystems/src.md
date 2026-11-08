@@ -29,7 +29,7 @@ Source files under `src/`. Grouped by the functional area each file was assigned
 
 ## Language Service Providers
 
-- [src/languageServerBase.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/languageServerBase.ts#L1-L1631) — Base class providing common Pyright language server functionality and progress reporter wrapping
+- [src/languageServerBase.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/languageServerBase.ts#L1-L1631) — Provides a base LanguageServer implementation with common LSP handlers and utilities for Pyright language servers
 
 ## Shared Runtime Infrastructure
 

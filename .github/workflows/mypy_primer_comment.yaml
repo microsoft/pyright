@@ -12,45 +12,113 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pull-requests: write
 
 jobs:
   comment:
     name: Comment PR from mypy_primer
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      ${{ github.repository == 'microsoft/pyright' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'workflow_run' &&
+      github.event.workflow_run.path == '.github/workflows/mypy_primer_pr.yaml' &&
+      github.event.workflow_run.repository.id == github.event.repository.id }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
       - name: Download diffs
+        id: download
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');
-            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               run_id: ${{ github.event.workflow_run.id }},
+            const path = require('path');
+            const { loadSource } = require('./build/ci/mypyPrimerAnalysis.ts');
+            const run = context.payload.workflow_run;
+            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+              ...context.repo,
+              run_id: run.id,
+              per_page: 100,
             });
-            const matchedArtifacts = artifacts.data.artifacts.filter((artifact) =>
+            const matchedArtifacts = artifacts.filter((artifact) =>
               artifact.name.startsWith("mypy_primer_diffs"));
+            if (!matchedArtifacts.length) {
+              core.notice('The primer workflow skipped this pull request')
+              fs.writeFileSync('primer-analysis-context.json', JSON.stringify({ skipped: true }))
+              return
+            }
+            const source = await loadSource(
+              github.request.bind(github), `${context.repo.owner}/${context.repo.repo}`,
+              { runId: run.id, runAttempt: run.run_attempt },
+            );
+            const validationId = Number(/^Run mypy_primer after Validation #(\d+)$/.exec(run.display_title)?.[1]);
+            if (!Number.isSafeInteger(validationId) || validationId <= 0) {
+              throw new Error('The primer run does not identify its source Validation run');
+            }
+            const { data: validation } = await github.rest.actions.getWorkflowRun({
+              ...context.repo, run_id: validationId,
+            });
+            if (validation.head_sha !== source.headSha) {
+              throw new Error('The Validation head changed while resolving the primer run');
+            }
+            const resolve = require('./build/resolveValidatedPullRequest.js');
+            // Context.repo is a prototype getter, so spreading context does not retain it.
+            const validated = await resolve({
+              github, context: { ...context, repo: context.repo, payload: { workflow_run: validation } }, core,
+            });
+            if (!validated) {
+              core.notice('Skipping comments for a stale or closed pull request');
+              fs.writeFileSync('primer-analysis-context.json', JSON.stringify({ skipped: true }));
+              return;
+            }
+            core.setOutput('pr-number', validated.pullRequest.number);
+            core.setOutput('head-sha', source.headSha);
+            core.setOutput('has-diffs', 'true')
 
-            for (let i = 0; i < matchedArtifacts.length; i++) {
-              const matchArtifact = matchedArtifacts[i];
+            const directory = path.join(process.env.RUNNER_TEMP, 'primer-diffs');
+            fs.mkdirSync(directory, { recursive: true });
+            for (let i = 0; i < 8; i++) {
+              const matchArtifact = matchedArtifacts.find((artifact) => artifact.name === `mypy_primer_diffs_${i}`);
+              if (!matchArtifact || matchedArtifacts.filter((artifact) => artifact.name === matchArtifact.name).length !== 1) {
+                throw new Error(`Missing or duplicate primer shard ${i}`);
+              }
               const download = await github.rest.actions.downloadArtifact({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 artifact_id: matchArtifact.id,
                 archive_format: "zip",
               });
-              fs.writeFileSync(`diff_${i}.zip`, Buffer.from(download.data));
+              fs.writeFileSync(path.join(directory, `diff_${i}.zip`), Buffer.from(download.data));
             }
 
-      - run: unzip diff_\*.zip
-      - run: |
-          cat diff_*.txt | tee fulldiff.txt
+      - if: ${{ steps.download.outputs.has-diffs == 'true' }}
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          directory = Path(os.environ["RUNNER_TEMP"]) / "primer-diffs"
+          with open("fulldiff.txt", "w", encoding="utf-8") as output:
+              for shard in range(8):
+                  with ZipFile(directory / f"diff_{shard}.zip") as archive:
+                      entries = archive.infolist()
+                      if (len(entries) != 1 or entries[0].filename != f"diff_{shard}.txt"
+                              or entries[0].is_dir() or entries[0].file_size > 8 * 1024 * 1024):
+                          raise ValueError(f"Invalid primer shard archive: {shard}")
+                      output.write(archive.read(entries[0]).decode("utf-8"))
 
       - name: Post comment
+        if: ${{ steps.download.outputs.has-diffs == 'true' }}
         id: post-comment
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ steps.download.outputs.pr-number }}
+          PR_HEAD_SHA: ${{ steps.download.outputs.head-sha }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -86,7 +154,15 @@ jobs:
             } else {
               body = "According to [mypy_primer](https://github.com/hauntsaninja/mypy_primer), this change doesn't affect type check results on a corpus of open source code. ✅"
             }
-            const prNumber = parseInt(fs.readFileSync("pr_number.txt", { encoding: "utf8" }))
+            const prNumber = Number(process.env.PR_NUMBER)
+            const { data: pullRequest } = await github.rest.pulls.get({
+              ...context.repo, pull_number: prNumber,
+            })
+            if (pullRequest.state !== 'open' || pullRequest.head.sha !== process.env.PR_HEAD_SHA) {
+              core.notice('Skipping comments because the pull request changed')
+              fs.writeFileSync('primer-analysis-context.json', JSON.stringify({ skipped: true }))
+              return
+            }
             await github.rest.issues.createComment({
               issue_number: prNumber,
               owner: context.repo.owner,
@@ -100,6 +176,7 @@ jobs:
             return prNumber
 
       - name: Hide old comments
+        if: ${{ steps.post-comment.outputs.result != '' }}
         # v0.4.0
         uses: kanga333/comment-hider@c12bb20b48aeb8fc098e35967de8d4f8018fffdf # v0.4.0
         with:

@@ -23,19 +23,33 @@ combination of partial successes. Public queries display these alternatives as
 that would reject invariant assignments. `OverloadResult` is an internal type
 representation, not new Python annotation syntax.
 
-The producer restriction remains direct positional Name calls using supported
-function parameters. Nested invariant and nominal generic shapes are supported
-only within the existing selector proof domain. Constructors, bound-method
-producers, unsupported or escaping use graphs, and unsupported gradual argument
-shapes remain ordinary. Concrete calls preserve ordinary precision; admission
-or resource cutoffs do not grant more permissive fallback types.
+Producers include direct positional Name calls and specialized instance-method
+calls on function parameters. A method receiver must belong to the same invariant
+nominal class as its declared `self` specializations; its explicit positional
+arguments must also be supported function parameters. Zero-argument methods and
+inline member/call chains are supported, including the value argument of
+`reveal_type` and `assert_type`. Assigned results and aliases retain complete
+alternatives. Stored declared local method projections are admitted only on
+an untransformed producer result or its Name-only aliases. Successive stored
+projections and stored projections on transformed inline results remain ordinary;
+inline member/call chains are still supported.
+
+Nested invariant and nominal generic shapes remain bounded by the selector's
+proof domain. Constructors, class/static methods, inherited receiver adaptation,
+default/keyword arguments, unsupported or escaping use graphs, and unsupported
+gradual argument or return shapes remain ordinary. In particular, `Never`-self
+signatures and declared gradual returns retain ordinary behavior; they are not
+silently treated as fixed witnesses. Concrete calls preserve ordinary precision;
+admission or resource cutoffs do not grant more permissive fallback types.
 
 ## Automatic activation
 
 Ordinary overload matching first evaluates a real argument/parameter match.
-For a complete, successful, unexpanded match at a supported direct assignment
-call, the controller checks whether its arguments could contain invariant
-`Any`. Concrete calls continue through the ordinary evaluator without module
+For a complete, successful, unexpanded match at a supported producer call,
+the controller checks whether its arguments or bound receiver could contain
+invariant `Any`. Method selection includes the stripped `self` parameter in
+coverage proofs rather than treating a zero-argument call as an unambiguous match.
+Concrete calls continue through the ordinary evaluator without module
 scanning, candidate operations, reservations or private cache restoration.
 Evaluator routing and projection hooks stay disconnected until an admitted
 activation installs operation roots. Controller initialization and disposal
@@ -68,6 +82,19 @@ necessary to publish assignment and checker diagnostics from the newly owned
 operation. No partially evaluated `TypeResult` is promoted to a carrier.
 The existing private cache transactions, baseline operations, real alternative
 validations and diagnostic publication then perform the work.
+
+Inline diagnostic readers obtain the alternatives for their complete value
+expression without substituting into type arguments. A failed value with no
+successful witness is evaluated natively by the reader so its diagnostics are
+preserved. After building that value, the reader expression is evaluated once
+in reader mode rather than also performing a duplicate ordinary baseline.
+Checker publication still performs a complete native reader operation.
+An inline operation that fails for the ordinary first receiver can still have a
+complete successful alternative. Its stored value and subsequent baseline projections use that
+successful result, not the failed `Unknown`, so later invalid members remain
+errors. Local method-projection admission inspects declarations and specializes
+their declared returns without evaluating reaching assignments; preflight must
+not cache another producer before its lazy activation.
 
 The candidate/proof/graph/node limits and actual candidate-call accounting are
 unchanged. Active producers still perform the existing charged candidate

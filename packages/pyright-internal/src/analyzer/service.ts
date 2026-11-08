@@ -912,7 +912,8 @@ export class AnalyzerService {
         // precedence over `include` — a directory auto-detected as a virtual environment stays
         // excluded even when it is explicitly included. When disabled, no default excludes are
         // added and virtual-environment auto-detection is left off, so nothing is auto-excluded.
-        const useDefaultExcludes = commandLineOptions.configSettings.useDefaultExcludes ?? true;
+        const useDefaultExcludes =
+            configOptions.useDefaultExcludes ?? commandLineOptions.configSettings.useDefaultExcludes ?? true;
         if (useDefaultExcludes) {
             // Deduplicate against patterns the user already listed (by compiled regex source) so
             // specifying a custom exclude never silently drops — or duplicates — the defaults.
@@ -1652,7 +1653,7 @@ export class AnalyzerService {
         }
 
         // Watch the library paths for package install/uninstall.
-        this._librarySearchUrisToWatch = findPythonSearchPaths(
+        const librarySearchPaths = findPythonSearchPaths(
             this.fs,
             this._backgroundAnalysisProgram.configOptions,
             this._backgroundAnalysisProgram.host,
@@ -1660,6 +1661,11 @@ export class AnalyzerService {
             /* includeWatchPathsOnly */ true,
             this._executionRootUri
         );
+
+        // Publish stub roots for both server and client watchers, even before the directory exists.
+        this._librarySearchUrisToWatch = this._configOptions.stubPath
+            ? [...librarySearchPaths, this._configOptions.stubPath]
+            : librarySearchPaths;
 
         // Make sure the watch list includes extra paths that are not part of user files.
         // Sometimes, nested folders of the workspace are added as extra paths to import modules as top-level modules.

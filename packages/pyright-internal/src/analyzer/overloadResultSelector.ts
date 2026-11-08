@@ -118,19 +118,26 @@ export function hasNestedOverloadAny(type: Type): boolean {
 // This is an over-approximation for local-use preflight, not a type match.
 // Parameter-only operands avoid contextual inference and dependent producers.
 export function isAutomaticOverloadSeedSyntax(node: ParseNode): node is CallNode {
-    return (
-        node.nodeType === ParseNodeType.Call &&
-        node.d.leftExpr.nodeType === ParseNodeType.Name &&
-        node.parent?.nodeType === ParseNodeType.Assignment &&
-        node.parent.d.rightExpr === node &&
-        node.d.args.length > 0 &&
-        node.d.args.length <= 8 &&
-        node.d.args.every(
+    if (
+        node.nodeType !== ParseNodeType.Call ||
+        node.d.args.length > 8 ||
+        !node.d.args.every(
             (arg) =>
                 arg.d.argCategory === ArgCategory.Simple &&
                 !arg.d.name &&
                 arg.d.valueExpr.nodeType === ParseNodeType.Name
         )
+    ) {
+        return false;
+    }
+    if (node.d.leftExpr.nodeType === ParseNodeType.MemberAccess) {
+        return node.d.leftExpr.d.leftExpr.nodeType === ParseNodeType.Name;
+    }
+    return (
+        node.d.leftExpr.nodeType === ParseNodeType.Name &&
+        node.parent?.nodeType === ParseNodeType.Assignment &&
+        node.parent.d.rightExpr === node &&
+        node.d.args.length > 0
     );
 }
 
@@ -138,15 +145,28 @@ export function findAutomaticOverloadSeeds(nodes: readonly ParseNode[], evaluato
     const declarations = (name: NameNode) =>
         evaluator.lookUpSymbolRecursive(name, name.d.value, true)?.symbol.getDeclarations() ?? [];
     return nodes.filter((node): node is CallNode => {
-        if (!isAutomaticOverloadSeedSyntax(node) || node.d.leftExpr.nodeType !== ParseNodeType.Name) {
+        if (!isAutomaticOverloadSeedSyntax(node)) {
             return false;
         }
-        const callee = declarations(node.d.leftExpr);
-        if (
-            callee.length < 2 ||
-            callee.length > 33 ||
-            callee.some((d) => d.type !== DeclarationType.Function || d.isMethod || !d.node.d.returnAnnotation)
-        ) {
+        if (node.d.leftExpr.nodeType === ParseNodeType.MemberAccess) {
+            const receiver = node.d.leftExpr.d.leftExpr;
+            if (receiver.nodeType !== ParseNodeType.Name) {
+                return false;
+            }
+            const decls = declarations(receiver);
+            if (decls.length !== 1 || decls[0].type !== DeclarationType.Param) {
+                return false;
+            }
+        } else if (node.d.leftExpr.nodeType === ParseNodeType.Name) {
+            const callee = declarations(node.d.leftExpr);
+            if (
+                callee.length < 2 ||
+                callee.length > 33 ||
+                callee.some((d) => d.type !== DeclarationType.Function || d.isMethod || !d.node.d.returnAnnotation)
+            ) {
+                return false;
+            }
+        } else {
             return false;
         }
         return node.d.args.every((arg) => {

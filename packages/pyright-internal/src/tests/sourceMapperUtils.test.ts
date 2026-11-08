@@ -18,6 +18,7 @@ import {
 } from '../analyzer/declaration';
 import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 import { buildImportTree as buildImportTreeImpl } from '../analyzer/sourceMapperUtils';
+import { getFunctionOrClassDeclDocString } from '../analyzer/typeDocStringUtils';
 import { TypeCategory } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { NullConsole } from '../common/console';
@@ -32,7 +33,7 @@ import { NameNode, ParseNodeType } from '../parser/parseNodes';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { TestAccessHost } from './harness/testAccessHost';
-import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
+import { getNodeAtMarker, parseAndGetTestState, TestState } from './harness/fourslash/testState';
 import { TestFileSystem } from './harness/vfs/filesystem';
 
 function buildImportTree(
@@ -410,6 +411,165 @@ test('hover shows inherited stdlib docstring through configured venv', () => {
         '```python\n(method) def update(value: Unknown = None) -> Unknown\n```\n---\nDo the thing.\n\nUpdates the internal state.';
     assert.strictEqual(contents.value, expectedHoverMarkdown);
 });
+
+test('completed function mappings are shared without exposing cached arrays', () => {
+    const code = `
+// @filename: mylib.pyi
+// @library: true
+//// class Array:
+////     def mean(self) -> int: ...
+
+// @filename: mylib.py
+// @library: true
+//// class Array:
+////     def mean(self):
+////         """Original documentation."""
+////         return 1
+
+// @filename: test.py
+//// from mylib import Array
+//// Array()./*marker*/mean()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const declaration = getFunctionDeclarationAtMarker(state, 'marker');
+    const uri = state.getMarkerByName('marker').fileUri;
+    const mapper = state.program.getSourceMapper(uri, CancellationToken.None);
+    const sourcePaths = jest.spyOn(mapper, 'getSourcePathsFromStub');
+    const first = mapper.findDeclarations(declaration);
+    assert.strictEqual(first.length, 1);
+    assert(isFunctionDeclaration(first[0]));
+    const implementationUri = first[0].uri;
+    assert.strictEqual(getFunctionOrClassDeclDocString(first[0]), 'Original documentation.');
+    first.length = 0;
+
+    const second = mapper.findFunctionDeclarations(declaration);
+    assert.deepStrictEqual(getUniqueDeclPaths(second), ['/lib/site-packages/mylib.py']);
+    second.length = 0;
+    assert.strictEqual(mapper.findDeclarations(declaration).length, 1);
+    assert.strictEqual(sourcePaths.mock.calls.length, 1);
+
+    state.program.setFileOpened(
+        implementationUri,
+        1,
+        'class Array:\n    def mean(self):\n        """Updated documentation."""\n        return 1\n'
+    );
+    while (state.program.analyze()) {
+        // Continue until the edited implementation is analyzed.
+    }
+
+    const nextMapper = state.program.getSourceMapper(uri, CancellationToken.None);
+    const updated = nextMapper.findFunctionDeclarations(declaration);
+    assert.strictEqual(updated.length, 1);
+    assert.strictEqual(getFunctionOrClassDeclDocString(updated[0]), 'Updated documentation.');
+});
+
+test('completed function mapping misses are cached within one mapper', () => {
+    const code = `
+// @filename: mylib.pyi
+// @library: true
+//// class Array:
+////     def mean(self) -> int: ...
+
+// @filename: mylib.py
+// @library: true
+//// pass
+
+// @filename: test.py
+//// from mylib import Array
+//// Array()./*marker*/mean()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const declaration = getFunctionDeclarationAtMarker(state, 'marker');
+    const uri = state.getMarkerByName('marker').fileUri;
+    const mapper = state.program.getSourceMapper(uri, CancellationToken.None);
+    const sourcePaths = jest.spyOn(mapper, 'getSourcePathsFromStub');
+
+    const first = mapper.findDeclarations(declaration);
+    assert.strictEqual(first.length, 0);
+    first.push(declaration);
+    assert.deepStrictEqual(mapper.findFunctionDeclarations(declaration), []);
+    assert.deepStrictEqual(mapper.findDeclarations(declaration), []);
+    assert.strictEqual(sourcePaths.mock.calls.length, 1);
+
+    const nextMapper = state.program.getSourceMapper(uri, CancellationToken.None);
+    const nextSourcePaths = jest.spyOn(nextMapper, 'getSourcePathsFromStub');
+    assert.deepStrictEqual(nextMapper.findFunctionDeclarations(declaration), []);
+    assert.strictEqual(nextSourcePaths.mock.calls.length, 1);
+});
+
+test('completed function mappings do not cache recursive partial misses', () => {
+    const code = `
+// @filename: mylib.pyi
+// @library: true
+//// class A:
+////     def first(self) -> int: ...
+//// class B:
+////     def second(self) -> str: ...
+
+// @filename: mylib.py
+// @library: true
+//// from cycle_a import X as A
+//// from cycle_b import X as B
+
+// @filename: cycle_a.pyi
+// @library: true
+//// from cycle_b import X as X
+
+// @filename: cycle_b.pyi
+// @library: true
+//// from cycle_a import X as X
+
+// @filename: cycle_c.pyi
+// @library: true
+//// from cycle_a import X as X
+
+// @filename: cycle_a.py
+// @library: true
+//// from cycle_b import X
+//// from cycle_c import X
+
+// @filename: cycle_b.py
+// @library: true
+//// from cycle_a import X
+
+// @filename: cycle_c.py
+// @library: true
+//// class X:
+////     def first(self):
+////         """First implementation."""
+////         return 1
+////     def second(self):
+////         """Second implementation."""
+////         return "second"
+
+// @filename: test.py
+//// from mylib import A, B
+//// A()./*first*/first()
+//// B()./*second*/second()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const mapper = state.program.getSourceMapper(state.getMarkerByName('first').fileUri, CancellationToken.None);
+    const first = mapper.findFunctionDeclarations(getFunctionDeclarationAtMarker(state, 'first'));
+    const second = mapper.findFunctionDeclarations(getFunctionDeclarationAtMarker(state, 'second'));
+
+    assert.deepStrictEqual(getUniqueDeclPaths(first), ['/lib/site-packages/cycle_c.py']);
+    assert.deepStrictEqual(getUniqueDeclPaths(second), ['/lib/site-packages/cycle_c.py']);
+    assert.strictEqual(first.length, 1);
+    assert.strictEqual(second.length, 1);
+    assert.strictEqual(getFunctionOrClassDeclDocString(first[0]), 'First implementation.');
+    assert.strictEqual(getFunctionOrClassDeclDocString(second[0]), 'Second implementation.');
+});
+
+function getFunctionDeclarationAtMarker(state: TestState, marker: string): FunctionDeclaration {
+    const node = getNodeAtMarker(state, marker);
+    assert(node.nodeType === ParseNodeType.Name);
+    const declaration = state.program.evaluator!.getDeclInfoForNameNode(node)?.decls.find(isFunctionDeclaration);
+    assert(declaration, 'Expected a function declaration');
+    return declaration;
+}
 
 function getUniqueDeclPaths(decls: FunctionDeclaration[]) {
     return Array.from(new Set(decls.map((decl) => normalizeSlashes(decl.uri.getFilePath(), '/'))));

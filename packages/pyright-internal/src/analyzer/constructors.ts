@@ -81,7 +81,7 @@ export function getBoundNewMethod(
 
 // Fetches and binds the __init__ method from a class instance.
 export function getBoundInitMethod(
-    evaluator: TypeEvaluator,
+    evaluator: Pick<TypeEvaluator, 'getTypeOfBoundMember'>,
     errorNode: ExpressionNode,
     type: ClassType,
     diag: DiagnosticAddendum | undefined = undefined,
@@ -649,7 +649,7 @@ function applyExpectedSubtypeForConstructor(
 ): Type | undefined {
     const specializedType = evaluator.solveAndApplyConstraints(ClassType.cloneAsInstance(type), constraints, {
         replaceUnsolved: {
-            scopeIds: [],
+            scopeIds: getTypeVarScopeIds(type),
             tupleClassType: evaluator.getTupleClassType(),
         },
     });

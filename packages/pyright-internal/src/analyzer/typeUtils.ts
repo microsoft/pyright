@@ -1049,10 +1049,11 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined, recu
             }
 
             const solution = buildSolution(type.shared.recursiveAlias.typeParams, aliasInfo.typeArgs);
-            return transformPossibleRecursiveTypeAlias(
+            const transformedType = transformPossibleRecursiveTypeAlias(
                 applySolvedTypeVars(unspecializedType, solution),
                 recursionCount
             );
+            return TypeBase.cloneForTypeAlias(transformedType, aliasInfo);
         }
 
         if (isUnion(type) && type.priv.includesRecursiveTypeAlias) {
@@ -1247,6 +1248,23 @@ export function isLiteralTypeOrUnion(type: Type, allowNone = false): boolean {
     }
 
     return false;
+}
+
+// Determines whether two defaulted parameters overlap only when the
+// argument is omitted and the dest parameter's default decides the result.
+// This requires literal and None types throughout, a dest default that is
+// a member of the dest type, and dest and source types with no shared member.
+export function isOverlapOnlyByOmission(destType: Type, destDefaultType: Type, srcType: Type): boolean {
+    if (![destType, destDefaultType, srcType].every((type) => isLiteralTypeOrUnion(type, /* allowNone */ true))) {
+        return false;
+    }
+
+    const isMemberOf = (subtype: Type, type: Type) => !!findSubtype(type, (member) => isTypeSame(subtype, member));
+
+    return (
+        !findSubtype(destDefaultType, (subtype) => !isMemberOf(subtype, destType)) &&
+        !findSubtype(destType, (subtype) => isMemberOf(subtype, srcType))
+    );
 }
 
 export function isLiteralLikeType(type: ClassType): boolean {
@@ -3925,7 +3943,12 @@ export class TypeVarTransformer {
 
     transformGenericTypeAlias(type: Type, recursionCount: number) {
         const aliasInfo = type.props?.typeAliasInfo;
-        if (!aliasInfo || !aliasInfo.shared.typeParams || !aliasInfo.typeArgs) {
+        if (
+            !aliasInfo ||
+            !aliasInfo.shared.typeParams ||
+            !aliasInfo.typeArgs ||
+            (isTypeVar(type) && type.shared.recursiveAlias)
+        ) {
             return type;
         }
 
@@ -4035,6 +4058,10 @@ export class TypeVarTransformer {
 
             // If this is an empty tuple, don't recompute the non-tuple type argument.
             if (newTupleTypeArgs && newTupleTypeArgs.length > 0) {
+                if (!specializationNeeded) {
+                    return classType;
+                }
+
                 // Combine the tuple type args into a single non-tuple type argument.
                 newTypeArgs = [combineTupleTypeArgs(newTupleTypeArgs)];
             }
@@ -4746,7 +4773,8 @@ class UnificationTypeTransformer extends TypeVarTransformer {
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
-        if (!this._isTypeVarLive(typeVar)) {
+        // A borrowed caller variable remains bound even outside its lexical scope.
+        if (!TypeVarType.isBound(typeVar) && !this._isTypeVarLive(typeVar)) {
             return TypeVarType.cloneAsUnificationVar(typeVar, this._usageOffset);
         }
 

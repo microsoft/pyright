@@ -142,7 +142,7 @@ class Session(SessionRedirectMixin):
         params: _Params | None = None,
         data: _Data | None = None,
         headers: _HeadersUpdateMapping | None = None,
-        cookies: None | RequestsCookieJar | _TextMapping = None,
+        cookies: RequestsCookieJar | _TextMapping | None = None,
         files: _Files | None = None,
         auth: _Auth | None = None,
         timeout: _Timeout | None = None,

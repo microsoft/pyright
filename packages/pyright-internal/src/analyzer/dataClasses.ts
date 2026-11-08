@@ -30,7 +30,7 @@ import { ConstraintSolution } from './constraintSolution';
 import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod } from './constructors';
 import { DeclarationType, VariableDeclaration } from './declaration';
-import { updateNamedTupleBaseClass } from './namedTuples';
+import { createNamedTupleReplaceFromDunderReplace, updateNamedTupleBaseClass } from './namedTuples';
 import {
     getClassFullName,
     getEnclosingClassOrFunction,
@@ -227,13 +227,13 @@ export function synthesizeDataClassMethods(
     initType.shared.declaredReturnType = evaluator.getNoneType();
 
     // For Python 3.13 and newer, synthesize a __replace__ method.
+    // NamedTuple also provides _replace on all supported Python versions.
+    const synthesizeDunderReplace = PythonVersion.isGreaterOrEqualTo(
+        nodeInfo.getFileInfo(node).executionEnvironment.pythonVersion,
+        pythonVersion3_13
+    );
     let replaceType: FunctionType | undefined;
-    if (
-        PythonVersion.isGreaterOrEqualTo(
-            nodeInfo.getFileInfo(node).executionEnvironment.pythonVersion,
-            pythonVersion3_13
-        )
-    ) {
+    if (synthesizeDunderReplace || isNamedTuple) {
         replaceType = FunctionType.createSynthesizedInstance('__replace__');
         FunctionType.addParam(replaceType, selfParam);
         FunctionType.addKeywordOnlyParamSeparator(replaceType);
@@ -698,9 +698,11 @@ export function synthesizeDataClassMethods(
                         effectiveType = applySolvedTypeVars(effectiveType, solution);
                     }
 
-                    // Is the field type a descriptor object? If so, we need to extract the corresponding
-                    // type of the __init__ method parameter from the __set__ method.
-                    effectiveType = transformDescriptorType(evaluator, effectiveType);
+                    // Dataclass descriptors accept their __set__ input type. NamedTuple
+                    // fields store the annotated object without invoking a descriptor.
+                    if (!isNamedTuple) {
+                        effectiveType = transformDescriptorType(evaluator, effectiveType);
+                    }
 
                     if (entry.converter) {
                         const fieldType = effectiveType;
@@ -812,7 +814,18 @@ export function synthesizeDataClassMethods(
         symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
 
         if (replaceType) {
-            symbolTable.set('__replace__', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
+            if (synthesizeDunderReplace) {
+                symbolTable.set('__replace__', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
+            }
+            if (isNamedTuple && !symbolTable.has('_replace')) {
+                symbolTable.set(
+                    '_replace',
+                    Symbol.createWithType(
+                        SymbolFlags.ClassMember,
+                        createNamedTupleReplaceFromDunderReplace(replaceType)
+                    )
+                );
+            }
         }
     }
 
