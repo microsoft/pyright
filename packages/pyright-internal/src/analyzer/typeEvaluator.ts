@@ -107,6 +107,7 @@ import {
 import { ConstraintSet, ConstraintTracker } from './constraintTracker';
 import {
     createFunctionFromConstructor,
+    getBoundCallMethod,
     getBoundInitMethod,
     getBoundNewMethod,
     validateConstructorArgs,
@@ -18519,6 +18520,13 @@ export function createTypeEvaluator(
     }
 
     function checkAbstractFactoryReturnType(classType: ClassType, errorNode: ExpressionNode): boolean {
+        // A custom metaclass __call__ can allocate the abstract class directly
+        // without invoking its __new__. Its return annotation is not proof of
+        // which class is allocated in that case. This excludes type.__call__.
+        if (getBoundCallMethod(evaluatorInterface, errorNode, classType)) {
+            return false;
+        }
+
         const newMethod = getBoundNewMethod(evaluatorInterface, errorNode, classType)?.type;
 
         // Overloaded and synthesized `__new__` methods are left to the normal check.
