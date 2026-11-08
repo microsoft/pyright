@@ -1,5 +1,4 @@
 import datetime
-import urllib
 import urllib.request
 import xml.etree.ElementTree as etree
 

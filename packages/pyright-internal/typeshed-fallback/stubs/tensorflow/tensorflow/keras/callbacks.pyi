@@ -6,7 +6,7 @@ from requests._types import HeadersType
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers.schedules import LearningRateSchedule
 
-_Logs: TypeAlias = Mapping[str, Any] | None | Any
+_Logs: TypeAlias = Mapping[str, Any] | Any | None
 
 class Callback:
     params: dict[str, Any]

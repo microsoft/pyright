@@ -5,7 +5,7 @@ from geojson.geometry import Geometry
 
 class Feature(GeoJSON):
     def __init__(
-        self, id: None | str | int = None, geometry: None | Geometry = None, properties: None | dict[str, Any] = None, **extra
+        self, id: str | int | None = None, geometry: Geometry | None = None, properties: dict[str, Any] | None = None, **extra
     ) -> None: ...
     def errors(self) -> list[str] | None: ...
 

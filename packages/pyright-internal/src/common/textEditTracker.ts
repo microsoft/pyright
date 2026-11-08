@@ -215,7 +215,7 @@ export class TextEditTracker {
         const imported = importStatements.orderedImports.find(
             (i) =>
                 i.node.nodeType === ParseNodeType.ImportFrom &&
-                (i.moduleName === moduleNameInfo.nameForImportFrom || i.moduleName === moduleNameInfo.name)
+                i.moduleName === (moduleNameInfo.nameForImportFrom ?? moduleNameInfo.name)
         );
 
         if (!imported || imported.node.nodeType !== ParseNodeType.ImportFrom || imported.node.d.isWildcardImport) {

@@ -4,11 +4,45 @@
  * Licensed under the MIT license.
  */
 
-import { isClass } from '../../analyzer/types';
+import { isClass, isFunction } from '../../analyzer/types';
 import { isExpressionNode } from '../../parser/parseNodes';
-import { generateStubFromClassType } from '../../typeServer/stubGenerator';
+import { generateStubFromClassType, generateStubFromFunctionType } from '../../typeServer/stubGenerator';
 import { ITypeServerEvaluator } from '../../typeServer/typeServerEvaluator';
 import { getNodeAtMarker, parseAndGetTestState } from '../harness/fourslash/testState';
+
+test.each(['first: int, /, *, named: str', '_: int, /, *, named: str'])(
+    'generated function stubs preserve separators and named parameters: %s',
+    (parameters) => {
+        const { state } = parseAndGetTestState(`
+// @filename: test.py
+//// def /*marker*/callback(${parameters}) -> None: ...
+`);
+        try {
+            state.analyze();
+            const evaluator = state.program.evaluator;
+            const node = getNodeAtMarker(state);
+            const type = isExpressionNode(node) ? evaluator?.getType(node) : undefined;
+            if (!evaluator || !type || !isFunction(type)) {
+                throw new Error('Expected marker to point to a function');
+            }
+            const typeServerEvaluator: ITypeServerEvaluator = {
+                ...evaluator,
+                getSymbolLookup: () => {
+                    throw new Error('This function stub does not need symbol lookup');
+                },
+            };
+            const result = generateStubFromFunctionType(typeServerEvaluator, type, {
+                pythonVersion: state.configOptions.getDefaultExecEnvironment().pythonVersion,
+            });
+            expect(result.stubContent).toBe(
+                '# This stub file was generated from Pyright type information\n\n' +
+                    `def callback(${parameters}) -> None: ...\n`
+            );
+        } finally {
+            state.dispose();
+        }
+    }
+);
 
 test('Generate stub for synthesized class with an internal intersection name', () => {
     const code = `

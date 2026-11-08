@@ -92,8 +92,8 @@ class RaggedFeature(NamedTuple):
 
     dtype: DTypeLike
     value_key: str | None = None
-    partitions: tuple[  # type: ignore[name-defined]
-        RowSplits | RowLengths | RowStarts | RowLimits | ValueRowIds | UniformRowLength, ...
+    partitions: tuple[
+        RowSplits | RowLengths | RowStarts | RowLimits | ValueRowIds | UniformRowLength, ...  # type: ignore[name-defined]
     ] = ()
     row_splits_dtype: DTypeLike = ...
     validate: bool = False

@@ -129,7 +129,7 @@ class OAuth2Session(requests.Session):
         files: _types.FilesType = None,
         *,
         params: _types.ParamsType = None,
-        cookies: None | RequestsCookieJar | dict[str, str] = None,
+        cookies: RequestsCookieJar | dict[str, str] | None = None,
         auth: _types.AuthType = None,
         timeout: _types.TimeoutType = None,
         allow_redirects: bool = True,

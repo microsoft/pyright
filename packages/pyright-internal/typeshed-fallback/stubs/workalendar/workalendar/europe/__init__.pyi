@@ -249,7 +249,8 @@ __all__ = (
     "Cantabria",
     "ValencianCommunity",
     # Switzerland
-    "Switzerland",
+    # The duplicate entry matches the runtime __all__.
+    "Switzerland",  # ruff: ignore[duplicate-entry-in-dunder-all]
     "Aargau",
     "AppenzellInnerrhoden",
     "AppenzellAusserrhoden",

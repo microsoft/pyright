@@ -121,6 +121,7 @@ dist
 junit.xml
 
 .webpack_cache/
+test-results/
 
 # OS files
 .DS_Store

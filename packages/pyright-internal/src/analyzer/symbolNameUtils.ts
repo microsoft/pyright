@@ -30,6 +30,11 @@ export function isDunderName(name: string) {
     return name.length > 4 && name.startsWith('__') && name.endsWith('__');
 }
 
+// These methods may override a base method with an incompatible signature.
+export function isMethodExemptFromLsp(name: string) {
+    return ['__init__', '__new__', '__init_subclass__', '__post_init__'].includes(name);
+}
+
 // "Single Dunder" names start and end with single underscores.
 export function isSingleDunderName(name: string) {
     return name.length > 2 && name.startsWith('_') && name.endsWith('_');

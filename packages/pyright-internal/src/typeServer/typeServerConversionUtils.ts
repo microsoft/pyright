@@ -198,7 +198,21 @@ function toProtocolTypeAliasInfo(info: PyrightTypes.TypeAliasInfo | undefined, f
 // Otherwise, cycle detection won't work.
 function toProtocolType(id: number, type: PyrightTypes.Type, factory: ProtocolTypeFactory): TypeServerProtocol.Type {
     switch (type.category) {
+        case PyrightTypes.TypeCategory.OverloadResult:
+            return {
+                id,
+                kind: TypeServerProtocol.TypeKind.OverloadResult,
+                flags: toProtocolTypeFlags(type),
+                candidates: toProtocolTypes([...type.priv.candidates], factory),
+                baselineType: toProtocolTypeOrUndefined(type.priv.baselineType, factory)!,
+                uncertaintyKind: type.priv.uncertaintyKind === PyrightTypes.TypeCategory.Any ? 'any' : 'unknown',
+            } satisfies TypeServerProtocol.OverloadResultType;
+
         case PyrightTypes.TypeCategory.Class: {
+            if (type.priv.partialCallType) {
+                return createSynthesizedType(id, type, factory);
+            }
+
             const decl = type.shared.declaration;
             if (decl) {
                 return {
@@ -216,6 +230,19 @@ function toProtocolType(id: number, type: PyrightTypes.Type, factory: ProtocolTy
             return createSynthesizedType(id, type, factory);
         }
         case PyrightTypes.TypeCategory.Function: {
+            const partialInstance = type.priv.boundToType ?? type.priv.strippedFirstParamType;
+            if (
+                type.shared.name === '__call__' &&
+                partialInstance &&
+                PyrightTypes.isClass(partialInstance) &&
+                partialInstance.priv.partialCallType
+            ) {
+                // The original declaration has partial's generic parameter list,
+                // not the transformed signature. Preserve the replacement list
+                // using the existing synthesized-function representation.
+                return createSynthesizedType(id, type, factory);
+            }
+
             const decl = type.shared.declaration;
             if (decl) {
                 // Compute boundToType: if not set but strippedFirstParamType exists, use it as boundToType

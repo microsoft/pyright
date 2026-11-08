@@ -191,8 +191,8 @@ export class FindReferencesTreeWalker {
         return {
             uri: fileUri,
             range: {
-                start: convertOffsetToPosition(result.range.start, parseResults.tokenizerOutput.lines),
-                end: convertOffsetToPosition(TextRange.getEnd(result.range), parseResults.tokenizerOutput.lines),
+                start: convertOffsetToPosition(result.range.start, parseResults.parserOutput.lines),
+                end: convertOffsetToPosition(TextRange.getEnd(result.range), parseResults.parserOutput.lines),
             },
         };
     }
@@ -576,7 +576,7 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
+        const offset = convertPositionToOffset(position, parseResults.parserOutput.lines);
         if (offset === undefined) {
             return undefined;
         }
