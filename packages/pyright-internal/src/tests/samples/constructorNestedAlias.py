@@ -37,3 +37,19 @@ TextPair: TypeAlias = PairBox[tuple[U, str]]
 
 assert_type(IntPair(1).get(), tuple[int, str])
 assert_type(TextPair(1).get(), tuple[int, str])
+
+
+class FactoryBox(Generic[T]):
+    def __new__(cls, value: int) -> "ChildBox[int]":
+        return object.__new__(ChildBox)
+
+
+class ChildBox(FactoryBox[T]):
+    def __init__(self, value: int) -> None:
+        pass
+
+
+FactoryAlias: TypeAlias = FactoryBox[U]
+
+# The alias must not replace a different class returned by __new__.
+assert_type(FactoryAlias(1), ChildBox[int])

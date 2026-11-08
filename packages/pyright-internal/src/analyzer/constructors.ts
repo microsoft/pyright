@@ -349,7 +349,10 @@ function validateNewAndInitMethods(
                 skipUnknownArgCheck,
                 inferenceContext,
                 initMethodTypeResult.type,
-                unspecializedAlias
+                unspecializedAlias &&
+                    ClassType.isSameGenericClass(initMethodBindToType, ClassType.cloneAsInstance(unspecializedAlias))
+                    ? unspecializedAlias
+                    : undefined
             );
 
             if (initCallResult.argumentErrors) {
