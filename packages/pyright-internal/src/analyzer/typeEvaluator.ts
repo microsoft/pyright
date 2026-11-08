@@ -105,7 +105,13 @@ import {
     solveConstraintSet,
 } from './constraintSolver';
 import { ConstraintSet, ConstraintTracker } from './constraintTracker';
-import { createFunctionFromConstructor, getBoundInitMethod, validateConstructorArgs } from './constructors';
+import {
+    addConstraintsForInheritedInitSelfType,
+    createFunctionFromConstructor,
+    getBoundInitMethod,
+    usesFunctionTypeParams,
+    validateConstructorArgs,
+} from './constructors';
 import {
     applyDataClassClassBehaviorOverrides,
     synthesizeDataClassMethods,
@@ -9747,25 +9753,56 @@ export function createTypeEvaluator(
 
         // The type annotation for the "self" parameter in an __init__ method to
         // can influence the type being constructed.
+        function applyInitSelfType(selfType: ClassType, boundToType: ClassType) {
+            if (ClassType.isSameGenericClass(selfType, boundToType)) {
+                const typeParams = selfType.shared.typeParams;
+                if (!usesFunctionTypeParams(type, selfType)) {
+                    specializedInitSelfType = selfType;
+                }
+
+                selfType.priv.typeArgs?.forEach((typeArg, index) => {
+                    if (index < typeParams.length && !usesFunctionTypeParams(type, typeArg)) {
+                        const typeParam = typeParams[index];
+                        if (!isTypeSame(typeParam, typeArg, { ignorePseudoGeneric: true })) {
+                            constraints.setBounds(typeParams[index], typeArg);
+                        }
+                    }
+                });
+            } else if (
+                !addConstraintsForInheritedInitSelfType(evaluatorInterface, boundToType, selfType, constraints)
+            ) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.bindTypeMismatch().format({
+                        type: printType(boundToType),
+                        methodName: type.shared.name,
+                        paramName: type.shared.declaration?.node.d.params[0]?.d.name?.d.value ?? 'self',
+                    }),
+                    errorNode
+                );
+                argumentErrors = true;
+            }
+        }
+
+        // If the annotation uses the method's own type parameters, apply it
+        // after the arguments solve them.
+        let deferredInitSelfType: { selfType: ClassType; boundToType: ClassType } | undefined;
         if (
             type.shared.name === '__init__' &&
             type.priv.strippedFirstParamType &&
             type.priv.boundToType &&
             isClassInstance(type.priv.strippedFirstParamType) &&
             isClassInstance(type.priv.boundToType) &&
-            ClassType.isSameGenericClass(type.priv.strippedFirstParamType, type.priv.boundToType) &&
             type.priv.strippedFirstParamType.priv.typeArgs
         ) {
-            const typeParams = type.priv.strippedFirstParamType.shared.typeParams;
-            specializedInitSelfType = type.priv.strippedFirstParamType;
-            type.priv.strippedFirstParamType.priv.typeArgs.forEach((typeArg, index) => {
-                if (index < typeParams.length) {
-                    const typeParam = typeParams[index];
-                    if (!isTypeSame(typeParam, typeArg, { ignorePseudoGeneric: true })) {
-                        constraints.setBounds(typeParams[index], typeArg);
-                    }
-                }
-            });
+            const selfType = type.priv.strippedFirstParamType;
+            const boundToType = type.priv.boundToType;
+
+            if (usesFunctionTypeParams(type, selfType)) {
+                deferredInitSelfType = { selfType, boundToType };
+            } else {
+                applyInitSelfType(selfType, boundToType);
+            }
         }
 
         // Special-case a few built-in calls that are often used for
@@ -9924,6 +9961,19 @@ export function createTypeEvaluator(
                 }
                 argumentErrors = true;
                 argumentMatchScore += 1;
+            }
+        }
+
+        // A type argument that the arguments leave unsolved doesn't determine
+        // the type being constructed.
+        if (deferredInitSelfType) {
+            const solvedSelfType = solveAndApplyConstraints(deferredInitSelfType.selfType, constraints);
+            if (
+                isClassInstance(solvedSelfType) &&
+                (ClassType.isSameGenericClass(solvedSelfType, deferredInitSelfType.boundToType) ||
+                    !usesFunctionTypeParams(type, solvedSelfType))
+            ) {
+                applyInitSelfType(solvedSelfType, deferredInitSelfType.boundToType);
             }
         }
 
