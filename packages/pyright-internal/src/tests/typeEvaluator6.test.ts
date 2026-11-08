@@ -1294,6 +1294,13 @@ test('ConstructorAmbiguousSelf', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('ConstructorNestedAlias', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorNestedAlias.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportArgumentType);
+});
+
 test('ConstructorCallable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable1.py']);
 

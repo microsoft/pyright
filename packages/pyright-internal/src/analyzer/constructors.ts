@@ -121,6 +121,7 @@ export function validateConstructorArgs(
     // If this is an unspecialized generic type alias, specialize it now
     // using default type argument values.
     const aliasInfo = type.props?.typeAliasInfo;
+    const unspecializedAlias = aliasInfo?.shared.typeParams && !aliasInfo.typeArgs ? type : undefined;
     if (aliasInfo?.shared.typeParams && !aliasInfo.typeArgs) {
         type = applySolvedTypeVars(type, new ConstraintSolution(), {
             replaceUnsolved: {
@@ -181,7 +182,8 @@ export function validateConstructorArgs(
             type,
             skipUnknownArgCheck,
             inferenceContext,
-            newMethodTypeResult
+            newMethodTypeResult,
+            unspecializedAlias
         );
     });
 
@@ -200,7 +202,8 @@ export function validateConstructorArgs(
                 type,
                 skipUnknownArgCheck,
                 inferenceContext,
-                newMethodTypeResult
+                newMethodTypeResult,
+                unspecializedAlias
             );
 
             validatedArgExpressions = true;
@@ -247,7 +250,8 @@ function validateNewAndInitMethods(
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
-    newMethodTypeResult: TypeResult | undefined
+    newMethodTypeResult: TypeResult | undefined,
+    unspecializedAlias: ClassType | undefined
 ): CallResult {
     let returnType: Type | undefined;
     let validatedArgExpressions = false;
@@ -344,7 +348,8 @@ function validateNewAndInitMethods(
                 initMethodBindToType,
                 skipUnknownArgCheck,
                 inferenceContext,
-                initMethodTypeResult.type
+                initMethodTypeResult.type,
+                unspecializedAlias
             );
 
             if (initCallResult.argumentErrors) {
@@ -489,7 +494,8 @@ function validateInitMethod(
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
-    initMethodType: Type
+    initMethodType: Type,
+    unspecializedAlias: ClassType | undefined
 ): CallResult {
     let isTypeIncomplete = false;
     let argumentErrors = false;
@@ -525,23 +531,29 @@ function validateInitMethod(
 
         // A specialized __init__ self type must not widen type arguments
         // explicitly supplied by the caller, even when overloads are ambiguous.
-        const isUnspecializedAlias =
-            !!type.props?.typeAliasInfo?.shared.typeParams?.length && !type.props.typeAliasInfo.typeArgs;
         let adjustedClassType =
-            (!type.priv.typeArgs || isUnspecializedAlias) &&
+            (!type.priv.typeArgs || unspecializedAlias) &&
             isClassInstance(selfType) &&
             ClassType.isSameGenericClass(selfType, type)
                 ? ClassType.cloneAsInstantiable(selfType)
                 : type;
-        if (isUnspecializedAlias && type.priv.typeArgs && adjustedClassType.priv.typeArgs) {
-            // A partially specialized alias can fix some arguments while leaving
-            // others available for inference. Retain the fixed arguments.
-            adjustedClassType = ClassType.specialize(
-                adjustedClassType,
-                type.priv.typeArgs.map((arg, index) =>
-                    isUnknown(arg) ? adjustedClassType.priv.typeArgs![index] ?? arg : arg
-                )
-            );
+        if (unspecializedAlias?.priv.typeArgs && adjustedClassType.priv.typeArgs) {
+            // Infer the alias's variables from the specialized self type before
+            // replacing them with defaults. This also handles nested arguments
+            // such as Box[list[T]], while retaining the alias's fixed arguments.
+            const aliasConstraints = new ConstraintTracker();
+            unspecializedAlias.priv.typeArgs.forEach((arg, index) => {
+                const selfArg = adjustedClassType.priv.typeArgs![index];
+                if (selfArg) {
+                    evaluator.assignType(arg, selfArg, /* diag */ undefined, aliasConstraints);
+                }
+            });
+            adjustedClassType = evaluator.solveAndApplyConstraints(unspecializedAlias, aliasConstraints, {
+                replaceUnsolved: {
+                    scopeIds: [unspecializedAlias.props!.typeAliasInfo!.shared.typeVarScopeId],
+                    tupleClassType: evaluator.getTupleClassType(),
+                },
+            }) as ClassType;
         }
         return applyExpectedTypeForConstructor(
             evaluator,
