@@ -302,6 +302,11 @@ export class Binder extends ParseTreeWalker {
     // Aliases of "sys".
     private _sysImportAliases: string[] = [];
 
+    // Static constants defined by configuration or module-level Final assignments.
+    // Keep this local to the binder so inferred constants don't mutate shared
+    // analyzer configuration.
+    private _definedConstants = new Map<string, boolean | string>();
+
     // Aliases of "dataclasses".
     private _dataclassesImportAliases: string[] = [];
 
@@ -370,6 +375,7 @@ export class Binder extends ParseTreeWalker {
 
         this._fileInfo = fileInfo;
         this._nodeInfo = nodeInfo;
+        this._definedConstants = new Map(fileInfo.definedConstants);
     }
 
     bindModule(node: ModuleNode): void {
@@ -1046,6 +1052,10 @@ export class Binder extends ParseTreeWalker {
 
         this._bindPossibleTupleNamedTarget(node.d.leftExpr);
 
+        if (node.d.leftExpr.nodeType === ParseNodeType.TypeAnnotation) {
+            this._addStaticFinalConstant(node.d.leftExpr.d.valueExpr, node.d.leftExpr.d.annotation, node.d.rightExpr);
+        }
+
         if (node.d.annotationComment) {
             this.walk(node.d.annotationComment);
             this._addTypeDeclarationForVariable(node.d.leftExpr, node.d.annotationComment);
@@ -1582,7 +1592,7 @@ export class Binder extends ParseTreeWalker {
             const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(
                 node.d.testExpr,
                 this._fileInfo.executionEnvironment,
-                this._fileInfo.definedConstants,
+                this._definedConstants,
                 this._typingImportAliases,
                 this._sysImportAliases
             );
@@ -1625,7 +1635,7 @@ export class Binder extends ParseTreeWalker {
         const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             node.d.testExpr,
             this._fileInfo.executionEnvironment,
-            this._fileInfo.definedConstants,
+            this._definedConstants,
             this._typingImportAliases,
             this._sysImportAliases
         );
@@ -3270,7 +3280,7 @@ export class Binder extends ParseTreeWalker {
         const staticValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             expression,
             this._fileInfo.executionEnvironment,
-            this._fileInfo.definedConstants,
+            this._definedConstants,
             this._typingImportAliases,
             this._sysImportAliases
         );
@@ -4033,6 +4043,30 @@ export class Binder extends ParseTreeWalker {
 
             return undefined;
         };
+    }
+
+    private _addStaticFinalConstant(target: ExpressionNode, typeAnnotation: ExpressionNode, valueExpr: ExpressionNode) {
+        // A module-level Final initialized with a statically known boolean can be
+        // used as a static condition, just like an inline platform or version check.
+        if (this._currentScope.type !== ScopeType.Module || target.nodeType !== ParseNodeType.Name) {
+            return;
+        }
+
+        const finalInfo = this._isAnnotationFinal(typeAnnotation);
+        if (!finalInfo.isFinal || this._definedConstants.has(target.d.value)) {
+            return;
+        }
+
+        const staticValue = StaticExpressions.evaluateStaticBoolLikeExpression(
+            valueExpr,
+            this._fileInfo.executionEnvironment,
+            this._definedConstants,
+            this._typingImportAliases,
+            this._sysImportAliases
+        );
+        if (staticValue !== undefined) {
+            this._definedConstants.set(target.d.value, staticValue);
+        }
     }
 
     private _addInferredTypeAssignmentForVariable(

@@ -1288,6 +1288,19 @@ test('StaticExpression2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('StaticFinalCondition1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonPlatform = 'Linux';
+
+    const analysisResultsLinux = TestUtils.typeAnalyzeSampleFiles(['staticFinalCondition1.py'], configOptions);
+    TestUtils.validateResults(analysisResultsLinux, 2);
+
+    const windowsConfigOptions = new ConfigOptions(Uri.empty());
+    windowsConfigOptions.defaultPythonPlatform = 'Windows';
+    const analysisResultsWindows = TestUtils.typeAnalyzeSampleFiles(['staticFinalCondition1.py'], windowsConfigOptions);
+    TestUtils.validateResults(analysisResultsWindows, 2);
+});
+
 test('StaticExpressionLiteral1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['staticExpressionLiteral1.py']);
 
