@@ -796,7 +796,11 @@ test.each([false, true])('Protocol36CacheReuse positiveFirst=%s', (positiveFirst
 
     const diagnostics = new DiagnosticAddendum();
     assert.strictEqual(assign(rejectedType, diagnostics), false);
-    expect(diagnostics.getString()).toContain('"int" is not assignable to "str"');
+    const diagnosticText = diagnostics.getString();
+    expect(diagnosticText).toContain('"__iter__" is an incompatible type');
+    expect(diagnosticText).toContain(
+        'Type "() -> Iterator[int]" is not assignable to type "() -> Iterator[str | NestedSequence[str]]"'
+    );
     assert.ok(constraints.isSame(originalConstraints));
     assert.strictEqual(assign(rejectedType), false);
     assert.strictEqual(assign(acceptedType), true);
@@ -809,6 +813,61 @@ test.each([false, true])('Protocol36CacheReuse positiveFirst=%s', (positiveFirst
             'int'
         );
     }
+});
+
+test('ProtocolMethodTypeParamBound', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Protocol
+////
+//// class Expected(Protocol):
+////     def f[U: str](self, value: U) -> U: ...
+////
+//// class Actual:
+////     def f[U: int](self, value: U) -> U: ...
+////
+//// def check(source: Actual):
+////     invalid: Expected = source
+    `;
+    const state = parseAndGetTestState(code).state;
+    const file = state.testData.files[0];
+    const results = TestUtils.getAnalysisResults(state.program, [file.fileUri], state.configOptions);
+    TestUtils.validateResults(results, 1);
+    const message = results[0].errors[0].message;
+    expect(message).toContain('"f" is an incompatible type');
+    expect(message).toContain('Type "U@f" is not assignable to type "int"');
+});
+
+test('ProtocolMethodParamNameAndKind', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Protocol
+////
+//// class NameProto[T](Protocol):
+////     def f(self, x: T) -> None: ...
+////
+//// class NameImpl:
+////     def f(self, y: int) -> None: ...
+////
+//// class KindProto[T](Protocol):
+////     def f(self, *, x: T) -> None: ...
+////
+//// class KindImpl:
+////     def f(self, x: int, /) -> None: ...
+////
+//// def check(a: NameImpl, b: KindImpl):
+////     v1: NameProto[int] = a
+////     v2: KindProto[int] = b
+    `;
+    const state = parseAndGetTestState(code).state;
+    const file = state.testData.files[0];
+    const results = TestUtils.getAnalysisResults(state.program, [file.fileUri], state.configOptions);
+    TestUtils.validateResults(results, 2);
+    const [nameError, kindError] = results[0].errors;
+    expect(nameError.message).toContain('Type "(y: int) -> None" is not assignable to type "(x: T@NameProto) -> None"');
+    expect(kindError.message).toContain(
+        'Type "(x: int, /) -> None" is not assignable to type "(*, x: T@KindProto) -> None"'
+    );
 });
 
 test.each([
@@ -1056,6 +1115,12 @@ test('Protocol55UntypedDecorators', () => {
         untypedDecoratorErrors.map((diag) => diag.range.start.line),
         [127, 135, 142, 149, 158, 165, 190]
     );
+});
+
+test('Protocol56', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol56.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('ProtocolExplicit1', () => {
