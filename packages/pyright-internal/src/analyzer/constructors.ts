@@ -545,12 +545,20 @@ function validateInitMethod(
             // replacing them with defaults. This also handles nested arguments
             // such as Box[list[T]], while retaining the alias's fixed arguments.
             const aliasConstraints = new ConstraintTracker();
+            const unknownAliasVars: TypeVarType[] = [];
             unspecializedAlias.priv.typeArgs.forEach((arg, index) => {
                 const selfArg = adjustedClassType.priv.typeArgs![index];
                 if (selfArg) {
                     evaluator.assignType(arg, selfArg, /* diag */ undefined, aliasConstraints);
+                    if (isUnknown(selfArg)) {
+                        addTypeVarsToListIfUnique(unknownAliasVars, getTypeVarArgsRecursive(arg));
+                    }
                 }
             });
+            // Unknown here represents conflicting initializer overloads. A known
+            // occurrence of the same alias variable must not narrow it, regardless
+            // of argument order (for example, Pair[T, T] with self Pair[str, Unknown]).
+            unknownAliasVars.forEach((typeVar) => aliasConstraints.setBounds(typeVar, UnknownType.create()));
             adjustedClassType = evaluator.solveAndApplyConstraints(unspecializedAlias, aliasConstraints, {
                 replaceUnsolved: {
                     scopeIds: [unspecializedAlias.props!.typeAliasInfo!.shared.typeVarScopeId],

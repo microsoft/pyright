@@ -1301,6 +1301,12 @@ test('ConstructorNestedAlias', () => {
     assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportArgumentType);
 });
 
+test('ConstructorRepeatedAlias', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorRepeatedAlias.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ConstructorCallable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable1.py']);
 
