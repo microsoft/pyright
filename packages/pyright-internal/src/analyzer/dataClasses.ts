@@ -1611,16 +1611,22 @@ function applyDataClassBehaviorOverrideValue(
 
             classType.shared.baseClasses.forEach((baseClass) => {
                 if (isInstantiableClass(baseClass) && ClassType.isDataClass(baseClass)) {
+                    // A class decorated with dataclass_transform is neither frozen
+                    // nor non-frozen. It can be used as a base for either kind of
+                    // generated dataclass without triggering an inheritance error.
+                    const isDataClassTransformClass =
+                        baseClass.shared.classDataClassTransform !== undefined ||
+                        (baseClass.shared.declaredMetaclass &&
+                            isInstantiableClass(baseClass.shared.declaredMetaclass) &&
+                            baseClass.shared.declaredMetaclass.shared.classDataClassTransform !== undefined);
+
+                    if (isDataClassTransformClass) {
+                        return;
+                    }
+
                     if (ClassType.isDataClassFrozen(baseClass)) {
                         hasFrozenBaseClass = true;
-                    } else if (
-                        !baseClass.shared.classDataClassTransform &&
-                        !(
-                            baseClass.shared.declaredMetaclass &&
-                            isInstantiableClass(baseClass.shared.declaredMetaclass) &&
-                            !!baseClass.shared.declaredMetaclass.shared.classDataClassTransform
-                        )
-                    ) {
+                    } else {
                         // If this base class is unfrozen and isn't the class that directly
                         // references the metaclass that provides dataclass-like behaviors,
                         // we'll assume we're deriving from an unfrozen dataclass.
