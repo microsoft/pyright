@@ -2097,7 +2097,13 @@ export function createTypeEvaluator(
 
                 case TypeCategory.Class: {
                     if (TypeBase.isInstantiable(subtype)) {
-                        const constructorType = createFunctionFromConstructor(evaluatorInterface, subtype);
+                        const constructorType = createFunctionFromConstructor(
+                            evaluatorInterface,
+                            subtype,
+                            /* selfType */ undefined,
+                            /* recursionCount */ 0,
+                            /* retainUnboundNewOverloads */ true
+                        );
 
                         if (constructorType) {
                             doForEachSubtype(constructorType, (subtype) => {
@@ -11606,7 +11612,9 @@ export function createTypeEvaluator(
         } else if (aliasMapEntry.module === 'internals') {
             // Handle TypedDict specially.
             assert(baseClassName === 'TypedDictFallback');
-            baseClass = prefetched?.typedDictPrivateClass;
+            baseClass = fileInfo.isTypingExtensionsStubFile
+                ? getTypeOfModule(node, '_TypedDict', ['typing_extensions']) ?? prefetched?.typedDictPrivateClass
+                : prefetched?.typedDictPrivateClass;
             if (baseClass) {
                 // The TypedDictFallback class is marked as abstract, but the
                 // methods that are abstract are overridden and shouldn't
