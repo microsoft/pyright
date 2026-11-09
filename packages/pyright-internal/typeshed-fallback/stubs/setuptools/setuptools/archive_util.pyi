@@ -4,16 +4,18 @@ from collections.abc import Callable
 from ._distutils.errors import DistutilsError
 
 __all__ = [
-    "unpack_archive",
-    "unpack_zipfile",
-    "unpack_tarfile",
-    "default_filter",
     "UnrecognizedFormat",
+    "UnsafeMember",
+    "default_filter",
     "extraction_drivers",
+    "unpack_archive",
     "unpack_directory",
+    "unpack_tarfile",
+    "unpack_zipfile",
 ]
 
 class UnrecognizedFormat(DistutilsError): ...
+class UnsafeMember(DistutilsError): ...
 
 def default_filter(src, dst): ...
 def unpack_archive(filename, extract_dir, progress_filter=..., drivers=None) -> None: ...

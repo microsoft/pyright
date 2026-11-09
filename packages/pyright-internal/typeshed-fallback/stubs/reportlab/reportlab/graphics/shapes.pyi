@@ -105,7 +105,12 @@ __version__: Final[str]
 isOpacity: NoneOr
 NON_ZERO_WINDING: Final[str]
 EVEN_ODD: Final[str]
-STATE_DEFAULTS: Final[Incomplete]
+
+class RL_STATE_DEFAULTS(dict[str, Any]):
+    def get(self, x: str, default: Any = None) -> Any: ...  # type: ignore[override]
+    def copy(self) -> dict[str, Any]: ...
+
+STATE_DEFAULTS: Final[RL_STATE_DEFAULTS]
 
 class _DrawTimeResizeable: ...
 

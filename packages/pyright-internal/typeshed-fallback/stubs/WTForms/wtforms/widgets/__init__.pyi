@@ -1,6 +1,8 @@
 from wtforms.widgets.core import (
+    Button as Button,
     CheckboxInput as CheckboxInput,
     ColorInput as ColorInput,
+    DataListWidget as DataListWidget,
     DateInput as DateInput,
     DateTimeInput as DateTimeInput,
     DateTimeLocalInput as DateTimeLocalInput,
@@ -29,8 +31,10 @@ from wtforms.widgets.core import (
 )
 
 __all__ = [
+    "Button",
     "CheckboxInput",
     "ColorInput",
+    "DataListWidget",
     "DateInput",
     "DateTimeInput",
     "DateTimeLocalInput",

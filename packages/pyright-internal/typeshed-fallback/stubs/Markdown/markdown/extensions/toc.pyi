@@ -1,6 +1,6 @@
 from collections.abc import Iterator, MutableSet
 from re import Pattern
-from typing import Any, TypedDict, type_check_only
+from typing import Any, Protocol, TypedDict, type_check_only
 from typing_extensions import deprecated
 from xml.etree.ElementTree import Element
 
@@ -20,9 +20,14 @@ class _FlatTocToken(TypedDict):
 class _TocToken(_FlatTocToken):
     children: list[_TocToken]
 
+@type_check_only
+class _IdCounters(Protocol):
+    def get(self, key: str, default: int, /) -> int: ...
+    def __setitem__(self, key: str, value: int, /) -> None: ...
+
 def slugify(value: str, separator: str, unicode: bool = False) -> str: ...
 def slugify_unicode(value: str, separator: str) -> str: ...
-def unique(id: str, ids: MutableSet[str]) -> str: ...
+def unique(id: str, ids: MutableSet[str], counters: _IdCounters | None = None) -> str: ...
 @deprecated("Use `render_inner_html` and `striptags` instead.")
 def get_name(el: Element) -> str: ...
 @deprecated("Use `run_postprocessors`, `render_inner_html` and/or `striptags` instead.")

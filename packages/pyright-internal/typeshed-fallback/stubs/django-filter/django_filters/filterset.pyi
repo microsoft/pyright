@@ -42,8 +42,8 @@ class BaseFilterSet:
     is_bound: bool
     base_filters: OrderedDict[str, Filter]
     declared_filters: OrderedDict[str, Filter]
-    data: QueryDict | dict[str, Any] | None  # Filter input data values vary
-    queryset: QuerySet[Any] | None  # Base queryset for any model type
+    data: QueryDict | dict[str, Any]  # Filter input data values vary
+    queryset: QuerySet[Any]  # Base queryset for any model type
     request: HttpRequest | None
     form_prefix: str | None
     filters: OrderedDict[str, Filter]
