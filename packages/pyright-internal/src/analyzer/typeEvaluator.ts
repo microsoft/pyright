@@ -3567,9 +3567,9 @@ export function createTypeEvaluator(
         symbolWithScope: SymbolWithScope,
         effectiveType: Type
     ): FlowNodeTypeResult | undefined {
-        // This function applies only to captured variables, not those that
-        // are accessed via an explicit nonlocal or global binding.
-        if (symbolWithScope.usesGlobalBinding || symbolWithScope.usesNonlocalBinding) {
+        // Global bindings and cells that can be unbound in another scope
+        // cannot safely retain the type at capture.
+        if (symbolWithScope.usesGlobalBinding || symbolWithScope.symbol.isUnboundInOtherScope()) {
             return undefined;
         }
 

@@ -3074,9 +3074,7 @@ export class Binder extends ParseTreeWalker {
 
                     // Assignments in unreachable code still make names local, matching
                     // CPython. Bind those names without type-checking the dead code.
-                    // Only function scopes are affected; class and module bodies
-                    // look up unassigned names in outer scopes at runtime.
-                    if (this._currentScope.type === ScopeType.Function) {
+                    if (this._currentScope.type === ScopeType.Function || this._currentScope.type === ScopeType.Class) {
                         this._bindNamesInUnreachableCode(statement);
                     }
                 }
@@ -3091,7 +3089,13 @@ export class Binder extends ParseTreeWalker {
         // nonlocal declarations before binding any names.
         new UnreachableDirectiveFinder(
             (globalNode) => this.visitGlobal(globalNode),
-            (nonlocalNode) => this.visitNonlocal(nonlocalNode)
+            (nonlocalNode) => {
+                if (this._currentScope.type === ScopeType.Class) {
+                    nonlocalNode.d.targets.forEach((name) => this._currentScope.excludeUnreachableSymbol(name.d.value));
+                } else {
+                    this.visitNonlocal(nonlocalNode);
+                }
+            }
         ).walk(node);
 
         const bindTarget = (target: ExpressionNode) => {
@@ -3694,6 +3698,9 @@ export class Binder extends ParseTreeWalker {
             const symbolWithScope = this._currentScope.lookUpSymbolRecursive(node.d.value);
             assert(symbolWithScope !== undefined);
             targetSymbolId = symbolWithScope!.symbol.id;
+            if (unbound && !this._isCodeUnreachable() && symbolWithScope!.isBeyondExecutionScope) {
+                symbolWithScope!.symbol.setIsUnboundInOtherScope();
+            }
         }
 
         const prevFlowNode = this._currentFlowNode!;
@@ -3857,6 +3864,10 @@ export class Binder extends ParseTreeWalker {
                 return symbolWithScope.symbol;
             }
         } else {
+            if (scope.type === ScopeType.Class && this._isCodeUnreachable()) {
+                return scope.addUnreachableSymbol(name);
+            }
+
             // Don't overwrite an existing symbol.
             let symbol = scope.lookUpSymbol(name);
             if (!symbol) {
@@ -3894,7 +3905,11 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _bindPossibleTupleNamedTarget(target: ExpressionNode, addedSymbols?: Map<string, Symbol>) {
-        if (this._currentScope.type === ScopeType.Class && !isStaticClassAssignmentTarget(target)) {
+        if (
+            this._currentScope.type === ScopeType.Class &&
+            !this._isCodeUnreachable() &&
+            !isStaticClassAssignmentTarget(target)
+        ) {
             this._currentScope.hasPotentiallyDynamicSymbolTable = true;
         }
 
