@@ -201,6 +201,21 @@ class LinkedIssueTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.result_type, "failure")
         self.assertIn("allowance exhausted", result.text_result_for_llm or "")
         self.assertEqual(self.api.await_count, LINKED_ISSUE_REQUESTS)
+        self.assertEqual(self.tools.exhausted_budgets, {"requests"})
+        logged = [json.loads(line) for line in (self.directory / "checks.jsonl").read_text().splitlines()]
+        self.assertTrue(any(row.get("kind") == "linked_issue_limit" and row.get("limit") == "requests" for row in logged))
+
+    async def test_native_reads_have_no_external_eight_request_limit(self):
+        self.tools.github.api = AsyncMock(return_value=issue().model_dump(mode="json"))
+        for _ in range(10):
+            result = await self.tools.github_read(ToolInvocation(
+                session_id="test", tool_call_id="native", tool_name="github_read",
+                arguments={"operation": "issue", "number": 123},
+            ))
+            self.assertEqual(result.result_type, "success")
+        self.assertEqual(self.tools._linked_requests, 0)
+        self.assertEqual(self.tools.exhausted_budgets, set())
+        self.assertEqual(self.tools.github.api.await_count, 10)
 
     async def test_comment_only_access_still_verifies_that_the_link_is_an_issue(self):
         self.document["pull_request"] = {}
@@ -222,6 +237,7 @@ class LinkedIssueTests(unittest.IsolatedAsyncioTestCase):
         calls = self.api.await_count
         self.assertEqual((await self.read()).result_type, "failure")
         self.assertEqual(self.api.await_count, calls)
+        self.assertEqual(self.tools.exhausted_budgets, {"bytes"})
 
     async def test_oversized_individual_response_is_not_screened_or_delivered(self):
         self.document["body"] = "x" * LINKED_ISSUE_RESPONSE_BYTES
@@ -229,6 +245,7 @@ class LinkedIssueTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.result_type, "failure")
         self.assertNotIn("x" * 100, result.text_result_for_llm or "")
         self.screen.assert_not_awaited()
+        self.assertEqual(self.tools.exhausted_budgets, {"response_bytes"})
 
     async def test_exact_aggregate_byte_allowance_succeeds_then_prevents_more_http(self):
         overhead = len(json.dumps(self.document, ensure_ascii=True).encode("utf-8")) - len("Original linked report")
@@ -244,6 +261,7 @@ class LinkedIssueTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.result_type, "failure")
         self.assertIn("allowance exhausted", result.text_result_for_llm or "")
         self.assertEqual(self.api.await_count, calls)
+        self.assertEqual(self.tools.exhausted_budgets, {"bytes"})
 
     async def test_unconfigured_screening_cannot_deliver_linked_evidence(self):
         github = GitHub()

@@ -33,7 +33,7 @@ from urllib.request import HTTPRedirectHandler, build_opener
 
 from pydantic import BaseModel, Field, JsonValue
 
-from issue_review_models import ConfiguredReproductionScenario, Issue, ReproductionScenario, ReproductionTarget, Symptom
+from issue_review_models import ConfiguredReproductionScenario, Issue, ReproductionClaim, ReproductionScenario, ReproductionTarget, Symptom
 from issue_review_rca import Runner
 from issue_review_timing import phase_timing
 
@@ -479,6 +479,14 @@ class PredicateConflict(ValueError):
     pass
 
 
+def control_diagnostics(claim: ReproductionClaim, symptoms: list[Symptom]) -> list[Symptom]:
+    locations = {(item.file, item.original_line): item.control_line for item in claim.control_diagnostic_locations}
+    return [
+        item.model_copy(update={"line": locations.get((item.file, item.line), item.line)})
+        for item in symptoms if item.severity in {"error", "warning"}
+    ]
+
+
 def validate_predicates(scenario: ReproductionScenario) -> None:
     def compatible(left: Symptom, right: Symptom, context: str, sources: Mapping[str, str]) -> None:
         if (left.file, left.line, left.severity) != (right.file, right.line, right.severity):
@@ -507,21 +515,33 @@ def validate_predicates(scenario: ReproductionScenario) -> None:
             )
 
     precision = [item for claim in scenario.claims for item in claim.precision]
+    original_precision = [item for claim in scenario.claims for item in claim.original_precision]
+    for left, right in combinations(original_precision, 2):
+        compatible(left, right, "original precision", scenario.files)
     for left, right in combinations(precision, 2):
         compatible(left, right, "shared precision", scenario.control_files or scenario.files)
     for claim in scenario.claims:
-        resolved_precision = [*precision, *claim.resolution_precision]
+        resolved_precision = [
+            *precision, *claim.resolution_precision, *(original_precision if not scenario.control_files else []),
+        ]
         for left, right in combinations(resolved_precision, 2):
             compatible(left, right, f"claim {claim.id} resolved precision", scenario.control_files or scenario.files)
         for state, predicates in (("broken", claim.broken), ("resolved", claim.resolved)):
             for left, right in combinations(predicates, 2):
                 compatible(left, right, f"claim {claim.id} {state}", scenario.files)
+            required = list(original_precision)
             if not scenario.control_files:
-                required = list(precision)
+                required.extend(precision)
                 if state == "resolved":
                     required.extend(claim.resolution_precision)
-                for left, right in product(predicates, required):
-                    compatible(left, right, f"claim {claim.id} {state} with precision", scenario.files)
+            for left, right in product(predicates, required):
+                compatible(left, right, f"claim {claim.id} {state} with precision", scenario.files)
+            if scenario.control_files:
+                required = [*precision, *(claim.resolution_precision if state == "resolved" else [])]
+                for left, right in product(control_diagnostics(claim, predicates), required):
+                    compatible(
+                        left, right, f"claim {claim.id} control {state} with precision", scenario.control_files,
+                    )
 
 
 def scenario_inputs(scenario: ReproductionScenario, *, phase: Phase = "original") -> dict[str, str]:
@@ -555,16 +575,34 @@ def scenario_inputs(scenario: ReproductionScenario, *, phase: Phase = "original"
     if not re.fullmatch(r"3\.\d+", str(configuration.get("pythonVersion", ""))):
         raise ValueError("An explicit reported or disclosed default Python version is required")
     configuration["include"] = [str(relative_path(name)) for name in sorted(files) if name.endswith(".py")]
+    control_locations: dict[tuple[str, int], int] = {}
     for claim in scenario.claims:
         if claim.surface != "cli":
             raise ValueError(f"Claim {claim.id} requires unsupported {claim.surface} surface; no CLI substitution")
-        for symptom in [*claim.broken, *claim.resolved, *claim.context_diagnostics]:
+        for symptom in [*claim.broken, *claim.resolved, *claim.original_precision, *claim.context_diagnostics]:
             if symptom.file not in scenario.files or symptom.line > len(scenario.files[symptom.file].splitlines()):
                 raise ValueError("Symptom must refer to an actual unmodified original source location")
         precision_files = scenario.control_files or scenario.files
         for symptom in [*claim.precision, *claim.resolution_precision]:
             if symptom.file not in precision_files or symptom.line > len(precision_files[symptom.file].splitlines()):
                 raise ValueError("Precision must refer to an actual original or separate control source location")
+        declared: set[tuple[str, int]] = set()
+        for location in claim.control_diagnostic_locations:
+            key = (location.file, location.original_line)
+            if (
+                not scenario.control_files or location.file not in scenario.control_files
+                or location.control_line > len(scenario.control_files[location.file].splitlines())
+                or key in declared
+                or key in control_locations and control_locations[key] != location.control_line
+                or not any(
+                    item.file == location.file and item.line == location.original_line
+                    and item.present and item.severity in {"error", "warning"}
+                    for item in [*claim.broken, *claim.resolved]
+                )
+            ):
+                raise ValueError("Control diagnostic mapping needs one declared original symptom and a valid control location")
+            declared.add(key)
+            control_locations[key] = location.control_line
         if not any(item.present for item in claim.broken):
             # Missing diagnostics are legitimate symptoms, but their positive precision control must execute.
             if not any(item.present and item.severity == "information" for item in claim.precision):
@@ -714,6 +752,8 @@ def observe_claims(
             return found == expected.present
 
         precision = control or not scenario.control_files
+        if not control and not all(matches(item) for claim in scenario.claims for item in claim.original_precision):
+            return block("Original affirmative precision failed; supporting diagnostics and types must remain verified")
         if precision and not all(matches(item) for claim in scenario.claims for item in claim.precision):
             return block("Affirmative precision controls failed; missing output or Any/Unknown degradation is not resolution")
         outcomes: dict[str, Observation] = {}
@@ -739,18 +779,25 @@ def observe_claims(
             ):
                 return block(f"Claim {claim.id}: resolved-only precision failed; output loss is not resolution")
         context_diagnostics = [item for claim in scenario.claims for item in claim.context_diagnostics]
-        allowed = [
-            item for claim in scenario.claims
-            for item in [
-                *([*claim.broken, *claim.resolved] if control else
-                  claim.broken if outcomes[claim.id] == "reproduced" else claim.resolved),
-                *(claim.precision if precision else []),
-                *(claim.resolution_precision if precision and (
-                    original_outcomes.get(claim.id) if control else outcomes[claim.id]
-                ) == "not_reproduced" else []),
-                *claim.context_diagnostics,
-            ] if item.present and item.severity in {"error", "warning"}
-        ]
+        allowed: list[Symptom] = []
+        for claim in scenario.claims:
+            symptoms = (
+                [*claim.broken, *claim.resolved] if control else
+                claim.broken if outcomes[claim.id] == "reproduced" else claim.resolved
+            )
+            if control:
+                symptoms = control_diagnostics(claim, symptoms)
+            allowed.extend(
+                item for item in [
+                    *symptoms,
+                    *(claim.original_precision if not control else []),
+                    *(claim.precision if precision else []),
+                    *(claim.resolution_precision if precision and (
+                        original_outcomes.get(claim.id) if control else outcomes[claim.id]
+                    ) == "not_reproduced" else []),
+                    *claim.context_diagnostics,
+                ] if item.present and item.severity in {"error", "warning"}
+            )
         if any(
             item not in source_warnings and item["severity"] in {"error", "warning"} and not any(
                 Path(item["file"]).resolve() == (Path(record["cwd"]) / relative_path(expected.file)).resolve()

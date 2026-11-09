@@ -72,6 +72,13 @@ and output contract. A by-design claim is a hypothesis to test, not a preferred 
 
 ## Evidence gates
 
+-   Group claims by independent user concern, not by diagnostic count. When one rejected construction causes
+    several downstream messages, keep that concern together if the same evidenced expectation explains them.
+    Preserve every diagnostic, setting dependency and presentation uncertainty in checks and Markdown; explain
+    the causal grouping. Confidence concerns the semantic expectation, not a promise that each secondary message
+    is ideal or permanent. A separately alleged diagnostic-quality, error-recovery, precision, workaround or
+    integration concern remains independently material, even with a shared cause. Never merge away contrary
+    evidence, unresolved expectations or examples to obtain closure.
 -   Report reproduction independently for the reported release, current release, and checkout. A non-reproduction does
     not invalidate a historical bug; a reproduction does not establish incorrect behavior.
 -   Search historical as-designed decisions and competing bug/fix/specification evidence. Read the relevant decision

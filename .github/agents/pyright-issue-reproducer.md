@@ -35,6 +35,18 @@ controls when present, otherwise to observations already in the report's origina
 cannot be observed without modification, record an unmet prerequisite and abstain. Controls may mask or introduce
 the original symptom through evaluation order/cache changes; they never replace its original execution.
 
+Use `original_precision` for exact affirmative invariants already observable in pristine originals, including
+diagnostics from report-supplied supporting invalid examples. These must hold on broken and resolved targets
+even when `precision` uses a separate control tree. Do not add queries or relabel a material symptom as an invariant.
+If instrumentation moves a declared error/warning symptom within the same file, supply
+`control_diagnostic_locations` entries with `file`, `original_line` and `control_line`. Only the control location
+changes; the message, rule and severity remain exact. Do not put that broken diagnostic in invariant `precision`:
+it may legitimately disappear on a resolved target. Unmapped or unrelated errors still block the comparison.
+
+Group material claims by independently requested behavior, not by diagnostic count. Preserve every diagnostic
+and setting qualification. Separately alleged diagnostic-quality, recovery, precision, workaround and integration
+concerns must remain material; a shared cause does not justify omitting them.
+
 For a reported missing diagnostic with an explicitly named `reportX` rule, the controller permits observation-only
 rule/location predicates: `message=null`, `present=false` in `broken`, and the same rule/original location with
 `present=true` in `resolved`. Include the requested rule in the verbatim claim quote. Never invent future diagnostic

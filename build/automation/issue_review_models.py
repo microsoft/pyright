@@ -98,13 +98,19 @@ class ClaimExpectation(Record):
 
 class Claim(Record):
     id: Text
-    summary: Text
+    summary: Text = Field(description=(
+        "One independent user concern, not one row per diagnostic. Retain causally dependent messages in checks "
+        "and Markdown; keep independently alleged diagnostic-quality, recovery, precision and integration concerns separate."
+    ))
     disposition: Literal[
         "bug", "specification_correct", "intentional_limitation",
         "stub_or_environment", "enhancement", "inconclusive",
     ]
     confidence: Confidence
-    confidence_reason: Text
+    confidence_reason: Text = Field(description=(
+        "Confidence in this concern's semantic disposition, not a promise that each downstream message is ideal "
+        "or permanent. Unsettled material expectations must remain separate and unresolved."
+    ))
     reproduction: list[Reproduction] = Field(min_length=3, max_length=3)
     basis: Text
     source_ids: list[str]
@@ -309,9 +315,17 @@ class DuplicateReport(Record):
         default=False,
         description="True only after the bounded searches and strongest candidate discussions were accessible and inspected.",
     )
+    exhausted_budget: Literal["requests", "bytes", "response_bytes"] | None = Field(
+        default=None,
+        description="Set only when an actual external linked-issue tool denial stopped research. "
+        "Ordinary Pyright issue/comments/search reads have no eight-request cap. "
+        "Any narrative claim of exhausted allowance must be represented here, not disguised as unavailable evidence.",
+    )
 
     @model_validator(mode="after")
     def validate_candidates(self) -> Self:
+        if self.search_complete and self.exhausted_budget is not None:
+            raise ValueError("An exhausted research budget cannot establish a completed search")
         numbers = [candidate.issue_number for candidate in self.candidates]
         if self.issue_number in numbers or len(set(numbers)) != len(numbers):
             raise ValueError("Duplicate candidates must be distinct from each other and the target")
@@ -322,6 +336,13 @@ class DuplicateReport(Record):
             ):
                 raise ValueError("Canonical preference must name one of the two established duplicate reports")
         return self
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, JsonValue]:
+        record: dict[str, JsonValue] = handler(self)
+        if self.exhausted_budget is None:
+            record.pop("exhausted_budget", None)
+        return record
 
 
 class DuplicateFindings(Record):
@@ -466,6 +487,12 @@ class Symptom(Record):
         return self
 
 
+class ControlDiagnosticLocation(Record):
+    file: Text
+    original_line: int = Field(ge=1)
+    control_line: int = Field(ge=1)
+
+
 class ReproductionClaim(Record):
     id: Text
     report_quote: Text
@@ -480,6 +507,18 @@ class ReproductionClaim(Record):
         default_factory=list,
         description="Exact affirmative repaired-output expectations, required only when this claim's pristine original is resolved. These use control_files when present. Never put a desired repaired type in invariant precision or replace it with Any/Unknown.",
     )
+    original_precision: list[Symptom] = Field(
+        default_factory=list, max_length=32,
+        description="Exact affirmative invariants already observable in pristine originals, required on broken "
+        "and resolved targets even with separate controls. Include report-supplied supporting invalid examples "
+        "here rather than omitting their diagnostics from original accounting. Never add queries to originals.",
+    )
+    control_diagnostic_locations: list[ControlDiagnosticLocation] = Field(
+        default_factory=list, max_length=32,
+        description="Explicit original-to-control line mappings for declared error/warning symptoms moved by "
+        "instrumentation in the same file. Wording, rule and severity are unchanged. These are not precision "
+        "invariants, new allowed errors, or observations of the original.",
+    )
     context_diagnostics: list[Symptom] = Field(
         default_factory=list, max_length=32,
         description="Read-only opt-in only: exact report-grounded historical context diagnostics, not reported symptoms or precision.",
@@ -487,14 +526,15 @@ class ReproductionClaim(Record):
 
     @model_validator(mode="after")
     def affirmative(self) -> Self:
-        if any(item.message is None for item in [*self.precision, *self.resolution_precision]):
+        precision = [*self.precision, *self.resolution_precision, *self.original_precision]
+        if any(item.message is None for item in precision):
             raise ValueError("Precision requires exact diagnostic/type wording")
         if any(
             item.message is None or not item.present or item.severity == "information"
             for item in self.context_diagnostics
         ):
             raise ValueError("Context diagnostics require exact affirmative error/warning expectations")
-        if not all(item.present for item in [*self.precision, *self.resolution_precision]):
+        if not all(item.present for item in precision):
             raise ValueError("Precision requires affirmative diagnostic/type observations")
         if not any(item.present for item in [*self.broken, *self.resolved]):
             raise ValueError("The original symptom must be observable without adding type queries")
@@ -504,8 +544,9 @@ class ReproductionClaim(Record):
     def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, JsonValue]:
         record: dict[str, JsonValue] = handler(self)
         # Empty new expectations must not change frozen legacy scenario/receipt hashes.
-        if not self.resolution_precision:
-            record.pop("resolution_precision", None)
+        for field in ("resolution_precision", "original_precision", "control_diagnostic_locations"):
+            if not getattr(self, field):
+                record.pop(field, None)
         return record
 
 

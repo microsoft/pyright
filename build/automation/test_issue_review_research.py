@@ -51,6 +51,23 @@ def duplicate_report(
 
 
 class ResearchTests(unittest.TestCase):
+    def test_budget_exhaustion_needs_the_current_roles_controller_limit(self):
+        for budget in ("requests", "bytes", "response_bytes"):
+            data = no_duplicates().model_dump()
+            data.update(search_complete=False, exhausted_budget=budget)
+            report = DuplicateReport.model_validate(data)
+            native_reads = [issue_record(456) for _ in range(8)]
+            with self.subTest(budget=budget):
+                with self.assertRaisesRegex(AutomationError, "external linked-issue"):
+                    validate_duplicate_execution(report, native_reads, [])
+                validate_duplicate_execution(report, native_reads, [], exhausted_budgets={budget})
+                other = "bytes" if budget == "requests" else "requests"
+                with self.assertRaises(AutomationError):
+                    validate_duplicate_execution(report, native_reads, [], exhausted_budgets={other})
+        data["search_complete"] = True
+        with self.assertRaises(ValueError):
+            DuplicateReport.model_validate(data)
+
     def test_descriptor_lead_uses_topic_not_issue_identity_or_expected_verdict(self):
         snapshot = issue().model_copy(update={"title": "Custom classmethod receiver", "body": "A descriptor"})
         leads = policy_history_leads(snapshot)

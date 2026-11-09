@@ -127,6 +127,22 @@ for explicit deployment configuration, privacy boundaries, bounds and local audi
 
 ## Decision standard
 
+Assess independent user concerns rather than diagnostic counts. A rejected construction and its causally
+dependent messages can share one claim when the same evidenced semantic expectation explains them. Preserve
+every observed message, location, setting dependency and presentation uncertainty in checks and Markdown.
+Confidence is not a promise that each secondary message is ideal or permanent. Independently alleged
+diagnostic-quality, error-recovery, precision, workaround and integration concerns retain separate expectations
+and confidence, even with a shared cause. Neither the controller nor adjudicator automatically merges claims
+or raises confidence; all material claims must still pass the existing closure gates.
+
+Only external `linked_issue`/`linked_comments` operations have the eight-request/response-byte allowances.
+Ordinary same-repository issue, discussion and search reads have no eight-request cap, while research remains
+bounded by the strongest candidates and role deadline. A duplicate report claiming exhaustion must identify
+`exhausted_budget` (`requests`, `bytes` or `response_bytes`). Validation requires that exact external limit
+to have actually denied a read in the current role's controller-owned state. A saved denial from another
+role/attempt or a self-imposed ordinary-read count is insufficient; the normal bounded correction can continue
+research before any report is saved. Actual external denials remain explicit in the evidence ledger.
+
 ### Console reproduction gate
 
 The console runs `pyright-issue-reproducer` and `pyright-issue-reproduction-gate` before causal investigation.
@@ -153,6 +169,17 @@ Invariant `precision` must hold on broken and resolved targets. Desired repaired
 `resolution_precision` and are required only when that claim's pristine original is resolved. Additional queries
 use separate controls matched to the original target/scenario. A broken query's Unknown result does not erase
 reproduction; Unknown/Any, missing output and wrong types never satisfy a repaired-output requirement.
+`original_precision` separately records exact affirmative invariants already observable in pristine source,
+such as a report-supplied supporting invalid example. These remain mandatory on broken and resolved originals
+even when regular `precision` uses separate controls. Missing or changed supporting observations block, rather
+than being silently allowed context. Assessment-only context diagnostics remain unavailable to ordinary runs.
+Explicit `control_diagnostic_locations` map a declared error/warning's original line to its instrumented line
+within the same file. Wording, rule and severity remain unchanged; original matching is untouched. Invalid,
+duplicate or conflicting mappings and contradictory precision contracts are rejected. Unmapped/unrelated
+errors still block. Mapping a broken symptom does not require that diagnostic to remain on resolved targets
+or allow it to be disguised as an invariant precision check. Both contracts remain part of frozen evidence,
+resume and publication revalidation. Empty additive fields preserve legacy serialization; changed controller
+inputs still require a fresh investigation, never rewriting or resealing saved evidence.
 New attempts reject added repaired-output queries that syntactically repeat a material original operation.
 The separate control may bind the operation's result once at its original location and reveal that bound value;
 the pristine original remains untouched. Extra diagnostics are not suppressed or treated as successful controls.

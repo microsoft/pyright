@@ -106,6 +106,25 @@ def scenario_with_resolution_controls() -> ReproductionScenario:
     return probe
 
 
+def scenario_with_phase_contracts() -> ReproductionScenario:
+    data = scenario_with_controls().model_dump()
+    data["files"]["sample.py"] += "invalid: str = 1\n"
+    data["control_files"]["sample.py"] = (
+        "value = 1\n# Separate control\nresult: int = value\ninvalid: str = 1\nreveal_type(value)\n"
+    )
+    support = {
+        "file": "sample.py", "line": 3, "severity": "error",
+        "message": "Deliberate neighboring rejection", "rule": "reportAssignmentType", "present": True,
+    }
+    data["claims"][0]["original_precision"] = [support]
+    data["claims"][0]["precision"][0]["line"] = 5
+    data["claims"][0]["precision"].append({**support, "line": 4})
+    data["claims"][0]["control_diagnostic_locations"] = [
+        {"file": "sample.py", "original_line": 2, "control_line": 3},
+    ]
+    return ReproductionScenario.model_validate(data)
+
+
 def placeholder_scenario() -> ReproductionScenario:
     operation = "functools.partial(bin, functools.Placeholder)(42)"
     precision = [
@@ -527,10 +546,11 @@ class TransportTests(unittest.TestCase):
             reproduction_response(ReconstructionResponse, json.dumps(raw))
 
     def test_reconstruction_rejects_nul_in_every_diagnostic_predicate_collection(self):
-        for collection in ("broken", "resolved", "precision", "resolution_precision", "context_diagnostics"):
+        for collection in ("broken", "resolved", "precision", "resolution_precision", "original_precision", "context_diagnostics"):
             raw = {"scenario": self.wire_scenario(default_scenario(scenario_with_resolution_controls())), "blocked": None}
             claim = raw["scenario"]["claims"][0]
             claim["context_diagnostics"] = [dict(claim["broken"][0])]
+            claim["original_precision"] = [dict(claim["broken"][0])]
             claim[collection][0]["message"] = 'Invalid indentation\n\0a0\0a0"property" is not assignable to "int"'
             serialized = json.dumps(raw)
             with self.subTest(collection=collection), self.assertRaisesRegex(ValueError, "NUL"):
@@ -688,6 +708,15 @@ class TransportTests(unittest.TestCase):
         schema = ReproductionScenario.model_json_schema()
         self.assertIn("resolution_precision", schema["$defs"]["ReproductionClaim"]["properties"])
 
+    def test_wire_preserves_original_precision_and_control_diagnostic_locations(self):
+        probe = scenario_with_phase_contracts()
+        scenario_inputs(probe)
+        decoded = ReproductionScenario.model_validate_json(
+            reproduction_response(ReproductionScenario, json.dumps(self.wire_scenario(probe))),
+        )
+        self.assertEqual(decoded, probe)
+        self.assertEqual(decoded.model_dump(), probe.model_dump())
+
     def test_duplicate_entries_in_every_map_are_rejected_without_overwriting(self):
         for name in ("files", "control_files", "configuration"):
             with self.subTest(map=name):
@@ -747,6 +776,145 @@ class TransportTests(unittest.TestCase):
 
 
 class OutcomeTests(unittest.TestCase):
+    def test_original_only_precision_accounts_for_supporting_errors_without_hiding_their_loss(self):
+        data = scenario_with_controls().model_dump()
+        data["files"]["sample.py"] += "invalid: str = 1\n"
+        data["control_files"]["sample.py"] = data["files"]["sample.py"] + "reveal_type(value)\n"
+        support = {
+            "file": "sample.py", "line": 3, "severity": "error",
+            "message": "Deliberate neighboring rejection", "rule": "reportAssignmentType", "present": True,
+        }
+        data["claims"][0]["original_precision"] = [support]
+        data["claims"][0]["precision"][0]["line"] = 4
+        data["claims"][0]["precision"].append(support)
+        probe = ReproductionScenario.model_validate(data)
+        scenario_inputs(probe)
+        validate_reproduction_report(probe, "A small reproducer")
+        with tempfile.TemporaryDirectory() as temporary:
+            cwd = Path(temporary)
+            for broken in (True, False):
+                original = record(cwd, broken=broken, separate_controls=True)
+                control = record(cwd, broken=broken, separate_controls=True, phase="control")
+                for actual in (original, control):
+                    output = json.loads(actual["stdout"])
+                    if actual["phase"] == "control":
+                        output["generalDiagnostics"][0]["range"]["start"]["line"] = 3
+                    output["generalDiagnostics"].append({
+                        "file": str(cwd / "sample.py"), "severity": "error", "message": support["message"],
+                        "rule": support["rule"], "range": {"start": {"line": 2}},
+                    })
+                    actual["stdout"] = json.dumps(output)
+                    actual["exit_code"] = 1
+                self.assertEqual(classify(probe, original, control), "reproduced" if broken else "not_reproduced")
+                output = json.loads(original["stdout"])
+                output["generalDiagnostics"].pop()
+                original["stdout"] = json.dumps(output)
+                self.assertEqual(classify(probe, original, control), "blocked")
+
+    def test_control_locations_relocate_only_declared_symptoms_not_originals_or_precision(self):
+        data = scenario_with_controls().model_dump()
+        data["control_files"]["sample.py"] = "value = 1\n# Separate control\nresult: int = value\nreveal_type(value)\n"
+        data["claims"][0]["precision"][0]["line"] = 4
+        data["claims"][0]["control_diagnostic_locations"] = [
+            {"file": "sample.py", "original_line": 2, "control_line": 3},
+        ]
+        probe = ReproductionScenario.model_validate(data)
+        scenario_inputs(probe)
+        with tempfile.TemporaryDirectory() as temporary:
+            cwd = Path(temporary)
+            original = record(cwd, broken=True, separate_controls=True)
+            control = record(cwd, broken=True, separate_controls=True, phase="control")
+            output = json.loads(control["stdout"])
+            output["generalDiagnostics"][0]["range"]["start"]["line"] = 3
+            output["generalDiagnostics"][1]["range"]["start"]["line"] = 2
+            control["stdout"] = json.dumps(output)
+            self.assertEqual(classify(probe, original, control), "reproduced")
+            for field, value in (("message", "Another error"), ("rule", "reportReturnType"), ("file", str(cwd / "other.py"))):
+                changed = json.loads(control["stdout"])
+                changed["generalDiagnostics"][1][field] = value
+                with self.subTest(field=field):
+                    self.assertEqual(classify(probe, original, {**control, "stdout": json.dumps(changed)}), "blocked")
+            changed = json.loads(original["stdout"])
+            changed["generalDiagnostics"][0]["range"]["start"]["line"] = 2
+            self.assertEqual(classify(probe, {**original, "stdout": json.dumps(changed)}, control), "blocked")
+            output["generalDiagnostics"][1]["range"]["start"]["line"] = 1
+            self.assertEqual(classify(probe, original, {**control, "stdout": json.dumps(output)}), "blocked")
+
+    def test_phase_specific_contracts_reject_invalid_mappings_and_contradictory_original_precision(self):
+        for mapping in (
+            {"file": "sample.py", "original_line": 1, "control_line": 2},
+            {"file": "sample.py", "original_line": 2, "control_line": 99},
+            {"file": "missing.py", "original_line": 2, "control_line": 2},
+        ):
+            data = scenario_with_controls().model_dump()
+            data["claims"][0]["control_diagnostic_locations"] = [mapping]
+            with self.subTest(mapping=mapping), self.assertRaises(ValueError):
+                scenario_inputs(ReproductionScenario.model_validate(data))
+        data = scenario_with_controls().model_dump()
+        data["claims"][0]["original_precision"] = [data["claims"][0]["broken"][0]]
+        with self.assertRaisesRegex(ValueError, "Contradictory verification predicates"):
+            scenario_inputs(ReproductionScenario.model_validate(data))
+        for mutation in ({"present": False}, {"message": None}):
+            data = scenario_with_controls().model_dump()
+            data["claims"][0]["original_precision"] = [{**data["claims"][0]["broken"][0], **mutation}]
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                ReproductionScenario.model_validate(data)
+        for probe in (scenario_with_controls(), scenario_with_phase_contracts()):
+            data = probe.model_dump()
+            symptom = dict(data["claims"][0]["broken"][0])
+            symptom["line"] = 3 if probe.claims[0].control_diagnostic_locations else 2
+            data["claims"][0]["precision"].append(symptom)
+            with self.assertRaisesRegex(ValueError, "Contradictory verification predicates"):
+                scenario_inputs(ReproductionScenario.model_validate(data))
+        legacy = scenario_with_controls().model_dump()["claims"][0]
+        self.assertNotIn("original_precision", legacy)
+        self.assertNotIn("control_diagnostic_locations", legacy)
+
+    def test_control_precision_can_differ_from_the_original_type_symptom(self):
+        probe = scenario()
+        observed = probe.claims[0].precision[0]
+        probe.claims[0].broken = [observed.model_copy(update={"message": 'Type of "value" is "Unknown"'})]
+        probe.claims[0].resolved = [observed]
+        probe.control_files = {"sample.py": probe.files["sample.py"] + "reveal_type(value)\n"}
+        scenario_inputs(probe)
+        with tempfile.TemporaryDirectory() as temporary:
+            original = record(Path(temporary), broken=False)
+            output = json.loads(original["stdout"])
+            output["generalDiagnostics"][0]["message"] = 'Type of "value" is "Unknown"'
+            original["stdout"] = json.dumps(output)
+            control = record(Path(temporary), broken=False, phase="control")
+            self.assertEqual(classify(probe, original, control), "reproduced")
+
+    def test_control_locations_reject_duplicate_and_conflicting_mappings(self):
+        data = scenario_with_phase_contracts().model_dump()
+        data["claims"][0]["control_diagnostic_locations"] *= 2
+        with self.assertRaisesRegex(ValueError, "Control diagnostic mapping"):
+            scenario_inputs(ReproductionScenario.model_validate(data))
+        data = scenario_with_phase_contracts().model_dump()
+        other = dict(data["claims"][0])
+        other.update(
+            id="independent", control_diagnostic_locations=[
+                {"file": "sample.py", "original_line": 2, "control_line": 4},
+            ],
+        )
+        data["claims"].append(other)
+        with self.assertRaisesRegex(ValueError, "Control diagnostic mapping"):
+            scenario_inputs(ReproductionScenario.model_validate(data))
+        other["control_diagnostic_locations"][0]["control_line"] = 3
+        scenario_inputs(ReproductionScenario.model_validate(data))
+
+    def test_original_precision_cannot_contradict_repaired_queries_without_separate_controls(self):
+        probe = scenario()
+        probe.claims[0].original_precision = [probe.claims[0].precision[0]]
+        probe.files["sample.py"] += "reveal_type(value)\n"
+        probe.claims[0].precision = [probe.claims[0].precision[0].model_copy(update={"line": 4})]
+        probe.claims[0].resolved = [probe.claims[0].resolved[-1]]
+        probe.claims[0].resolution_precision = [
+            probe.claims[0].original_precision[0].model_copy(update={"message": 'Type of "value" is "str"'}),
+        ]
+        with self.assertRaisesRegex(ValueError, "Contradictory verification predicates"):
+            scenario_inputs(probe)
+
     def test_repaired_queries_reject_repeated_material_operations_but_allow_once_bound_results(self):
         probe = placeholder_scenario()
         original = probe.files.copy()
@@ -1597,6 +1765,48 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(stage.outcomes["historical"], "reproduced")
         self.assertEqual(stage.outcomes["main"], "blocked")
         self.assertIsNone(stage.action())
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_phase_contracts_survive_execution_resume_and_publication_revalidation(self):
+        self.planned_scenario = scenario_with_phase_contracts()
+        self.targets.separate_controls = True
+        execute = self.targets.runner
+        omit_main_support = False
+
+        async def observed(command, cwd):
+            _, stdout, stderr = await execute(command, cwd)
+            output = json.loads(stdout)
+            control = "reveal_type" in (cwd / "sample.py").read_text()
+            if control:
+                output["generalDiagnostics"][0]["range"]["start"]["line"] = 4
+                for item in output["generalDiagnostics"][1:]:
+                    item["range"]["start"]["line"] = 2
+            if not (omit_main_support and Path(command[1]).parent.name == "main" and not control):
+                output["generalDiagnostics"].append({
+                    "file": str(cwd / "sample.py"), "severity": "error",
+                    "message": "Deliberate neighboring rejection", "rule": "reportAssignmentType",
+                    "range": {"start": {"line": 3 if control else 2}},
+                })
+            return 1, json.dumps(output), stderr
+
+        self.targets.runner = observed
+        stage = await self.ready()
+        self.assertEqual(stage.action(), "fixed")
+        restored = Entry.model_validate_json(self.entry.model_dump_json())
+        self.console.require_reproduction_evidence(restored)
+        stage = restored.reproduction_stage
+        assert stage is not None and stage.scenario is not None
+        self.assertTrue(stage.scenario.claims[0].original_precision)
+        self.assertEqual(stage.scenario.claims[0].control_diagnostic_locations[0].control_line, 3)
+        stage.status, stage.gate, stage.evidence_hash = "running", None, None
+        await self.console.reproduce(restored)
+        self.assertEqual(self.targets.executions, 6)
+        self.console.require_reproduction_evidence(restored)
+        self.entry.reproduction_stage = None
+        omit_main_support = True
+        failed = await self.ready()
+        self.assertEqual(failed.outcomes["main"], "blocked")
+        self.assertIsNone(failed.action())
         self.assertEqual(self.github.mutations, [])
 
     async def test_repeated_faulting_control_is_rejected_before_target_execution(self):

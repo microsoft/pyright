@@ -26,6 +26,11 @@ Environment/stub issues and enhancements do not become Pyright bugs merely becau
 `by design` requires all claims to be high-confidence specification-correct behavior or a justified intentional
 limitation, with actual applicable product execution and relevant historical searches. Project policy cannot
 override mandatory typing rules. Preserve real user impact and counterevidence.
+The unit is an independent user concern, not each cascading diagnostic. Do not invent extra claims solely
+because a rejected construction produces several messages, or require proof that each message is ideal
+or permanent to accept an evidenced semantic expectation. Retain every observation and presentation limit.
+Separately alleged diagnostic-quality, error-recovery, precision, workaround and integration concerns remain
+material with their own confidence; do not merge or discard them to satisfy the all-claims gate.
 
 `bug` requires observed applicable product evidence for at least one supported, non-low-confidence bug claim.
 Its non-null `expectation` must identify either a mandatory-rule violation or failure of established intended

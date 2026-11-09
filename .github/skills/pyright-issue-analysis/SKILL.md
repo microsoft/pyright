@@ -32,6 +32,12 @@ Capture Python and Pyright versions, type-checking mode, relevant diagnostic set
 Distinguish the affected released version from the current checkout. Read the issue discussion for clarifications,
 prior decisions, duplicates, or an existing fix; do not assume the report describes current behavior.
 
+Use independent user concerns as the unit of assessment, not individual cascading messages. When one rejected
+construction explains several diagnostics under the same evidenced expectation, retain their complete observations
+and qualifications together and explain the causal grouping. Confidence concerns that semantic expectation, not
+whether every downstream message is ideal or permanent. Independently alleged diagnostic-quality, recovery,
+precision, workaround and integration concerns remain separate; never merge away uncertainty to obtain closure.
+
 ## 2. Produce a minimal repro
 
 Aim for 10-30 lines, but retain additional code if necessary to preserve the bug.

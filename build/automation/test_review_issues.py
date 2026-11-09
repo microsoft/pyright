@@ -290,6 +290,22 @@ class ContextTests(unittest.TestCase):
 
 
 class ModelTests(unittest.TestCase):
+    def test_concern_grouping_retains_diagnostic_detail_and_does_not_merge_independent_uncertainty(self):
+        report = audit()
+        report.claims[0].summary = "Reject an unsupported construction"
+        report.checks[0].observations = "Primary rejection; secondary call mismatch; Unknown member; Unknown argument"
+        self.assertTrue(report.design_claims_supported())
+        independent = report.claims[0].model_copy(deep=True)
+        independent.id = "independent-recovery-concern"
+        independent.summary = "The reporter separately alleges incorrect error recovery"
+        independent.confidence = "medium"
+        report.claims.append(independent)
+        checked = Audit.model_validate_json(report.model_dump_json())
+        self.assertFalse(checked.design_claims_supported())
+        self.assertEqual(len(checked.claims), 2)
+        self.assertEqual(checked.claims[1].confidence, "medium")
+        self.assertIn("Unknown argument", checked.checks[0].observations)
+
     def test_reproduction_policy_feedback_matches_host_rejection(self):
         for surface in ("cli", "language_server", "editor", "packaging", "other"):
             for status in ("reproduced", "not_reproduced", "blocked", "not_attempted", "not_applicable"):
@@ -1004,6 +1020,8 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             async def execute(_agent, _prompt, _scratch, **options):
                 self.assertIn("including ancillary CLI controls", _prompt)
                 self.assertIn("Do not change product_surface or omit material claims", _prompt)
+                self.assertIn("Group claims by independent user concern", _prompt)
+                self.assertIn("separately alleged diagnostic-quality or error-recovery concern", _prompt)
                 record = product_record(report)
                 if scenario == "runtime_only":
                     record["kind"] = "python"
@@ -1179,6 +1197,36 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             await self.console.investigate_duplicates(self.entry)
         self.assertIsNone(self.entry.duplicates)
         self.assertFalse((self.console.directory(123) / "duplicates.json").exists())
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_false_duplicate_budget_stop_can_be_corrected_before_saving(self):
+        self.console.state = Path(self.temporary.name) / "duplicate-budget-correction"
+        self.entry.duplicates, self.entry.adjudication = None, None
+        data = no_duplicates().model_dump()
+        data.update(search_complete=False, exhausted_budget="requests")
+        failed = DuplicateReport.model_validate(data)
+        bad = DuplicateFindings(markdown="# Findings\n\nRequest allowance exhausted.", report=failed).model_dump_json()
+        good = DuplicateFindings(markdown="# Findings\n\nBounded research completed.", report=no_duplicates()).model_dump_json()
+
+        async def investigated(agent, prompt, scratch, **options):
+            self.assertIn("NOT ordinary Pyright", prompt)
+            self.assertIn("Group claims by independent user concern", prompt)
+            tools = options["tools"]
+            for _ in range(8):
+                tools.log({"tool": "github_read", "request": {"operation": "issue", "number": 123}, "result": {}})
+            tools.log({"kind": "linked_issue_limit", "limit": "requests"})
+            with self.assertRaisesRegex(AutomationError, "external linked-issue"):
+                options["validate"](bad)
+            self.assertFalse((self.console.directory(123) / "duplicates.json").exists())
+            tools.log(search_record())
+            options["validate"](good)
+            return good
+
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=investigated)):
+            await self.console.investigate_duplicates(self.entry)
+        assert self.entry.duplicates is not None
+        self.assertTrue(self.entry.duplicates.search_complete)
+        self.assertIsNone(self.entry.duplicates.exhausted_budget)
         self.assertEqual(self.github.mutations, [])
 
     async def test_both_roles_receive_curated_topic_leads_without_inheriting_verdicts(self):
@@ -1768,6 +1816,7 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
 
         async def adjudicate(agent, prompt, scratch, **options):
             self.assertEqual(agent.name, "pyright-issue-adjudicator")
+            self.assertIn("Group claims by independent user concern", prompt)
             self.assertIn(self.entry.review_markdown, prompt)
             self.assertIn(self.entry.duplicates_markdown, prompt)
             self.assertNotIn("tools", options)

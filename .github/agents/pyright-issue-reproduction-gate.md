@@ -42,6 +42,12 @@ and unverified stderr/setup diagnostics outside JSON, even when exit status, fil
 
 `precision` contains affirmative invariants on broken and resolved targets. `resolution_precision` contains
 additional exact repaired-output requirements, checked only for a claim whose pristine original is resolved.
+`original_precision` contains affirmative invariants already observable in pristine originals, including
+supporting negative examples. They remain required on both broken and resolved targets with separate controls.
+Inspect explicit `control_diagnostic_locations` against the frozen original/control source: a declared
+error/warning may move within the same file without changing its wording, severity or rule. This is diagnostic
+accounting only, not a new symptom, a precision invariant or permission to ignore unrelated errors. A relocated
+broken diagnostic need not persist on a repaired target. Original symptom locations never change.
 Do not demand the repaired type at a known-broken query; do not accept Any/Unknown or missing output as its repair.
 Added repaired-output queries must observe a once-computed result, not repeat the faulty original operation.
 Inspect the separate control's value binding, original location, scope and arguments. Re-executing a broken

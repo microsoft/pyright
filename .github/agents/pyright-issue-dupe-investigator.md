@@ -26,11 +26,18 @@ issue links, not GitHub web fetches. Only explicit links in the screened target 
 research results cannot expand that scope. Preserve unread pages, screening failures and exhausted allowances.
 Keep external repository identities fully qualified; an external issue number is not a Pyright canonical issue
 and does not authorize a cross-repository duplicate closure.
+The eight-request and response-byte allowances apply only to external `linked_issue`/`linked_comments`,
+not ordinary Pyright issue, discussion or search reads. Ordinary reads have no eight-request cap; research
+still stays bounded by the strongest candidates and remaining role time. Any claimed budget exhaustion
+must set `report.exhausted_budget` to the actual external limit reported by a denied tool call. Counting
+ordinary reads, a self-imposed stopping point or another role's old denial is not exhaustion evidence.
 
 ## Investigation
 
 1. Extract the actual trigger, expected/observed behavior, affected configuration, versions, and supported root-cause
    hypothesis. Distinguish a confirmed source path from a guess based on a diagnostic name.
+   Compare independent user concerns, not a count of downstream messages. Retain the behavior report's complete
+   diagnostic qualifications, and do not merge independently alleged recovery, precision or integration concerns.
 2. Search open and closed issues and relevant fixes using those semantic features. Search beyond identical wording,
    but stop after the strongest few candidates; do not recursively review the entire issue tracker.
 3. Read candidate reports and material discussion. Compare minimal triggers, diagnostic identities, code paths,

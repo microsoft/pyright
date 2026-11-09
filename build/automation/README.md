@@ -162,6 +162,13 @@ screening failure blocks the role without override. Native GitHub web access rem
 does not establish faithful reproduction, a common cause, fixed status or a Pyright canonical issue by itself,
 and does not enable cross-repository duplicate closure.
 
+These numeric allowances apply **only to external linked-issue operations**. Ordinary Pyright issue,
+discussion and search reads have no eight-request cap; the strongest candidates and remaining role time
+still bound research. A duplicate report claiming exhaustion must set `exhausted_budget` to the actual
+external limit (`requests`, `bytes` or `response_bytes`). The controller checks its current role-owned denial
+state during the existing correction window and records actual denials in `checks.jsonl`. Ordinary read
+counts, another role's old denial and unsupported quota claims cannot establish exhaustion.
+
 When strict reproduction is blocked, overnight mode also attempts **separate controller-run diagnostic
 observations**, without another model-planning turn. This bounded fallback checks explicitly labeled Python
 fences and an unambiguous captured setup. Separate snippets run as isolated specimens, never concatenated;
@@ -251,6 +258,14 @@ behavior/duplicate investigation retains its own evidence gates. Arbitrary rule-
 assessment-only context diagnostics remain disallowed in this console.
 
 Each claim's `precision` contains stable affirmative invariants on both broken and resolved targets.
+`original_precision` retains exact affirmative invariants already observable in pristine originals, including
+report-supplied supporting invalid examples. These remain required on broken and resolved originals even
+when `precision` refers to separate controls; omitted or changed supporting diagnostics still block.
+For instrumentation that moves a declared error/warning within the same file, each claim can supply
+`control_diagnostic_locations` with `file`, `original_line` and `control_line`. Only control location matching
+changes: message, rule and severity stay exact, and original symptom locations stay unchanged. Mappings
+cannot introduce unrelated allowed errors or turn a disappearing broken symptom into invariant precision.
+Invalid/duplicate/conflicting mappings and contradictory contracts are rejected; unmapped errors still block.
 `resolution_precision` separately records exact repaired-output requirements, using `control_files` for additional
 queries. Those additional requirements apply only when the matching pristine original claim is resolved.
 A broken query returning Unknown cannot erase observed reproduction, but Unknown/Any, lost output and incorrect
@@ -259,6 +274,16 @@ identities; controls never replace original observations.
 New attempts reject repaired-output queries that syntactically repeat a material original operation. In the
 separate control tree, compute that operation once, bind its result at the original location, and reveal the bound
 value later. The pristine original stays unchanged; no extra errors are excused and no repaired type is weakened.
+The new phase-specific fields are frozen, round-tripped and revalidated like the existing predicates.
+Empty additive fields preserve legacy serialization; use fresh run state for the changed controller contract.
+Saved scenarios and receipts are never silently repaired or resealed.
+
+Behavior review and adjudication group claims by independent user concern, not diagnostic count. A causally
+explained cascade can remain within one concern while retaining every message and qualification in checks
+and Markdown. Confidence concerns the supported semantic expectation, not a promise that every secondary
+message is ideal or permanent. Separately alleged diagnostic-quality, recovery, precision, workaround and
+integration concerns remain material with their own confidence. No controller code merges claims, promotes
+confidence or relaxes all-claims closure requirements.
 
 New attempts freeze successful target acquisition/build receipts in `preparations.jsonl`, separate from checker
 receipts. Under the frozen schema-2 compact policy, only `npm pack` file-manifest arrays are projected out after
