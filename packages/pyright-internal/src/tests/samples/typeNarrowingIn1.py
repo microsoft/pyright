@@ -208,12 +208,15 @@ def func19(x: float, y: list[int]):
 
 def func20(x: float, y: list[Literal[0, 1]]):
     if x in y:
-        reveal_type(x, expected_text="Literal[0, 1]")
+        # Equality with an integer literal does not make a float an int.
+        reveal_type(x, expected_text="float")
+        x.hex()
 
 
 def func21(x: int, y: list[Literal[0, True]]):
     if x in y:
-        reveal_type(x, expected_text="Literal[0, True]")
+        # An int equal to True need not be a bool.
+        reveal_type(x, expected_text="int")
 
 
 def func22(x: bool, y: list[Literal[0, 1]]):

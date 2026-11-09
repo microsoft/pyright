@@ -1537,6 +1537,17 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
                 (isLiteralLikeType(elementSubtype) || isNoneInstance(elementSubtype)) &&
                 evaluator.assignType(referenceSubtype, elementSubtype)
             ) {
+                // Cross-type equality does not give a primitive the literal's runtime type.
+                if (
+                    isClassInstance(referenceSubtype) &&
+                    ClassType.isBuiltIn(referenceSubtype) &&
+                    !ClassType.isBuiltIn(referenceSubtype, ['object', 'LiteralString']) &&
+                    isLiteralType(elementSubtype) &&
+                    !ClassType.isSameGenericClass(referenceSubtype, elementSubtype)
+                ) {
+                    return referenceSubtype;
+                }
+
                 return stripTypeForm(addConditionToType(elementSubtype, referenceSubtype.props?.condition));
             }
 
