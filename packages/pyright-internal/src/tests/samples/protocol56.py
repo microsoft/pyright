@@ -2,7 +2,7 @@
 # protocol has different type arguments, including ones that grow.
 
 from collections.abc import Iterator, Sequence
-from typing import Any, Callable, Concatenate, Protocol, overload
+from typing import Any, Callable, Concatenate, NamedTuple, Protocol, TypeVar, overload
 
 
 class ProtoA[T](Protocol):
@@ -138,3 +138,65 @@ def func9(v: Any) -> Any: ...
 
 def func10(v: list[list[list[list[list[list[float]]]]]]):
     reveal_type(func9(v), expected_text="float")
+
+
+# This sample tests specialization-specific protocol failures when type
+# parameters have defaults.
+
+T_co = TypeVar("T_co", covariant=True, default=Any)
+
+
+class NestedSequence(Protocol[T_co]):
+    def __len__(self, /) -> int: ...
+
+    def __getitem__(self, index: int, /) -> "T_co | NestedSequence[T_co]": ...
+
+    def __iter__(self, /) -> "Iterator[T_co | NestedSequence[T_co]]": ...
+
+
+class P(NamedTuple):
+    d: float
+    q: float
+
+
+def func11(value: NestedSequence[str] | NestedSequence[float]) -> None: ...
+
+
+def func12(value: NestedSequence[float] | NestedSequence[str]) -> None: ...
+
+
+func11([(1.0, 2.0)])
+func11([P(1.0, 2.0)])
+after_call: NestedSequence[float] = [P(1.0, 2.0)]
+func11(P(1.0, 2.0))
+
+points = [P(1.0, 2.0)]
+reveal_type(points, expected_text="list[P]")
+func11(points)
+
+
+class Q(tuple[float, float]):
+    pass
+
+
+func11([Q((1.0, 2.0))])
+after_subclass_call: NestedSequence[float] = [Q((1.0, 2.0))]
+
+
+class Reversed(P):
+    pass
+
+
+func12([Reversed(1.0, 2.0)])
+func11([Reversed(1.0, 2.0)])
+
+
+class Prechecked(P):
+    pass
+
+
+before_call: NestedSequence[float] = [Prechecked(1.0, 2.0)]
+func11([Prechecked(1.0, 2.0)])
+
+# This should generate an error because object satisfies neither specialization.
+func11([object()])

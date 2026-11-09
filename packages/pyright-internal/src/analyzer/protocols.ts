@@ -60,7 +60,6 @@ import {
     MemberAccessFlags,
     partiallySpecializeType,
     requiresSpecialization,
-    requiresTypeArgs,
     selfSpecializeClass,
     synthesizeTypeVarForSelfCls,
 } from './typeUtils';
@@ -619,12 +618,10 @@ function setProtocolCompatibility(
                 ClassType.isSameGenericClass(entry.destType, destType)
         )
     ) {
-        const genericDestType = requiresTypeArgs(destType)
-            ? selfSpecializeClass(destType, { overrideTypeArgs: true })
-            : destType;
-        const genericSrcType = requiresTypeArgs(srcType)
-            ? selfSpecializeClass(srcType, { overrideTypeArgs: true })
-            : srcType;
+        // Type parameter defaults don't make a class nongeneric. Replace all
+        // specializations before testing for universal incompatibility.
+        const genericDestType = selfSpecializeClass(destType, { overrideTypeArgs: true });
+        const genericSrcType = selfSpecializeClass(srcType, { overrideTypeArgs: true });
         const checkState: ProtocolCompatibilityCheckState = {
             isOverloadedTypeBindingFailure: false,
             isFastRejection: false,
