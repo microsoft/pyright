@@ -88,10 +88,16 @@ human-reference/utility review requirements.
 
 The SDK console requires Microsoft-Decision-1 screening of the target issue and its discussion before any analysis role,
 including resumed work. Controller entry points for drafting, RCA, adjudication and publication retain that check.
-Research tool reads, related issues, searches, PRs, release metadata and RCA source reads are not separately
-classified, regardless of age or issue status. Research logs explicitly mark `not_screened_research`, never
-claiming a passing classifier decision. Run metadata and classifier policy hashes identify the
-`target_issue_and_comments` scope.
+Ordinary same-repository research reads, searches, PRs, release metadata and RCA source reads are not separately
+classified, regardless of age or issue status. Their logs explicitly mark `not_screened_research`, never
+claiming a passing classifier decision. Behavior and duplicate roles can additionally read public external issues
+explicitly linked in the screened target body/discussion through `github_read`'s `linked_issue`/`linked_comments`
+operations. The fixed allowlist cannot expand from research results. These reads verify repository/issue identity,
+screen each delivered report/page, and share eight HTTP attempts, 262,144 aggregate serialized response bytes,
+65,536 bytes per response and at most four 30-comment pages per role, including correction. Scope provenance and
+incomplete pagination remain explicit; native GitHub web access, private repositories, PRs and general external
+search remain denied. These observations confer no reproduction or cross-repository closure authority.
+Run metadata and classifier policy hashes identify the `target_issue_comments_and_explicit_linked_issues` scope.
 Flagged, uncertain, failed and over-budget checks skip the issue without override. This classifier is separate from
 the behavior/duplicate investigators and adjudicator: it does not decide whether a report is a bug or by design,
 authorize execution/publication, or certify that a passing report is safe.
@@ -128,6 +134,9 @@ The first reconstructs every material claim, report-faithful static inputs/setti
 and affirmative precision controls; the second validates the actual comparison, not its cause. Neither role
 drafts or publishes comments. The controller alone acquires integrity-checked published npm packages and an
 isolated, SHA-pinned upstream main build, never a reporter installer or a similarly versioned feature bundle.
+Diagnostic predicates reject NUL (U+0000) during initial schema validation, allowing the existing bounded
+correction turn before acquisition or comparison. Exact nonbreaking spaces and multiline text remain intact;
+the controller does not silently repair malformed escapes or rewrite saved evidence.
 When an executable scenario cannot honestly be specified, reconstruction instead returns an explicit blocked
 variant retaining every claim's ID, verbatim quote, surface and reason plus genuine prerequisites. It does not
 require fabricated source or observation predicates, weaken the executable schema, or establish behavior/closure
@@ -180,6 +189,12 @@ source digests and exact executed-target/runtime/content-hash bindings. The new 
 original captures before omitting only `npm pack` file-manifest arrays. Compact `stdout_projection` retains complete
 package metadata, original stdout digest/length and omitted-manifest counts/fingerprints; other stdout and stderr
 remain complete. Raw sources stay unchanged on disk and publication regenerates the same source-bound projection.
+The enclosing preparation receipt's `target` is the current issue's independently selected target.
+`preparation.acquisition_target` preserves the request that first populated the reusable artifact cache; its
+role, selection rationale, approximation and publication metadata are acquisition-time context, not a second
+selection for the current issue. Different issue timestamps or historical/latest roles do not imply different
+binaries. Artifact identity, runtime/content hash, registry and acquisition/build checks must still match.
+Neither the raw preparation nor cached target metadata is rewritten when another issue reuses the artifact.
 The gate inspects the complete permitted compact view, not omitted inventory or truncated previews. Preparation fields expose
 checksums and pinned checkout/install/build output, not merely version strings. Gate approval covers the exact
 delivered records and their bound raw-source digests; publication revalidates their unchanged sources. A prepared-but-later-blocked target remains a blocked
@@ -322,6 +337,13 @@ mandatory typing rule remains a bug/specification-compliance concern; intentiona
 Search historical as-designed decisions and competing bugs/fixes/spec changes. Record the queries, inspect decision
 comments, and explain the precedent's assumptions, scope, and continued applicability. Do not treat labels or repeated
 AI-generated summaries as independent confirmation. A historical decision does not override newer applicable rules.
+The console supplies a bounded topic-based lead catalog for custom method receivers, dataclass member collisions,
+overlapping mapping/iterable alternatives, and callable-result union correlation. These are research leads, not
+benchmark answers or disposition rules. Before declaring an intentional limitation, the behavior investigator
+must attempt matching issue/discussion reads; failures remain explicit evidence limits. The duplicate role must
+inspect matching leads before declaring its bounded search complete. Independently search alternate feature
+names and diagnostic wording, closed by-design decisions and competing bugs/fixes, then test applicability
+against the exact source, current specification, chronology and counterevidence.
 Challenge a proposed conclusion with a discriminating example or explain why decisive evidence already settles it.
 
 ### Bug versus additional analysis coverage
@@ -441,6 +463,12 @@ The host rejects unsupported classifications and evidence/hash mismatches rather
 downgrading them. A duplicate needs high-confidence shared-cause evidence with a canonical issue/comment link and
 actual canonical issue/discussion reads. A no-match result requires completed bounded searches with no unresolved
 candidate, backed by successful, non-incomplete GitHub search results. Neither means the entire backlog was exhausted.
+Every freshly claimed duplicate is validated before saving: its investigator must have its own successful,
+identity-bound issue and complete discussion reads, including when the current issue remains canonical.
+Missing reads can be obtained during the existing bounded correction turn; unavailable evidence stays
+related/inconclusive with an incomplete search rather than becoming a failed tool-less adjudication.
+The adjudicator receives controller-verified read coverage separately from semantic evidence. It proves delivery,
+not that a decision applies or that two reports share a cause; confidence, source and closure gates are unchanged.
 Validity and duplication are independent: a duplicate is not automatically by design.
 Either `needs investigation` tag prevents closure. Tags are local results, not automatic GitHub labels.
 

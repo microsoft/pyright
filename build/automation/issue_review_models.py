@@ -454,6 +454,11 @@ class Symptom(Record):
 
     @model_validator(mode="after")
     def bounded_rule_predicate(self) -> Self:
+        if self.message is not None and "\0" in self.message:
+            raise ValueError(
+                "Diagnostic predicate messages must not contain NUL (U+0000). "
+                "Copy exact evidence text and whitespace; U+00A0 is a nonbreaking space, not NUL followed by 'a0'."
+            )
         if self.message is None and (
             self.severity != "error" or re.fullmatch(r"report[A-Z][A-Za-z0-9]*", self.rule or "") is None
         ):

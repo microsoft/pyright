@@ -31,7 +31,7 @@ import sys
 import time
 import unicodedata
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, is_dataclass
 from datetime import datetime, timezone
@@ -51,7 +51,7 @@ from copilot.generated.session_events import (
 )
 from copilot.session import CustomAgentConfig, PermissionInvocation, PermissionRequestResult
 from copilot.session_events import AssistantMessageData, SessionEvent
-from pydantic import BaseModel, Field, JsonValue, TypeAdapter
+from pydantic import BaseModel, Field, JsonValue, TypeAdapter, ValidationError
 
 from issue_review_assessment_models import AssessmentDraft, VerificationRefinement
 from issue_review_assessment import capture_report, original_inputs
@@ -73,6 +73,7 @@ from issue_review_models import (
     DefaultReproductionScenario,
     DefaultReproductionScenarioTransport,
     DuplicateFindings,
+    DuplicateReport,
     ExploratoryReproductionScenario,
     ExploratoryReproductionScenarioTransport,
     Entry,
@@ -200,7 +201,7 @@ class ClosureRehearsal(Record):
     issue_number: int
     context_hash: str
     source_context_hash: str
-    status: Literal["running", "passed", "rejected"] = "running"
+    status: Literal["running", "passed", "ineligible", "rejected"] = "running"
     proposed_action: str | None = None
     proposed_comment: str | None = None
     draft_check: DraftCheck | None = None
@@ -600,6 +601,143 @@ def review_validation_feedback(content: str, primary_error: str) -> str:
     )
 
 
+POLICY_HISTORY_LEADS = (
+    ("custom method receivers", ("descriptor", "__get__", "classmethod", "staticmethod", "receiver"), (5865,)),
+    ("dataclass member collisions", ("dataclass", "dataclasses", "initvar"), (4113,)),
+    ("overlapping mapping and iterable alternatives", ("mapping", "itemsview"), (6865,)),
+    ("callable-result union correlation", ("comprehension",), (9049,)),
+)
+
+
+def policy_history_leads(issue: Issue) -> list[dict[str, JsonValue]]:
+    text = f"{issue.title}\n{issue.body}".casefold()
+    return [
+        {
+            "topic": topic,
+            "issues": [
+                {"number": number, "url": f"https://github.com/{REPOSITORY}/issues/{number}"}
+                for number in numbers if number != issue.number
+            ],
+        }
+        for topic, terms, numbers in POLICY_HISTORY_LEADS
+        if any(re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text) for term in terms)
+        and any(number != issue.number for number in numbers)
+    ]
+
+
+def research_read_coverage(number: int, logged: Sequence[JsonValue], investigator: str) -> dict[str, JsonValue]:
+    minimum_comments: int | None = None
+    comment_counts: list[int] = []
+    for item in logged:
+        if (
+            not isinstance(item, dict) or item.get("investigator") != investigator
+            or not isinstance(request := item.get("request"), dict) or request.get("number") != number
+            or item.get("tool") != "github_read" or item.get("error") or "result" not in item
+        ):
+            continue
+        if request.get("operation") == "issue":
+            try:
+                snapshot = Issue.model_validate(item["result"])
+            except ValidationError:
+                continue
+            if (
+                snapshot.number == number and snapshot.html_url == f"https://github.com/{REPOSITORY}/issues/{number}"
+                and snapshot.comments >= 0
+            ):
+                minimum_comments = snapshot.comments
+        elif request.get("operation") == "comments":
+            comments = item["result"]
+            if isinstance(comments, list) and all(
+                isinstance(comment, dict)
+                and comment.get("issue_url") == f"https://api.github.com/repos/{REPOSITORY}/issues/{number}"
+                and isinstance(location := comment.get("html_url"), str)
+                and re.fullmatch(
+                    re.escape(f"https://github.com/{REPOSITORY}/issues/{number}") + r"#issuecomment-[1-9][0-9]*",
+                    location,
+                ) is not None
+                for comment in comments
+            ):
+                locations = {
+                    location for comment in comments
+                    if isinstance(comment, dict) and isinstance(location := comment.get("html_url"), str)
+                }
+                if len(locations) == len(comments):
+                    comment_counts.append(len(comments))
+    return {
+        "issue_number": number, "issue_read_verified": minimum_comments is not None,
+        "discussion_read_verified": minimum_comments is not None and any(
+            count >= minimum_comments for count in comment_counts
+        ),
+    }
+
+
+def require_candidate_reads(number: int, logged: Sequence[JsonValue], investigator: str) -> None:
+    coverage = research_read_coverage(number, logged, investigator)
+    if not coverage["issue_read_verified"] or not coverage["discussion_read_verified"]:
+        raise AutomationError(
+            f"A duplicate needs actual canonical issue and discussion reads: #{number}. "
+            "Use github_read(operation='issue') AND github_read(operation='comments') for this candidate, "
+            "not search snippets, another role's reads, or a statement that it was inspected. "
+            "If unavailable, retain related/inconclusive rather than duplicate."
+        )
+
+
+def require_history_lead_attempts(leads: list[dict[str, JsonValue]], logged: Sequence[JsonValue], investigator: str) -> None:
+    for lead in leads:
+        references = lead["issues"]
+        assert isinstance(references, list)
+        for reference in references:
+            assert isinstance(reference, dict) and isinstance(number := reference["number"], int)
+            for operation in ("issue", "comments"):
+                if not any(
+                    isinstance(item, dict) and item.get("investigator") == investigator
+                    and item.get("tool") == "github_read" and isinstance(request := item.get("request"), dict)
+                    and request.get("number") == number and request.get("operation") == operation
+                    and ("result" in item or item.get("error"))
+                    for item in logged
+                ):
+                    raise AutomationError(
+                        f"Historical policy research must attempt the supplied lead #{number}'s {operation} read. "
+                        "These are leads, not verdicts: inspect applicability and competing evidence. "
+                        "Preserve failed reads as limitations; do not invent their contents."
+                    )
+
+
+def require_duplicate_search(logged: Sequence[JsonValue]) -> None:
+    if not any(
+        isinstance(item, dict) and item.get("investigator") == "duplicates"
+        and item.get("tool") == "github_read" and not item.get("error")
+        and isinstance(request := item.get("request"), dict) and request.get("operation") == "search"
+        and isinstance(result := item.get("result"), dict) and result.get("incomplete_results") is False
+        for item in logged
+    ):
+        raise AutomationError("Duplicate adjudication needs a successful, non-incomplete GitHub search record")
+
+
+def validate_duplicate_execution(
+    report: DuplicateReport, logged: Sequence[JsonValue], leads: list[dict[str, JsonValue]],
+) -> None:
+    if report.search_complete:
+        if not report.searches:
+            raise AutomationError("Completed duplicate research needs its recorded bounded searches")
+        require_duplicate_search(logged)
+        require_history_lead_attempts(leads, logged, "duplicates")
+        for lead in leads:
+            references = lead["issues"]
+            assert isinstance(references, list)
+            for reference in references:
+                assert isinstance(reference, dict) and isinstance(number := reference["number"], int)
+                coverage = research_read_coverage(number, logged, "duplicates")
+                if not coverage["issue_read_verified"] or not coverage["discussion_read_verified"]:
+                    raise AutomationError(
+                        f"Completed duplicate research needs the supplied lead #{number}'s issue and discussion. "
+                        "If unavailable, set search_complete=false and preserve the concrete limitation."
+                    )
+    for candidate in report.candidates:
+        if candidate.relation == "duplicate":
+            require_candidate_reads(candidate.issue_number, logged, "duplicates")
+
+
 def validate_review_execution(report: ReviewEvidence, logged: list[JsonValue]) -> None:
     executions = list(logged)
     for item in logged:
@@ -719,11 +857,12 @@ class GitHub:
             raise ScreeningBlocked("Injection screening is not configured; analysis is blocked without override")
         await self.scorer.check(value, directory, source)
 
-    async def screen_issue(self, issue: Issue, directory: Path) -> None:
+    async def screen_issue(self, issue: Issue, directory: Path) -> list[JsonValue]:
         comments = await self.comments(issue.number)
         await self.screen({
             "issue": issue.model_dump(mode="json"), "comments": comments,
         }, directory, f"issue:{issue.number}")
+        return comments
 
     async def api(self, method: str, endpoint: str, payload: JsonValue = None, *, pages: bool = False) -> JsonValue:
         if not self.mutations_enabled and (
@@ -774,13 +913,52 @@ class GitHub:
 
 
 class GitHubRead(Record):
-    operation: Literal["issue", "comments", "search", "pull_request", "pull_files", "latest_release"]
+    operation: Literal[
+        "issue", "comments", "search", "pull_request", "pull_files", "latest_release",
+        "linked_issue", "linked_comments",
+    ]
     number: int = Field(default=0, ge=0, description="Positive issue/PR number; unused for search/latest_release.")
     query: str = Field(
         default="",
         description="For search only. Already scoped to microsoft/pyright: never include repo:, org: or user:. "
         "Example: 'is:issue \"ReadOnly\" \"required\"'. Other GitHub search filters are allowed.",
     )
+    url: str = Field(default="", description=(
+        "For linked_issue/linked_comments only: an advertised external issue URL from the target discussion. "
+        "No arbitrary repository, PR, recursive link or search access."
+    ))
+    page: int = Field(default=1, ge=1, le=4, description="linked_comments page only; 30 comments per page, at most four pages.")
+
+
+LINKED_ISSUE_REQUESTS = 8
+LINKED_ISSUE_RESPONSE_BYTES = 65536
+LINKED_ISSUE_TOTAL_BYTES = 262144
+
+
+def canonical_linked_issue(url: str) -> str | None:
+    match = re.fullmatch(
+        r"https://github\.com/([A-Za-z0-9-]+)/([A-Za-z0-9_.-]+)/issues/([1-9][0-9]*)/?"
+        r"(?:#issuecomment-[1-9][0-9]*)?", url,
+    )
+    if match is None or match[2] in {".", ".."}:
+        return None
+    repository = f"{match[1]}/{match[2]}".lower()
+    return f"https://github.com/{repository}/issues/{match[3]}"
+
+
+def linked_issue_sources(issue: Issue, comments: list[JsonValue]) -> dict[str, list[str]]:
+    sources: dict[str, list[str]] = {}
+    documents = [(issue.html_url, issue.body or "")]
+    for index, comment in enumerate(comments):
+        if isinstance(comment, dict) and isinstance(body := comment.get("body"), str):
+            documents.append((f"{issue.html_url} (comment index {index})", body))
+    for origin, text in documents:
+        for match in re.finditer(r"""(?<![\w/@?=&%])https://github\.com/[^\s<>()\[\]"']+""", text):
+            canonical = canonical_linked_issue(match[0].rstrip(".,;:!"))
+            if canonical is not None and not canonical.startswith(f"https://github.com/{REPOSITORY}/"):
+                if origin not in sources.setdefault(canonical, []):
+                    sources[canonical].append(origin)
+    return sources
 
 
 class RunCheck(Record):
@@ -803,6 +981,13 @@ class RunCheck(Record):
 GITHUB_READ_GUIDANCE = (
     "github_read search is already scoped to microsoft/pyright. Omit ALL repo:, org: and user: qualifiers; "
     "they are rejected, not stripped. Example: {\"operation\":\"search\",\"query\":\"is:issue ReadOnly required\"}. "
+    "For an advertised cross-repository issue, use linked_issue or linked_comments with its exact url; "
+    "linked_comments accepts page=1..4 (30 comments/page). These reads require a public repository and screening, "
+    "share eight HTTP requests and 262144 response bytes per role including failed reads and correction, and "
+    "reject any single response over 65536 bytes without truncation. No recursive links, PRs or external search. "
+    "An incomplete comments page or denied read must remain an explicit evidence limit. "
+    "Keep external repository identities fully qualified; an external issue number is not a Pyright canonical "
+    "issue and cannot by itself authorize a cross-repository duplicate closure. "
     "Read discussions with {\"operation\":\"comments\",\"number\":123}; issue/PR reads need a positive number. "
 )
 RUN_CHECK_GUIDANCE = (
@@ -959,12 +1144,19 @@ class InvestigationTools(ScreenedTools):
         prepared_store: TargetStore | None = None,
         prepared_targets: list[ReproductionTarget] | None = None,
         check_preflight: CheckPreflight | None = None,
+        linked_issues: dict[str, list[str]] | None = None,
     ):
         self.scratch, self.source_cli = scratch.resolve(), source_cli
         super().__init__(github, evidence or self.scratch)
         self.release, self.ask = release, ask
         self.investigator = investigator
         self.check_preflight = check_preflight or CheckPreflight(source_cli)
+        self.linked_issues = {url: list(origins) for url, origins in (linked_issues or {}).items()}
+        self._linked_requests = 0
+        self._linked_bytes = 0
+        self._linked_public_repositories: set[str] = set()
+        self._linked_verified_issues: set[str] = set()
+        self._linked_comment_pages: dict[str, set[int]] = {}
         self._approval_lock = asyncio.Lock()
         self._console_approval_lock = approval_lock or asyncio.Lock()
         self.tools = [
@@ -1089,7 +1281,14 @@ class InvestigationTools(ScreenedTools):
         try:
             if self.screening_error is not None:
                 raise self.screening_error
-            if request.operation == "latest_release":
+            if self.screening_stopped:
+                raise AutomationError("Investigation is inactive; no further evidence reads are allowed")
+            linked = request.operation in {"linked_issue", "linked_comments"}
+            if (request.url or request.page != 1) and not linked:
+                raise AutomationError("url/page are only supported by the advertised linked-issue operations")
+            if linked:
+                result = await self.read_linked_issue(request)
+            elif request.operation == "latest_release":
                 result = self.release
             elif request.operation == "search":
                 if any(part.lower().startswith(("repo:", "org:", "user:")) for part in request.query.split()):
@@ -1109,7 +1308,7 @@ class InvestigationTools(ScreenedTools):
                     result = await self.github.api("GET", f"{base}/{resource}/{request.number}")
             self.log({
                 "tool": "github_read", "request": request.model_dump(), "result": result,
-                "screening": "not_screened_research",
+                "screening": "screened_linked_issue" if linked else "not_screened_research",
             })
             return ToolResult(text_result_for_llm=json.dumps(result), result_type="success")
         except ScreeningBlocked as error:
@@ -1121,6 +1320,79 @@ class InvestigationTools(ScreenedTools):
         except (AutomationError, OSError, ValueError) as error:
             self.log({"tool": "github_read", "request": request.model_dump(), "error": str(error)})
             return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
+
+    async def _linked_get(self, endpoint: str) -> JsonValue:
+        if self.screening_error is not None:
+            raise self.screening_error
+        if self.screening_stopped:
+            raise AutomationError("Investigation is inactive; no further evidence reads are allowed")
+        if self._linked_requests >= LINKED_ISSUE_REQUESTS:
+            raise AutomationError("Linked-issue HTTP request allowance exhausted; preserve the incomplete investigation")
+        if self._linked_bytes >= LINKED_ISSUE_TOTAL_BYTES:
+            raise AutomationError("Linked-issue total response-byte allowance exhausted; preserve the incomplete investigation")
+        self._linked_requests += 1
+        self.log({"kind": "linked_issue_request", "endpoint": endpoint, "attempt": self._linked_requests})
+        value = await self.github.api("GET", endpoint)
+        size = len(json.dumps(value, ensure_ascii=True).encode("utf-8"))
+        self._linked_bytes += size
+        if size > LINKED_ISSUE_RESPONSE_BYTES or self._linked_bytes > LINKED_ISSUE_TOTAL_BYTES:
+            raise AutomationError("Linked-issue response exceeds its byte allowance; it was not truncated or delivered")
+        return value
+
+    async def read_linked_issue(self, request: GitHubRead) -> dict[str, JsonValue]:
+        url = canonical_linked_issue(request.url)
+        if url is None or url not in self.linked_issues:
+            raise AutomationError("Only advertised external issue URLs from the screened target discussion are authorized")
+        if request.number or request.query or request.operation == "linked_issue" and request.page != 1:
+            raise AutomationError("Linked reads use only url and, for linked_comments, page; do not supply number/query")
+        repository, number = url.removeprefix("https://github.com/").split("/issues/")
+        if repository not in self._linked_public_repositories:
+            metadata = await self._linked_get(f"repos/{repository}")
+            if (
+                not isinstance(metadata, dict) or metadata.get("private") is not False
+                or not isinstance(name := metadata.get("full_name"), str) or name.lower() != repository
+            ):
+                raise AutomationError("Linked reads require the exact advertised public repository; redirects/private repositories are ineligible")
+            self._linked_public_repositories.add(repository)
+        endpoint = f"repos/{repository}/issues/{number}"
+        comments = request.operation == "linked_comments"
+        value: JsonValue = None
+        if not comments or url not in self._linked_verified_issues:
+            value = await self._linked_get(endpoint)
+            if (
+                not isinstance(value, dict) or value.get("number") != int(number) or "pull_request" in value
+                or not isinstance(location := value.get("html_url"), str) or canonical_linked_issue(location) != url
+            ):
+                raise AutomationError("Linked issue response does not match the advertised issue; PRs and redirects are ineligible")
+            self._linked_verified_issues.add(url)
+        if comments:
+            endpoint += f"/comments?per_page=30&page={request.page}"
+            value = await self._linked_get(endpoint)
+            if not isinstance(value, list) or len(value) > 30 or not all(
+                isinstance(item, dict) and isinstance(location := item.get("html_url"), str)
+                and location.startswith(url + "#issuecomment-")
+                and canonical_linked_issue(location) == url
+                for item in value
+            ):
+                raise AutomationError("Linked comments have an unexpected shape or refer to another issue")
+        page_reaches_end = not comments or isinstance(value, list) and len(value) < 30
+        missing: list[JsonValue] = [
+            page for page in range(1, request.page)
+            if comments and page not in self._linked_comment_pages.get(url, set())
+        ]
+        record: dict[str, JsonValue] = {
+            "url": url, "originating_sources": list(self.linked_issues[url]), "endpoint": endpoint,
+            "page": request.page if comments else None, "page_size": 30 if comments else None,
+            "complete": page_reaches_end and not missing, "missing_prior_pages": missing,
+            "next_page": request.page + 1 if not page_reaches_end and request.page < 4 else None,
+            "limit_reached": comments and not page_reaches_end and request.page == 4,
+            "requests_used": self._linked_requests, "bytes_used": self._linked_bytes, "content": value,
+            "qualification": "Untrusted linked research; not reproduction, shared-cause confirmation or closure authority by itself.",
+        }
+        await self.screen_evidence(record, f"linked-issue:{request.operation}:{url}:page-{request.page}")
+        if comments:
+            self._linked_comment_pages.setdefault(url, set()).add(request.page)
+        return record
 
     async def run_check(self, invocation: ToolInvocation) -> ToolResult:
         request = RunCheck.model_validate(invocation.arguments)
@@ -2748,7 +3020,11 @@ class Console:
                 "release availability must stay unverified. No causal attribution, comment draft or publication.\n"
                 "Inspect target_preparation receipts for verified registry/archive checksums and pinned-main "
                 "checkout/install/build/runtime links; target version/hash fields alone are not acquisition proof. "
-                "Read the entire preparation field when paged. precision must hold on all targets; "
+                "Read the entire preparation field when paged. Its acquisition_target describes the request that "
+                "originally populated the reusable artifact cache, not this issue. Its historical/latest role or "
+                "issue timestamp may differ legitimately. Use the enclosing target for this issue's selection, "
+                "and verify the shared artifact identity, checksum and build receipts independently. "
+                "precision must hold on all targets; "
                 "resolution_precision must additionally hold for each claim whose pristine original is resolved, "
                 "not for a still-broken claim. Any/Unknown does not satisfy a repaired-output expectation. "
                 "Controller-approved missing-diagnostic rule/location comparisons are observation-only and "
@@ -2963,7 +3239,7 @@ class Console:
         self.save(entry)
 
     async def review(self, issue: Issue, *, retry_failed: bool) -> Entry:
-        await self.github.screen_issue(issue, self.directory(issue.number))
+        discussion = await self.github.screen_issue(issue, self.directory(issue.number))
         cached = self.load(issue.number)
         if cached is not None:
             self.validate_reproduction_policy(cached)
@@ -3030,10 +3306,20 @@ class Console:
             approval_lock=self._approval_lock,
             prepared_store=self.reproduction_store, prepared_targets=selected_targets(entry),
             check_preflight=self.check_preflight,
+            linked_issues=linked_issue_sources(issue, discussion),
         )
         atomic_write(directory / "checks.jsonl", "")
+        tools.log({
+            "kind": "linked_issue_scope", "target_issue": issue.number,
+            "sources": JSON.validate_python(tools.linked_issues),
+            "target_evidence_hash": digest(json.dumps({
+                "issue": issue.model_dump(mode="json"), "comments": discussion,
+            }, sort_keys=True)),
+        })
         capabilities = await self.check_preflight.get()
         tools.log({"kind": "capability_preflight", "capabilities": capabilities.model_dump(mode="json")})
+        history_leads = policy_history_leads(issue)
+        tools.log({"kind": "policy_history_leads", "leads": JSON.validate_python(history_leads)})
         prompt = (
             f"Investigate only issue #{issue.number} in {REPOSITORY} as a backlog assignment. "
             "Use the current reviewer and shared skill. Return ReviewFindings: your full Markdown report in "
@@ -3043,6 +3329,8 @@ class Console:
             "Shell tools are deliberately absent. Use github_read instead of gh; it performs read-only gh API calls. "
             "Use run_check for the prepared source CLI, Python runtime probes (human approval), or available mypy. "
             + GITHUB_READ_GUIDANCE + RUN_CHECK_GUIDANCE +
+            "Advertised external issues from the screened target discussion:\n"
+            + json.dumps(tools.linked_issues) + "\n" +
             ("Python runtime execution is unavailable in this noninteractive run; do not request it. "
              if self.ask is reject_operator_approval else
              "Python runtime execution requires explicit approval for each inspected probe. ") +
@@ -3078,7 +3366,11 @@ class Console:
             "abstaining solely for missing Python/checking values. Preserve all other concrete blockers. "
             "If any version, dependency, environment, or tool is unavailable, preserve that limit. "
             "Search relevant historical design decisions AND competing bugs/fixes. Mandatory typing rules override "
-            "implementation policy. Separate each claim and its reproduction targets. Inspect actual diagnostics/types. "
+            "implementation policy. Controller-curated topic leads below are discovery aids, not authority or "
+            "expected answers. Before claiming an intentional limitation, attempt their issue AND comments reads "
+            "and preserve unavailable evidence. Independently search alternate feature/diagnostic wording and "
+            "closed by-design discussions as well as competing bugs/fixes; a label is never policy proof. "
+            "Separate each claim and its reproduction targets. Inspect actual diagnostics/types. "
             "MANDATORY: For CLI-reproducible reports, reconstruct the example and invoke run_check(kind='pyright') "
             "against the real product before concluding. A source-code reading, a test assertion, a CPython probe, "
             "or mypy output is not Pyright reproduction. Include the minimal code, explicit configuration, actual "
@@ -3104,6 +3396,8 @@ class Console:
             + json.dumps([] if tools.prepared_checks is None else tools.prepared_checks.catalog())
             + "\nOne-time controller tool preflight (not semantic checks):\n"
             + capabilities.model_dump_json()
+            + "\nHistorical policy research leads (verify scope, chronology and counterevidence):\n"
+            + json.dumps(history_leads)
         )
         def validate(raw: str) -> None:
             report = ReviewFindings.model_validate_json(raw).audit
@@ -3113,6 +3407,8 @@ class Console:
             if report.issue_updated_at != issue.updated_at:
                 raise AutomationError(f"Use the input snapshot's observed issue_updated_at: {issue.updated_at}")
             validate_review_execution(report, self.records(issue.number))
+            if any(claim.disposition == "intentional_limitation" for claim in report.claims):
+                require_history_lead_attempts(history_leads, self.records(issue.number), "review")
 
         raw = await self.sdk.run(
             self.reviewer, prompt, scratch, schema=ReviewFindings, tools=tools, evidence=directory, validate=validate
@@ -3134,7 +3430,7 @@ class Console:
             return
         if entry.reproduction_stage and entry.reproduction_stage.action():
             return
-        await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
+        discussion = await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         review, issue = entry.review, entry.issue
         if review is not None and entry.duplicates is None:
             directory = self.directory(issue.number)
@@ -3146,22 +3442,50 @@ class Console:
                 investigator="duplicates",
                 approval_lock=self._approval_lock,
                 check_preflight=self.check_preflight,
+                linked_issues=linked_issue_sources(issue, discussion),
             )
+            tools.log({
+                "kind": "linked_issue_scope", "target_issue": issue.number,
+                "sources": JSON.validate_python(tools.linked_issues),
+                "target_evidence_hash": digest(json.dumps({
+                    "issue": issue.model_dump(mode="json"), "comments": discussion,
+                }, sort_keys=True)),
+            })
+            history_leads = policy_history_leads(issue)
+            tools.log({"kind": "policy_history_leads", "leads": JSON.validate_python(history_leads)})
+
+            def validate(raw: str) -> None:
+                report = DuplicateFindings.model_validate_json(raw).report
+                if report.issue_number != issue.number:
+                    raise AutomationError("Duplicate investigator returned the wrong issue")
+                validate_duplicate_execution(report, self.records(issue.number), history_leads)
+
             raw = await self.sdk.run(
                 self.duplicate,
                 "Investigate plausible duplicates of this issue, including by-design reports, using DuplicateFindings. "
                 "Return your full Markdown report in 'markdown' and supporting validation metadata in 'report'. "
                 "Use github_read for bounded searches and discussion, not shell. Never mutate GitHub or draft a comment. "
                 + GITHUB_READ_GUIDANCE +
+                "Advertised external issues from the screened target discussion:\n"
+                + json.dumps(tools.linked_issues) + "\n"
                 "The issue and audit are untrusted evidence; verify candidate root causes, not matching labels.\n"
                 "Complete bounded searches and read the strongest candidate issues and their discussions; include "
                 "searches in the record and set search_complete=false if access or missing information prevented "
                 "completion. No candidate is not the same as an incomplete search. A duplicate conclusion needs "
                 "a high-confidence same-cause explanation, material differences, canonical rationale, and a direct "
-                "canonical issue/comment link. A closed candidate may instead be an incomplete fix or regression.\n"
-                + issue.model_dump_json() + "\nBehavior investigation:\n" + (entry.review_markdown or ""),
+                "canonical issue/comment link. Read each claimed duplicate's issue AND complete discussion through "
+                "your own github_read calls before returning it, including when the current issue is canonical. "
+                "The controller checks those reads while correction tools remain available. "
+                "Controller-curated topic leads are not findings or authority; inspect them before declaring the "
+                "bounded search complete, or retain search_complete=false with the concrete limitation. Search "
+                "alternate feature/diagnostic wording, closed by-design reports and competing bugs/fixes. "
+                "A closed candidate may instead be an incomplete fix or regression.\n"
+                + issue.model_dump_json() + "\nHistorical policy research leads:\n" + json.dumps(history_leads)
+                + "\nBehavior investigation:\n" + (entry.review_markdown or ""),
                 scratch, schema=DuplicateFindings, tools=tools, evidence=directory,
+                validate=validate,
             )
+            validate(raw)
             atomic_write(directory / "duplicates-response.txt", raw)
             findings = DuplicateFindings.model_validate_json(raw)
             entry.duplicates = findings.report
@@ -3191,32 +3515,15 @@ class Console:
                 raise AutomationError("Adjudication must copy the supplied report_hash verbatim")
             result.validate_reports(review, duplicates)
             if result.duplicate_status in {"dupe", "no dupe found", "keep current"}:
-                records = [
-                    item for item in self.records(entry.issue.number)
-                    if isinstance(item, dict) and item.get("investigator") == "duplicates"
-                ]
-                if not any(
-                    isinstance(item, dict) and isinstance(request := item.get("request"), dict)
-                    and item.get("investigator") == "duplicates"
-                    and request.get("operation") == "search" and "result" in item
-                    and isinstance(item["result"], dict) and item["result"].get("incomplete_results") is False
-                    for item in records
-                ):
-                    raise AutomationError("Duplicate adjudication needs a successful, non-incomplete GitHub search record")
+                require_duplicate_search(self.records(entry.issue.number))
             inspected = (
                 [result.duplicate_of] if result.duplicate_status == "dupe" else
                 [candidate.issue_number for candidate in duplicates.candidates if candidate.relation == "duplicate"]
                 if result.duplicate_status == "keep current" else []
             )
             for number in inspected:
-                for operation in ("issue", "comments"):
-                    if not any(
-                        isinstance(item, dict) and isinstance(request := item.get("request"), dict)
-                        and request.get("operation") == operation and request.get("number") == number
-                        and "result" in item
-                        for item in self.records(entry.issue.number)
-                    ):
-                        raise AutomationError("A duplicate needs actual canonical issue and discussion reads")
+                assert number is not None
+                require_candidate_reads(number, self.records(entry.issue.number), "duplicates")
 
         raw = await self.sdk.run(
             self.adjudicator,
@@ -3237,11 +3544,17 @@ class Console:
             "Use keep current when the completed search explicitly selects this issue as canonical for every "
             "high-confidence duplicate candidate; duplicate_of stays null and no closure is authorized. "
             "Neither needs-investigation tag permits closure. Explain your reasoning in rationale for the saved "
-            "record, not in console prose. Copy identity/hash exactly.\n"
+            "record. Controller-verified read coverage below proves only that actual candidate reports/discussions "
+            "were delivered to the duplicate investigator, not their semantic applicability or shared cause. "
+            "Do not return console prose. Copy identity/hash exactly.\n"
             f"Issue: {entry.issue.number}\nreport_hash: {fingerprint}\n"
             "Validation metadata:\n" + entry.review.model_dump_json() + "\n" + entry.duplicates.model_dump_json()
             + "\nBehavior report:\n" + (entry.review_markdown or "")
-            + "\nDuplicate report:\n" + (entry.duplicates_markdown or ""),
+            + "\nDuplicate report:\n" + (entry.duplicates_markdown or "")
+            + "\nController-verified duplicate-investigator read coverage:\n" + json.dumps([
+                research_read_coverage(candidate.issue_number, self.records(entry.issue.number), "duplicates")
+                for candidate in duplicates.candidates
+            ]),
             self.directory(entry.issue.number), schema=Adjudication, validate=validate,
         )
         result = Adjudication.model_validate_json(raw)
@@ -4264,6 +4577,15 @@ class Console:
             if await self.github.issue(entry.canonical_issue.number) != entry.canonical_issue:
                 raise AutomationError("Canonical issue changed since investigation; no duplicate closure allowed")
 
+    async def _closure_inputs(self, entry: Entry) -> tuple[Issue, list[JsonValue]]:
+        current = await self.github.issue(entry.issue.number)
+        if current.state != "open":
+            raise AutomationError("Issue is no longer open; no mutation performed")
+        comments = await self.github.comments(entry.issue.number)
+        if entry.closure is None and self.key(current) != entry.input_hash:
+            raise AutomationError("Issue changed since review; no mutation performed")
+        return current, comments
+
     async def closure_preflight(
         self, entry: Entry, *, require_draft: bool = True,
     ) -> tuple[Literal["by_design", "duplicate"], Issue, list[JsonValue]]:
@@ -4271,15 +4593,11 @@ class Console:
             raise AutomationError("Local review inputs changed; no closure allowed")
         reason = self.require_closure_evidence(entry)
         await self.canonical_unchanged(entry)
-        current = await self.github.issue(entry.issue.number)
-        if current.state != "open":
-            raise AutomationError("Issue is no longer open; no mutation performed")
-        comments = await self.github.comments(entry.issue.number)
-        if entry.closure is None:
-            if self.key(current) != entry.input_hash:
-                raise AutomationError("Issue changed since review; no mutation performed")
-            if require_draft and (not entry.comment or not entry.draft_check or not entry.draft_check.approved):
-                raise AutomationError("A fact-checked rich-mirror comment is required")
+        current, comments = await self._closure_inputs(entry)
+        if entry.closure is None and require_draft and (
+            not entry.comment or not entry.draft_check or not entry.draft_check.approved
+        ):
+            raise AutomationError("A fact-checked rich-mirror comment is required")
         return reason, current, comments
 
     async def close(self, entry: Entry) -> None:
@@ -4407,7 +4725,7 @@ class Console:
             report.stages[active] = "running"
             save()
 
-        async def preflight(*, require_draft: bool) -> tuple[str, list[JsonValue]]:
+        async def preflight(*, require_draft: bool) -> tuple[str | None, list[JsonValue]]:
             self.require_actionable_mode(entry)
             if entry.context_hash != self.context_hash or self.current_context() != self.context_hash:
                 raise AutomationError("Saved review context is stale; fresh investigation required, never reseal frozen evidence")
@@ -4421,12 +4739,23 @@ class Console:
                     raise AutomationError("Closure rehearsal does not draft standalone not-reproducible labels or RCA comments")
                 return "close_fixed", comments
             await self.github.screen_issue(entry.issue, scratch)
+            self.require_report_evidence(entry)
+            if not require_draft and entry.closure_reason() is None:
+                await self.canonical_unchanged(entry)
+                _, comments = await self._closure_inputs(entry)
+                return None, comments
             reason, _, comments = await self.closure_preflight(entry, require_draft=require_draft)
             return "close_by_design" if reason == "by_design" else "close_duplicate", comments
 
         advance("eligibility")
         try:
             report.proposed_action, comments = await preflight(require_draft=False)
+            if report.proposed_action is None:
+                report.stages[active], report.status = "rejected", "ineligible"
+                report.blocking_reasons.append(
+                    "Validated investigation is not eligible for closure; the issue remains open"
+                )
+                return report
             advance("writer")
             entry.comment, entry.draft_check = None, None
             await self.prepare_comment(entry, on_stage=advance)
@@ -4443,10 +4772,9 @@ class Console:
         finally:
             save()
 
-    async def evaluate(self, entry: Entry) -> None:
+    async def evaluate(self, entry: Entry) -> ClosureRehearsal | None:
         if self.rehearse_closures:
-            await self.rehearse_closure(entry)
-            return
+            return await self.rehearse_closure(entry)
         if self.observation_only(entry):
             self.validate_reproduction_policy(entry)
             return
@@ -4639,6 +4967,10 @@ def save_closure_rehearsals(state: Path, fingerprint: str, results: list[ChunkRe
     atomic_write(state / "rehearsals.json", json.dumps({
         "schema_version": 1, "context_hash": fingerprint,
         "planned_issues": planned, "completed_issues": len(results), "complete": len(results) == planned,
+        "outcome_counts": {
+            status: sum(isinstance(report, dict) and report.get("status") == status for report in reports)
+            for status in ("passed", "ineligible", "rejected")
+        },
         "github_mutations_enabled": False, "publication_ready": False,
         "interpretation": "Closure rehearsal stage results only; never publication authorization.",
         "rehearsals": reports,
@@ -5077,6 +5409,8 @@ def chunk_table(results: list[ChunkResult], *, rca_enabled: bool) -> str:
             reproduction = None if entry is None else entry.reproduction_stage
             if result.status == "failed":
                 summary = result.message
+            elif result.message:
+                summary = result.message
             elif reproduction is not None and reproduction.observation_only():
                 by_design = duplicate = "Not evaluated"
                 summary = f"Exploratory, action-ineligible: {reproduction.error or reproduction.status}"
@@ -5423,12 +5757,16 @@ async def main(args: argparse.Namespace) -> None:
                     if not rehearsal and not console.observation_only(entry) and entry.review is not None and entry.duplicates is not None and entry.adjudication is not None:
                         console.require_report_evidence(entry)
                         reports_validated = True
-                    await console.evaluate(entry)
+                    rehearsal_report = await console.evaluate(entry)
                     entry.elapsed_seconds = time.monotonic() - started
                     if not console.observation_only(entry):
                         entry.error = None
                     console.save(entry)
-                    return ChunkResult(issue, entry)
+                    message = "" if rehearsal_report is None else (
+                        f"Closure rehearsal: {rehearsal_report.status}"
+                        + (": " + "; ".join(rehearsal_report.blocking_reasons) if rehearsal_report.blocking_reasons else "")
+                    )
+                    return ChunkResult(issue, entry, message=message)
                 except ScreeningBlocked as error:
                     show(f"#{snapshot.number}: SKIPPED: {error}")
                     return ChunkResult(snapshot, entry, "skipped", str(error))

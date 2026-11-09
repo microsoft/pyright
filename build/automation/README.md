@@ -22,6 +22,15 @@ The original `pyright-issue-reviewer` remains a separate read-only, non-executin
 
 ## Publication-disabled closure rehearsal
 
+The local `run_overnight.ps1 -FocusedRehearsal` launcher selects four open issues in two chunks:
+#11969 for historical-policy retrieval, #11361 for canonical reads and cached selection provenance,
+#11385 for duplicate evidence, and #11858 as a previously successful closure-rehearsal lead.
+It keeps `--overnight --dry-run`, explicitly adds `--rehearse-closures`, and creates fresh
+`readiness-focused-rehearsal-4-...` state. No saved answers are reused. A previously eligible issue may fail the
+new investigation or gates; only a fresh eligible candidate reaches the writer/factual stages.
+The launcher fails rather than substituting issues if any selected case is unavailable or closed.
+Its ordinary invocation still selects the existing 15-issue pilot.
+
 `--rehearse-closures` exercises the **real rich-mirror writer, factual reviewer and pre-publication gates** for
 by-design, duplicate and fixed candidates. It requires an explicit `--issues` list and a fresh `--state-dir`,
 implies noninteractive read-only publication, disables RCA and separate diagnostic experiments, and uses cached
@@ -59,10 +68,21 @@ contract; do not call those unexecuted stages successful.
 Each issue retains `rehearsal.json`, the proposed `comment.md` once produced, and the normal factual-check/SDK
 artifacts. Run-level `rehearsals.json` records completion separately from per-issue results. Stage outcomes are
 `untested`, `running`, `passed` or `rejected` for eligibility, writing, factual review and final eligibility.
+The overall result is `ineligible` when a complete, validated investigation does not support closure.
+Its eligibility stage stays rejected, later stages stay untested, and the reason is retained without failing
+the batch or marking the investigation failed. Context, report-integrity, canonical/issue freshness and
+screening checks still apply; their failures, execution errors and rejected draft stages remain failures.
+The console displays these rehearsal outcomes, and the run summary counts `passed`, `ineligible` and `rejected`
+separately. A completed mix of passed and ineligible cases exits successfully without authorizing publication.
 Failures retain the draft and available factual problems, with explicit blocking reasons. Missing prerequisites
 and failed investigations leave unreached closure stages untested. An existing publication ledger requires manual
 reconciliation rather than being resumed by rehearsal. Standalone non-reproduction labels and RCA comments are
 outside closure rehearsal.
+
+Reconstruction rejects NUL-containing diagnostic predicates during initial schema validation, before target
+preparation or comparison. The existing bounded correction turn can return exact evidence text; the controller
+never substitutes whitespace or repairs predicates. Valid nonbreaking spaces, tabs and multiline diagnostic
+text are preserved. Previously saved malformed evidence remains unchanged and requires a fresh investigation.
 
 Closing-comment factual checks receive the same frozen issue and investigation/comparison packet as the writer.
 Reporter assertions may be attributed, but are never promoted to independently executed observations. After a
@@ -123,6 +143,25 @@ arguments. Configure Pyright in scratch `pyrightconfig.json`; mypy needs an exis
 Rejected requests retain the original request and actionable correction guidance, never silently rewritten scope
 or arguments. These setup improvements do not relax reproduction, evidence, screening or publication gates.
 
+For cross-repository issue links appearing explicitly in the **screened target issue body or comments**, the
+behavior and duplicate assignments advertise a fixed allowlist. Use `github_read` with
+`{"operation":"linked_issue","url":"https://github.com/microsoft/pylance-release/issues/8252"}` or
+`{"operation":"linked_comments","url":"https://github.com/microsoft/pylance-release/issues/8252","page":1}`.
+The example is accessible only when actually advertised for that target; URLs invented by the investigator,
+found by searches, or discovered inside fetched external content do not expand the allowlist. The controller
+records the originating target document and hash of its screened issue/discussion snapshot.
+
+These operations require the exact public repository and issue identity; private/renamed repositories,
+redirected issues, PRs, arbitrary endpoints and cross-repository searches remain unavailable. A comment-only
+request still verifies the issue first. Each role shares **eight HTTP GET attempts**, **262,144 aggregate
+serialized response bytes**, and **65,536 bytes per response**, including repository/issue verification,
+failed attempts and the existing correction. Comments use 30-item pages, with at most four pages.
+`complete`, `missing_prior_pages`, `next_page` and `limit_reached` distinguish a finished page sequence from an incomplete discussion;
+no response is silently truncated. Every delivered external report/page must pass the existing classifier;
+screening failure blocks the role without override. Native GitHub web access remains denied. External research
+does not establish faithful reproduction, a common cause, fixed status or a Pyright canonical issue by itself,
+and does not enable cross-repository duplicate closure.
+
 When strict reproduction is blocked, overnight mode also attempts **separate controller-run diagnostic
 observations**, without another model-planning turn. This bounded fallback checks explicitly labeled Python
 fences and an unambiguous captured setup. Separate snippets run as isolated specimens, never concatenated;
@@ -171,21 +210,25 @@ before/after checks. Directory-scoped containment validation avoids repeatedly r
 file. Links, Windows junctions/reparse points, non-regular files and observed file/directory changes during the
 walk are rejected. The canonical content digest is unchanged, so old target/input hashes remain compatible.
 
-The local root `run_overnight.ps1` test launcher now retries **only the two timed-out investigations**, #11969 and
-#11925, from `expanded-reproduction-1200s-20261104-120041-882`. Each run uses a fresh
-`$env:USERPROFILE\.copilot\issue-review\timeout-retry-<budget>s-<timestamp>` directory. Its fixed issue-ID
+The local root `run_overnight.ps1` test launcher runs a fixed **15-issue readiness dry run**: controls #11969 and
+#11925 from `timeout-retry-1200s-20261105-155442-549`, plus #11386, #11385, #11384, #11382, #11377, #11374,
+#11373, #11361, #11359, #11358, #11354, #11356 and #11344. The thirteen added issues were selected as the
+newest open, non-reserved issues without saved investigation artifacts in the local issue-review history;
+input-only directories were not treated as completed investigations. This is a developmental cohort, not a
+reserved holdout or a representative accuracy benchmark. Each run uses a fresh
+`$env:USERPROFILE\.copilot\issue-review\readiness-pilot-15-<budget>s-<timestamp>` directory. Its fixed issue-ID
 selection retains reserved holdout/pilot exclusions; no prior reports, answers or checkpoints are reused.
 It paginates open GitHub issues only to verify the entire cohort is still available, excludes pull requests,
 and fails without substitutions if any matched issue is no longer open. Existing state directories cannot be
-resumed accidentally. GitHub captures and checker targets are fresh, so this is a matched-issue comparison,
-not a frozen-input or pinned-target benchmark.
+resumed accidentally. GitHub captures and target selection are fresh, so the two controls provide a matched-issue
+comparison, not a frozen-input or pinned-target benchmark.
 It prints the cohort, fresh state and diagnostics paths before starting, keeps two concurrent issues, ordinary
 role budgets at 1,200 seconds, reconstruction/gate budgets at 1,200 seconds by default, and `--overnight --dry-run`. Disclosed
 configuration defaults and the SDK diagnostics below apply automatically. It does not rehearse or publish
 comments. Run this local launcher from PowerShell with `.\run_overnight.ps1`, or use
 `.\run_overnight.ps1 -ReproductionTimeout 600` for a shorter reconstruction/gate budget; ordinary turns still
-have 1,200 seconds. Only 600 and 1,200 are accepted by this launcher. It runs both full issue pipelines in one
-chunk, not isolated reconstruction calls. These ordinary-turn budgets include local target verification and
+have 1,200 seconds. Only 600 and 1,200 are accepted by this launcher. It runs all 15 full issue pipelines across
+eight chunks of at most two issues, not isolated reconstruction calls. These ordinary-turn budgets include local target verification and
 LSP snapshot preparation; they are not model-only allowances. The longer allowance is a mitigation, not a proven
 filesystem-performance fix or controlled deadline benchmark. Updating the launcher does not start a batch.
 
@@ -1000,9 +1043,11 @@ or interrupted ordinal, without embedding fragments or repeated context in the l
 They also distinguish the original response hash from the hash of the new documents actually classified, count
 reused/new documents, and record serialized-state sizes, HTTP attempts and retry-wait time. A blocking console message
 identifies its source and issue number, selected label, injection score and allow threshold.
-Target-issue checks are saved in the issue directory. Research tool records instead explicitly identify
-`not_screened_research`; they are not passing classifier decisions. `run.json` and screening audits record the
-`target_issue_and_comments` scope, which is also included in the policy hash. Normal investigation reports remain
+Target-issue checks and the bounded explicitly linked external-issue reads are saved in the issue directory.
+The new linked-read path records `screened_linked_issue` only after classification. Ordinary same-repository
+research tool records still explicitly identify `not_screened_research`; they are not passing classifier
+decisions. `run.json` and screening audits record the `target_issue_comments_and_explicit_linked_issues` scope,
+which is also included in the policy hash. Normal investigation reports remain
 separate. Changing the integration or configured endpoint/deployment invalidates review context; token refresh
 does not change the screening policy.
 
@@ -1032,8 +1077,8 @@ because inference is not deterministic; this is a replay observation, not a huma
 override or authorization to resume a blocked review. Earlier hash-only records cannot recover an exact lost
 classifier input; do not silently substitute a new retrieval for an old rejected excerpt.
 
-Configure only an approved service: screening transmits the target issue and its discussion to that deployment,
-not the publication console's separate research reads. The read-only assessor also screens the bounded
+Configure only an approved service: screening transmits the target issue/discussion and explicitly linked external
+issue pages to that deployment, not ordinary same-repository research reads. The read-only assessor also screens the bounded
 authoritative excerpts delivered through its explicit `read_reference` capability.
 Transport-mocked regression tests verify the fail-closed workflow and wire contract, not detection quality.
 Before a backlog run, evaluate representative labeled benign reports, attack attempts and ambiguous examples
@@ -1112,7 +1157,7 @@ raise `ClassificationHTTPError` with a `status` attribute. `ClassificationTimeou
 bodies and underlying credential exception text. Console screening errors include the HTTP status when available:
 for HTTP 404, check both the resource endpoint and the deployment name; for HTTP 401/403, check the selected
 identity and its inference permissions; for HTTP 429, check the deployment's request quota.
-Only target issues and their discussions require screening requests. A very low request quota can still
+Target issues/discussions and delivered explicitly linked external issue pages require screening requests. A very low request quota can still
 slow a batch or a fragmented target issue despite the controller's bounded retry.
 The reusable client does not retry requests or follow redirects.
 Synchronous identity/HTTP work runs off the event loop; cancellation or timeout prevents a pending credential

@@ -857,7 +857,7 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         with path.open("a", encoding="utf-8") as stream:
             for operation, response in (("issue", self.github.canonical.model_dump(mode="json")), ("comments", [])):
                 stream.write(json.dumps({
-                    "investigator": "duplicates", "request": {"operation": operation, "number": 456},
+                    "tool": "github_read", "investigator": "duplicates", "request": {"operation": operation, "number": 456},
                     "result": response,
                 }) + "\n")
         result.report_hash = self.console.report_hash(self.entry)
@@ -1065,6 +1065,50 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(configuration["agent"], "pyright-issue-by-design-reviewer")
         self.assertEqual(configuration["custom_agents"][0]["skills"], ["pyright-issue-analysis"])
 
+    async def test_review_and_duplicate_roles_receive_only_links_from_the_screened_target(self):
+        body_link = "https://github.com/microsoft/linked-body/issues/1"
+        comment_link = "https://github.com/microsoft/linked-comment/issues/2"
+        invented_link = "https://github.com/microsoft/invented-by-reviewer/issues/3"
+        snapshot = issue()
+        snapshot.body = f"An issue with a direct link: {body_link}"
+        self.github.discussion = [{"body": f"The relevant comment links {comment_link}"}]
+        self.console.state = Path(self.temporary.name) / "linked-pipeline"
+        self.console.duplicate = Agent.load(AGENTS / "pyright-issue-dupe-investigator.md", "pyright-issue-dupe-investigator")
+        observed_roles = []
+
+        async def investigate(agent, prompt, scratch, **options):
+            tools = options["tools"]
+            observed_roles.append(agent.name)
+            self.assertEqual(set(tools.linked_issues), {body_link, comment_link})
+            self.assertNotIn(invented_link, tools.linked_issues)
+            self.assertIn(body_link, prompt)
+            self.assertIn(comment_link, prompt)
+            if agent.name == self.profile.name:
+                report = audit()
+                tools.log(product_record(report))
+                raw = ReviewFindings(
+                    markdown=f"# Findings\n\nAn investigator-generated reference: {invented_link}",
+                    audit=report,
+                ).model_dump_json()
+                options["validate"](raw)
+                return raw
+            tools.log(search_record())
+            raw = DuplicateFindings(markdown="# Duplicates\n\nNo established duplicate.", report=no_duplicates()).model_dump_json()
+            options["validate"](raw)
+            return raw
+
+        with (
+            patch.object(self.console.sdk, "run", AsyncMock(side_effect=investigate)),
+            patch.object(self.console, "adjudicate", AsyncMock()),
+        ):
+            entry = await self.console.review(snapshot, retry_failed=True)
+        self.assertEqual(observed_roles, [self.profile.name, self.console.duplicate.name])
+        self.assertIsNotNone(entry.review)
+        self.assertIsNotNone(entry.duplicates)
+        scopes = [row for row in self.console.records(123) if isinstance(row, dict) and row.get("kind") == "linked_issue_scope"]
+        self.assertEqual(len(scopes), 2)
+        self.assertEqual(self.github.mutations, [])
+
     async def test_duplicate_agent_is_read_only_and_never_runs_checks(self):
         self.console.duplicate = Agent.load(
             AGENTS / "pyright-issue-dupe-investigator.md", "pyright-issue-dupe-investigator"
@@ -1073,8 +1117,14 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         self.console.save(self.entry)
         report = no_duplicates()
         raw = DuplicateFindings(markdown="# Duplicate findings\n\nNo shared cause found.", report=report).model_dump_json()
+
+        async def investigated(agent, prompt, scratch, **options):
+            options["tools"].log(search_record())
+            options["validate"](raw)
+            return raw
+
         with (
-            patch.object(self.console.sdk, "run", AsyncMock(return_value=raw)) as run,
+            patch.object(self.console.sdk, "run", AsyncMock(side_effect=investigated)) as run,
             patch.object(self.console, "adjudicate", AsyncMock()),
         ):
             entry = await self.console.review(issue(), retry_failed=False)
@@ -1082,6 +1132,87 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(run.await_count, 1)
         self.assertEqual(run.call_args.args[0].name, "pyright-issue-dupe-investigator")
         self.assertEqual((self.console.directory(123) / "duplicates.md").read_text(), "# Duplicate findings\n\nNo shared cause found.\n")
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_duplicate_validation_can_obtain_missing_reads_before_saving(self):
+        self.console.state = Path(self.temporary.name) / "duplicate-read-correction"
+        self.entry.duplicates, self.entry.adjudication = None, None
+        report = no_duplicates()
+        report.candidates = [DuplicateCandidate(
+            issue_number=456, relation="duplicate", confidence="high", shared_cause="The same verified contract",
+            differences="Different names", canonical_reason="Stronger explanation", canonical_issue_number=456,
+            evidence=[DuplicateEvidence(url=self.github.canonical.html_url, finding="Same contract")],
+        )]
+        raw = DuplicateFindings(markdown="# Duplicate findings\n\nThe same contract applies.", report=report).model_dump_json()
+
+        async def investigated(agent, prompt, scratch, **options):
+            tools = options["tools"]
+            tools.log(search_record())
+            tools.log({"tool": "github_read", "request": {"operation": "comments", "number": 456}, "result": []})
+            with self.assertRaisesRegex(AutomationError, "actual canonical issue and discussion reads"):
+                options["validate"](raw)
+            self.assertFalse((self.console.directory(123) / "duplicates-response.txt").exists())
+            self.assertFalse((self.console.directory(123) / "duplicates.json").exists())
+            tools.log({
+                "tool": "github_read", "request": {"operation": "issue", "number": 456},
+                "result": self.github.canonical.model_dump(mode="json"),
+            })
+            options["validate"](raw)
+            return raw
+
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=investigated)):
+            await self.console.investigate_duplicates(self.entry)
+        self.assertEqual(self.entry.duplicates, report)
+        self.assertEqual((self.console.directory(123) / "duplicates-response.txt").read_text(), raw)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_duplicate_wrong_identity_cannot_be_saved_even_if_sdk_skips_validation(self):
+        self.console.state = Path(self.temporary.name) / "duplicate-invalid-identity"
+        self.entry.duplicates, self.entry.adjudication = None, None
+        report = no_duplicates()
+        report.issue_number = 789
+        raw = DuplicateFindings(markdown="# Findings\n\nWrong issue.", report=report).model_dump_json()
+        with (
+            patch.object(self.console.sdk, "run", AsyncMock(return_value=raw)),
+            self.assertRaisesRegex(AutomationError, "wrong issue"),
+        ):
+            await self.console.investigate_duplicates(self.entry)
+        self.assertIsNone(self.entry.duplicates)
+        self.assertFalse((self.console.directory(123) / "duplicates.json").exists())
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_both_roles_receive_curated_topic_leads_without_inheriting_verdicts(self):
+        snapshot = issue().model_copy(update={"title": "Custom classmethod receiver", "body": "A descriptor"})
+        self.console.state = Path(self.temporary.name) / "history-leads"
+        self.console.duplicate = Agent.load(AGENTS / "pyright-issue-dupe-investigator.md", "pyright-issue-dupe-investigator")
+        observed = []
+
+        async def investigated(agent, prompt, scratch, **options):
+            observed.append(agent.name)
+            self.assertIn("https://github.com/microsoft/pyright/issues/5865", prompt)
+            if agent.name == self.profile.name:
+                report = audit()
+                options["tools"].log(product_record(report))
+                raw = ReviewFindings(markdown="# Findings\n\nSpecification evidence.", audit=report).model_dump_json()
+            else:
+                report = no_duplicates()
+                report.search_complete = False
+                report.uncertainties = ["Historical lead is uninspected in this synthetic test"]
+                raw = DuplicateFindings(markdown="# Findings\n\nHistory is incomplete.", report=report).model_dump_json()
+            options["validate"](raw)
+            return raw
+
+        with (
+            patch.object(self.console.sdk, "run", AsyncMock(side_effect=investigated)),
+            patch.object(self.console, "adjudicate", AsyncMock()),
+        ):
+            await self.console.review(snapshot, retry_failed=True)
+        self.assertEqual(observed, [self.profile.name, self.console.duplicate.name])
+        leads = [
+            row for row in self.console.records(123) if isinstance(row, dict) and row.get("kind") == "policy_history_leads"
+        ]
+        self.assertEqual(len(leads), 2)
+        self.assertEqual(leads[0]["leads"], leads[1]["leads"])
         self.assertEqual(self.github.mutations, [])
 
     async def test_timeout_aborts_and_disconnects_sdk(self):
@@ -1388,6 +1519,58 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((scratch / f"{profile.name}-response-1.txt").read_text(), invalid)
         self.assertEqual((scratch / f"{profile.name}-response-2.txt").read_text(), valid)
         session.disconnect.assert_awaited_once()
+
+    async def test_malformed_diagnostic_predicates_use_only_one_same_session_correction(self):
+        from test_issue_review_reproduction import exploratory_scenario
+
+        profile = Agent.load(AGENTS / "pyright-issue-reproducer.md", "pyright-issue-reproducer")
+        expected = exploratory_scenario()
+        message = 'Type mismatch\n\u00a0\u00a0Exact detail'
+        expected.claims[0].broken[0].message = message
+        wire = json.loads(expected.model_dump_json())
+        for name in ("files", "control_files", "configuration"):
+            wire[name] = [
+                {"key": key, "value": json.dumps(value) if name == "configuration" else value}
+                for key, value in wire[name].items()
+            ]
+        valid = json.dumps(wire)
+        wire["claims"][0]["broken"][0]["message"] = message.replace("\u00a0", "\0a0")
+        invalid = json.dumps(wire)
+        for corrected in (True, False):
+            with self.subTest(corrected=corrected):
+                session = AsyncMock()
+                session.session_id = "bounded-predicate-correction"
+                session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=profile.name))
+                session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+                session.send_and_wait.side_effect = [
+                    SimpleNamespace(data=AssistantMessageData(content=content, message_id="offline"))
+                    for content in (invalid, valid if corrected else invalid)
+                ]
+                client = AsyncMock()
+                client.create_session.return_value = session
+                scratch = Path(self.temporary.name) / f"predicate-{corrected}"
+                scratch.mkdir()
+                validated = []
+                sdk = SDK(client, None, 30)
+                async def request():
+                    return await sdk.run(
+                        profile, "Preserve exact diagnostic text", scratch, schema=ExploratoryReproductionScenario,
+                        validate=lambda content: validated.append(content), native_tools=[],
+                    )
+                if corrected:
+                    result = await request()
+                    self.assertEqual(ExploratoryReproductionScenario.model_validate_json(result), expected)
+                    self.assertEqual(len(validated), 1)
+                else:
+                    with self.assertRaisesRegex(ValueError, "NUL"):
+                        await request()
+                    self.assertEqual(validated, [])
+                self.assertEqual(session.send_and_wait.await_count, 2)
+                self.assertIn("NUL", session.send_and_wait.await_args_list[1].args[0])
+                self.assertEqual((scratch / f"{profile.name}-response-1.txt").read_text(), invalid)
+                self.assertFalse((scratch / f"{profile.name}-decoded-response-1.json").exists())
+                client.create_session.assert_awaited_once()
+                session.disconnect.assert_awaited_once()
 
     async def test_duplicate_sdk_session_has_no_write_or_execution_tools(self):
         profile = Agent.load(AGENTS / "pyright-issue-dupe-investigator.md", "pyright-issue-dupe-investigator")
@@ -1797,10 +1980,10 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         self.entry.adjudication = None
         records = self.console.records(123) + [
             {
-                "investigator": "duplicates", "request": {"operation": "issue", "number": 456},
+                "tool": "github_read", "investigator": "duplicates", "request": {"operation": "issue", "number": 456},
                 "result": self.github.canonical.model_dump(),
             },
-            {"investigator": "duplicates", "request": {"operation": "comments", "number": 456}, "result": []},
+            {"tool": "github_read", "investigator": "duplicates", "request": {"operation": "comments", "number": 456}, "result": []},
         ]
         atomic_write(self.console.directory(123) / "checks.jsonl", "".join(json.dumps(item) + "\n" for item in records))
         proposed = Adjudication(

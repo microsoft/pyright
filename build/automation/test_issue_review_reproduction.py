@@ -526,6 +526,27 @@ class TransportTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Duplicate"):
             reproduction_response(ReconstructionResponse, json.dumps(raw))
 
+    def test_reconstruction_rejects_nul_in_every_diagnostic_predicate_collection(self):
+        for collection in ("broken", "resolved", "precision", "resolution_precision", "context_diagnostics"):
+            raw = {"scenario": self.wire_scenario(default_scenario(scenario_with_resolution_controls())), "blocked": None}
+            claim = raw["scenario"]["claims"][0]
+            claim["context_diagnostics"] = [dict(claim["broken"][0])]
+            claim[collection][0]["message"] = 'Invalid indentation\n\0a0\0a0"property" is not assignable to "int"'
+            serialized = json.dumps(raw)
+            with self.subTest(collection=collection), self.assertRaisesRegex(ValueError, "NUL"):
+                reproduction_response(ReconstructionResponse, serialized)
+            self.assertEqual(json.dumps(raw), serialized)
+
+    def test_reconstruction_preserves_nonbreaking_spaces_and_multiline_diagnostic_text(self):
+        raw = {"scenario": self.wire_scenario(default_scenario()), "blocked": None}
+        message = 'Type mismatch\r\n\u00a0\u00a0"property" is not assignable to "int"\n\tExact detail'
+        raw["scenario"]["claims"][0]["broken"][0]["message"] = message
+        decoded = ReconstructionResponse.model_validate_json(
+            reproduction_response(ReconstructionResponse, json.dumps(raw))
+        )
+        assert decoded.scenario is not None
+        self.assertEqual(decoded.scenario.claims[0].broken[0].message, message)
+
     def test_exploratory_wire_preserves_disclosures_and_strict_semantic_validation(self):
         probe = exploratory_scenario()
         wire = self.wire_scenario(probe)
@@ -3048,6 +3069,42 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ArtifactTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cached_preparation_keeps_acquisition_separate_from_each_issue_selection(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = FakeTargets(Path(temporary), {})
+            report = issue().model_copy(update={"created_at": "2025-02-15T00:00:00Z"})
+            acquired = select_targets(catalog(), report, scenario(), "", "a" * 40)[2]
+            acquired.role = "historical"
+            acquired.selection_reason = "Explicit historical version from the first issue"
+            await store.prepare(acquired)
+            source = add_pack_capture(store, acquired)
+            metadata = store._metadata_path(acquired)
+            source_bytes, metadata_bytes = source.read_bytes(), metadata.read_bytes()
+            selected = acquired.model_copy(update={
+                "role": "latest", "selection_reason": "Latest publication for another issue",
+                "approximate": False,
+                "directory": None, "cli": None, "tree_hash": None, "status": "selected",
+            })
+            store.restore(selected)
+            for compact in (False, True):
+                evidence = store.preparation_evidence(selected, compact=compact)
+                preparation = evidence["preparation"]
+                assert isinstance(preparation, dict)
+                self.assertEqual(evidence["id"], "preparation-latest")
+                self.assertEqual(evidence["target"], selected.model_dump(mode="json"))
+                self.assertNotIn("target", preparation)
+                self.assertEqual(preparation["acquisition_target"], acquired.model_dump(mode="json"))
+                scope = preparation["selection_scope"]
+                assert isinstance(scope, str)
+                self.assertIn("not this issue's selection evidence", scope)
+                self.assertEqual(evidence["source_sha256"], hashlib.sha256(source_bytes).hexdigest())
+                self.assertEqual(source.read_bytes(), source_bytes)
+                self.assertEqual(metadata.read_bytes(), metadata_bytes)
+            self.assertEqual(store.executions, 0)
+            changed = selected.model_copy(update={"version": "1.1.999"})
+            with self.assertRaisesRegex(ValueError, "disagrees with the executed target"):
+                store.preparation_evidence(changed)
+
     def cached_target(self, directory):
         report = issue().model_copy(update={"created_at": "2025-02-15T00:00:00Z"})
         target = select_targets(catalog(), report, scenario(), "", "a" * 40)[1]

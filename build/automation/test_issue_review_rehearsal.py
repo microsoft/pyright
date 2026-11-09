@@ -20,7 +20,7 @@ from review_issues import (
     digest, import_rehearsal_entry, main, require_run_mode, save_closure_rehearsals,
 )
 from test_issue_review_reproduction import FakeTargets, ReproductionGitHub, catalog, default_scenario
-from test_review_issues import FakeGitHub, audit, issue, save_evidence
+from test_review_issues import FakeGitHub, audit, issue, no_duplicates, save_evidence
 
 
 class RehearsalTests(unittest.IsolatedAsyncioTestCase):
@@ -129,9 +129,32 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
         assert self.entry.review is not None
         self.entry.review.claims[0].confidence = "low"
         save_evidence(self.console, self.entry, validity="needs investigation")
-        with self.assertRaisesRegex(AutomationError, "does not support closure"):
-            await self.console.evaluate(self.entry)
+        await self.console.evaluate(self.entry)
+        self.assertEqual(self.report().status, "ineligible")
         self.assertEqual(self.report().stages["eligibility"], "rejected")
+        self.assertEqual(self.report().stages["writer"], "untested")
+        self.assertTrue(self.report().blocking_reasons)
+        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_ineligible_investigation_still_rejects_tampered_evidence(self):
+        assert self.entry.review is not None
+        self.entry.review.claims[0].confidence = "low"
+        save_evidence(self.console, self.entry, validity="needs investigation")
+        atomic_write(self.state / "123" / "review.md", "Tampered report")
+        with self.assertRaisesRegex(AutomationError, "changed"):
+            await self.console.evaluate(self.entry)
+        self.assertEqual(self.report().status, "rejected")
+        self.sdk.run.assert_not_awaited()
+
+    async def test_ineligible_investigation_still_rejects_changed_issue(self):
+        assert self.entry.review is not None
+        self.entry.review.claims[0].confidence = "low"
+        save_evidence(self.console, self.entry, validity="needs investigation")
+        self.github.current.body = "A material correction"
+        with self.assertRaisesRegex(AutomationError, "Issue changed"):
+            await self.console.evaluate(self.entry)
+        self.assertEqual(self.report().status, "rejected")
         self.sdk.run.assert_not_awaited()
 
     async def test_changed_canonical_rejects_before_drafting(self):
@@ -544,6 +567,75 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
         summary = json.loads((self.state / "rehearsals.json").read_text())
         self.assertFalse(summary["complete"])
         self.assertFalse(summary["github_mutations_enabled"])
+
+    async def test_mixed_batch_completes_for_ineligibility_but_fails_for_operational_errors(self):
+        for transport_failure in (False, True):
+            with self.subTest(transport_failure=transport_failure):
+                output = self.state.parent / f"mixed-{transport_failure}"
+                args = Namespace(
+                    state_dir=output, cli_path="copilot", writer_agent=self.profile.path,
+                    read_only=False, model=None, issues=[123, 456], chunk_size=1, timeout=30,
+                    retry_failed=False, rehearse_closures=True,
+                )
+
+                async def investigated(console, snapshot, **_options):
+                    if snapshot.number == 456 and transport_failure:
+                        raise AutomationError("Simulated investigation transport failure")
+                    report = audit().model_copy(update={
+                        "issue_number": snapshot.number, "issue_url": snapshot.html_url,
+                    }, deep=True)
+                    if snapshot.number == 456:
+                        report.claims[0].confidence = "low"
+                    entry = Entry(
+                        input_hash=console.key(snapshot), context_hash="context",
+                        issue=snapshot, review=report,
+                        duplicates=no_duplicates().model_copy(update={"issue_number": snapshot.number}),
+                    )
+                    save_evidence(
+                        console, entry, validity="needs investigation" if snapshot.number == 456 else "by design",
+                    )
+                    console.save(entry)
+                    return entry
+
+                load_agent = Agent.load
+                with (
+                    patch("review_issues.Agent.load", side_effect=lambda path, name: (
+                        self.writer if name == "rich-mirror" else load_agent(path, name)
+                    )),
+                    patch("review_issues.GitHub", return_value=self.github),
+                    patch.object(self.github, "api", AsyncMock(return_value={})),
+                    patch("review_issues.InjectionScreening.from_environment"),
+                    patch("review_issues.process", AsyncMock(return_value=(0, "test runtime", ""))),
+                    patch("review_issues.context_hash", return_value="context"),
+                    patch("review_issues.git", return_value="a" * 40),
+                    patch("review_issues.CopilotClient"),
+                    patch("review_issues.SDK.run", AsyncMock(side_effect=[
+                        self.comment, DraftCheck(approved=True, problems=[]).model_dump_json(),
+                    ])) as run,
+                    patch.object(Console, "review", autospec=True, side_effect=investigated),
+                ):
+                    if transport_failure:
+                        with self.assertRaisesRegex(AutomationError, "1 investigation/publication steps failed"):
+                            await main(args)
+                    else:
+                        await main(args)
+                self.assertEqual(run.await_count, 2)
+                summary = json.loads((output / "rehearsals.json").read_text())
+                self.assertTrue(summary["complete"])
+                self.assertEqual(summary["completed_issues"], 2)
+                self.assertEqual(summary["outcome_counts"], {
+                    "passed": 1, "ineligible": int(not transport_failure), "rejected": int(transport_failure),
+                })
+                self.assertEqual(summary["rehearsals"][0]["status"], "passed")
+                other = summary["rehearsals"][1]
+                self.assertEqual(other["status"], "rejected" if transport_failure else "ineligible")
+                self.assertEqual(other["stages"]["writer"], "untested")
+                self.assertFalse(summary["github_mutations_enabled"])
+                if not transport_failure:
+                    saved = json.loads((output / "456" / "entry.json").read_text())
+                    self.assertIsNone(saved["error"])
+                    self.assertEqual(saved["adjudication"]["validity"], "needs investigation")
+                self.assertEqual(self.github.mutations, [])
 
     async def test_cli_is_explicit_bounded_and_cannot_upgrade_run_policy(self):
         with patch("sys.argv", ["review_issues.py", "--dry-run"]):

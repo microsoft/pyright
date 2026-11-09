@@ -254,6 +254,7 @@ class FrozenGitHub(GitHub):
 
     async def screen_issue(self, issue: Issue, directory: Path):
         await self.screen(self.report.model_dump(mode="json"), directory, "anonymous-target-report")
+        return []
 
     async def api(self, *args, **kwargs):
         raise AutomationError("GitHub research and mutations are disabled in the blinded benchmark")

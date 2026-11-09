@@ -514,6 +514,50 @@ class ScreeningTests(unittest.IsolatedAsyncioTestCase):
         self.classifier.classify.assert_not_awaited()
         self.assertFalse((self.directory / "screening.jsonl").exists())
 
+    async def test_explicit_external_issue_reads_require_the_real_screening_path(self):
+        url = "https://github.com/microsoft/pylance-release/issues/8252"
+        github = GitHub(scorer=self.scorer)
+        github.api = AsyncMock(side_effect=[
+            {"full_name": "microsoft/pylance-release", "private": False},
+            {"number": 8252, "html_url": url, "body": "A complete linked report"},
+        ])
+        tools = InvestigationTools(
+            github, self.directory, ROOT / "packages" / "pyright" / "index.js", {},
+            linked_issues={url: [issue().html_url]},
+        )
+        result = await tools.github_read(ToolInvocation(
+            arguments={"operation": "linked_issue", "url": url}, session_id="test",
+            tool_name="github_read", tool_call_id="linked",
+        ))
+        self.assertEqual(result.result_type, "success")
+        self.assertEqual(self.classifier.classify.await_count, 1)
+        self.assertTrue(str(self.ledger()[-1]["source"]).startswith("linked-issue:linked_issue:"))
+        self.assertEqual(self.ledger()[-1]["status"], "allowed")
+        self.assertIn("screened_linked_issue", (self.directory / "checks.jsonl").read_text())
+
+    async def test_external_issue_classifier_failure_is_fatal_without_exposing_content(self):
+        url = "https://github.com/microsoft/pylance-release/issues/8252"
+        github = GitHub(scorer=self.scorer)
+        github.api = AsyncMock(side_effect=[
+            {"full_name": "microsoft/pylance-release", "private": False},
+            {"number": 8252, "html_url": url, "body": "quarantined-linked-content-marker"},
+        ])
+        self.classifier.classify.return_value = classification(0.7)
+        tools = InvestigationTools(
+            github, self.directory, ROOT / "packages" / "pyright" / "index.js", {},
+            linked_issues={url: [issue().html_url]},
+        )
+        with patch("builtins.print"):
+            result = await tools.github_read(ToolInvocation(
+                arguments={"operation": "linked_issue", "url": url}, session_id="test",
+                tool_name="github_read", tool_call_id="linked",
+            ))
+        self.assertEqual(result.result_type, "failure")
+        self.assertIsNotNone(tools.screening_error)
+        self.assertEqual(self.ledger()[-1]["status"], "uncertain")
+        self.assertNotIn("quarantined-linked-content-marker", result.text_result_for_llm or "")
+        self.assertNotIn("quarantined-linked-content-marker", (self.directory / "checks.jsonl").read_text())
+
     async def test_error_categories_block_without_leaking_details(self):
         for error in (
             ClassificationAuthenticationError(), ClassificationHTTPError(429),

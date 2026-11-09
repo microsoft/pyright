@@ -1009,11 +1009,19 @@ class TargetStore:
                     )
                 ):
                     raise ValueError("Release acquisition checksum/provenance disagrees with the executed target")
+            presented = compact_preparation(preparation, target) if compact else dict(preparation)
+            presented["acquisition_target"] = presented.pop("target")
+            presented["selection_scope"] = (
+                "acquisition_target records the request that originally prepared this reusable artifact. "
+                "Its role, selection_reason, approximate and published_at are not this issue's selection evidence. "
+                "Use the enclosing target for the current issue's selection; artifact identity and integrity "
+                "remain verified against the unchanged, source-hash-bound acquisition capture."
+            )
             candidates.append({
                 "id": f"preparation-{target.role}", "kind": "target_preparation",
                 "target": target.model_dump(mode="json"), "source_path": str(path),
                 "source_sha256": hashlib.sha256(raw).hexdigest(),
-                "preparation": compact_preparation(preparation, target) if compact else preparation,
+                "preparation": presented,
             })
         if len(candidates) != 1:
             raise ValueError("Target needs exactly one successful saved preparation receipt")

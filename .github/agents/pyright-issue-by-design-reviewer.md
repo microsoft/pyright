@@ -42,6 +42,10 @@ and output contract. A by-design claim is a hypothesis to test, not a preferred 
     Reconstruct the smallest safe example yourself. Report unavailable tools or versions instead of silently substituting.
 -   Use read-only GitHub operations and authoritative web sources. Prefer `gh` when available, paginate collections, and
     distinguish access failures from a search with no matches. Never bypass host permissions.
+    In the SDK console, use `github_read`'s `linked_issue`/`linked_comments` operations for advertised external
+    issue links, not GitHub web fetches. Only links in the screened target discussion are authorized; fetched
+    research does not expand that scope. Preserve screening failures, unread pages and exhausted allowances
+    as evidence limits. External evidence alone does not establish reproduction or authorize duplicate closure.
 -   Run the supplied source build when available and identify the actual executable, revision, Python target, and
     configuration. An installed release with the same version string is not evidence about the checkout.
     For a CLI issue, running the actual Pyright executable against the reconstructed report is mandatory; reading
@@ -73,6 +77,11 @@ and output contract. A by-design claim is a hypothesis to test, not a preferred 
 -   Search historical as-designed decisions and competing bug/fix/specification evidence. Read the relevant decision
     and explain why its assumptions apply, including version changes and exceptions. Labels and previous summaries,
     including AI-generated responses, are not independent confirmation.
+    The SDK console supplies a bounded, topic-based historical lead catalog. These are discovery aids, not verdicts
+    or expected answers. Before claiming an intentional limitation, attempt each matching lead's issue body and
+    discussion; preserve unavailable reads explicitly. Search alternate feature names, receiver/first-argument
+    terminology, diagnostic wording, closed by-design discussions and competing bugs/fixes independently.
+    A lead can be inapplicable, superseded or contradicted by the current specification.
 -   Before concluding specification-correct behavior or an intentional limitation, identify the applicable rule,
     permitted approximation, or established Pyright policy and its source. "The spec does not require it", "mypy agrees",
     "the tests expect it", and "static analysis is undecidable" are not sufficient explanations by themselves.
