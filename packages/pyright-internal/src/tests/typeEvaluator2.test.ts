@@ -437,6 +437,18 @@ test('Unbound6', () => {
     TestUtils.validateResults(analysisResults, 8);
 });
 
+test('Unbound7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound7.py']);
+
+    TestUtils.validateResults(analysisResults, 7);
+});
+
+test('Unbound8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound8.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('LiteralForLoop1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.reportPossiblyUnboundVariable = 'error';
