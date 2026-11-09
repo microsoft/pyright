@@ -12,6 +12,7 @@ import { DiagnosticAddendum } from '../../common/diagnostic';
 import { LocAddendum } from '../../localization/localize';
 import { ParamCategory } from '../../parser/parseNodes';
 import { ConstraintTracker } from '../constraintTracker';
+import { getIntFlagReturnTypeForCallable } from '../enums';
 import { getParamListDetails, ParamKind, ParamListDetails, VirtualParamDetails } from '../parameterUtils';
 import { assignClassToProtocol } from '../protocols';
 import { assignTupleTypeArgs, makeTupleObject } from '../tuples';
@@ -1982,7 +1983,27 @@ export function createTypeCompatibility(context: Context) {
         if (checkReturnType) {
             const destReturnType = getEffectiveReturnType(destType);
             if (!isAnyOrUnknown(destReturnType)) {
-                const srcReturnType = solveAndApplyConstraints(getEffectiveReturnType(srcType), constraints);
+                let srcReturnType = solveAndApplyConstraints(getEffectiveReturnType(srcType), constraints);
+                // Intrinsic returns can depend on the target callable's narrower parameter domain.
+                if (
+                    canAssign &&
+                    (flags &
+                        (AssignTypeFlags.OverloadOverlap |
+                            AssignTypeFlags.PartialOverloadOverlap |
+                            AssignTypeFlags.Contravariant)) ===
+                        0
+                ) {
+                    const intrinsicReturnType = getIntFlagReturnTypeForCallable(
+                        evaluatorInterface,
+                        srcType,
+                        srcParamDetails,
+                        destParamDetails,
+                        srcReturnType
+                    );
+                    if (intrinsicReturnType) {
+                        srcReturnType = solveAndApplyConstraints(intrinsicReturnType, constraints);
+                    }
+                }
                 const returnDiag = diag?.createAddendum();
 
                 let isReturnTypeCompatible = false;

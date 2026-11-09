@@ -135,12 +135,16 @@ import {
     getFunctionInfoFromDecorators,
 } from './decorators';
 import {
+    applyIntFlagTransform,
     createEnumType,
     getEnumAutoValueType,
     getTypeOfEnumMember,
+    getTypeOfIntFlagMember,
     isDeclInEnumClass,
     isEnumClassWithMembers,
     isEnumMetaclass,
+    isIntFlagBitwiseFunction,
+    synthesizeEnumBoundary,
 } from './enums';
 import { applyFunctionTransform } from './functionTransform';
 import { createNamedTupleType } from './namedTuples';
@@ -202,6 +206,7 @@ import {
     EvaluatorUsage,
     ExpectedTypeOptions,
     ExpectedTypeResult,
+    FunctionResult,
     FunctionTypeResult,
     MapSubtypesOptions,
     MemberAccessDeprecationInfo,
@@ -1893,7 +1898,10 @@ export function createTypeEvaluator(
             }
 
             return {
-                type: memberInfo.type,
+                type:
+                    usage.method === 'get'
+                        ? getTypeOfIntFlagMember(evaluatorInterface, objectType, memberInfo.type, nodeInfo)
+                        : memberInfo.type,
                 classType: memberInfo.classType,
                 isIncomplete: !!memberInfo.isTypeIncomplete,
                 isAsymmetricAccessor: memberInfo.isAsymmetricAccessor,
@@ -8509,6 +8517,8 @@ export function createTypeEvaluator(
         overloadIndex: number
     ): MatchArgsToParamsResult {
         const overload = typeResult.type;
+        const unexpandedArgList =
+            isIntFlagBitwiseFunction(overload) && !overload.priv.strippedFirstParamType ? argList : undefined;
         const paramDetails = getParamListDetails(overload, { disallowExtraKwargsForTd: true });
         const paramSpec = FunctionType.getParamSpecFromArgsKwargs(overload);
 
@@ -9537,6 +9547,7 @@ export function createTypeEvaluator(
             argumentErrors: reportedArgError,
             isTypeIncomplete,
             argParams: validateArgTypeParams,
+            unexpandedArgList,
             paramSpecTarget,
             paramSpecArgList,
             activeParam,
@@ -9991,6 +10002,16 @@ export function createTypeEvaluator(
 
         matchResults.argumentMatchScore = argumentMatchScore;
 
+        if (!argumentErrors && isIntFlagBitwiseFunction(type)) {
+            const transformed = applyIntFlagCallTransform(errorNode, matchResults, argResults, {
+                argumentErrors,
+                returnType: specializedReturnType,
+                isTypeIncomplete,
+            });
+            specializedReturnType = transformed.returnType;
+            isTypeIncomplete = transformed.isTypeIncomplete;
+        }
+
         return {
             argumentErrors,
             argResults,
@@ -10001,6 +10022,88 @@ export function createTypeEvaluator(
             specializedInitSelfType,
             overloadsUsedForCall: argumentErrors ? [] : [type],
         };
+    }
+
+    function applyIntFlagCallTransform(
+        errorNode: ExpressionNode,
+        matchResults: MatchArgsToParamsResult,
+        argResults: ArgResult[],
+        result: FunctionResult
+    ): FunctionResult {
+        const argumentTypes = new Map<string, Type>();
+        matchResults.argParams.forEach((param, index) => {
+            if (param.paramName) {
+                argumentTypes.set(param.paramName, argResults[index].argType);
+            }
+        });
+        result = applyIntFlagTransform(evaluatorInterface, matchResults.overload, argumentTypes, result);
+
+        const argList = matchResults.unexpandedArgList;
+        if (!argList?.some((arg) => arg.argCategory !== ArgCategory.Simple)) {
+            return result;
+        }
+
+        // Keep correlated packed alternatives together rather than treating their
+        // independently combined parameter types as a Cartesian product.
+        const contextFreeArgTypes = argList.map((arg) =>
+            arg.argCategory === ArgCategory.Simple
+                ? UnknownType.create()
+                : getTypeOfArg(arg, /* inferenceContext */ undefined).type
+        );
+        let expandedArgTypes: (Type | undefined)[][] = [argList.map(() => undefined)];
+        while (true) {
+            const expanded = expressionEvaluation.expandArgTypes(contextFreeArgTypes, expandedArgTypes);
+            if (!expanded) {
+                break;
+            }
+            if (expanded.length > maxTotalOverloadArgTypeExpansionCount) {
+                return result;
+            }
+            expandedArgTypes = expanded;
+        }
+        if (expandedArgTypes.length === 1) {
+            return result;
+        }
+
+        const returnTypes: Type[] = [];
+        let isTypeIncomplete = result.isTypeIncomplete;
+        for (const expandedTypes of expandedArgTypes) {
+            const expandedArgs = argList.map((arg, index): Arg => {
+                const type = expandedTypes[index];
+                return type
+                    ? {
+                          ...arg,
+                          valueExpression: undefined,
+                          typeResult: { type, isIncomplete: result.isTypeIncomplete },
+                      }
+                    : arg;
+            });
+            const expandedMatch = useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () =>
+                matchArgsToParams(
+                    errorNode,
+                    expandedArgs,
+                    { type: matchResults.overload, isIncomplete: result.isTypeIncomplete },
+                    matchResults.overloadIndex
+                )
+            );
+            isTypeIncomplete ||= expandedMatch.isTypeIncomplete;
+            if (expandedMatch.argumentErrors) {
+                return { ...result, isTypeIncomplete };
+            }
+
+            const expandedArgumentTypes = new Map(argumentTypes);
+            expandedMatch.argParams.forEach((param) => {
+                const type = param.argType ?? param.argument.typeResult?.type;
+                if (param.paramName && type) {
+                    expandedArgumentTypes.set(param.paramName, type);
+                }
+            });
+            returnTypes.push(
+                applyIntFlagTransform(evaluatorInterface, matchResults.overload, expandedArgumentTypes, result)
+                    .returnType
+            );
+        }
+        return { ...result, returnType: combineTypes(returnTypes), isTypeIncomplete };
     }
 
     // In general, all in-scope type variables left in a return type should be
@@ -12788,6 +12891,7 @@ export function createTypeEvaluator(
 
             // Clear the "partially constructed" flag.
             classType.shared.flags &= ~ClassTypeFlags.PartiallyEvaluated;
+            synthesizeEnumBoundary(evaluatorInterface, classType, initSubclassArgs);
 
             // Now determine the decorated type of the class.
             let decoratedType: Type = classType;
