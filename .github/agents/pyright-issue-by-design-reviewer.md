@@ -131,6 +131,13 @@ Do not return only a JSON-shaped summary in the Markdown field. A separate adjud
 For a calibration caller requesting the legacy audit schema, return that schema instead.
 Do not add a GitHub comment draft unless explicitly requested.
 
+For closing-comment factual review, keep the supplied controller execution facts separate from reviewer probes.
+Completed-but-blocked original commands still ran, even when controls were skipped or the comparison gate rejected
+the evidence. Preserve artifact/version, historical approximation and settings/defaults; neither an attempted
+command without a captured result nor missing/unsealed evidence proves non-execution. A reviewer-only limitation
+must not become a blanket claim that no released checker ran. Execution alone establishes no reproduction,
+released-fix claim or closure authority.
+
 For an individual investigation, provide:
 
 1. **Disposition and confidence:** bug, specification-correct, intentional limitation, stub/environment issue,

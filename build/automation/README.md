@@ -85,6 +85,16 @@ never substitutes whitespace or repairs predicates. Valid nonbreaking spaces, ta
 text are preserved. Previously saved malformed evidence remains unchanged and requires a fresh investigation.
 
 Closing-comment factual checks receive the same frozen issue and investigation/comparison packet as the writer.
+Semantic by-design/duplicate packets also include controller-owned execution facts, saved separately as
+`comment-execution-facts.json`. These distinguish completed original commands from skipped or incomplete controls,
+artifact versions and approximate historical selection, effective settings/defaults, blocked observations and
+gate approval. A completed checker command is not faithful reproduction or a verified released fix; a rejected
+comparison does not mean no released checker ran. Reviewer-only limitations cannot erase controller executions,
+and absent/unsealed controller evidence says nothing about other actors' checks or whether a process started.
+Frozen evidence, receipt identities and any gate's raw-source bindings are checked even when that gate rejected
+the comparison. Changed facts stop factual approval, cached-draft reuse and final closure checks rather than
+resealing the draft; use fresh drafting state. Legacy comments with no controller reproduction stage retain their
+existing eligibility checks. Fixed/reproduction comments retain their separate gated receipt-delivery contract.
 Reporter assertions may be attributed, but are never promoted to independently executed observations. After a
 valid factual rejection, `rich-mirror` may make **one** correction using only that packet and the exact objections,
 followed by a new factual check. Fixed-comment checks start with fresh receipt-delivery accounting each time.

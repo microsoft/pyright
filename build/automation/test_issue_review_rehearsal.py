@@ -12,14 +12,18 @@ from unittest.mock import AsyncMock, patch
 from copilot import ToolInvocation
 
 from issue_review_evidence import evidence_json
-from issue_review_models import DraftCheck, DuplicateCandidate, Entry, ReconstructionResponse, ReproductionGate
+from issue_review_models import (
+    DraftCheck, DuplicateCandidate, Entry, ReconstructionResponse, ReproductionGate, ReproductionStage, ReproductionTarget,
+)
 from issue_review_reproduction import ReleaseCatalog
 from issue_review_safety import ScreeningBlocked
 from review_issues import (
     AGENTS, Agent, AutomationError, ChunkResult, ClosureRehearsal, Console, GitHub, arguments, atomic_write,
     digest, import_rehearsal_entry, main, require_run_mode, save_closure_rehearsals,
 )
-from test_issue_review_reproduction import FakeTargets, ReproductionGitHub, catalog, default_scenario
+from test_issue_review_reproduction import (
+    FakeTargets, ReproductionGitHub, blocked_reconstruction, catalog, default_scenario, scenario_with_controls,
+)
 from test_review_issues import FakeGitHub, audit, issue, no_duplicates, save_evidence
 
 
@@ -61,6 +65,208 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
         self.entry.canonical_issue = self.github.canonical.model_copy(deep=True)
         self.comment = f"Duplicate of [#456]({self.github.canonical.html_url}). The same limitation applies."
         self.sdk.run.side_effect = [self.comment, DraftCheck(approved=True, problems=[]).model_dump_json()]
+
+    def blocked_execution(self):
+        stage = ReproductionStage(
+            input_hash=self.entry.input_hash, discussion_hash=digest("[]"),
+            directory=str(self.state / "123" / "reproduction" / "fixture"), status="complete",
+            scenario=scenario_with_controls(),
+            targets=[
+                ReproductionTarget.model_validate({
+                    "role": role, "identity": identity, "version": version, "source": source,
+                    "selection_reason": "Approximate historical release" if role == "historical" else "Pinned target",
+                    "approximate": role == "historical",
+                })
+                for role, identity, version, source in (
+                    ("historical", "npm:pyright@1.1.408", "1.1.408", "npm"),
+                    ("main", "a" * 40, "1.1.414", "upstream"),
+                    ("latest", "npm:pyright@1.1.414", "1.1.414", "npm"),
+                )
+            ],
+            outcomes={"historical": "blocked", "main": "blocked", "latest": "blocked"},
+        )
+        records = [
+            {
+                "id": f"{target.role}-{phase}", "kind": "reproduction", "phase": phase,
+                "target": target.model_dump(mode="json"),
+                "command": f"node fixture-{target.role} --outputjson" if phase == "original" else None,
+                "exit_code": 1 if phase == "original" else None,
+                "stdout": '{"generalDiagnostics":[]}' if phase == "original" else None,
+                "stderr": "" if phase == "original" else None,
+                "outcome": "blocked",
+                "blocking_reasons": [
+                    "The original diagnostic contract was not satisfied" if phase == "original" else
+                    "Original observation was blocked; separate controls cannot replace it",
+                ],
+            }
+            for phase in ("original", "control") for target in stage.targets
+        ]
+        atomic_write(Path(stage.directory) / "receipts.jsonl", "\n".join(json.dumps(record) for record in records))
+        stage.receipt_ids = [record["id"] for record in records]
+        assert stage.scenario is not None
+        stage.gate = ReproductionGate(
+            approved=False, problems=["Strict comparison is blocked"],
+            claim_ids=[claim.id for claim in stage.scenario.claims],
+            receipt_hashes={
+                str(record["id"]): digest(evidence_json(record))
+                for record in self.console.reproduction_gate_records(stage)
+            },
+        )
+        stage.evidence_hash = self.console.reproduction_hash(stage)
+        self.entry.reproduction_stage = stage
+        return stage
+
+    def test_execution_facts_distinguish_absent_unsealed_and_blocked_reconstruction(self):
+        absent = self.console.closing_execution_facts(self.entry)
+        self.assertEqual(absent["evidence_status"], "not_recorded")
+        self.assertIsNone(absent["receipts"])
+        stage = ReproductionStage(
+            input_hash=self.entry.input_hash, discussion_hash=digest("[]"),
+            directory=str(self.state / "123" / "reproduction" / "fixture"), status="running",
+        )
+        self.entry.reproduction_stage = stage
+        unsealed = self.console.closing_execution_facts(self.entry)
+        self.assertEqual(unsealed["evidence_status"], "unsealed")
+        self.assertIsNone(unsealed["receipts"])
+        stage.status, stage.blocked = "blocked", blocked_reconstruction()
+        stage.evidence_hash = self.console.reproduction_hash(stage)
+        blocked = self.console.closing_execution_facts(self.entry)
+        self.assertEqual(blocked["evidence_status"], "sealed")
+        self.assertEqual(blocked["receipts"], [])
+        self.assertEqual(blocked["reconstruction_blocked"], stage.blocked.model_dump(mode="json"))
+        self.assertIsNone(blocked["gate_approved"])
+
+    def test_command_completion_is_separate_from_attempts_and_later_integrity_errors(self):
+        stage = self.blocked_execution()
+        records = self.console.reproduction_records(stage)
+        records[0].update(exit_code=None, stdout=None, stderr=None, error="Checker timed out")
+        atomic_write(Path(stage.directory) / "receipts.jsonl", "\n".join(json.dumps(record) for record in records))
+        stage.status, stage.gate = "blocked", None
+        stage.evidence_hash = self.console.reproduction_hash(stage)
+        facts = self.console.closing_execution_facts(self.entry)
+        assert isinstance(facts["receipts"], list) and isinstance(facts["receipts"][0], dict)
+        receipt = facts["receipts"][0]
+        self.assertTrue(receipt["command_recorded"])
+        self.assertFalse(receipt["completed"])
+        self.assertIsNone(receipt["exit_code"])
+        self.assertEqual(receipt["error"], "Checker timed out")
+        records[0].update(exit_code=1, stdout="{}", stderr="", error="Inputs changed after checker completion")
+        atomic_write(Path(stage.directory) / "receipts.jsonl", "\n".join(json.dumps(record) for record in records))
+        stage.evidence_hash = self.console.reproduction_hash(stage)
+        facts = self.console.closing_execution_facts(self.entry)
+        assert isinstance(facts["receipts"], list) and isinstance(facts["receipts"][0], dict)
+        self.assertTrue(facts["receipts"][0]["completed"])
+        self.assertEqual(facts["receipts"][0]["error"], "Inputs changed after checker completion")
+
+    def test_completed_stage_without_seal_or_required_ledger_cannot_supply_facts(self):
+        stage = self.blocked_execution()
+        saved = stage.evidence_hash
+        stage.evidence_hash = None
+        with self.assertRaisesRegex(AutomationError, "lack frozen"):
+            self.console.closing_execution_facts(self.entry)
+        stage.evidence_hash = saved
+        (Path(stage.directory) / "receipts.jsonl").unlink()
+        with self.assertRaisesRegex(AutomationError, "execution facts"):
+            self.console.closing_execution_facts(self.entry)
+
+    def test_rejected_gate_still_requires_exact_receipt_bindings(self):
+        stage = self.blocked_execution()
+        assert stage.gate is not None
+        stage.gate.receipt_hashes.clear()
+        stage.evidence_hash = self.console.reproduction_hash(stage)
+        with self.assertRaisesRegex(AutomationError, "exact raw receipt hash"):
+            self.console.closing_execution_facts(self.entry)
+
+    def test_invalid_command_results_cannot_establish_completion(self):
+        stage = self.blocked_execution()
+        stage.gate = None
+        original = self.console.reproduction_records(stage)
+        for field, value in (("exit_code", True), ("command", None), ("stdout", None), ("target", {})):
+            records = [dict(record) for record in original]
+            records[0][field] = value
+            atomic_write(Path(stage.directory) / "receipts.jsonl", "\n".join(json.dumps(record) for record in records))
+            stage.evidence_hash = self.console.reproduction_hash(stage)
+            with self.subTest(field=field), self.assertRaisesRegex(AutomationError, "invalid target or command result"):
+                self.console.closing_execution_facts(self.entry)
+
+    async def test_executed_blocked_facts_reach_writer_and_factual_correction(self):
+        stage = self.blocked_execution()
+        rejected = DraftCheck(approved=False, problems=["Released checkers ran; their observations were blocked"])
+        revised = "Released checkers ran, but the strict comparison remained blocked. The policy evidence is separate."
+        self.sdk.run.side_effect = [
+            "No released package was executed.", rejected.model_dump_json(),
+            revised, DraftCheck(approved=True, problems=[]).model_dump_json(),
+        ]
+        await self.console.evaluate(self.entry)
+        self.assertEqual(self.report().status, "passed")
+        self.assertEqual(self.entry.comment, revised)
+        facts = json.loads((self.state / "123" / "comment-execution-facts.json").read_text())
+        self.assertFalse(facts["gate_approved"])
+        self.assertEqual(facts["outcomes"], stage.outcomes)
+        self.assertEqual([record["completed"] for record in facts["receipts"]], [True] * 3 + [False] * 3)
+        self.assertEqual([record["version"] for record in facts["receipts"][:3]], ["1.1.408", "1.1.414", "1.1.414"])
+        self.assertTrue(facts["receipts"][0]["approximate"])
+        self.assertEqual([record["exit_code"] for record in facts["receipts"][:3]], [1] * 3)
+        self.assertEqual([record["phase"] for record in facts["receipts"]], ["original"] * 3 + ["control"] * 3)
+        packet = "\nController execution facts (controller-owned, not reviewer probes):\n" + json.dumps(facts)
+        for call in self.sdk.run.await_args_list:
+            self.assertIn(packet, call.args[1])
+        self.assertIn("not the same as not executed", self.sdk.run.await_args_list[1].args[1])
+        self.assertIsNone(stage.action())
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_changed_execution_receipts_stop_drafting(self):
+        stage = self.blocked_execution()
+        path = Path(stage.directory) / "receipts.jsonl"
+        atomic_write(path, path.read_text().replace('"exit_code": 1', '"exit_code": 0'))
+        with self.assertRaisesRegex(AutomationError, "execution facts"):
+            await self.console.evaluate(self.entry)
+        self.sdk.run.assert_not_awaited()
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_changed_execution_facts_cannot_reuse_approval(self):
+        stage = self.blocked_execution()
+        await self.console.evaluate(self.entry)
+        stage.status = "blocked"
+        stage.evidence_hash = self.console.reproduction_hash(stage)
+        self.console.rehearse_closures = False
+        self.console.read_only = False
+        with self.assertRaisesRegex(AutomationError, "execution facts"):
+            await self.console.prepare_comment(self.entry)
+        with self.assertRaisesRegex(AutomationError, "execution facts"):
+            await self.console.closure_preflight(self.entry)
+        self.assertEqual(self.sdk.run.await_count, 2)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_missing_or_changed_execution_snapshot_cannot_authorize_closure(self):
+        self.blocked_execution()
+        await self.console.evaluate(self.entry)
+        path = self.state / "123" / "comment-execution-facts.json"
+        atomic_write(path, '{"receipts":[]}')
+        with self.assertRaisesRegex(AutomationError, "execution facts changed"):
+            await self.console.closure_preflight(self.entry)
+        path.unlink()
+        with self.assertRaisesRegex(AutomationError, "execution facts snapshot is missing"):
+            await self.console.closure_preflight(self.entry)
+        self.assertEqual(self.sdk.run.await_count, 2)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_execution_change_during_factual_check_cannot_gain_approval(self):
+        stage = self.blocked_execution()
+
+        async def run(agent, prompt, scratch, **kwargs):
+            if agent.name == "rich-mirror":
+                return self.comment
+            stage.status = "blocked"
+            stage.evidence_hash = self.console.reproduction_hash(stage)
+            return DraftCheck(approved=True, problems=[]).model_dump_json()
+
+        self.sdk.run.side_effect = run
+        with self.assertRaisesRegex(AutomationError, "execution facts"):
+            await self.console.evaluate(self.entry)
+        self.assertIsNone(self.entry.draft_check)
+        self.assertEqual(self.report().status, "rejected")
+        self.assertEqual(self.github.mutations, [])
 
     async def test_by_design_runs_real_draft_and_factual_paths_without_a_publication_ledger(self):
         self.assertTrue(self.console.read_only)

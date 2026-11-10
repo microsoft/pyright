@@ -305,7 +305,13 @@ uses a distinct derived directory without rewriting or resealing historical evid
 claims and integrity/freshness failures still block it. Mutation-dependent checks remain untested, and a passed
 rehearsal is never publication authorization.
 Writer and factual reviewer receive the same frozen issue/investigation packet, distinguishing reporter
-assertions from executed results. A valid factual rejection permits one rich-mirror correction and a new check,
+assertions from executed results. Semantic closures include a frozen controller execution-facts snapshot with
+original/control phases, captured command results, exact selected artifacts, approximate historical selection,
+settings/defaults, blocked observations and gate disposition. Rejected comparisons retain their actual executions:
+completed-but-blocked is not unexecuted, and a reviewer-only limitation cannot be generalized to the controller.
+Missing or unsealed evidence cannot establish non-execution. Snapshot/source changes block factual approval,
+cached-draft reuse and final eligibility; fixed/reproduction comments retain their separate receipt contract.
+A valid factual rejection permits one rich-mirror correction and a new check,
 with exact drafts/checks retained per attempt and fresh receipt-delivery accounting for fixed comments.
 A second rejection remains blocked; screening/transport/schema failures, timeouts and missing canonical links
 are not correction opportunities. Interrupted/exhausted attempts cannot restart on resume, and existing final
