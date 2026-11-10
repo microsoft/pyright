@@ -11,7 +11,7 @@ import { ArgCategory, ExpressionNode, NameNode, ParamCategory, ParseNodeType } f
 import { KeywordType, OperatorType } from '../../parser/tokenizerTypes';
 import { AnalyzerNodeInfoAccessor, getInfoReader } from '../analyzerNodeInfo';
 import { ConstraintTracker } from '../constraintTracker';
-import { transformTypeForEnumMember } from '../enums';
+import { hasStandardEnumConstruction, transformTypeForEnumMember } from '../enums';
 import { customMetaclassSupportsMethod } from '../operations';
 import { isScopeContainedWithin } from '../scopeUtils';
 import { getTypedDictMembersForClass } from '../typedDicts';
@@ -61,6 +61,7 @@ import {
     isLiteralTypeOrUnion,
     isMaybeDescriptorClass,
     isMaybeDescriptorInstance,
+    MemberAccessFlags,
     isNoneInstance,
     isNoneTypeClass,
     isProperty,
@@ -1519,6 +1520,39 @@ export function getElementTypeForContainerNarrowing(containerType: Type): Type |
     return containerType.priv.typeArgs[0];
 }
 
+function getStringLiteralForStrEnumMember(enumMember: ClassType): ClassType | undefined {
+    const literalValue = enumMember.priv.literalValue;
+    if (
+        !(literalValue instanceof EnumLiteral) ||
+        !ClassType.isEnumClass(enumMember) ||
+        !derivesFromStdlibClass(enumMember, 'str') ||
+        ClassType.isEnumMemberSetMayBeIncomplete(enumMember) ||
+        !hasStandardEnumConstruction(enumMember)
+    ) {
+        return undefined;
+    }
+
+    const equalityMember = lookUpObjectMember(
+        enumMember,
+        '__eq__',
+        MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
+    );
+    if (
+        !equalityMember ||
+        !isClass(equalityMember.classType) ||
+        !ClassType.isBuiltIn(equalityMember.classType, 'str')
+    ) {
+        return undefined;
+    }
+
+    const valueType = literalValue.itemType;
+    if (isClassInstance(valueType) && isLiteralType(valueType) && ClassType.isBuiltIn(valueType, 'str')) {
+        return valueType;
+    }
+
+    return undefined;
+}
+
 export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, referenceType: Type, elementType: Type) {
     return evaluator.mapSubtypesExpandTypeVars(referenceType, /* options */ undefined, (referenceSubtype) => {
         return mapSubtypes(elementType, (elementSubtype) => {
@@ -1529,6 +1563,17 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
             // If the two types are disjoint (i.e. are not comparable), eliminate this subtype.
             if (!evaluator.isTypeComparable(elementSubtype, referenceSubtype)) {
                 return undefined;
+            }
+
+            if (
+                isClassInstance(referenceSubtype) &&
+                ClassType.isBuiltIn(referenceSubtype, ['str', 'LiteralString']) &&
+                isClassInstance(elementSubtype)
+            ) {
+                const stringLiteral = getStringLiteralForStrEnumMember(elementSubtype);
+                if (stringLiteral && evaluator.assignType(referenceSubtype, stringLiteral)) {
+                    return stripTypeForm(addConditionToType(stringLiteral, referenceSubtype.props?.condition));
+                }
             }
 
             // If one of the two types is a literal, we can narrow to that type.

@@ -68,7 +68,7 @@ def enum_literals(
     if number in numbers.values():
         assert_type(number, int)
     if text in strings.values():
-        assert_type(text, str)
+        assert_type(text, Literal["one"])
 
 
 def literal_controls(value: int | None, literal: Literal[1, 2], obj: object, container: dict[str, Literal[1]]):

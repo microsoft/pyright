@@ -1186,3 +1186,9 @@ test('EnumNarrowing1', () => {
 
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('EnumNarrowing2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumNarrowing2.py']);
+
+    TestUtils.validateResults(analysisResults, 7);
+});

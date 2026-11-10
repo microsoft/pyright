@@ -541,7 +541,7 @@ function getIntFlagReturnType(
                 isClassInstance(other) &&
                 other.priv.literalValue === undefined &&
                 (ClassType.isBuiltIn(other, 'bool') ||
-                    (ClassType.isEnumClass(other) && hasStandardFlagConstruction(other)))
+                    (ClassType.isEnumClass(other) && hasStandardEnumConstruction(other)))
             ) {
                 const literals = enumerateLiteralsForType(evaluator, other);
                 if (literals && literals.length > 0) {
@@ -654,7 +654,7 @@ function getIntFlagOperandValueType(
     if (!isClassInstance(other) || !(other.priv.literalValue instanceof EnumLiteral)) {
         return other;
     }
-    if (!hasStandardFlagConstruction(other)) {
+    if (!hasStandardEnumConstruction(other)) {
         return undefined;
     }
 
@@ -815,12 +815,12 @@ function hasStandardFlagValueAccess(classType: ClassType): boolean {
     const member = lookUpClassMember(classType, '__getattribute__');
     // Flag operators read _value_; builtin int operators use the numeric payload instead.
     return (
-        hasStandardFlagConstruction(classType) &&
+        hasStandardEnumConstruction(classType) &&
         (!member || !isClass(member.classType) || ClassType.isBuiltIn(member.classType))
     );
 }
 
-function hasStandardFlagConstruction(classType: ClassType): boolean {
+export function hasStandardEnumConstruction(classType: ClassType): boolean {
     if (ClassType.isEnumMemberSetMayBeDynamicallyModified(classType)) {
         return false;
     }
