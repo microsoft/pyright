@@ -12,6 +12,8 @@ Both agents use `.github/skills/pyright-issue-analysis/SKILL.md` for the shared 
 For example: "Use pyright-issue-reviewer to analyze <issue URL> and draft a response" or
 "Use pyright-issue-fixer to fix <issue URL>; prepare a patch and PR description, but do not publish."
 Posting comments, committing/pushing, or creating a PR requires explicit authorization; reviewer mode never publishes.
+In fixer mode, complete the skill's pre-handoff self-review: compare focused baseline and fixed behavior where feasible,
+check nearby invalid and unchanged cases, and assess architecture, type precision, and performance before reporting.
 
 ## PR Reviews
 

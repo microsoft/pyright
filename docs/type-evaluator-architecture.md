@@ -135,6 +135,11 @@ and type guard tests using those primitives. Scalar string evaluation and
 forward-annotation parsing belong to `expressionEvaluation.ts`, while callable
 parameter packing is private to `typeCompatibility.ts`.
 
+IntFlag callable return refinement runs in `typeCompatibility.ts` after parameter
+compatibility succeeds. The main evaluator retains validated call-argument
+refinement and correlated packed-argument expansion; its original argument list
+is carried in the private `MatchArgsToParamsResult` contract in `internals.ts`.
+
 ## Where to start
 
 This is a navigation map, not an acyclic dependency graph. Start in

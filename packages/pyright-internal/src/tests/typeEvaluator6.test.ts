@@ -1307,6 +1307,11 @@ test('ConstructorRepeatedAlias', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Constructor36', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor36.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('ConstructorCallable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable1.py']);
 
