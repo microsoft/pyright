@@ -49,3 +49,25 @@ Provide:
    Add test-policy classification and precision justification in the body; do not invent an issue number.
 
 If blocked, report the blocker and any partial changes plainly rather than presenting the issue as resolved.
+
+## Pre-handoff self-review
+
+After implementing the fix and regression test, review the complete patch against the original checkout before handing
+it back. This is a focused self-review, not a second multi-agent PR review:
+
+1. List the changed semantic decisions and the callers or consumers they affect. Check that each new condition
+   establishes the conclusion the code draws, and that the fix is implemented in the layer that owns the behavior.
+   Reuse existing helpers and compare at least one simpler localized alternative when one exists.
+2. Check three kinds of behavior: the motivating case, a nearby invalid case that must still be rejected, and an
+   unaffected neighboring control. For type changes, assert exact revealed types and diagnostic rules/locations where
+   relevant; do not rely only on total diagnostic counts.
+3. Compare the same focused probes on the pre-change baseline and the fixed checkout when feasible. Use isolated
+   builds or scratch inputs without disturbing worktree changes. Report exact revisions, commands, configuration, and
+   observed diagnostics or types. If a baseline comparison is unavailable, state why and do not imply it was performed.
+4. If a probe reveals a change, test other reachable forms of that same pattern and verify valid consumers still work.
+   For recursion or termination fixes, include a finite deep case and, where relevant, a growing-type case; do not
+   mistake a guard that stops recursion by returning `Unknown` for a complete fix.
+5. Reassess the four goals from `docs/pr-review-agents.md`: minimal performance impact, architectural fit, preserved
+   type information, and demonstrated user benefit. A bounded static cost argument is sufficient when appropriate;
+   measure material performance risks with `build/perfCompare.py` rather than claiming that tests establish speed.
+   State residual uncertainty and unrun checks in the handoff.
