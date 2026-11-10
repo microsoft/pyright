@@ -1120,8 +1120,93 @@ test('Protocol55UntypedDecorators', () => {
 test('Protocol56', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol56.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
+    const defaultTypeError = analysisResults[0].errors.find((error) => error.message.includes('"list[object]"'));
+    assert.strictEqual(defaultTypeError?.getRule(), DiagnosticRule.reportArgumentType);
 });
+
+test.each(
+    (['source', 'destination'] as const).flatMap((side) =>
+        ['Any', 'int'].flatMap((defaultType) =>
+            [false, true].flatMap((diagnostics) =>
+                [false, true].map((positiveFirst) => ({ side, defaultType, diagnostics, positiveFirst }))
+            )
+        )
+    )
+)(
+    'ProtocolDefaultCache $side default=$defaultType diagnostics=$diagnostics positiveFirst=$positiveFirst',
+    ({ side, defaultType, diagnostics, positiveFirst }) => {
+        const sourceIsGeneric = side === 'source';
+        const state = parseAndGetTestState(`
+// @filename: test.py
+//// from typing import Any, Protocol
+//// class Source${sourceIsGeneric ? `[T = ${defaultType}]` : ''}:
+////     ${sourceIsGeneric ? 'def put(self, value: T) -> None: ...' : 'def get(self) -> int: ...'}
+//// class Target${sourceIsGeneric ? '' : `[T = ${defaultType}]`}(Protocol):
+////     ${sourceIsGeneric ? 'def put(self, value: int) -> None: ...' : 'def get(self) -> T: ...'}
+//// def check(
+////     good_source: ${sourceIsGeneric ? 'Source[int]' : 'Source'},
+////     bad_source: ${sourceIsGeneric ? 'Source[str]' : 'Source'},
+////     good_target: ${sourceIsGeneric ? 'Target' : 'Target[int]'},
+////     bad_target: ${sourceIsGeneric ? 'Target' : 'Target[str]'},
+//// ):
+////     /*good_source*/good_source
+////     /*bad_source*/bad_source
+////     /*good_target*/good_target
+////     /*bad_target*/bad_target
+        `).state;
+        const evaluator = state.program.evaluator!;
+        const typeAt = (marker: string) => {
+            const node = getNodeAtMarker(state, marker);
+            assert.strictEqual(node.nodeType, ParseNodeType.Name);
+            const type = evaluator.getTypeOfExpression(node).type;
+            assert.ok(isClassInstance(type));
+            return type;
+        };
+        const goodSource = typeAt('good_source');
+        const badSource = typeAt('bad_source');
+        const goodTarget = ClassType.cloneAsInstantiable(typeAt('good_target'));
+        const badTarget = ClassType.cloneAsInstantiable(typeAt('bad_target'));
+        const assign = (target: ClassType, source: ClassType) =>
+            assignClassToProtocol(
+                evaluator,
+                target,
+                source,
+                diagnostics ? new DiagnosticAddendum() : undefined,
+                undefined,
+                AssignTypeFlags.Default,
+                0
+            );
+
+        if (positiveFirst) {
+            assert.strictEqual(assign(goodTarget, goodSource), true);
+        }
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+            assert.strictEqual(assign(badTarget, badSource), false);
+            assert.strictEqual(assign(goodTarget, goodSource), true);
+        }
+
+        if (!sourceIsGeneric) {
+            const typeParam = goodTarget.shared.typeParams[0];
+            const genericTarget = ClassType.specialize(goodTarget, [typeParam]);
+            const constraints = new ConstraintTracker();
+            assert.strictEqual(
+                assignClassToProtocol(
+                    evaluator,
+                    genericTarget,
+                    goodSource,
+                    undefined,
+                    constraints,
+                    AssignTypeFlags.Default,
+                    0
+                ),
+                true
+            );
+            assert.strictEqual(evaluator.printType(evaluator.solveAndApplyConstraints(typeParam, constraints)), 'int');
+        }
+    }
+);
 
 test('ProtocolExplicit1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit1.py']);
