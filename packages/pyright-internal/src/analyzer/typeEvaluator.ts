@@ -15882,12 +15882,15 @@ export function createTypeEvaluator(
 
         finalLiteralResolutionStack.add(declaration);
         try {
-            const inferredType = getTypeOfExpression(sourceExpr).type;
-            if (isClassInstance(inferredType) && isLiteralType(inferredType)) {
-                return inferredType;
+            const staticBoolType = getStaticBoolLiteralType(sourceExpr, nodeInfo.getFileInfo(declaration.node));
+            if (staticBoolType) {
+                return staticBoolType;
             }
 
-            return getStaticBoolLiteralType(sourceExpr, nodeInfo.getFileInfo(declaration.node));
+            // Evaluate the initializer speculatively so its type is not cached without
+            // the contextual type that the declaration's own inference supplies.
+            const inferredType = useSpeculativeMode(sourceExpr, () => getTypeOfExpression(sourceExpr).type);
+            return isClassInstance(inferredType) && isLiteralType(inferredType) ? inferredType : undefined;
         } finally {
             finalLiteralResolutionStack.delete(declaration);
         }
