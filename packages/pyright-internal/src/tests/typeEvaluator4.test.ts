@@ -60,6 +60,15 @@ test('Final8', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('Final10', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonPlatform = 'Linux';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final10.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('InferredTypes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['inferredTypes1.py']);
     TestUtils.validateResults(analysisResults, 0);
