@@ -1476,7 +1476,7 @@ export function getElementTypeForContainerNarrowing(containerType: Type): Type |
             const elemType = getElementTypeForContainerNarrowing(subtype);
             // Don't narrow if any subtype's element type is unknown or includes an
             // unpacked TypeVarTuple (e.g. tuple[*Ts]), whose elements could be anything.
-            if (!elemType || someSubtypes(elemType, (t) => isUnpackedTypeVarTuple(t))) {
+            if (!elemType || someSubtypes(elemType, (t) => isAnyOrUnknown(t) || isUnpackedTypeVarTuple(t))) {
                 return undefined;
             }
             elementTypes.push(elemType);

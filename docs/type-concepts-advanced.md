@@ -83,7 +83,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `bool(x)` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 * `x` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 
-Containment narrowing accounts for equality between different built-in types. For example, a float that equals an integer literal retains its `float` type, and `set` and `frozenset` values can compare equal. Abstract collection interfaces do not provide the same narrowing guarantee, because their membership implementations can accept values unrelated to their element type.
+Containment narrowing accounts for equality between different built-in types. For example, a float that equals an integer literal retains its `float` type, and `set` and `frozenset` values can compare equal. Abstract collection interfaces do not provide the same narrowing guarantee, because their membership implementations can accept values unrelated to their element type. For a union of container types, narrowing is skipped if any alternative's element or key type is `Any`, unknown, or a union containing either.
 
 Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, subscripts that are integer literals (e.g. `a[2]` or `a[-1]`), and call expressions. Other operators (such as arithmetic operators or other subscripts) are not supported.
 

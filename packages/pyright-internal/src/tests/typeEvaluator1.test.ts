@@ -706,6 +706,24 @@ test('TypeNarrowingIn3', () => {
     );
 });
 
+test('TypeNarrowingIn4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn4.py']);
+
+    TestUtils.validateResults(analysisResults, 7);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [72, DiagnosticRule.reportOptionalMemberAccess],
+            [78, DiagnosticRule.reportOptionalMemberAccess],
+            [84, DiagnosticRule.reportOptionalMemberAccess],
+            [90, DiagnosticRule.reportOptionalMemberAccess],
+            [97, DiagnosticRule.reportOptionalMemberAccess],
+            [103, DiagnosticRule.reportOptionalMemberAccess],
+            [109, DiagnosticRule.reportAttributeAccessIssue],
+        ]
+    );
+});
+
 test('TypeNarrowingLiteralMember1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingLiteralMember1.py']);
 
