@@ -67,6 +67,7 @@ declare namespace _ {
         filePath: string;
         name: string;
         range: PositionRange;
+        selectionRange?: PositionRange;
     }
 
     interface TextRange {

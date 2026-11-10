@@ -13,14 +13,8 @@ from pika.channel import Channel
 from pika.connection import Connection, ConnectionParameters, Parameters
 from pika.exchange_type import ExchangeType
 from pika.spec import BasicProperties
-from twisted.internet.base import (  # type: ignore[import-not-found]  # pyright: ignore[reportMissingImports]
-    DelayedCall,
-    ReactorBase,
-)
-from twisted.internet.defer import (  # type: ignore[import-not-found]  # pyright: ignore[reportMissingImports]
-    Deferred,
-    DeferredQueue,
-)
+from twisted.internet.base import DelayedCall, ReactorBase  # type: ignore[import-not-found]  # pyright: ignore[reportMissingImports]
+from twisted.internet.defer import Deferred, DeferredQueue  # type: ignore[import-not-found]  # pyright: ignore[reportMissingImports]
 from twisted.internet.interfaces import ITransport  # type: ignore[import-not-found]  # pyright: ignore[reportMissingImports]
 from twisted.internet.protocol import Protocol  # type: ignore[import-not-found]  # pyright: ignore[reportMissingImports]
 from twisted.python.failure import Failure  # type: ignore[import-not-found]  # pyright: ignore[reportMissingImports]

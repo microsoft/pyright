@@ -23,6 +23,8 @@ The program tracks multiple [sourceFile](https://github.com/microsoft/pyright/bl
 
 The program makes use of an [importResolver](https://github.com/microsoft/pyright/blob/main/packages/pyright-internal/src/analyzer/importResolver.ts) to resolve the imported modules referenced within each source file.
 
+Language-service requests use a `SourceMapper` to map stub declarations to Python implementations for documentation, default values, and navigation. Completed function-declaration lookups, including unsuccessful lookups, are cached within each mapper instance and shared by its public declaration-lookup methods. Recursive search results are not cached because they can be partial when a declaration is already on the active traversal stack. A mapper should not be retained across program updates.
+
 
 ## Analysis Phases
 
@@ -36,3 +38,6 @@ The [binder](https://github.com/microsoft/pyright/blob/main/packages/pyright-int
 
 The [checker](https://github.com/microsoft/pyright/blob/main/packages/pyright-internal/src/analyzer/checker.ts) is responsible for checking all of the statements and expressions within a source file. It relies heavily on the [typeEvaluator](https://github.com/microsoft/pyright/blob/main/packages/pyright-internal/src/analyzer/typeEvaluator.ts) module, which performs most of the heavy lifting. The checker doesn’t run on all files, only those that require full diagnostic output. For example, if a source file is not part of the program but is imported by the program, the checker doesn’t need to run on it.
 
+## Type Evaluation Walkthroughs
+
+See [Overload Resolution and the NumPy Array Case](overload-resolution-numpy.md) for a detailed explanation of overloaded calls, callable compatibility, constraint inference, and requirement-first recursive protocol rejection.

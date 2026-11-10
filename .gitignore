@@ -121,6 +121,7 @@ dist
 junit.xml
 
 .webpack_cache/
+test-results/
 
 # OS files
 .DS_Store
@@ -137,6 +138,7 @@ __pycache__/
 serena/
 .beads/
 AGENTS.md
+!/AGENTS.md
 
 # Generated benchmark output
 packages/pyright-internal/src/tests/benchmarks/.generated/

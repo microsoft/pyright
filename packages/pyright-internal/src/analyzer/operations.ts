@@ -25,10 +25,13 @@ import { getInfoReader, AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { getEnclosingLambda, isWithinLoop, operatorSupportsChaining, printOperator } from './parseTreeUtils';
 import { getScopeForNode } from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
+import { getTupleComparisonResult, isTupleOrdering } from './tupleComparison';
 import { EvalFlags, MagicMethodDeprecationInfo, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     InferenceContext,
+    MemberAccessFlags,
     convertToInstantiable,
+    getClassMemberIterator,
     getLiteralTypeClassName,
     getTypeCondition,
     getUnionSubtypeCount,
@@ -36,7 +39,7 @@ import {
     isOptionalType,
     isTupleClass,
     isUnboundedTupleClass,
-    isUnionableType,
+    isUnionable,
     lookUpClassMember,
     makeInferenceContext,
     mapSubtypes,
@@ -50,16 +53,21 @@ import {
 import {
     ClassType,
     NeverType,
+    OverloadedType,
     Type,
     TypeBase,
     UnknownType,
     combineTypes,
+    exceedsInferredTupleLiteralProduct,
+    getInferredTupleLiteralBase,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
+    isFunction,
     isFunctionOrOverloaded,
     isInstantiableClass,
     isNever,
+    isOverloaded,
     isUnion,
 } from './types';
 
@@ -105,6 +113,56 @@ interface BinaryOperationOptions {
 // cut off the literal union and fall back to the non-literal supertype.
 const maxLiteralMathSubtypeCount = 64;
 
+function shouldPrioritizeReflectedMethod(
+    evaluator: TypeEvaluator,
+    leftType: Type,
+    rightType: Type,
+    methodName: string
+): boolean {
+    if (
+        !isClassInstance(leftType) ||
+        !isClassInstance(rightType) ||
+        // A synthesized narrowing intersection is not evidence of a runtime subclass.
+        !rightType.shared.declaration ||
+        ClassType.isSameGenericClass(leftType, rightType) ||
+        !rightType.shared.mro.some(
+            (base) =>
+                isInstantiableClass(base) && ClassType.isSameGenericClass(base, ClassType.cloneAsInstantiable(leftType))
+        )
+    ) {
+        return false;
+    }
+
+    const rightMember = getClassMemberIterator(rightType, methodName, MemberAccessFlags.SkipInstanceMembers).next()
+        .value;
+    const leftMember = getClassMemberIterator(leftType, methodName, MemberAccessFlags.SkipInstanceMembers).next().value;
+    if (!rightMember || rightMember.symbol === leftMember?.symbol) {
+        return false;
+    }
+
+    const rightMethod = evaluator.getTypeOfMember(rightMember);
+    const leftMethod = leftMember ? evaluator.getTypeOfMember(leftMember) : undefined;
+    const rightFunction = isOverloaded(rightMethod) ? OverloadedType.getOverloads(rightMethod)[0] : rightMethod;
+    const leftFunction =
+        leftMethod && isOverloaded(leftMethod) ? OverloadedType.getOverloads(leftMethod)[0] : leftMethod;
+
+    // Compare unbound declarations, not specialized signatures: aliases and
+    // inherited generic methods can have different signatures but the same implementation.
+    return (
+        !!rightFunction &&
+        isFunction(rightFunction) &&
+        !!rightFunction.shared.declaration &&
+        (!leftFunction ||
+            (isFunction(leftFunction) && rightFunction.shared.declaration !== leftFunction.shared.declaration))
+    );
+}
+
+function removeNotImplemented(type: Type): Type {
+    return mapSubtypes(type, (subtype) =>
+        isClassInstance(subtype) && subtype.shared.fullName === 'types.NotImplementedType' ? undefined : subtype
+    );
+}
+
 export function validateBinaryOperation(
     evaluator: TypeEvaluator,
     operator: OperatorType,
@@ -115,7 +173,10 @@ export function validateBinaryOperation(
     diag: DiagnosticAddendum,
     options: BinaryOperationOptions
 ): TypeResult {
-    const leftType = leftTypeResult.type;
+    const leftType =
+        operator === OperatorType.And || operator === OperatorType.Or
+            ? getInferredTupleLiteralBase(leftTypeResult.type)
+            : leftTypeResult.type;
     const rightType = rightTypeResult.type;
     const isIncomplete = !!leftTypeResult.isIncomplete || !!rightTypeResult.isIncomplete;
     let type: Type | undefined;
@@ -366,7 +427,7 @@ export function getTypeOfBinaryOperation(
             adjustedLeftType = convertToInstantiable(evaluator.getNoneType());
         }
 
-        if (isUnionableType([adjustedLeftType, adjustedRightType])) {
+        if (isUnionable(adjustedLeftType, adjustedRightType)) {
             if (isInstantiableClass(adjustedLeftType)) {
                 adjustedLeftType = specializeWithDefaultTypeArgs(adjustedLeftType);
             }
@@ -920,6 +981,7 @@ function createUnionType(
 
 // Attempts to apply "literal math" for a literal operands.
 function calcLiteralForUnaryOp(operator: OperatorType, operandType: Type): Type | undefined {
+    operandType = getInferredTupleLiteralBase(operandType);
     let type: Type | undefined;
 
     if (getUnionSubtypeCount(operandType) >= maxLiteralMathSubtypeCount) {
@@ -969,6 +1031,8 @@ function calcLiteralForUnaryOp(operator: OperatorType, operandType: Type): Type 
 
 // Attempts to apply "literal math" for two literal operands.
 function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightType: Type): Type | undefined {
+    leftType = getInferredTupleLiteralBase(leftType);
+    rightType = getInferredTupleLiteralBase(rightType);
     const leftLiteralClassName = getLiteralTypeClassName(leftType);
     if (
         !leftLiteralClassName ||
@@ -1116,7 +1180,7 @@ function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightTyp
     return undefined;
 }
 
-function customMetaclassSupportsMethod(type: Type, methodName: string): boolean {
+export function customMetaclassSupportsMethod(type: Type, methodName: string): boolean {
     if (!isInstantiableClass(type)) {
         return false;
     }
@@ -1142,7 +1206,7 @@ function customMetaclassSupportsMethod(type: Type, methodName: string): boolean 
         return false;
     }
 
-    if (isInstantiableClass(memberInfo.classType) && ClassType.isBuiltIn(memberInfo.classType, 'type')) {
+    if (isInstantiableClass(memberInfo.classType) && ClassType.isBuiltIn(memberInfo.classType, ['type', 'object'])) {
         return false;
     }
 
@@ -1258,6 +1322,37 @@ function validateArithmeticOperation(
     let deprecatedInfo: MagicMethodDeprecationInfo | undefined;
     const isIncomplete = !!leftTypeResult.isIncomplete || !!rightTypeResult.isIncomplete;
 
+    if (exceedsInferredTupleLiteralProduct(leftTypeResult.type, rightTypeResult.type)) {
+        leftTypeResult = { ...leftTypeResult, type: getInferredTupleLiteralBase(leftTypeResult.type) };
+        rightTypeResult = { ...rightTypeResult, type: getInferredTupleLiteralBase(rightTypeResult.type) };
+    }
+
+    if (
+        isTupleOrdering(operator) &&
+        (leftTypeResult.type.props?.inferredTupleLiteral || rightTypeResult.type.props?.inferredTupleLiteral)
+    ) {
+        const plainInts = (type: Type): boolean =>
+            (isUnion(type) ? type.priv.subtypes : [type]).every(
+                (subtype) =>
+                    isClassInstance(subtype) &&
+                    ClassType.isBuiltIn(subtype, 'int') &&
+                    !getTypeCondition(subtype)?.length
+            );
+        const leftBase = getInferredTupleLiteralBase(leftTypeResult.type);
+        const rightBase = getInferredTupleLiteralBase(rightTypeResult.type);
+        if (
+            plainInts(leftTypeResult.type) &&
+            plainInts(rightTypeResult.type) &&
+            plainInts(leftBase) &&
+            plainInts(rightBase)
+        ) {
+            // Int ordering cannot observe optional literal alternatives. Keep
+            // them on the operands, but avoid their Cartesian product here.
+            leftTypeResult = { ...leftTypeResult, type: leftBase };
+            rightTypeResult = { ...rightTypeResult, type: rightBase };
+        }
+    }
+
     const type = evaluator.mapSubtypesExpandTypeVars(
         leftTypeResult.type,
         /* options */ undefined,
@@ -1271,6 +1366,34 @@ function validateArithmeticOperation(
                     }
 
                     const tupleClassType = evaluator.getTupleClassType();
+
+                    if (
+                        isTupleOrdering(operator) &&
+                        isClassInstance(leftSubtypeExpanded) &&
+                        isTupleClass(leftSubtypeExpanded) &&
+                        leftSubtypeExpanded.priv.tupleTypeArgs &&
+                        isClassInstance(rightSubtypeExpanded) &&
+                        isTupleClass(rightSubtypeExpanded) &&
+                        rightSubtypeExpanded.priv.tupleTypeArgs
+                    ) {
+                        const result = getTupleComparisonResult(
+                            evaluator,
+                            leftSubtypeExpanded,
+                            rightSubtypeExpanded,
+                            operator,
+                            errorNode
+                        );
+                        if (!result) {
+                            diag.addMessage(
+                                LocMessage.typeNotSupportBinaryOperator().format({
+                                    operator: printOperator(operator),
+                                    leftType: evaluator.printType(leftSubtypeExpanded),
+                                    rightType: evaluator.printType(rightSubtypeExpanded),
+                                })
+                            );
+                        }
+                        return result?.type ?? UnknownType.create(isIncomplete);
+                    }
 
                     // Special-case __add__ for tuples when the types for both tuples are known.
                     if (
@@ -1303,8 +1426,48 @@ function validateArithmeticOperation(
                         }
                     }
 
-                    const magicMethodName = binaryOperatorMap[operator][0];
-                    let resultTypeResult = evaluator.getTypeOfMagicMethodCall(
+                    const [magicMethodName, altMagicMethodName] = binaryOperatorMap[operator];
+                    let resultTypeResult: TypeResult | undefined;
+                    let decliningReflectedResult: TypeResult | undefined;
+                    let skipReflectedFallback = false;
+
+                    // Rich comparisons have different precedence rules. Leave their
+                    // dispatch, and all ordinary forward-first arithmetic, unchanged.
+                    if (
+                        altMagicMethodName.startsWith('__r') &&
+                        shouldPrioritizeReflectedMethod(
+                            evaluator,
+                            leftSubtypeExpanded,
+                            rightSubtypeExpanded,
+                            altMagicMethodName
+                        )
+                    ) {
+                        const reflectedResult = evaluator.getTypeOfMagicMethodCall(
+                            rightSubtypeUnexpanded,
+                            altMagicMethodName,
+                            [{ type: leftSubtypeUnexpanded, isIncomplete: leftTypeResult.isIncomplete }],
+                            errorNode,
+                            inferenceContext
+                        );
+                        if (reflectedResult) {
+                            const acceptedType = removeNotImplemented(reflectedResult.type);
+                            if (acceptedType === reflectedResult.type) {
+                                resultTypeResult = reflectedResult;
+                            } else if (
+                                reflectedResult.overloadsUsedForCall?.length &&
+                                reflectedResult.overloadsUsedForCall.every(
+                                    (overload) => overload.shared.declaredReturnType !== undefined
+                                )
+                            ) {
+                                // Only an explicit return contract establishes a decline;
+                                // an inherited method's inferred sentinel may be contextual.
+                                decliningReflectedResult = { ...reflectedResult, type: acceptedType };
+                                skipReflectedFallback = true;
+                            }
+                        }
+                    }
+
+                    resultTypeResult ??= evaluator.getTypeOfMagicMethodCall(
                         convertFunctionToObject(evaluator, leftSubtypeUnexpanded),
                         magicMethodName,
                         [{ type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete }],
@@ -1334,9 +1497,28 @@ function validateArithmeticOperation(
                         );
                     }
 
-                    if (!resultTypeResult) {
+                    if (skipReflectedFallback && resultTypeResult) {
+                        const acceptedType = removeNotImplemented(resultTypeResult.type);
+                        if (
+                            acceptedType !== resultTypeResult.type &&
+                            !(
+                                resultTypeResult.overloadsUsedForCall?.length &&
+                                resultTypeResult.overloadsUsedForCall.every(
+                                    (overload) => overload.shared.declaredReturnType !== undefined
+                                )
+                            )
+                        ) {
+                            decliningReflectedResult = undefined;
+                        } else {
+                            resultTypeResult =
+                                acceptedType !== resultTypeResult.type && isNever(acceptedType)
+                                    ? undefined
+                                    : { ...resultTypeResult, type: acceptedType };
+                        }
+                    }
+
+                    if (!resultTypeResult && !skipReflectedFallback) {
                         // Try the alternate form (swapping right and left).
-                        const altMagicMethodName = binaryOperatorMap[operator][1];
                         resultTypeResult = evaluator.getTypeOfMagicMethodCall(
                             convertFunctionToObject(evaluator, rightSubtypeUnexpanded),
                             altMagicMethodName,
@@ -1371,6 +1553,20 @@ function validateArithmeticOperation(
                                 inferenceContext
                             );
                         }
+                    }
+
+                    if (decliningReflectedResult && (resultTypeResult || !isNever(decliningReflectedResult.type))) {
+                        resultTypeResult = {
+                            ...decliningReflectedResult,
+                            type: combineTypes([
+                                decliningReflectedResult.type,
+                                resultTypeResult?.type ?? NeverType.createNever(),
+                            ]),
+                            isIncomplete: decliningReflectedResult.isIncomplete || resultTypeResult?.isIncomplete,
+                            magicMethodDeprecationInfo:
+                                decliningReflectedResult.magicMethodDeprecationInfo ??
+                                resultTypeResult?.magicMethodDeprecationInfo,
+                        };
                     }
 
                     if (!resultTypeResult) {

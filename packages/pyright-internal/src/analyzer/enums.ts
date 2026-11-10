@@ -10,36 +10,45 @@
 import { assert } from '../common/debug';
 import { PythonVersion, pythonVersion3_13 } from '../common/pythonVersion';
 import { ArgCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { AnalyzerNodeInfoAccessor, AnalyzerNodeInfoReader, getFileInfo } from './analyzerNodeInfo';
+import { OperatorType } from '../parser/tokenizerTypes';
+import { AnalyzerNodeInfoAccessor, AnalyzerNodeInfoReader, getFileInfo, getInfoReader } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
+import { ParamKind, ParamListDetails } from './parameterUtils';
 import { getClassFullName, getEnclosingClass, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName, isSingleDunderName } from './symbolNameUtils';
-import { Arg, EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { Arg, EvalFlags, FunctionResult, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
 import {
     MemberAccessFlags,
     computeMroLinearization,
+    isNoneInstance,
     isTupleClass,
     lookUpClassMember,
     makeInferenceContext,
+    mapSubtypes,
 } from './typeUtils';
 import {
     AnyType,
     ClassType,
     ClassTypeFlags,
     EnumLiteral,
+    FunctionType,
+    OverloadedType,
     Type,
     TypeBase,
     UnknownType,
     combineTypes,
     findSubtype,
     isAny,
+    isAnyOrUnknown,
     isClass,
     isClassInstance,
     isFunction,
     isFunctionOrOverloaded,
     isInstantiableClass,
+    isNever,
+    isOverloaded,
     maxTypeRecursionCount,
 } from './types';
 
@@ -51,6 +60,11 @@ interface EnumEvalStackEntry {
 // This stack is used to prevent infinite recursion when evaluating
 // enum members that refer to other enum members.
 const enumEvalStack: EnumEvalStackEntry[] = [];
+const intFlagBitwiseMethods = new Set(['enum.IntFlag.__or__', 'enum.IntFlag.__xor__', 'enum.IntFlag.__and__']);
+
+export function isIntFlagBitwiseFunction(method: FunctionType): boolean {
+    return intFlagBitwiseMethods.has(method.shared.fullName);
+}
 
 // Determines whether the class is an Enum metaclass or a subclass thereof.
 export function isEnumMetaclass(classType: ClassType) {
@@ -64,7 +78,7 @@ export function isEnumMetaclass(classType: ClassType) {
 export function isEnumClassWithMembers(
     evaluator: TypeEvaluator,
     classType: ClassType,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    nodeInfo: AnalyzerNodeInfoReader
 ) {
     if (!isClass(classType) || !ClassType.isEnumClass(classType)) {
         return false;
@@ -131,6 +145,7 @@ export function createEnumType(
         '__class__',
         Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, classType)
     );
+    synthesizeEnumBoundary(evaluator, classType, argList);
 
     if (argList.length < 2) {
         return undefined;
@@ -146,6 +161,42 @@ export function createEnumType(
         return undefined;
     }
     const classInstanceType = ClassType.cloneAsInstance(classType);
+    const isFlag = enumClass.shared.mro.some((base) => isClass(base) && ClassType.isBuiltIn(base, 'Flag'));
+    const startArg = isFlag ? argList.find((arg) => arg.name?.d.value === 'start') : undefined;
+    const startType = startArg ? evaluator.getTypeOfArg(startArg, /* inferenceContext */ undefined).type : undefined;
+    let nextFlagValue: bigint | undefined = BigInt(1);
+    if (startArg) {
+        nextFlagValue =
+            startType &&
+            isClassInstance(startType) &&
+            (typeof startType.priv.literalValue === 'number' ||
+                typeof startType.priv.literalValue === 'bigint' ||
+                typeof startType.priv.literalValue === 'boolean')
+                ? BigInt(startType.priv.literalValue)
+                : undefined;
+    }
+
+    const getAutomaticValueType = (index: number): Type => {
+        if (!isFlag) {
+            return ClassType.cloneWithLiteral(ClassType.cloneAsInstance(intClassType), index + 1);
+        }
+        const generator = lookUpClassMember(enumClass, '_generate_next_value_');
+        if (
+            nextFlagValue === undefined ||
+            !generator ||
+            !isInstantiableClass(generator.classType) ||
+            !ClassType.isBuiltIn(generator.classType, ['Enum', 'Flag'])
+        ) {
+            return ClassType.cloneAsInstance(intClassType);
+        }
+        const value = nextFlagValue;
+        const magnitude = value < BigInt(0) ? -value : value;
+        nextFlagValue = BigInt(1) << BigInt(magnitude === BigInt(0) ? 0 : magnitude.toString(2).length);
+        return ClassType.cloneWithLiteral(
+            ClassType.cloneAsInstance(intClassType),
+            value <= BigInt(Number.MAX_SAFE_INTEGER) && value >= BigInt(Number.MIN_SAFE_INTEGER) ? Number(value) : value
+        );
+    };
 
     // The Enum functional form supports various forms of arguments:
     //   Enum('name', 'a b c')
@@ -174,7 +225,7 @@ export function createEnumType(
                 return undefined;
             }
 
-            const valueType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(intClassType), index + 1);
+            const valueType = getAutomaticValueType(index);
 
             const enumLiteral = new EnumLiteral(
                 classType.shared.fullName,
@@ -225,7 +276,7 @@ export function createEnumType(
                 }
 
                 nameNode = entry;
-                valueType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(intClassType), index + 1);
+                valueType = getAutomaticValueType(index);
             } else if (entry.nodeType === ParseNodeType.Tuple) {
                 if (isSimpleString) {
                     return undefined;
@@ -309,6 +360,476 @@ export function createEnumType(
     }
 
     return classType;
+}
+
+export function synthesizeEnumBoundary(evaluator: TypeEvaluator, classType: ClassType, args: Arg[]) {
+    if (!ClassType.isEnumClass(classType)) {
+        return;
+    }
+
+    const boundaryArg = args.find((arg) => arg.name?.d.value === 'boundary');
+    let boundaryType =
+        boundaryArg?.typeResult?.type ??
+        (boundaryArg?.valueExpression ? evaluator.getTypeOfExpression(boundaryArg.valueExpression).type : undefined);
+
+    // None selects the inherited boundary, just as omitting the keyword does.
+    if (boundaryType && !isNoneInstance(boundaryType)) {
+        const inheritedBoundary = lookUpClassMember(classType, '_boundary_', MemberAccessFlags.SkipInstanceMembers);
+        const inheritedType = inheritedBoundary ? evaluator.getTypeOfMember(inheritedBoundary) : undefined;
+        if (inheritedType) {
+            boundaryType = mapSubtypes(boundaryType, (subtype) => (isNoneInstance(subtype) ? inheritedType : subtype));
+        }
+        ClassType.getSymbolTable(classType).set(
+            '_boundary_',
+            Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, boundaryType)
+        );
+    }
+}
+
+export function getTypeOfIntFlagMember(
+    evaluator: TypeEvaluator,
+    classType: ClassType,
+    memberType: Type,
+    nodeInfo: AnalyzerNodeInfoReader
+): Type {
+    if (
+        !ClassType.isEnumClass(classType) ||
+        !isFunction(memberType) ||
+        !intFlagBitwiseMethods.has(memberType.shared.fullName)
+    ) {
+        return memberType;
+    }
+
+    if (!canFlagEject(evaluator, classType)) {
+        return memberType;
+    }
+
+    const nonNegativeValues = getNonNegativeFlagMask(evaluator, classType, nodeInfo) !== undefined;
+    const intClass = classType.shared.mro.find((base) => isInstantiableClass(base) && ClassType.isBuiltIn(base, 'int'));
+    const otherIndex = memberType.shared.parameters.findIndex((param) => param.name === 'other');
+    if (!intClass || !isInstantiableClass(intClass) || otherIndex < 0) {
+        return memberType;
+    }
+
+    const parameterTypes = memberType.shared.parameters.map((_, index) => FunctionType.getParamType(memberType, index));
+    const intResult = FunctionType.specialize(memberType, {
+        parameterTypes,
+        parameterDefaultTypes: memberType.priv.specializedTypes?.parameterDefaultTypes,
+        returnType: ClassType.cloneAsInstance(intClass),
+    });
+    const zeroType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(intClass), 0);
+    if (
+        !nonNegativeValues &&
+        (!hasStandardFlagValueAccess(classType) || !isEnumClassWithMembers(evaluator, classType, nodeInfo))
+    ) {
+        return intResult;
+    }
+
+    // Zero is safe even for negative flag values. Nonnegative flags are also
+    // closed over operations with another value of the same enum.
+    const flagParameters = [...parameterTypes];
+    flagParameters[otherIndex] = nonNegativeValues
+        ? combineTypes([ClassType.cloneAsInstance(classType), zeroType])
+        : zeroType;
+    const flagResult = FunctionType.specialize(memberType, {
+        parameterTypes: flagParameters,
+        parameterDefaultTypes: memberType.priv.specializedTypes?.parameterDefaultTypes,
+        returnType: FunctionType.getEffectiveReturnType(memberType),
+    });
+    return OverloadedType.create([flagResult, intResult]);
+}
+
+export function applyIntFlagTransform(
+    evaluator: TypeEvaluator,
+    method: FunctionType,
+    argumentTypes: ReadonlyMap<string, Type>,
+    result: FunctionResult
+): FunctionResult {
+    if (!isIntFlagBitwiseFunction(method)) {
+        return result;
+    }
+
+    const isBound = !!method.priv.strippedFirstParamType;
+    const receiver = isBound ? method.priv.boundToType : argumentTypes.get('self');
+    if (!receiver) {
+        return result;
+    }
+
+    const returnType = getIntFlagReturnType(
+        evaluator,
+        method,
+        receiver,
+        argumentTypes.get('other') ?? UnknownType.create(),
+        result.returnType
+    );
+    return {
+        ...result,
+        returnType,
+    };
+}
+
+export function getIntFlagReturnTypeForCallable(
+    evaluator: TypeEvaluator,
+    method: FunctionType,
+    srcParams: ParamListDetails,
+    destParams: ParamListDetails,
+    returnType: Type
+): Type | undefined {
+    if (
+        !intFlagBitwiseMethods.has(method.shared.fullName) ||
+        srcParams.params.length !== destParams.params.length ||
+        destParams.argsIndex !== undefined ||
+        destParams.kwargsIndex !== undefined
+    ) {
+        return undefined;
+    }
+
+    const getArgType = (index: number) => {
+        const name = srcParams.params[index]?.param.name;
+        const param =
+            destParams.params.find(
+                (param) =>
+                    param.kind !== ParamKind.Positional &&
+                    param.kind !== ParamKind.ExpandedArgs &&
+                    param.param.name === name
+            ) ?? destParams.params[index];
+        return param?.type;
+    };
+    const isBound = !!method.priv.strippedFirstParamType;
+    const receiver = isBound ? method.priv.boundToType : getArgType(0);
+    const other = getArgType(isBound ? 0 : 1);
+    // An empty argument domain adds no evidence that could invalidate the matched signature.
+    return receiver && other && !isNever(other)
+        ? getIntFlagReturnType(evaluator, method, receiver, other, returnType)
+        : undefined;
+}
+
+function getIntFlagReturnType(
+    evaluator: TypeEvaluator,
+    method: FunctionType,
+    receiver: Type,
+    otherType: Type,
+    returnType: Type
+): Type {
+    if (isNever(otherType)) {
+        return returnType;
+    }
+
+    const overloads = method.priv.overloaded ? OverloadedType.getOverloads(method.priv.overloaded) : undefined;
+    const flagReturn = !method.priv.strippedFirstParamType
+        ? mapSubtypes(receiver, (subtype) =>
+              isClassInstance(subtype) ? ClassType.cloneWithLiteral(subtype, /* value */ undefined) : subtype
+          )
+        : overloads?.[0]
+        ? FunctionType.getEffectiveReturnType(overloads[0]) ?? returnType
+        : returnType;
+    let expandedOtherType: Type | undefined;
+    return mapSubtypes(evaluator.makeTopLevelTypeVarsConcrete(receiver), (classType) => {
+        if (!isClassInstance(classType) || !ClassType.isEnumClass(classType)) {
+            return returnType;
+        }
+        if (!canFlagEject(evaluator, classType)) {
+            return flagReturn;
+        }
+        const intClass = classType.shared.mro.find(
+            (base) => isInstantiableClass(base) && ClassType.isBuiltIn(base, 'int')
+        );
+        if (!intClass || !isInstantiableClass(intClass)) {
+            return returnType;
+        }
+        expandedOtherType ??= mapSubtypes(evaluator.makeTopLevelTypeVarsConcrete(otherType), (other) => {
+            if (
+                isClassInstance(other) &&
+                other.priv.literalValue === undefined &&
+                (ClassType.isBuiltIn(other, 'bool') ||
+                    (ClassType.isEnumClass(other) && hasStandardFlagConstruction(other)))
+            ) {
+                const literals = enumerateLiteralsForType(evaluator, other);
+                if (literals && literals.length > 0) {
+                    // Keep the numeric alternatives rather than collapsing True | False back to bool.
+                    return combineTypes(
+                        literals.map((literal) =>
+                            ClassType.isBuiltIn(literal, 'bool')
+                                ? ClassType.cloneWithLiteral(
+                                      ClassType.cloneAsInstance(intClass),
+                                      literal.priv.literalValue ? 1 : 0
+                                  )
+                                : literal
+                        )
+                    );
+                }
+            }
+            return other;
+        });
+        const mask = getNonNegativeFlagMask(evaluator, classType, getInfoReader(evaluator));
+        const allBits =
+            mask !== undefined
+                ? (BigInt(1) << BigInt(mask === BigInt(0) ? 0 : mask.toString(2).length)) - BigInt(1)
+                : undefined;
+        const intType = ClassType.cloneAsInstance(intClass);
+        return mapSubtypes(expandedOtherType, (other) => {
+            if (flagReturn) {
+                const concreteOther = evaluator.makeTopLevelTypeVarsConcrete(other);
+                if (
+                    mask !== undefined &&
+                    isClassInstance(concreteOther) &&
+                    ClassType.isSameGenericClass(classType, concreteOther)
+                ) {
+                    return flagReturn;
+                }
+                const valueType =
+                    isClassInstance(concreteOther) &&
+                    ClassType.isSameGenericClass(classType, concreteOther) &&
+                    concreteOther.priv.literalValue instanceof EnumLiteral &&
+                    hasStandardFlagValueAccess(concreteOther)
+                        ? concreteOther.priv.literalValue.itemType
+                        : getIntFlagOperandValueType(evaluator, method, other, intClass, mask !== undefined);
+                if (
+                    valueType &&
+                    isClassInstance(valueType) &&
+                    ClassType.isBuiltIn(valueType, ['int', 'bool']) &&
+                    (typeof valueType.priv.literalValue === 'number' ||
+                        typeof valueType.priv.literalValue === 'bigint' ||
+                        typeof valueType.priv.literalValue === 'boolean')
+                ) {
+                    const value = BigInt(valueType.priv.literalValue);
+                    if (mask !== undefined && method.shared.name === '__and__') {
+                        return flagReturn;
+                    }
+                    const memberValueType =
+                        classType.priv.literalValue instanceof EnumLiteral
+                            ? classType.priv.literalValue.itemType
+                            : undefined;
+                    if (
+                        mask === undefined &&
+                        memberValueType &&
+                        isClassInstance(memberValueType) &&
+                        ClassType.isBuiltIn(memberValueType, ['int', 'bool']) &&
+                        (typeof memberValueType.priv.literalValue === 'number' ||
+                            typeof memberValueType.priv.literalValue === 'bigint' ||
+                            typeof memberValueType.priv.literalValue === 'boolean') &&
+                        hasStandardFlagValueAccess(classType)
+                    ) {
+                        const memberValue = BigInt(memberValueType.priv.literalValue);
+                        const result =
+                            method.shared.name === '__or__'
+                                ? memberValue | value
+                                : method.shared.name === '__xor__'
+                                ? memberValue ^ value
+                                : memberValue & value;
+                        // Enum construction reuses an existing member before considering EJECT.
+                        if (result === memberValue) {
+                            return flagReturn;
+                        }
+                    }
+                    if (
+                        value === BigInt(0) &&
+                        hasStandardFlagValueAccess(classType) &&
+                        isEnumClassWithMembers(evaluator, classType, getInfoReader(evaluator))
+                    ) {
+                        return flagReturn;
+                    }
+                    if (
+                        mask !== undefined &&
+                        allBits !== undefined &&
+                        value >= ~allBits &&
+                        value <= allBits &&
+                        (value & (allBits ^ mask)) === BigInt(0)
+                    ) {
+                        return flagReturn;
+                    }
+                }
+            }
+            return intType;
+        });
+    });
+}
+
+function getIntFlagOperandValueType(
+    evaluator: TypeEvaluator,
+    method: FunctionType,
+    other: Type,
+    intClass: ClassType,
+    nonNegativeReceiver: boolean
+): Type | undefined {
+    if (!isClassInstance(other) || !(other.priv.literalValue instanceof EnumLiteral)) {
+        return other;
+    }
+    if (!hasStandardFlagConstruction(other)) {
+        return undefined;
+    }
+
+    const reflectedName = `__r${method.shared.name.slice(2)}`;
+    const reflected = lookUpClassMember(other, reflectedName);
+    const reflectedType = reflected ? evaluator.getTypeOfMember(reflected) : undefined;
+    const functions = reflectedType
+        ? isOverloaded(reflectedType)
+            ? OverloadedType.getOverloads(reflectedType)
+            : isFunction(reflectedType)
+            ? [reflectedType]
+            : []
+        : [];
+    if (functions.length === 0) {
+        return undefined;
+    }
+    const valueType = other.priv.literalValue.itemType;
+    if (
+        functions.every(
+            (fn) =>
+                fn.shared.fullName === `${intClass.shared.fullName}.${reflectedName}` ||
+                fn.shared.fullName === `${intClass.shared.fullName}.${method.shared.name}`
+        )
+    ) {
+        return valueType;
+    }
+
+    // Another standard flag can normalize negative values or mask bits under CONFORM.
+    // For nonnegative operands, masking cannot introduce bits outside the receiver.
+    if (
+        nonNegativeReceiver &&
+        functions.every((fn) => fn.shared.fullName === method.shared.fullName) &&
+        isClassInstance(valueType) &&
+        (typeof valueType.priv.literalValue === 'number' || typeof valueType.priv.literalValue === 'bigint') &&
+        valueType.priv.literalValue >= 0 &&
+        getNonNegativeFlagMask(evaluator, other, getInfoReader(evaluator)) !== undefined
+    ) {
+        return valueType;
+    }
+    return undefined;
+}
+
+function canFlagEject(evaluator: TypeEvaluator, classType: ClassType): boolean {
+    if (!ClassType.isEnumClass(classType)) {
+        return false;
+    }
+    const member = lookUpClassMember(classType, '_boundary_', MemberAccessFlags.SkipInstanceMembers);
+    return (
+        (!!member &&
+            !!findSubtype(
+                evaluator.getTypeOfMember(member),
+                (subtype) =>
+                    isAnyOrUnknown(subtype) ||
+                    (isClassInstance(subtype) &&
+                        ClassType.isBuiltIn(subtype, 'FlagBoundary') &&
+                        (!(subtype.priv.literalValue instanceof EnumLiteral) ||
+                            subtype.priv.literalValue.itemName === 'EJECT'))
+            )) ||
+        !isEnumClassWithMembers(evaluator, classType, getInfoReader(evaluator))
+    );
+}
+
+function getNonNegativeFlagMask(
+    evaluator: TypeEvaluator,
+    classType: ClassType,
+    nodeInfo: AnalyzerNodeInfoReader
+): bigint | undefined {
+    if (!hasStandardFlagValueAccess(classType)) {
+        return undefined;
+    }
+
+    let foundMember = false;
+    let mask = BigInt(0);
+    const memberValues = new Map<string, bigint>();
+    const getAutomaticValue = (node: ExpressionNode, recursionCount = 0): bigint | undefined => {
+        if (recursionCount > maxTypeRecursionCount) {
+            return undefined;
+        }
+        if (node.nodeType === ParseNodeType.Name) {
+            return memberValues.get(node.d.value);
+        }
+        if (node.nodeType === ParseNodeType.Number && node.d.isInteger && !node.d.isImaginary) {
+            return BigInt(node.d.value);
+        }
+        if (node.nodeType === ParseNodeType.BinaryOperation) {
+            const left = getAutomaticValue(node.d.leftExpr, recursionCount + 1);
+            const right = getAutomaticValue(node.d.rightExpr, recursionCount + 1);
+            if (left !== undefined && right !== undefined) {
+                switch (node.d.operator) {
+                    case OperatorType.BitwiseOr:
+                        return left | right;
+                    case OperatorType.BitwiseAnd:
+                        return left & right;
+                    case OperatorType.BitwiseXor:
+                        return left ^ right;
+                }
+            }
+        }
+        if (node.nodeType === ParseNodeType.Call) {
+            const callee = evaluator.getTypeOfExpression(node.d.leftExpr).type;
+            const generator = lookUpClassMember(classType, '_generate_next_value_');
+            if (
+                isInstantiableClass(callee) &&
+                ClassType.isBuiltIn(callee, 'auto') &&
+                generator &&
+                isInstantiableClass(generator.classType) &&
+                ClassType.isBuiltIn(generator.classType, ['Enum', 'Flag'])
+            ) {
+                return BigInt(1) << BigInt(mask === BigInt(0) ? 0 : mask.toString(2).length);
+            }
+        }
+        return undefined;
+    };
+    for (const [name, symbol] of ClassType.getSymbolTable(classType)) {
+        if (symbol.isIgnoredForProtocolMatch()) {
+            continue;
+        }
+
+        const type =
+            transformTypeForEnumMember(evaluator, classType, name, nodeInfo) ??
+            evaluator.getEffectiveTypeOfSymbol(symbol);
+        if (
+            isClassInstance(type) &&
+            ClassType.isSameGenericClass(type, classType) &&
+            type.priv.literalValue instanceof EnumLiteral
+        ) {
+            const valueType = type.priv.literalValue.itemType;
+            let value = memberValues.get(type.priv.literalValue.itemName);
+            if (
+                value === undefined &&
+                isClassInstance(valueType) &&
+                ClassType.isBuiltIn(valueType, ['int', 'bool']) &&
+                (typeof valueType.priv.literalValue === 'number' ||
+                    typeof valueType.priv.literalValue === 'bigint' ||
+                    typeof valueType.priv.literalValue === 'boolean')
+            ) {
+                value = BigInt(valueType.priv.literalValue);
+            }
+            if (value === undefined) {
+                const declaration = symbol.getDeclarations()[0];
+                const assignment = declaration?.node.parent;
+                if (assignment?.nodeType === ParseNodeType.Assignment) {
+                    value = getAutomaticValue(assignment.d.rightExpr);
+                }
+            }
+            if (value === undefined || value < BigInt(0)) {
+                return undefined;
+            }
+            memberValues.set(name, value);
+            mask |= value;
+            foundMember = true;
+        }
+    }
+    return foundMember ? mask : undefined;
+}
+
+function hasStandardFlagValueAccess(classType: ClassType): boolean {
+    const member = lookUpClassMember(classType, '__getattribute__');
+    // Flag operators read _value_; builtin int operators use the numeric payload instead.
+    return (
+        hasStandardFlagConstruction(classType) &&
+        (!member || !isClass(member.classType) || ClassType.isBuiltIn(member.classType))
+    );
+}
+
+function hasStandardFlagConstruction(classType: ClassType): boolean {
+    if (ClassType.isEnumMemberSetMayBeDynamicallyModified(classType)) {
+        return false;
+    }
+    // Custom construction or storage may change the values assigned in the class body.
+    return !['__new__', '__init__', '_missing_', '_value_'].some((name) => {
+        const member = lookUpClassMember(classType, name);
+        return member && isClass(member.classType) && !ClassType.isBuiltIn(member.classType);
+    });
 }
 
 // Performs the "magic" that the Enum metaclass does at runtime when it

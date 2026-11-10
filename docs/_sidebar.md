@@ -36,6 +36,6 @@
 - Development
 
   - [Building & Debugging](build-debug.md)
+  - [Browser Playground](browser-playground.md)
   - [Pyright Internals](internals.md)
-
 

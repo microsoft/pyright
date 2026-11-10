@@ -11,7 +11,7 @@ class RSAKey(PKey):
     name: Final = "ssh-rsa"
     HASHES: Final[dict[str, type[HashAlgorithm]]]
 
-    key: None | RSAPublicKey | RSAPrivateKey
+    key: RSAPublicKey | RSAPrivateKey | None
     public_blob: None
     def __init__(
         self,
@@ -19,7 +19,7 @@ class RSAKey(PKey):
         data: ReadableBuffer | None = None,
         filename: FileDescriptorOrPath | None = None,
         password: str | None = None,
-        key: None | RSAPublicKey | RSAPrivateKey = None,
+        key: RSAPublicKey | RSAPrivateKey | None = None,
         file_obj: _HasReadlines | None = None,
     ) -> None: ...
     @classmethod

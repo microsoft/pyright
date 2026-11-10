@@ -348,13 +348,15 @@ class ServerStateManager {
                 }
             }
 
-            // Wait for our connection to finish first. Give it 10 tries.
-            // This is a bit of a hack but there are no good ways to cancel all running requests
-            // on shutdown.
-            let count = 0;
-            while (count < 10 && (instance.connection as any).console?._rawConnection?.hasPendingResponse()) {
+            // Keep the connection alive until the client acknowledges capability unregistrations.
+            const deadline = Date.now() + 10000;
+            while ((instance.connection as any).console?._rawConnection?.hasPendingResponse()) {
+                if (Date.now() >= deadline) {
+                    throw new Error(
+                        `Timed out waiting for pending responses during shutdown of ${this._currentOptions?.testName}`
+                    );
+                }
                 await sleep(10);
-                count += 1;
             }
             this._pendingDispose.resolve();
             try {

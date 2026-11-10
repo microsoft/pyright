@@ -1,7 +1,7 @@
 # Since this module defines "overload" it is not recognized by Ruff as typing.overload
 # TODO: The collections import is required, otherwise mypy crashes.
 # https://github.com/python/mypy/issues/16744
-import collections  # noqa: F401  # pyright: ignore[reportUnusedImport]
+import collections  # ruff: ignore[unused-import]  # pyright: ignore[reportUnusedImport]
 import sys
 import typing_extensions
 from _collections_abc import dict_items, dict_keys, dict_values
@@ -607,10 +607,8 @@ class Awaitable(Protocol[_T_co]):
 _SendT_nd_contra = TypeVar("_SendT_nd_contra", contravariant=True)
 _ReturnT_nd_co = TypeVar("_ReturnT_nd_co", covariant=True)
 
-class Coroutine(Awaitable[_ReturnT_nd_co], Generic[_YieldT_co, _SendT_nd_contra, _ReturnT_nd_co]):
-    __name__: str
-    __qualname__: str
-
+@runtime_checkable
+class Coroutine(Awaitable[_ReturnT_nd_co], Protocol[_YieldT_co, _SendT_nd_contra, _ReturnT_nd_co]):
     @abstractmethod
     def send(self, value: _SendT_nd_contra, /) -> _YieldT_co: ...
 

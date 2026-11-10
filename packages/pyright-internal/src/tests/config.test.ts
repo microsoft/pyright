@@ -298,6 +298,160 @@ describe(`config test'}`, () => {
         assert.strictEqual(configOptions.autoExcludeVenv, false);
     });
 
+    describe.each(['pyrightconfig.json', 'pyproject.toml'])('useDefaultExcludes in %s', (configFileName) => {
+        const projectRoot = normalizeSlashes('/src');
+        const projectRootUri = UriEx.file(projectRoot);
+        const include = ['.', '.hidden'];
+        const exclude = ['excluded', '**/node_modules'];
+
+        test.each([undefined, true, false])('enumerates CLI files with setting %s', async (useDefaultExcludes) => {
+            const config = {
+                include,
+                exclude,
+                ...(useDefaultExcludes !== undefined ? { useDefaultExcludes } : {}),
+            };
+            const { service, cons } = await createProject(config);
+            try {
+                const options = new CommandLineOptions(projectRoot, /* fromLanguageServer */ false);
+                service.setOptions(options);
+
+                const configOptions = service.getConfigOptions();
+                assert.strictEqual(configOptions.useDefaultExcludes, useDefaultExcludes);
+                assert.strictEqual(configOptions.autoExcludeVenv, useDefaultExcludes ?? true);
+                assert.strictEqual(configOptions.exclude.length, useDefaultExcludes === false ? 2 : 5);
+                assert.strictEqual(configOptions.userSpecifiedExcludes, true);
+                assert.strictEqual(cons.errorCount, 0);
+                assert.strictEqual(cons.warnCount, 0);
+
+                const files = service
+                    .test_getFileNamesFromFileSpecs()
+                    .map((uri) => projectRootUri.getRelativePathComponents(uri).join('/'))
+                    .sort();
+                assert.deepStrictEqual(
+                    files,
+                    useDefaultExcludes === false
+                        ? [
+                              '.hidden/a.py',
+                              '__pycache__/cache.py',
+                              'build/__editable__.mypkg/shadow.py',
+                              'build/keep.py',
+                              'myVenv/library.py',
+                              'sample.py',
+                          ]
+                        : ['build/keep.py', 'sample.py']
+                );
+            } finally {
+                service.dispose();
+            }
+        });
+
+        test.each([undefined, true, false])(
+            'resolves project setting %s before language-server settings',
+            async (useDefaultExcludes) => {
+                const { service } = await createProject({
+                    include,
+                    exclude,
+                    ...(useDefaultExcludes !== undefined ? { useDefaultExcludes } : {}),
+                });
+                try {
+                    for (const clientSetting of [true, false]) {
+                        const options = new CommandLineOptions(projectRoot, /* fromLanguageServer */ true);
+                        options.configSettings.useDefaultExcludes = clientSetting;
+                        service.setOptions(options);
+
+                        const effectiveSetting = useDefaultExcludes ?? clientSetting;
+                        assert.strictEqual(service.getConfigOptions().autoExcludeVenv, effectiveSetting);
+                        assert.strictEqual(
+                            service.test_getFileNamesFromFileSpecs().some((uri) => uri.fileName === 'a.py'),
+                            !effectiveSetting
+                        );
+                    }
+                } finally {
+                    service.dispose();
+                }
+            }
+        );
+
+        test.each([undefined, true, false])(
+            'inherits or overrides base setting with %s',
+            async (useDefaultExcludes) => {
+                const { service } = await createProject(
+                    {
+                        extends: 'base.json',
+                        ...(useDefaultExcludes !== undefined ? { useDefaultExcludes } : {}),
+                    },
+                    { include, exclude, useDefaultExcludes: false }
+                );
+                try {
+                    const options = new CommandLineOptions(projectRoot, /* fromLanguageServer */ false);
+                    service.setOptions(options);
+
+                    const effectiveSetting = useDefaultExcludes ?? false;
+                    assert.strictEqual(service.getConfigOptions().useDefaultExcludes, effectiveSetting);
+                    assert.strictEqual(service.getConfigOptions().autoExcludeVenv, effectiveSetting);
+                    assert.strictEqual(
+                        service.test_getFileNamesFromFileSpecs().some((uri) => uri.fileName === 'a.py'),
+                        !effectiveSetting
+                    );
+                } finally {
+                    service.dispose();
+                }
+            }
+        );
+
+        async function createProject(config: object, baseConfig: object = {}) {
+            const configContent =
+                configFileName === 'pyrightconfig.json'
+                    ? JSON.stringify(config)
+                    : (await import('smol-toml')).stringify({ tool: { pyright: config } });
+            const fs = new TestFileSystem(/* ignoreCase */ true, {
+                cwd: projectRoot,
+                files: {
+                    [projectRootUri.resolvePaths(configFileName).getFilePath()]: configContent,
+                    [projectRootUri.resolvePaths('base.json').getFilePath()]: JSON.stringify(baseConfig),
+                    [projectRootUri.resolvePaths('sample.py').getFilePath()]: '',
+                    [projectRootUri.resolvePaths('.hidden', 'a.py').getFilePath()]: 'x: int = "s"\n',
+                    [projectRootUri.resolvePaths('excluded', 'ignored.py').getFilePath()]: '',
+                    [projectRootUri.resolvePaths('node_modules', 'ignored.py').getFilePath()]: '',
+                    [projectRootUri.resolvePaths('__pycache__', 'cache.py').getFilePath()]: '',
+                    [projectRootUri.resolvePaths('build', 'keep.py').getFilePath()]: '',
+                    [projectRootUri.resolvePaths('build', '__editable__.mypkg', 'shadow.py').getFilePath()]: '',
+                    [projectRootUri.resolvePaths('myVenv', 'pyvenv.cfg').getFilePath()]: '',
+                    [projectRootUri.resolvePaths('myVenv', 'library.py').getFilePath()]: '',
+                },
+            });
+            const cons = new NullConsole();
+            const serviceProvider = createServiceProvider(fs, cons, tempFile);
+            const host = new TestAccessHost();
+            const service = new AnalyzerService('<default>', serviceProvider, {
+                console: cons,
+                hostFactory: () => host,
+                shouldRunAnalysis: () => false,
+            });
+            return { service, cons };
+        }
+    });
+
+    test.each([null, 'false', 0, [], {}])('rejects non-boolean useDefaultExcludes %j', (useDefaultExcludes) => {
+        const fs = new TestFileSystem(/* ignoreCase */ true);
+        const cons = new NullConsole();
+        const sp = createServiceProvider(fs, cons);
+        const root = UriEx.file(normalizeSlashes('/src'));
+        const config = new ConfigOptions(root);
+        const host = new TestAccessHost();
+
+        config.initializeFromJson({ useDefaultExcludes }, root, sp, host);
+        assert.strictEqual(config.useDefaultExcludes, undefined);
+        assert.strictEqual(cons.errorCount, 1);
+        assert.strictEqual(cons.warnCount, 0);
+
+        config.initializeFromJson({ useDefaultExcludes: false }, root, sp, host);
+        config.initializeFromJson({ useDefaultExcludes }, root, sp, host);
+        assert.strictEqual(config.useDefaultExcludes, false);
+        assert.strictEqual(cons.errorCount, 2);
+        assert.strictEqual(cons.warnCount, 0);
+    });
+
     test('ConfigBadJson', () => {
         const cwd = normalizePath(process.cwd());
         const nullConsole = new NullConsole();
@@ -498,6 +652,57 @@ describe(`config test'}`, () => {
         const deserialized = deserialize<ConfigOptions>(serialized);
         assert.deepEqual(config, deserialized);
         assert.ok(deserialized.findExecEnvironment(UriEx.file('foo/bar.py')));
+    });
+
+    test.each([undefined, true, false])(
+        'automatic overload results preserve default/internal override %s through serialization and service cloning',
+        (override) => {
+            const fs = new TestFileSystem(/* ignoreCase */ true);
+            const root = Uri.file(process.cwd(), fs);
+            const config = new ConfigOptions(root);
+            if (override !== undefined) {
+                config.experimentalOverloadResults = override;
+            }
+            const sp = createServiceProvider(fs, new NullConsole());
+            const host = new TestAccessHost();
+            // Project configuration must not expose or override the internal baseline escape hatch.
+            config.initializeFromJson({ experimentalOverloadResults: !override }, root, sp, host);
+            const restored = deserialize<ConfigOptions>(serialize(config));
+            assert.strictEqual(restored.experimentalOverloadResults, override ?? true);
+            const service = new AnalyzerService('<overload-default>', sp, {
+                configOptions: restored,
+                hostFactory: () => host,
+                shouldRunAnalysis: () => false,
+            });
+            const cloned = service.clone('<overload-clone>', 'overload-clone');
+            try {
+                for (const target of [service, cloned]) {
+                    assert.strictEqual(target.getConfigOptions().experimentalOverloadResults, override ?? true);
+                    assert.strictEqual(!!target.test_program.experimentalOverloadResultController, override !== false);
+                }
+            } finally {
+                cloned.dispose();
+                service.dispose();
+                sp.dispose();
+            }
+        }
+    );
+
+    test('automatic overload results default survives omitted serialized property and configuration reload', () => {
+        const config = new ConfigOptions(UriEx.file(process.cwd()));
+        delete config.experimentalOverloadResults;
+        assert.strictEqual(deserialize<ConfigOptions>(serialize(config)).experimentalOverloadResults, true);
+        const service = createAnalyzer();
+        try {
+            for (const fromLanguageServer of [false, true]) {
+                const options = new CommandLineOptions(undefined, fromLanguageServer);
+                service.setOptions(options);
+                assert.strictEqual(service.getConfigOptions().experimentalOverloadResults, true);
+                assert.ok(service.test_program.experimentalOverloadResultController);
+            }
+        } finally {
+            service.dispose();
+        }
     });
 
     test('Config watcher reloads when pyproject.toml is created', () => {

@@ -9,6 +9,7 @@
  * including observable type changes.
  */
 import assert from 'assert';
+import childProcess from 'child_process';
 
 import { FileSystem } from '../../common/fileSystem';
 import { TspSupplemental } from '../../typeServer/protocol/tspSupplemental';
@@ -31,8 +32,24 @@ function getClassTypeName(type: TypeServerProtocol.Type | undefined): string | u
 }
 
 describe('TypeServer virtual file redirect (TspSupplemental)', () => {
+    let execFileSyncSpy: jest.SpiedFunction<typeof childProcess.execFileSync>;
+
     beforeAll(async () => {
         await initializeDependenciesForInProcTests();
+    });
+
+    beforeEach(() => {
+        execFileSyncSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(() => {
+            throw new Error('Virtual file redirect tests must not run external programs.');
+        });
+    });
+
+    afterEach(() => {
+        try {
+            expect(execFileSyncSpy).not.toHaveBeenCalled();
+        } finally {
+            execFileSyncSpy.mockRestore();
+        }
     });
 
     test('redirect capability requires both operations', () => {
