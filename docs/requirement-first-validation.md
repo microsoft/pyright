@@ -167,6 +167,8 @@ diagnostic, and speculative matching. All 24 pass with dispatch enabled and disa
   and can be replaced by structural results. Diagnostic retries retain observable
   failed-call inference. Pending recursive-pair handling is pre-existing machinery,
   not a new transactional relation cache.
+  Structural results can become universal negatives only after self-specializing
+  both generic classes, including classes whose type parameters have defaults.
 - Constraint cloning copies entries and scope containers but retains bound type
   references. The reduced proof delegates to the evaluator with cloned caller
   constraints; cloning alone does not prove deep type immutability. No new solver
