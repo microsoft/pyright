@@ -15887,12 +15887,34 @@ export function createTypeEvaluator(
                 return staticBoolType;
             }
 
+            // Only literal forms are considered. The initializer is evaluated on every
+            // read of the symbol, and the type of any other form can depend on the
+            // contextual type supplied by the declaration.
+            if (!isLiteralInitializerForm(sourceExpr)) {
+                return undefined;
+            }
+
             // Evaluate the initializer speculatively so its type is not cached without
             // the contextual type that the declaration's own inference supplies.
             const inferredType = useSpeculativeMode(sourceExpr, () => getTypeOfExpression(sourceExpr).type);
             return isClassInstance(inferredType) && isLiteralType(inferredType) ? inferredType : undefined;
         } finally {
             finalLiteralResolutionStack.delete(declaration);
+        }
+    }
+
+    // Indicates whether the expression is a form whose type is a literal and does
+    // not depend on context.
+    function isLiteralInitializerForm(node: ExpressionNode): boolean {
+        switch (node.nodeType) {
+            case ParseNodeType.Name:
+            case ParseNodeType.Number:
+            case ParseNodeType.StringList:
+            case ParseNodeType.MemberAccess:
+            case ParseNodeType.UnaryOperation:
+                return true;
+            default:
+                return false;
         }
     }
 
