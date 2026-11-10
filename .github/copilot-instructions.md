@@ -130,6 +130,11 @@ Tests live in `packages/pyright-internal/src/tests/`. There are two main pattern
 
 Tests are the specification for Pyright behavior. Never modify tests just to make CI pass. Any change that makes types less precise (e.g., `T → Unknown`, `list[int] → list[Any]`, `Literal["x"] → str`) is a regression by default and requires explicit justification. See `.github/agents/pyright-test-policy.md` for details.
 
+For repairs to shared inference or narrowing logic, apply the
+[bounded repair-completion checkpoint](skills/pyright-pr-typespec-review/references/probe-design.md#repair-completion-checkpoint)
+as part of the existing self-review, including ordinary fixes outside a PR review. Reuse compatible evidence; this does
+not require another reviewer panel.
+
 ## Code Style
 
 - **Formatting**: Prettier with 4-space indentation, single quotes, 120-char print width.

@@ -1,6 +1,7 @@
 # Choosing adversarial probes
 
-Use this as a hypothesis menu after tracing the diff, not a mandatory test checklist.
+Use the probe menu after tracing the diff, not as a mandatory list of language features. The
+[repair-completion checkpoint](#repair-completion-checkpoint) applies when repairing shared inference or narrowing logic.
 
 Select dimensions for each concrete hypothesis using [discovery-coverage.md](discovery-coverage.md). A feature appearing in one probe does not establish coverage of its interactions with another failure condition. Preserve the same intended-safe or intended-unsafe relation when testing a new representation.
 
@@ -19,6 +20,50 @@ Select dimensions for each concrete hypothesis using [discovery-coverage.md](dis
 | Operator and fallback dispatch | Actual method-result contract; direct/reflected alternatives; scalar and nested operands; deciding and non-deciding prefixes when short-circuiting applies | A callable method is mistaken for a completed operation, the result type is discarded, or later checks contradict the information established by an earlier check |
 | Parser/diagnostic changes | Adjacent syntax forms; implicit versus explicit operations; supported language versions; valid neighboring constructs | Wrong diagnostic category/range, duplicate errors, accepting syntax CPython rejects |
 | Metadata flags | Construction by each syntax; clone/specialization paths; reset/replacement of underlying data; recursion | Stale or absent flag changes behavior far from the declaration |
+
+## Repair completion checkpoint
+
+Apply this bounded check as part of the existing repair self-review, not as a second review workflow. It does not require
+another agent, a new reviewer panel, an exhaustive matrix, or repeating compatible completed checks.
+
+1. Revisit the original behavior change and the repair, not only the reported reproductions. Identify changed decisions,
+   newly admitted or skipped inputs, and type information added, removed, or no longer correlated. Check what each
+   predicate actually establishes against what its callers conclude.
+2. Select a small set of discriminating combinations for uncovered decisions and consumers using the menu above and,
+   where applicable, the narrowing recipe below. Testing relevant dimensions separately does not cover their interaction.
+   Include a valid consumer, a nearby invalid consumer that must retain its diagnostic, and an unaffected control.
+3. Derive expectations independently of the repaired output. Compare exact revealed types and diagnostic identities on
+   the pre-repair and repaired snapshots; also use the pre-PR baseline when needed to attribute a change to the PR.
+   Reuse existing comparisons when revisions, configuration, and affected paths remain compatible. State missing evidence.
+4. Reuse or maintain the compact [coverage record](discovery-coverage.md#coverage-belongs-to-a-hypothesis-and-a-combination).
+   Link each selected decision/combination to its expected consumer behavior and actual execution evidence. Mark it
+   executed, excluded with a code-based reason, or untested; a case count or passing suite is not evidence for a missing
+   combination.
+5. Before reporting completion, reconcile that record against the original change and repair. Report remaining failures,
+   material coverage gaps, and precision or policy tradeoffs rather than treating them as passing. New findings do not
+   authorize expanding the repair scope or weakening existing expectations.
+
+## Narrowing and union interactions
+
+For changes to narrowing, containment, or equality, select relevant combinations from the touched branches. These are
+probes for particular hypotheses, not a universal narrowing policy or a requirement to fix unrelated baseline behavior.
+
+- Distinguish an `Any`/`Unknown` guarded value from an `Any`/`Unknown` element or key in one container alternative. When
+  optionality is affected, combine those inputs with a known `None` alternative. Obtain `Unknown` through real inference
+  and inspect the resolved input types; a test's annotations or similar syntax do not prove it exercised that path.
+- Check explicitly optional inputs separately from optionality newly introduced by the guard. Do not assume a `None`
+  alternative is redundant merely because `Any` or `Unknown` also survives. Retain material losses of partial information
+  as policy tradeoffs even when the remaining gradual type permits the runtime operation.
+- Separate equality from runtime type identity. When relevant, use equal values from different built-in classes, such as
+  `float`/`int` or `set`/`frozenset`, and compare literal with nonliteral cases. Matching a value by equality does not by
+  itself establish the matching element's runtime class.
+- Exercise positive and negative guard outcomes, relevant compound-condition merges, and alternative order when different
+  paths or early exits can change the result. Pair fully known inputs with the corresponding gradual or mixed union.
+- Use ordinary consumers as well as revealed types. For a float equal to an integer literal, `value.hex()` distinguishes
+  preserving the float from replacing it with an integer literal; `value.bit_length()` tests the opposite error. For
+  optionality, pair the valid member access being repaired with a case whose reachable `None` access must still warn.
+  Justify static expectations separately from runtime witnesses; failure through an explicitly gradual type alone does
+  not establish a typing violation.
 
 ## Example of a useful mutation test
 
