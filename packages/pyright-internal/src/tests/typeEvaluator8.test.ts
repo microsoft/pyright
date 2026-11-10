@@ -1294,6 +1294,16 @@ test('StaticExpressionLiteral1', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('StaticExpression3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    configOptions.defaultPythonPlatform = 'Linux';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['staticExpression3.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('SpecialForm1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialForm1.py']);
 
