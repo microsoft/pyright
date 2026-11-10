@@ -215,6 +215,22 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(stage.action())
         self.assertEqual(self.github.mutations, [])
 
+    async def test_public_reply_keeps_execution_evidence_without_requiring_an_audit_inventory(self):
+        self.blocked_execution()
+        await self.console.evaluate(self.entry)
+        writer, factual = [call.args[1] for call in self.sdk.run.await_args_list]
+        self.assertIn("author-facing reply, not an audit report", writer)
+        self.assertIn("two or three short paragraphs", writer)
+        self.assertIn("only when they affect", writer)
+        self.assertIn("Do not require an inventory", factual)
+        self.assertIn("omission makes a claim misleading", factual)
+        for prompt in (writer, factual):
+            self.assertIn('"completed": true', prompt)
+            self.assertIn('"gate_approved": false', prompt)
+            self.assertIn("not the same as not executed", prompt)
+        self.assertEqual(self.report().status, "passed")
+        self.assertEqual(self.github.mutations, [])
+
     async def test_changed_execution_receipts_stop_drafting(self):
         stage = self.blocked_execution()
         path = Path(stage.directory) / "receipts.jsonl"
@@ -302,6 +318,10 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(canonical.await_count, 2)
         self.assertEqual(self.report().proposed_action, "close_duplicate")
         self.assertIn(self.github.canonical.html_url, self.report().proposed_comment or "")
+        writer = self.sdk.run.await_args_list[0].args[1]
+        self.assertIn("author-facing reply, not an audit report", writer)
+        self.assertIn("same underlying cause", writer)
+        self.assertIn("Avoid a candidate-selection debate", writer)
         self.assertEqual(self.github.mutations, [])
 
     async def test_approved_cached_draft_is_not_mistaken_for_a_tested_writing_stage(self):
@@ -635,6 +655,9 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
                 options["validate"](raw)
                 return raw
             if schema is DraftCheck:
+                self.assertIn("Do not require an inventory", _prompt)
+                self.assertIn("omission makes a claim misleading", _prompt)
+                self.assertIn("Main passing alone NEVER means a released fix", _prompt)
                 tools = options["tools"]
                 check_tools.append(tools)
                 self.assertEqual(tools.delivered, {})
@@ -656,6 +679,8 @@ class RehearsalTests(unittest.IsolatedAsyncioTestCase):
                 ).model_dump_json()
                 options["validate"](raw)
                 return raw
+            self.assertIn("author-facing reply, not an audit report", _prompt)
+            self.assertIn("two or three short paragraphs", _prompt)
             return "This reproduced historically and is fixed on main, awaiting release."
 
         self.sdk.run.side_effect = respond

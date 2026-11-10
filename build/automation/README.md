@@ -31,6 +31,22 @@ new investigation or gates; only a fresh eligible candidate reaches the writer/f
 The launcher fails rather than substituting issues if any selected case is unavailable or closed.
 Its ordinary invocation still selects the existing 15-issue pilot.
 
+For the next coverage-oriented cohort, use `.\run_overnight.ps1 -FreshRehearsal`. It selects four open issues in two
+chunks: #11958 as a previously investigated literal-inference policy lead, plus newly selected #11988
+(dataclass transforms), #11990 (generic dictionary inference), and #12001 (platform policy). All investigations
+start from fresh captures and `readiness-fresh-rehearsal-4-...` state; no earlier conclusions are supplied.
+The cases are coverage candidates, not expected by-design/duplicate/bug verdicts. Existing eligibility and
+reconstruction gates still decide which paths can execute, and unavailable cases stop the launcher without
+automatic replacement. `-FreshRehearsal` and `-FocusedRehearsal` are mutually exclusive.
+
+This mode retains `--overnight --dry-run --rehearse-closures` and records `launcher-coverage.json` after a
+completed run. It separately reports passed non-duplicate by-design closures, approved comparison gates,
+completed controls, verified controls, and observed relocated diagnostics in verified controls. A declared
+mapping alone does not count: an original error/warning and its control counterpart must match the declared
+file/locations and preserve exact message, rule and severity. Unobserved paths remain untested, even if other
+closures passed. These descriptive counts neither establish faithful historical reproduction nor authorize
+publication; raw evidence still needs review. The previous focused cohort and default 15-issue mode are unchanged.
+
 `--rehearse-closures` exercises the **real rich-mirror writer, factual reviewer and pre-publication gates** for
 by-design, duplicate and fixed candidates. It requires an explicit `--issues` list and a fresh `--state-dir`,
 implies noninteractive read-only publication, disables RCA and separate diagnostic experiments, and uses cached
@@ -85,6 +101,15 @@ never substitutes whitespace or repairs predicates. Valid nonbreaking spaces, ta
 text are preserved. Previously saved malformed evidence remains unchanged and requires a fresh investigation.
 
 Closing-comment factual checks receive the same frozen issue and investigation/comparison packet as the writer.
+Public comments are author-facing replies, normally two or three short paragraphs explaining the decision and
+its technical reason, not audit reports. They link the canonical issue and strongest supporting sources while
+keeping search history, candidate rankings and control inventories in local artifacts. Settings, execution
+provenance, unavailable comparisons and workarounds belong in the reply when they qualify an actual claim,
+affect the conclusion or offer a useful next step. Material uncertainty and release/approximation qualifications
+remain mandatory; brevity is not permission to hide them. The factual reviewer checks material completeness
+and accuracy without requiring an inventory of unrelated checks. This applies to semantic and fixed closures,
+including the single factual-correction turn; it does not truncate drafts or weaken evidence/publication gates.
+
 Semantic by-design/duplicate packets also include controller-owned execution facts, saved separately as
 `comment-execution-facts.json`. These distinguish completed original commands from skipped or incomplete controls,
 artifact versions and approximate historical selection, effective settings/defaults, blocked observations and

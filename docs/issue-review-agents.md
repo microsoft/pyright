@@ -305,7 +305,11 @@ uses a distinct derived directory without rewriting or resealing historical evid
 claims and integrity/freshness failures still block it. Mutation-dependent checks remain untested, and a passed
 rehearsal is never publication authorization.
 Writer and factual reviewer receive the same frozen issue/investigation packet, distinguishing reporter
-assertions from executed results. Semantic closures include a frozen controller execution-facts snapshot with
+assertions from executed results. Public closing comments answer the issue author, normally in two or three
+short paragraphs with the technical reason and strongest supporting links. The full audit stays local;
+factual review does not demand unrelated search/control/version inventories in the reply. Independent material
+concerns and qualifications affecting the conclusion or any execution/release claim remain necessary.
+Semantic closures include a frozen controller execution-facts snapshot with
 original/control phases, captured command results, exact selected artifacts, approximate historical selection,
 settings/defaults, blocked observations and gate disposition. Rejected comparisons retain their actual executions:
 completed-but-blocked is not unexecuted, and a reviewer-only limitation cannot be generalized to the controller.
