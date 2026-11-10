@@ -9,6 +9,14 @@ class MediaType(StrEnum):
     CHANNEL = 'channel'
 
 
+class OtherMediaType(StrEnum):
+    APP = 'app'
+
+
+class EqualString(str):
+    pass
+
+
 class CustomEquality(StrEnum):
     VALUE = 'value'
 
@@ -48,11 +56,14 @@ def handle(value: Literal['app', 'channel']) -> None:
 
 def plain_string(value: str) -> None:
     if value in (MediaType.APP, MediaType.CHANNEL):
-        assert_type(value, Literal['app', 'channel'])
-        handle(value)
+        assert_type(value, str)
+        handle(value)  # This should generate an error
         value.upper()
         value.name  # This should generate an error
         value.value  # This should generate an error
+        if isinstance(value, MediaType):
+            assert_type(value, MediaType)
+            value.name
 
 
 def literal_string(value: LiteralString) -> None:
@@ -63,12 +74,12 @@ def literal_string(value: LiteralString) -> None:
 
 def optional_string(value: str | None) -> None:
     if value in (MediaType.APP, MediaType.CHANNEL):
-        assert_type(value, Literal['app', 'channel'] | None)
+        assert_type(value, str | None)
 
 
 def mixed_input(value: str | MediaType | None) -> None:
     if value in (MediaType.APP, MediaType.CHANNEL):
-        assert_type(value, Literal['app', 'channel', MediaType.APP, MediaType.CHANNEL] | None)
+        assert_type(value, str | Literal[MediaType.APP, MediaType.CHANNEL] | None)
 
 
 def enum_input(value: MediaType) -> None:
@@ -96,3 +107,8 @@ def custom_constructor(value: str) -> None:
 def custom_metaclass(value: str) -> None:
     if value in (CustomMetaclass.VALUE,):
         assert_type(value, str)
+
+
+# Both values are valid str arguments and can enter the positive membership branch at runtime.
+plain_string(OtherMediaType.APP)
+plain_string(EqualString('app'))

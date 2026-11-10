@@ -1571,7 +1571,13 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
                 isClassInstance(elementSubtype)
             ) {
                 const stringLiteral = getStringLiteralForStrEnumMember(elementSubtype);
-                if (stringLiteral && evaluator.assignType(referenceSubtype, stringLiteral)) {
+                // A broad string type can admit the enum member or another equal string subtype,
+                // so convert to the primitive literal only when the enum member is excluded.
+                if (
+                    stringLiteral &&
+                    !evaluator.assignType(referenceSubtype, elementSubtype) &&
+                    evaluator.assignType(referenceSubtype, stringLiteral)
+                ) {
                     return stripTypeForm(addConditionToType(stringLiteral, referenceSubtype.props?.condition));
                 }
             }
