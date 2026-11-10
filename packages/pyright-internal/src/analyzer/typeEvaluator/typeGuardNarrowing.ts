@@ -1568,16 +1568,14 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
             if (
                 isClassInstance(referenceSubtype) &&
                 ClassType.isBuiltIn(referenceSubtype, ['str', 'LiteralString']) &&
+                // A plain str type includes subclasses such as StrEnum; only an exact str can become a primitive literal.
+                (!referenceSubtype.priv.includeSubclasses || isLiteralType(referenceSubtype)) &&
                 isClassInstance(elementSubtype)
             ) {
                 const stringLiteral = getStringLiteralForStrEnumMember(elementSubtype);
                 // A broad string type can admit the enum member or another equal string subtype,
-                // so convert to the primitive literal only when the enum member is excluded.
-                if (
-                    stringLiteral &&
-                    !evaluator.assignType(referenceSubtype, elementSubtype) &&
-                    evaluator.assignType(referenceSubtype, stringLiteral)
-                ) {
+                // so convert to the primitive literal only when the reference is an exact str.
+                if (stringLiteral && evaluator.assignType(referenceSubtype, stringLiteral)) {
                     return stripTypeForm(addConditionToType(stringLiteral, referenceSubtype.props?.condition));
                 }
             }
@@ -1973,7 +1971,12 @@ export function narrowTypeForTypeIs(
                     if (isPositiveTest) {
                         if (matches) {
                             if (ClassType.isSameGenericClass(instantiableSubtype, classType)) {
-                                return addConditionToType(subtype, getTypeCondition(classType));
+                                // Keep exact-str information for a later string-literal membership check.
+                                const narrowedSubtype =
+                                    isIsOperator && ClassType.isBuiltIn(classType, 'str')
+                                        ? ClassType.cloneIncludeSubclasses(subtype, /* includeSubclasses */ false)
+                                        : subtype;
+                                return addConditionToType(narrowedSubtype, getTypeCondition(classType));
                             }
 
                             let narrowedClass = classType;
@@ -2033,7 +2036,10 @@ export function narrowTypeForTypeIs(
                             }
 
                             return addConditionToType(
-                                ClassType.cloneAsInstance(narrowedClass),
+                                ClassType.cloneAsInstance(
+                                    narrowedClass,
+                                    /* includeSubclasses */ !isIsOperator || !ClassType.isBuiltIn(classType, 'str')
+                                ),
                                 subtype.props?.condition
                             );
                         }

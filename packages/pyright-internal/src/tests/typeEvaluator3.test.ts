@@ -1190,5 +1190,5 @@ test('EnumNarrowing1', () => {
 test('EnumNarrowing2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumNarrowing2.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 5);
 });

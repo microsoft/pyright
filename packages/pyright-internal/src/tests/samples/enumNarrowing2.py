@@ -1,7 +1,7 @@
 # This sample tests string-literal narrowing for membership in StrEnum members.
 
 from enum import EnumType, StrEnum
-from typing import Literal, LiteralString, assert_type
+from typing import Literal, LiteralString, TypeVar, assert_type
 
 
 class MediaType(StrEnum):
@@ -56,6 +56,7 @@ def handle(value: Literal['app', 'channel']) -> None:
 
 def plain_string(value: str) -> None:
     if value in (MediaType.APP, MediaType.CHANNEL):
+        # A plain str can also be a StrEnum member or another str subclass.
         assert_type(value, str)
         handle(value)  # This should generate an error
         value.upper()
@@ -68,8 +69,12 @@ def plain_string(value: str) -> None:
 
 def literal_string(value: LiteralString) -> None:
     if value in (MediaType.APP, MediaType.CHANNEL):
-        assert_type(value, Literal['app', 'channel'])
+        assert_type(value, LiteralString)
         value.name  # This should generate an error
+
+    if type(value) is str and value in (MediaType.APP, MediaType.CHANNEL):
+        assert_type(value, Literal['app', 'channel'])
+        handle(value)
 
 
 def optional_string(value: str | None) -> None:
@@ -80,6 +85,33 @@ def optional_string(value: str | None) -> None:
 def mixed_input(value: str | MediaType | None) -> None:
     if value in (MediaType.APP, MediaType.CHANNEL):
         assert_type(value, str | Literal[MediaType.APP, MediaType.CHANNEL] | None)
+
+
+def exact_string_first(value: str) -> None:
+    if type(value) is str and value in (MediaType.APP, MediaType.CHANNEL):
+        assert_type(value, Literal['app', 'channel'])
+        handle(value)
+
+
+def exact_string_second(value: str) -> None:
+    if value in (MediaType.APP, MediaType.CHANNEL) and type(value) is str:
+        assert_type(value, str)
+
+
+def exact_string_literal(value: Literal['app']) -> None:
+    if type(value) is str:
+        assert_type(value, Literal['app'])
+    if type(value) is str and value in (MediaType.APP, MediaType.CHANNEL):
+        assert_type(value, Literal['app'])
+
+
+_StrT = TypeVar('_StrT', bound=str)
+
+
+def exact_string_typevar(value: _StrT) -> _StrT:
+    if type(value) is str:
+        return value
+    return value
 
 
 def enum_input(value: MediaType) -> None:
