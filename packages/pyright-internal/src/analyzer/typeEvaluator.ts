@@ -540,6 +540,7 @@ export function createTypeEvaluator(
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: SuppressedNodeStackEntry[] = [];
     const assignClassToSelfStack: AssignClassToSelfInfo[] = [];
+    const activeDescriptorAccesses: { classType: ClassType; methodName: string }[] = [];
 
     let functionRecursionMap = new Map<number, FunctionRecursionInfo[]>();
     let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
@@ -4813,7 +4814,8 @@ export function createTypeEvaluator(
                         errorNode,
                         memberName,
                         usage,
-                        diag
+                        diag,
+                        recursionCount
                     );
 
                     if (descResult.isAsymmetricAccessor) {
@@ -4975,7 +4977,8 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         memberName: string,
         usage: EvaluatorUsage,
-        diag: DiagnosticAddendum | undefined
+        diag: DiagnosticAddendum | undefined,
+        recursionCount: number
     ): MemberAccessTypeResult {
         const isAccessedThroughObject = TypeBase.isInstance(classType);
 
@@ -4988,16 +4991,46 @@ export function createTypeEvaluator(
             accessMethodName = '__delete__';
         }
 
+        // Stop recursive accessor lookups while allowing finite chains of distinct descriptors.
+        let sameGenericClassCount = 0;
+        for (const entry of activeDescriptorAccesses) {
+            if (
+                entry.methodName === accessMethodName &&
+                ClassType.isSameGenericClass(entry.classType, concreteMemberType)
+            ) {
+                if (
+                    TypeBase.isInstance(entry.classType) === TypeBase.isInstance(concreteMemberType) &&
+                    isTypeSame(entry.classType, concreteMemberType)
+                ) {
+                    return { type: UnknownType.create() };
+                }
+                sameGenericClassCount++;
+            }
+        }
+
+        // Bound cycles whose generic arguments grow on each recursive access.
+        if (sameGenericClassCount > maxTypeRecursionCount || recursionCount > maxTypeRecursionCount) {
+            return { type: UnknownType.create() };
+        }
+
         const subDiag = diag ? new DiagnosticAddendum() : undefined;
 
-        const methodTypeResult = getTypeOfBoundMember(
-            errorNode,
-            concreteMemberType,
-            accessMethodName,
-            /* usage */ undefined,
-            subDiag,
-            MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
-        );
+        let methodTypeResult: TypeResult | undefined;
+        activeDescriptorAccesses.push({ classType: concreteMemberType, methodName: accessMethodName });
+        try {
+            methodTypeResult = getTypeOfBoundMember(
+                errorNode,
+                concreteMemberType,
+                accessMethodName,
+                /* usage */ undefined,
+                subDiag,
+                MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride,
+                /* selfType */ undefined,
+                recursionCount + (sameGenericClassCount > 0 ? 1 : 0)
+            );
+        } finally {
+            activeDescriptorAccesses.pop();
+        }
 
         const deferredMethodType =
             usage.method === 'get'
