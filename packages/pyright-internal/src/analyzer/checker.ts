@@ -6112,6 +6112,19 @@ export class Checker extends ParseTreeWalker {
                 const childClassSelf = ClassType.cloneAsInstance(
                     selfSpecializeClass(childClassType, { useBoundTypeVars: true })
                 );
+
+                let baseClassSelf = ClassType.isProtocolClass(overriddenClassAndSymbol.classType)
+                    ? childClassSelf
+                    : ClassType.cloneAsInstance(
+                          selfSpecializeClass(overriddenClassAndSymbol.classType, { useBoundTypeVars: true })
+                      );
+
+                if (childClassType.shared.typeVarScopeId) {
+                    overriddenType = makeTypeVarsBound(overriddenType, [childClassType.shared.typeVarScopeId]);
+                    overrideType = makeTypeVarsBound(overrideType, [childClassType.shared.typeVarScopeId]);
+                    baseClassSelf = makeTypeVarsBound(baseClassSelf, [childClassType.shared.typeVarScopeId]);
+                }
+
                 const { baseType: overriddenTypeForComparison, overrideType: overrideTypeForComparison } =
                     this._getCallableVariableOverrideComparison(
                         overriddenClassAndSymbol.symbol,
@@ -6128,7 +6141,9 @@ export class Checker extends ParseTreeWalker {
                         overrideTypeForComparison,
                         /* baseClass */ undefined,
                         diagAddendum,
-                        /* enforceParamNameMatch */ true
+                        /* enforceParamNameMatch */ true,
+                        baseClassSelf,
+                        childClassSelf
                     )
                 ) {
                     if (overrideDecl && overrideDecl.type === DeclarationType.Function) {
@@ -6955,7 +6970,7 @@ export class Checker extends ParseTreeWalker {
         // The "Self" value for the base class depends on whether it's a
         // protocol or not. It's not clear from the typing spec whether
         // this is the correct behavior.
-        const baseClassSelf = ClassType.isProtocolClass(baseClass)
+        let baseClassSelf = ClassType.isProtocolClass(baseClass)
             ? childClassSelf
             : ClassType.cloneAsInstance(selfSpecializeClass(baseClass, { useBoundTypeVars: true }));
 
@@ -6976,6 +6991,7 @@ export class Checker extends ParseTreeWalker {
         if (childClassType.shared.typeVarScopeId) {
             overrideType = makeTypeVarsBound(overrideType, [childClassType.shared.typeVarScopeId]);
             baseType = makeTypeVarsBound(baseType, [childClassType.shared.typeVarScopeId]);
+            baseClassSelf = makeTypeVarsBound(baseClassSelf, [childClassType.shared.typeVarScopeId]);
         }
 
         // Determine whether this is an attempt to override a method marked @final.
@@ -7042,7 +7058,9 @@ export class Checker extends ParseTreeWalker {
                         overrideTypeForComparison,
                         childClassType,
                         diagAddendum,
-                        enforceParamNameMatch
+                        enforceParamNameMatch,
+                        baseClassSelf,
+                        childClassSelf
                     )
                 ) {
                     return;
