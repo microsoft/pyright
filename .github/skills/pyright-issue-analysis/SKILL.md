@@ -160,7 +160,27 @@ existing `build/perfCompare.py` workflow documented in `CONTRIBUTING.md` with a 
 baseline/fixed revisions; report measurements and methodology. If measurement is unavailable, state that
 performance was reviewed but not measured and explain the remaining risk.
 
-## 10. Handoff
+## 10. Fixer self-review
+
+In fixer mode, after implementation and regression coverage, review the full patch against the original checkout before
+handoff. This is a focused self-review, not a request to run the coordinated five-agent PR review:
+
+1. Inventory the changed semantic decisions and their callers or consumers. Verify that each new predicate supports
+   the conclusion drawn from it, that the change belongs in the layer owning the behavior, and that existing helpers
+   or a simpler localized alternative were considered.
+2. Exercise the motivating case, a nearby invalid case that must remain an error, and an unaffected neighboring
+   control. Assert exact revealed types and diagnostic rules/locations when relevant, not just aggregate error counts.
+3. When feasible, run the same focused probes on the pre-change baseline and fixed checkout using isolated builds or
+   scratch inputs. Record revisions, commands, configuration, and observed results. If comparison is unavailable,
+   explain the limitation without implying it was done.
+4. When a probe exposes a behavior change, exercise other reachable forms of the same pattern and validate consumers
+   of affected types. For recursion or termination fixes, check finite deep inputs and growing types where applicable;
+   do not treat returning `Unknown` as proof that the fix is complete.
+5. Reassess minimal performance impact, architectural fit, preserved type information, and demonstrated user benefit
+   using the four gates in `docs/pr-review-agents.md`. Use a bounded cost argument where sufficient; measure material
+   risks with the documented performance workflow. State residual uncertainty and unrun checks.
+
+## 11. Handoff
 
 Use the calling agent's final-response format. Include the classification, evidence and limitations, and either
 a maintainer response draft or a focused patch/PR description.

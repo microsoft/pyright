@@ -163,6 +163,16 @@ export class SpeculativeTypeTracker {
     private _speculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
     private _activeDependentTypes: DependentType[] = [];
 
+    useSpeculativeTypeCacheIsolation<T>(callback: () => T): T {
+        const prevCache = this._speculativeTypeCache;
+        this._speculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
+        try {
+            return callback();
+        } finally {
+            this._speculativeTypeCache = prevCache;
+        }
+    }
+
     evictCacheEntries(nodeIds: ReadonlySet<number>) {
         assert(this._speculativeContextStack.length === 0);
         nodeIds.forEach((id) => this._speculativeTypeCache.delete(id));
