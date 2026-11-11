@@ -1373,7 +1373,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         );
     }
 
-    // A class object's __eq__ comes from its metaclass.
     function lookUpEqOperatorOverload(type: Type): ClassMember | undefined {
         let classType: ClassType | undefined;
         if (isInstantiableClass(type)) {
@@ -1387,19 +1386,39 @@ export function createEvaluatorCore(contextDependencies: Context) {
             return undefined;
         }
 
-        const eqMethod = lookUpClassMember(classType, '__eq__', MemberAccessFlags.SkipObjectBaseClass);
+        const eqMethod = lookUpClassMember(
+            classType,
+            '__eq__',
+            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
+        );
+
+        if (!eqMethod) {
+            return undefined;
+        }
 
         // If this is a synthesized method for a dataclass, we can assume
         // that other dataclass types will not be comparable.
-        if (eqMethod && ClassType.isDataClass(classType) && eqMethod.symbol.getSynthesizedType()) {
+        if (ClassType.isDataClass(classType) && eqMethod.symbol.getSynthesizedType()) {
+            return undefined;
+        }
+
+        // An instance variable declared in the class body without a value
+        // doesn't set a class attribute, so the comparison never calls it.
+        const decls = eqMethod.symbol.getDeclarations();
+        if (
+            !eqMethod.isClassVar &&
+            decls.length > 0 &&
+            decls.every(
+                (decl) =>
+                    decl.type === DeclarationType.Variable && (decl.isDefinedByMemberAccess || !decl.inferredTypeSource)
+            )
+        ) {
             return undefined;
         }
 
         return eqMethod;
     }
 
-    // The right operand's __eq__ runs only as the reflected fallback of ==,
-    // and built-in __eq__ methods return NotImplemented for other types.
     function hasEqOperatorOverload(leftType: Type, rightType: Type, assumeIsOperator: boolean) {
         if (lookUpEqOperatorOverload(leftType)) {
             return true;

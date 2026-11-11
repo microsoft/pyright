@@ -3,7 +3,7 @@
 
 
 from enum import Enum
-from typing import Any, Callable, Coroutine, Hashable, Protocol
+from typing import Any, Callable, ClassVar, Coroutine, Hashable, Protocol
 from dataclasses import dataclass
 
 
@@ -196,4 +196,48 @@ def func16(a: A, d: ClassWithEq, e: DC1):
 def func17(a: A, d: ClassWithEq):
     # This should generate an error if reportUnnecessaryComparison is enabled.
     if a is d:
+        pass
+
+
+class ClassWithInstanceEq:
+    def __init__(self) -> None:
+        self.__eq__ = lambda other: True
+
+
+def func18(a: A, f: ClassWithInstanceEq):
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if a == f:
+        pass
+
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if f == a:
+        pass
+
+
+class ClassWithDeclaredInstanceEq:
+    __eq__: Callable[[object, object], bool]
+
+    def __init__(self) -> None:
+        self.__eq__ = lambda a, b: True
+
+
+def func19(a: A, f: ClassWithDeclaredInstanceEq):
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if a == f:
+        pass
+
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if f == a:
+        pass
+
+
+class ClassWithDeclaredClassEq:
+    __eq__: ClassVar[Callable[[object, object], bool]]
+
+
+def func20(a: A, f: ClassWithDeclaredClassEq):
+    if a == f:
+        pass
+
+    if f == a:
         pass

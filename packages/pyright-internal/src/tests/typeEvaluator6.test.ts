@@ -987,7 +987,7 @@ test('Comparison2', () => {
 
     configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['comparison2.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 20);
+    TestUtils.validateResults(analysisResults2, 24);
 });
 
 test('EmptyContainers1', () => {
