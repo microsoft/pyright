@@ -187,7 +187,7 @@ function collectSymbolIndexDataForName(
         // Replace that with the range of the alias token.
         if (declaration.node.nodeType === ParseNodeType.ImportAs && declaration.node.d.alias) {
             selectionRange = range = convertTextRangeToRange(
-                declaration.node.d.alias.d.token,
+                declaration.node.d.alias.d,
                 parseResults.parserOutput.lines
             );
         }

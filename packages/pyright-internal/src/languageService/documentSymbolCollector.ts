@@ -443,7 +443,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     }
 
     private _resultRange(node: NameNode | StringNode): TextRange {
-        return node.nodeType === ParseNodeType.Name ? node.d.token : getStringNodeValueRange(node);
+        return node.nodeType === ParseNodeType.Name ? node.d : getStringNodeValueRange(node);
     }
 
     // Delta collection: true when `range` is in the caller's read-only previous result, i.e. it was reported
