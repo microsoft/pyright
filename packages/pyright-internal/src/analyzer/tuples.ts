@@ -649,25 +649,151 @@ export function getSlicedTupleType(
     tupleType: ClassType,
     sliceNode: SliceNode
 ): Type | undefined {
-    if (!tupleType.priv.tupleTypeArgs) {
-        return undefined;
-    }
-
-    // We don't handle step values other than an explicit None.
-    if (sliceNode.d.stepValue && !isNoneInstance(evaluator.getTypeOfExpression(sliceNode.d.stepValue).type)) {
-        return undefined;
-    }
-
     const tupleTypeArgs = tupleType.priv.tupleTypeArgs;
-    const startValue = getTupleSliceParam(evaluator, sliceNode.d.startValue, 0, tupleTypeArgs);
-    const endValue = getTupleSliceParam(evaluator, sliceNode.d.endValue, tupleTypeArgs.length, tupleTypeArgs);
-
-    if (startValue === undefined || endValue === undefined) {
+    if (!tupleTypeArgs) {
         return undefined;
     }
 
-    const slicedTypeArgs = startValue < endValue ? tupleTypeArgs.slice(startValue, endValue) : [];
-    return ClassType.cloneAsInstance(specializeTupleClass(tupleType, slicedTypeArgs));
+    const startValues = getTupleSliceParam(evaluator, sliceNode.d.startValue);
+    const endValues = getTupleSliceParam(evaluator, sliceNode.d.endValue);
+    const stepValues = getTupleSliceParam(evaluator, sliceNode.d.stepValue);
+
+    if (
+        !startValues ||
+        !endValues ||
+        !stepValues ||
+        startValues.length * endValues.length * stepValues.length > maxSubtypesForInferredType
+    ) {
+        return undefined;
+    }
+
+    const isVariadicTupleTypeArg = (typeArg: TupleTypeArg) =>
+        typeArg.isUnbounded || isTypeVarTuple(typeArg.type) || isUnpackedTypeVar(typeArg.type);
+
+    // Returns the indices a slice selects from the expanded entries, as
+    // computed by slice.indices.
+    function getSliceIndices(start: number | null, end: number | null, step: number | null): number[] {
+        const length = expandedTypeArgs.length;
+        const stepSize = step ?? 1;
+        const lower = stepSize < 0 ? -1 : 0;
+        const upper = stepSize < 0 ? length - 1 : length;
+
+        const getBound = (value: number | null, defaultValue: number) => {
+            if (value === null) {
+                return defaultValue;
+            }
+
+            return value < 0 ? Math.max(value + length, lower) : Math.min(value, upper);
+        };
+
+        const startIndex = getBound(start, stepSize < 0 ? upper : lower);
+        const endIndex = getBound(end, stepSize < 0 ? lower : upper);
+
+        const sliceIndices: number[] = [];
+        for (let index = startIndex; stepSize > 0 ? index < endIndex : index > endIndex; index += stepSize) {
+            sliceIndices.push(index);
+        }
+
+        return sliceIndices;
+    }
+
+    // A slice bound of a tuple with a variadic entry is known only if it
+    // lies on the side of the variadic entry it is counted from.
+    const getVariadicSliceIndex = (value: number | null, defaultValue: number) => {
+        if (value === null) {
+            return defaultValue;
+        }
+
+        if (value < 0) {
+            const index = value + expandedTypeArgs.length;
+            return index <= variadicIndex ? undefined : index;
+        }
+
+        return value > variadicIndex ? undefined : value;
+    };
+
+    // An unpacked TypeVar whose bound is a fixed-length tuple stands for
+    // the entries of its bound.
+    const expandedTypeArgs: TupleTypeArg[] = [];
+    const expandedTypeArgOrigins: number[] = [];
+    tupleTypeArgs.forEach((typeArg, index) => {
+        let entries = expandUnpackedTypeVarsInTupleArgs([typeArg]);
+        if (entries.some((entry) => isVariadicTupleTypeArg(entry))) {
+            entries = [typeArg];
+        }
+
+        entries.forEach((entry) => {
+            expandedTypeArgs.push(entry);
+            expandedTypeArgOrigins.push(index);
+        });
+    });
+
+    const variadicIndex = expandedTypeArgs.findIndex((typeArg) => isVariadicTupleTypeArg(typeArg));
+
+    const getSlicedTypeArgs = (start: number | null, end: number | null, step: number | null) => {
+        if (step === 0) {
+            return undefined;
+        }
+
+        let indices: number[];
+
+        if (variadicIndex < 0) {
+            indices = getSliceIndices(start, end, step);
+        } else {
+            if (step !== null && step !== 1) {
+                return undefined;
+            }
+
+            const startIndex = getVariadicSliceIndex(start, 0);
+            const endIndex = getVariadicSliceIndex(end, expandedTypeArgs.length);
+
+            if (startIndex === undefined || endIndex === undefined) {
+                return undefined;
+            }
+
+            indices = getSliceIndices(startIndex, endIndex, /* step */ null);
+        }
+
+        // Keep an unpacked TypeVar when the slice keeps all of its entries in order.
+        const slicedTypeArgs: TupleTypeArg[] = [];
+        indices.forEach((index) => {
+            const origin = expandedTypeArgOrigins[index];
+            const originTypeArg = tupleTypeArgs[origin];
+
+            if (originTypeArg !== expandedTypeArgs[index] && (step === null || step === 1)) {
+                const firstIndex = expandedTypeArgOrigins.indexOf(origin);
+                const lastIndex = expandedTypeArgOrigins.lastIndexOf(origin);
+
+                if (indices[0] <= firstIndex && lastIndex <= indices[indices.length - 1]) {
+                    if (index === firstIndex) {
+                        slicedTypeArgs.push(originTypeArg);
+                    }
+                    return;
+                }
+            }
+
+            slicedTypeArgs.push(expandedTypeArgs[index]);
+        });
+
+        return slicedTypeArgs;
+    };
+
+    const slicedTypes: Type[] = [];
+
+    for (const start of startValues) {
+        for (const end of endValues) {
+            for (const step of stepValues) {
+                const slicedTypeArgs = getSlicedTypeArgs(start, end, step);
+                if (!slicedTypeArgs) {
+                    return undefined;
+                }
+
+                slicedTypes.push(ClassType.cloneAsInstance(specializeTupleClass(tupleType, slicedTypeArgs)));
+            }
+        }
+    }
+
+    return combineTypes(slicedTypes);
 }
 
 // If the type is a fixed-length tuple instance and one or more of the element types
@@ -712,46 +838,32 @@ export function expandTuple(tupleType: ClassType, maxExpansion: number): Type[] 
     return typesToCombine.length === 1 ? undefined : typesToCombine;
 }
 
+// Returns the possible values of a slice argument, with null for an
+// omitted or None argument, or undefined if any value isn't known.
 function getTupleSliceParam(
     evaluator: TypeEvaluator,
-    expression: ExpressionNode | undefined,
-    defaultValue: number,
-    tupleTypeArgs: TupleTypeArg[]
-): number | undefined {
-    let value = defaultValue;
-
-    if (expression) {
-        const valType = evaluator.getTypeOfExpression(expression).type;
-        if (!isClassInstance(valType) || !isLiteralType(valType)) {
-            return undefined;
-        }
-
-        if (ClassType.isBuiltIn(valType, 'int') && typeof valType.priv.literalValue === 'number') {
-            value = valType.priv.literalValue;
-        } else if (ClassType.isBuiltIn(valType, 'bool') && typeof valType.priv.literalValue === 'boolean') {
-            value = valType.priv.literalValue ? 1 : 0;
-        } else {
-            return undefined;
-        }
-        const unboundedIndex = tupleTypeArgs.findIndex(
-            (typeArg) => typeArg.isUnbounded || isTypeVarTuple(typeArg.type) || isUnpackedTypeVar(typeArg.type)
-        );
-
-        if (value < 0) {
-            value = tupleTypeArgs.length + value;
-            if (unboundedIndex >= 0 && value <= unboundedIndex) {
-                return undefined;
-            } else if (value < 0) {
-                return 0;
-            }
-        } else {
-            if (unboundedIndex >= 0 && value > unboundedIndex) {
-                return undefined;
-            } else if (value > tupleTypeArgs.length) {
-                return tupleTypeArgs.length;
-            }
-        }
+    expression: ExpressionNode | undefined
+): (number | null)[] | undefined {
+    if (!expression) {
+        return [null];
     }
 
-    return value;
+    const values: (number | null)[] = [];
+    let isKnown = true;
+
+    doForEachSubtype(evaluator.getTypeOfExpression(expression).type, (subtype) => {
+        if (isNoneInstance(subtype)) {
+            values.push(null);
+        } else if (!isClassInstance(subtype) || !isLiteralType(subtype)) {
+            isKnown = false;
+        } else if (ClassType.isBuiltIn(subtype, 'int') && typeof subtype.priv.literalValue === 'number') {
+            values.push(subtype.priv.literalValue);
+        } else if (ClassType.isBuiltIn(subtype, 'bool') && typeof subtype.priv.literalValue === 'boolean') {
+            values.push(subtype.priv.literalValue ? 1 : 0);
+        } else {
+            isKnown = false;
+        }
+    });
+
+    return isKnown && values.length > 0 ? values : undefined;
 }

@@ -83,6 +83,11 @@ def func7(t: tuple[bytes, *U], u: tuple[int, *V, int]):
     reveal_type(t[1:], expected_text="tuple[*U@func7]")
     reveal_type(u[1:], expected_text="tuple[*V@func7, int]")
     reveal_type(u[2:], expected_text="tuple[int | object, ...]")
+    reveal_type(t[2:], expected_text="tuple[str]")
+    reveal_type(t[:2], expected_text="tuple[bytes, int]")
+    reveal_type(t[:-1], expected_text="tuple[bytes, int]")
+    reveal_type(t[::-1], expected_text="tuple[str, int, bytes]")
+    reveal_type(t[::2], expected_text="tuple[bytes, str]")
 
 
 def func8(t: tuple[bytes, *U], u: tuple[int, *V, int]):
