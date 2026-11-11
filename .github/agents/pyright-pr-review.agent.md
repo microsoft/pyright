@@ -157,6 +157,9 @@ When the user explicitly asks to implement a fix:
    type precision under the test policy; do not weaken expectations or suppress diagnostics simply to pass. Show that a
    new regression case fails before the repair and passes afterward when feasible, and check neighboring behavior.
    Report any missing before/after evidence explicitly. Run build/type checks covering modified TypeScript.
+   For repairs to shared inference or narrowing logic, complete the
+   [bounded repair-completion checkpoint](../skills/pyright-pr-typespec-review/references/probe-design.md#repair-completion-checkpoint).
+   Carry forward the original PR's changed decisions and uncovered input combinations, not just the reported findings.
 5. Reassess all four goals against the local patch, carrying forward evidence only where the repair leaves it valid.
    Revisit performance evidence if the executed path or its cost changed. Reuse an existing specialist only for a bounded
    unresolved question in its scope; do not automatically launch another panel for a small tweak.

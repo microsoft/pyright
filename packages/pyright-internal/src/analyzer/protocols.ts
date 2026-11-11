@@ -33,8 +33,10 @@ import {
     isFunctionOrOverloaded,
     isInstantiableClass,
     isOverloaded,
+    isParamSpec,
     isTypeSame,
     isTypeVar,
+    isTypeVarTuple,
     isUnion,
     ModuleType,
     OverloadedType,
@@ -47,16 +49,17 @@ import {
 import {
     addSolutionForSelfType,
     applySolvedTypeVars,
+    buildSolutionFromSpecializedClass,
     ClassMember,
     containsLiteralType,
     derivesFromClassRecursive,
     doForEachSubtype,
     lookUpClassMember,
     makeFunctionTypeVarsBound,
+    makeTypeVarsFree,
     MemberAccessFlags,
     partiallySpecializeType,
     requiresSpecialization,
-    requiresTypeArgs,
     selfSpecializeClass,
     synthesizeTypeVarForSelfCls,
 } from './typeUtils';
@@ -102,6 +105,32 @@ const protocolAssignmentStack: ProtocolAssignmentStackEntry[] = [];
 // Maximum number of different types that are cached with a protocol.
 const maxProtocolCompatibilityCacheEntries = 64;
 
+// A pending check that a generic class is compatible with a protocol for
+// every specialization of the class. While it's pending, nested checks of
+// the same class and protocol are assumed to be compatible if their type
+// arguments are a specialization of the pending check.
+interface AlwaysCompatibleCheck {
+    srcType: ClassType;
+    destType: ClassType;
+
+    // The protocol specialization being checked, or undefined while the
+    // protocol's type arguments are being solved.
+    specializedDestType: ClassType | undefined;
+    flags: AssignTypeFlags;
+
+    // Set if assignType reaches its recursion limit during the check, which
+    // makes a successful result inconclusive.
+    isRecursionLimitReached: boolean;
+}
+
+const universalCompatibilityStack: AlwaysCompatibleCheck[] = [];
+
+export function noteAssignTypeRecursionLimit() {
+    universalCompatibilityStack.forEach((entry) => {
+        entry.isRecursionLimitReached = true;
+    });
+}
+
 export function assignClassToProtocol(
     evaluator: TypeEvaluator,
     destType: ClassType,
@@ -121,6 +150,12 @@ export function assignClassToProtocol(
         srcType = evaluator.stripLiteralValue(srcType) as ClassType;
     }
 
+    // Diagnostic information beyond the maximum depth isn't displayed, and
+    // collecting it means checking every member after one is incompatible.
+    if (diag && diag.getNestLevel() > defaultMaxDiagnosticDepth) {
+        diag = undefined;
+    }
+
     const enforceInvariance = (flags & AssignTypeFlags.Invariant) !== 0;
 
     // Use a stack of pending protocol class evaluations to detect recursion.
@@ -131,6 +166,90 @@ export function assignClassToProtocol(
         })
     ) {
         return !enforceInvariance;
+    }
+
+    const pendingCheck = universalCompatibilityStack.find(
+        (entry) =>
+            entry.flags === flags &&
+            TypeBase.isInstantiable(entry.srcType) === TypeBase.isInstantiable(srcType) &&
+            ClassType.isSameGenericClass(entry.srcType, srcType) &&
+            ClassType.isSameGenericClass(entry.destType, destType)
+    );
+    if (pendingCheck) {
+        if (!pendingCheck.specializedDestType) {
+            return true;
+        }
+
+        return (
+            !!destType.priv.typeArgs &&
+            evaluator.assignTypeArgs(
+                destType,
+                applySolvedTypeVars(
+                    pendingCheck.specializedDestType,
+                    buildSolutionFromSpecializedClass(srcType)
+                ) as ClassType,
+                diag,
+                constraints,
+                flags,
+                recursionCount
+            )
+        );
+    }
+
+    // If the same class and protocol are already pending with different type
+    // arguments, the type arguments can grow with each cycle, so first check
+    // compatibility for every specialization of the class.
+    if (
+        !enforceInvariance &&
+        universalCompatibilityStack.length === 0 &&
+        destType.priv.typeArgs &&
+        protocolAssignmentStack.some(
+            (entry) =>
+                ClassType.isSameGenericClass(entry.srcType, srcType) &&
+                ClassType.isSameGenericClass(entry.destType, destType)
+        )
+    ) {
+        const key = `${makeProtocolCompatibilityCacheClassKey(destType)}/${flags}/${TypeBase.isInstantiable(srcType)}`;
+        let cache = srcType.shared.universalProtocolCompatibility as Map<string, ClassType | undefined> | undefined;
+        if (cache === undefined) {
+            cache = new Map<string, ClassType | undefined>();
+            srcType.shared.universalProtocolCompatibility = cache;
+        }
+
+        let alwaysCompatibleType: ClassType | undefined;
+        if (cache.has(key)) {
+            alwaysCompatibleType = cache.get(key);
+        } else {
+            const result = checkAlwaysCompatible(evaluator, destType, srcType, flags, recursionCount);
+            if (!result.isRecursionLimitReached) {
+                alwaysCompatibleType = result.specializedDestType;
+                cache.set(key, alwaysCompatibleType);
+            }
+        }
+
+        // The specialization is one of possibly several that the class is
+        // compatible with, so don't let it choose the solution of a type
+        // variable in the dest's type arguments.
+        const solvedDestType = constraints
+            ? (evaluator.solveAndApplyConstraints(destType, constraints, /* applyOptions */ undefined, {
+                  useLowerBoundOnly: true,
+              }) as ClassType)
+            : destType;
+
+        if (
+            alwaysCompatibleType &&
+            !requiresSpecialization(solvedDestType) &&
+            evaluator.assignTypeArgs(
+                solvedDestType,
+                applySolvedTypeVars(alwaysCompatibleType, buildSolutionFromSpecializedClass(srcType)) as ClassType,
+                /* diag */ undefined,
+                /* constraints */ undefined,
+                flags,
+                recursionCount
+            )
+        ) {
+            return true;
+        }
     }
 
     // See if we've already determined that this class is compatible with this protocol.
@@ -182,8 +301,12 @@ export function assignClassToProtocol(
 
     protocolAssignmentStack.pop();
 
-    // Cache the results for next time.
-    if (!compat || (compat.isFastRejection && !checkState.isFastRejection)) {
+    // Cache the results for next time. A result within a pending check for
+    // every specialization can depend on an assumption that the check fails.
+    if (
+        universalCompatibilityStack.length === 0 &&
+        (!compat || (compat.isFastRejection && !checkState.isFastRejection))
+    ) {
         setProtocolCompatibility(
             evaluator,
             destType,
@@ -198,6 +321,111 @@ export function assignClassToProtocol(
     }
 
     return isCompatible;
+}
+
+// Returns a specialization of the protocol that every specialization of the
+// source class is compatible with, or undefined if the check fails.
+function checkAlwaysCompatible(
+    evaluator: TypeEvaluator,
+    destType: ClassType,
+    srcType: ClassType,
+    flags: AssignTypeFlags,
+    recursionCount: number
+): { specializedDestType: ClassType | undefined; isRecursionLimitReached: boolean } {
+    if (
+        srcType.priv.tupleTypeArgs ||
+        srcType.shared.typeParams.some((typeParam) => TypeVarType.hasConstraints(typeParam)) ||
+        destType.shared.typeParams.some((typeParam) => TypeVarType.hasConstraints(typeParam))
+    ) {
+        return { specializedDestType: undefined, isRecursionLimitReached: false };
+    }
+
+    // Treat the source class's type parameters as opaque so the result holds
+    // for any type argument.
+    const genericSrcType = selfSpecializeClass(srcType, { overrideTypeArgs: true, useBoundTypeVars: true });
+    const pendingCheck: AlwaysCompatibleCheck = {
+        srcType: genericSrcType,
+        destType,
+        specializedDestType: undefined,
+        flags,
+        isRecursionLimitReached: false,
+    };
+
+    universalCompatibilityStack.push(pendingCheck);
+
+    try {
+        // Solve the protocol's type parameters. A type parameter that's used
+        // only in nested checks of the same protocol stays unsolved, so use the
+        // source class's type parameter of the same kind at the same index.
+        const solveConstraints = new ConstraintTracker();
+        if (
+            !assignToProtocolInternal(
+                evaluator,
+                ClassType.specialize(destType, /* typeArgs */ undefined),
+                genericSrcType,
+                /* diag */ undefined,
+                solveConstraints,
+                flags,
+                recursionCount
+            )
+        ) {
+            universalCompatibilityStack.pop();
+            return { specializedDestType: undefined, isRecursionLimitReached: pendingCheck.isRecursionLimitReached };
+        }
+
+        const typeArgs: Type[] = [];
+        for (let i = 0; i < destType.shared.typeParams.length; i++) {
+            const typeParam = destType.shared.typeParams[i];
+            const srcTypeParam = i < srcType.shared.typeParams.length ? srcType.shared.typeParams[i] : undefined;
+            let typeArg: Type | undefined;
+
+            if (solveConstraints.getMainConstraintSet().getTypeVar(typeParam)) {
+                typeArg = evaluator.solveAndApplyConstraints(typeParam, solveConstraints);
+            } else if (
+                srcTypeParam &&
+                isTypeVarTuple(srcTypeParam) === isTypeVarTuple(typeParam) &&
+                isParamSpec(srcTypeParam) === isParamSpec(typeParam)
+            ) {
+                typeArg = genericSrcType.priv.typeArgs?.[i];
+            }
+
+            if (!typeArg) {
+                universalCompatibilityStack.pop();
+                return {
+                    specializedDestType: undefined,
+                    isRecursionLimitReached: pendingCheck.isRecursionLimitReached,
+                };
+            }
+            typeArgs.push(typeArg);
+        }
+
+        // Store the specialization with the source class's type parameters
+        // free so it can be specialized for each source type argument.
+        const specializedDestType = ClassType.specialize(destType, typeArgs);
+        const scopeId = srcType.shared.typeVarScopeId;
+        pendingCheck.specializedDestType = scopeId
+            ? makeTypeVarsFree(specializedDestType, [scopeId])
+            : specializedDestType;
+
+        const isCompatible = assignToProtocolInternal(
+            evaluator,
+            specializedDestType,
+            genericSrcType,
+            /* diag */ undefined,
+            /* constraints */ undefined,
+            flags,
+            recursionCount
+        );
+
+        universalCompatibilityStack.pop();
+        return {
+            specializedDestType: isCompatible ? pendingCheck.specializedDestType : undefined,
+            isRecursionLimitReached: pendingCheck.isRecursionLimitReached,
+        };
+    } catch (e) {
+        universalCompatibilityStack.pop();
+        throw e;
+    }
 }
 
 export function assignModuleToProtocol(
@@ -390,12 +618,10 @@ function setProtocolCompatibility(
                 ClassType.isSameGenericClass(entry.destType, destType)
         )
     ) {
-        const genericDestType = requiresTypeArgs(destType)
-            ? selfSpecializeClass(destType, { overrideTypeArgs: true })
-            : destType;
-        const genericSrcType = requiresTypeArgs(srcType)
-            ? selfSpecializeClass(srcType, { overrideTypeArgs: true })
-            : srcType;
+        // Type parameter defaults don't make a class nongeneric. Replace all
+        // specializations before testing for universal incompatibility.
+        const genericDestType = selfSpecializeClass(destType, { overrideTypeArgs: true });
+        const genericSrcType = selfSpecializeClass(srcType, { overrideTypeArgs: true });
         const checkState: ProtocolCompatibilityCheckState = {
             isOverloadedTypeBindingFailure: false,
             isFastRejection: false,
@@ -875,14 +1101,16 @@ function assignToProtocolInternal(
 
                 // Temporarily add the TypeVar scope ID for this method to handle method-scoped TypeVars.
                 const protocolConstraintsClone = protocolConstraints.clone();
+                const memberDiag = subDiag?.createAddendum();
+                const memberFlags = isInvariant ? assignTypeFlags | AssignTypeFlags.Invariant : assignTypeFlags;
 
                 if (
                     !evaluator.assignType(
                         destMemberType,
                         srcMemberType,
-                        subDiag?.createAddendum(),
+                        memberDiag,
                         protocolConstraintsClone,
-                        isInvariant ? assignTypeFlags | AssignTypeFlags.Invariant : assignTypeFlags,
+                        memberFlags,
                         recursionCount
                     )
                 ) {
@@ -891,6 +1119,36 @@ function assignToProtocolInternal(
                             subDiag.addMessage(LocAddendum.memberIsInvariant().format({ name }));
                         }
                         subDiag.addMessage(LocAddendum.memberTypeMismatch().format({ name }));
+
+                        const displayDestType = evaluator.solveAndApplyConstraints(
+                            destMemberType,
+                            protocolConstraintsClone
+                        );
+                        if (!isTypeSame(displayDestType, destMemberType) && !requiresSpecialization(displayDestType)) {
+                            const printedTypes = evaluator.printSrcDestTypes(srcMemberType, displayDestType);
+
+                            // Replace the details with a one-line summary if the source and
+                            // solved dest types print differently, unless the dest is a method
+                            // that still fails with its return type unchecked, which means its
+                            // parameters don't match.
+                            if (
+                                printedTypes.sourceType !== printedTypes.destType &&
+                                (!isFunctionOrOverloaded(destMemberType) ||
+                                    ((memberFlags & AssignTypeFlags.SkipReturnTypeCheck) === 0 &&
+                                        evaluator.assignType(
+                                            destMemberType,
+                                            srcMemberType,
+                                            /* diag */ undefined,
+                                            protocolConstraints.clone(),
+                                            memberFlags | AssignTypeFlags.SkipReturnTypeCheck,
+                                            recursionCount
+                                        )))
+                            ) {
+                                const children = subDiag.getChildren();
+                                children.splice(children.indexOf(memberDiag!), 1);
+                                subDiag.addMessage(LocAddendum.typeAssignmentMismatch().format(printedTypes));
+                            }
+                        }
                     }
                     typesAreConsistent = false;
                 } else {
@@ -1311,7 +1569,14 @@ function createProtocolConstraints(
     const protocolConstraints = new ConstraintTracker();
 
     destType.shared.typeParams.forEach((typeParam, index) => {
-        const entry = constraints?.getMainConstraintSet().getTypeVar(typeParam);
+        // The constraints can hold this type parameter for an enclosing
+        // instantiation of the same protocol, so use them only if the dest
+        // isn't specialized with a different type argument.
+        const destTypeArg = destType.priv.typeArgs?.[index];
+        const entry =
+            !destTypeArg || isTypeSame(destTypeArg, typeParam)
+                ? constraints?.getMainConstraintSet().getTypeVar(typeParam)
+                : undefined;
 
         if (entry) {
             protocolConstraints.copyBounds(entry);

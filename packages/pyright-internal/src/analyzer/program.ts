@@ -30,6 +30,7 @@ import { Range, TextRange, doRangesIntersect } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import { tryRealpath } from '../common/uri/uriUtils';
+import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults, ParserOutput } from '../parser/parser';
 import { RequiringAnalysisCount } from './analysis';
 import { AbsoluteModuleDescriptor, ImportLookupResult, LookupImportOptions } from './analyzerFileInfo';
@@ -39,6 +40,7 @@ import { CacheManager } from './cacheManager';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
+import { MissingBindingMetadataError } from './missingBindingMetadata';
 import { ExperimentalOverloadResultController, ExperimentalOverloadResultOptions } from './overloadResultController';
 import { getDocString } from './parseTreeUtils';
 import { ISourceFileFactory } from './programTypes';
@@ -861,6 +863,22 @@ export class Program {
         return this._runEvaluatorWithCancellationToken(token, () => callback(this));
     }
 
+    // Like run, but only for callbacks that are read-only and safe to replay. If the callback
+    // fails because a tracked file's binding metadata was never published, rebind that same
+    // current tree and run the callback once more. Never use this for callbacks that edit state.
+    runWithBindingRecovery<T>(callback: (p: ProgramView) => T, token: CancellationToken): T {
+        const attempt = () => this._runEvaluatorWithCancellationToken(token, () => callback(this));
+        try {
+            const result = attempt();
+            if (isThenable(result)) {
+                return result.then(undefined, (e) => this._recoverAndRetry(e, attempt)) as T;
+            }
+            return result;
+        } catch (e) {
+            return this._recoverAndRetry(e, attempt);
+        }
+    }
+
     // This will allow the callback to execute a type evaluator with an associated
     // cancellation token and provide a mutable program. Should already be in edit mode when called.
     runEditMode(callback: (v: EditableProgram) => void, token: CancellationToken): void;
@@ -1210,6 +1228,65 @@ export class Program {
 
     protected createNewEvaluatorInternal() {
         // Empty
+    }
+
+    // Only the outermost evaluator invocation may recover, after the failing evaluation has
+    // fully unwound. Exactly one retry is made; a second failure is reported as an error.
+    private _recoverAndRetry<T>(e: unknown, attempt: () => T): T {
+        if (!MissingBindingMetadataError.is(e) || this._disposed || this._evaluatorInvocationCount > 0) {
+            throw e;
+        }
+
+        if (!this._rebindCurrentTree(e.node)) {
+            throw new Error('Binding metadata could not be recovered.');
+        }
+
+        const failIfStillMissing = (e2: unknown): never => {
+            if (MissingBindingMetadataError.is(e2)) {
+                throw new Error('Binding metadata is still unavailable after recovery.');
+            }
+            throw e2;
+        };
+
+        try {
+            const result = attempt();
+            return isThenable(result) ? (result.then(undefined, failIfStillMissing) as T) : result;
+        } catch (e2) {
+            return failIfStillMissing(e2);
+        }
+    }
+
+    // Rebinds only when the node belongs to a tree this program currently owns and that tree
+    // really lacks published metadata. Stale or foreign trees are never given metadata.
+    private _rebindCurrentTree(node: ParseNode): boolean {
+        let root = node;
+        while (root.parent) {
+            root = root.parent;
+        }
+
+        if (root.nodeType !== ParseNodeType.Module) {
+            return false;
+        }
+
+        const sourceFileInfo = this._sourceFileList.find((f) => f.sourceFile.getParserOutput()?.parseTree === root);
+        if (!sourceFileInfo) {
+            return false;
+        }
+
+        const reader = this._analyzerNodeInfoContext;
+        if (AnalyzerNodeInfo.getFileInfoIfAvailable(root, reader)) {
+            return false;
+        }
+
+        sourceFileInfo.sourceFile.markReanalysisRequired(/* forceRebinding */ true, reader);
+        this._bindFile(sourceFileInfo, /* content */ undefined, /* skipFileNeededCheck */ true);
+        if (!AnalyzerNodeInfo.getFileInfoIfAvailable(root, reader)) {
+            sourceFileInfo.sourceFile.markReanalysisRequired(/* forceRebinding */ true, reader);
+            return false;
+        }
+
+        this._recreateEvaluatorWhenIdle();
+        return true;
     }
 
     private _addClonedOpenFile(originalFileInfo: SourceFileInfo) {
@@ -2338,7 +2415,10 @@ export class Program {
 
         const parseResults = sourceFileInfo.sourceFile.getParserOutput();
         const moduleNode = parseResults!.parseTree;
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(moduleNode, this._analyzerNodeInfoContext);
+        const fileInfo = AnalyzerNodeInfo.getFileInfoIfAvailable(moduleNode, this._analyzerNodeInfoContext);
+        if (!fileInfo) {
+            throw new MissingBindingMetadataError(moduleNode);
+        }
 
         const dunderAllInfo = AnalyzerNodeInfo.getDunderAllInfo(parseResults!.parseTree, this._analyzerNodeInfoContext);
 

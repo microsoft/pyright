@@ -905,6 +905,12 @@ test('RecursiveTypeAlias18', () => {
     );
 });
 
+test('RecursiveTypeAlias19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias19.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('UnknownRecursiveAliasBranches1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

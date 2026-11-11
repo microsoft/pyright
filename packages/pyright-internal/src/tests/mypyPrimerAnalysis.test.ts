@@ -328,6 +328,22 @@ describe('mypy_primer analysis', () => {
         expect(parseDiff(sample.replace(/\n/g, '\r\n'), 3)).toStrictEqual([{ ...expectedProject, shard: 3 }]);
     });
 
+    test('accepts diagnostics whose long paths consume the usual output indentation', () => {
+        const diagnostic =
+            '...tmp/mypy_primer/projects/scikit-learn/sklearn/feature_selection/tests/' +
+            'test_variance_threshold.py:36:32 - error: Cannot access attribute "shape" for class "list[Unknown]"';
+        const contents = [
+            'scikit-learn (https://github.com/scikit-learn/scikit-learn)',
+            `+ ${diagnostic}`,
+            '+ 1 error, 0 warnings, 0 informations',
+            '- 0 errors, 0 warnings, 0 informations',
+        ].join('\n');
+
+        expect(parseDiff(contents, 1)[0].added).toStrictEqual([
+            { severity: 'error', text: diagnostic, rule: 'unspecified' },
+        ]);
+    });
+
     test('preserves headerless details and groups only explicitly present rules', () => {
         const projects = parseDiff(detailOnlySample, 0);
         expect(projects).toStrictEqual([expectedDetailOnlyProject]);
@@ -435,7 +451,8 @@ describe('mypy_primer analysis', () => {
             sample.replace(/^-.*\n/gm, '') +
             '\n- 0 errors, 0 warnings, 0 informations\n+ 1 error, 0 warnings, 0 informations';
         expect(parseDiff(change, 0)[0].added).toHaveLength(1);
-        expect(() => parseDiff(change.replace('+ 1 error', '+ 2 errors'), 0)).toThrow('counts');
+        expect(parseDiff(change.replace('+ 1 error', '+ 2 errors'), 0)[0].added).toHaveLength(1);
+        expect(() => parseDiff(change.replace('+ 1 error', '+ 0 errors'), 0)).toThrow('counts');
         expect(() => parseDiff(change.replace('- 0 errors, 0 warnings, 0 informations\n', ''), 0)).toThrow(
             'Incomplete'
         );
