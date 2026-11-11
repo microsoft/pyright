@@ -1055,6 +1055,48 @@ test('SolverUnknown1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+for (const pythonVersion of [pythonVersion3_13, pythonVersion3_15]) {
+    test(`Sentinel6 (Python ${pythonVersion.major}.${pythonVersion.minor})`, () => {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel6.py'], configOptions);
+        TestUtils.validateResults(analysisResults, 5);
+        assert.deepStrictEqual(
+            analysisResults[0].errors
+                .slice()
+                .sort((left, right) => left.range.start.line - right.range.start.line)
+                .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+            [
+                [52, DiagnosticRule.reportInvalidTypeForm],
+                [53, DiagnosticRule.reportInvalidTypeForm],
+                [54, DiagnosticRule.reportInvalidTypeForm],
+                [55, DiagnosticRule.reportInvalidTypeForm],
+                [70, DiagnosticRule.reportArgumentType],
+            ]
+        );
+    });
+
+    test(`Sentinel7 (Python ${pythonVersion.major}.${pythonVersion.minor})`, () => {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel7.py'], configOptions);
+        TestUtils.validateResults(analysisResults, 25);
+        assert.deepStrictEqual(
+            analysisResults[0].errors
+                .slice()
+                .sort((left, right) => left.range.start.line - right.range.start.line)
+                .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+            [
+                ...[31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 48, 49, 54, 55].map((line) => [
+                    line,
+                    DiagnosticRule.reportArgumentType,
+                ]),
+                ...[56, 57, 58, 59, 60, 61, 66, 67, 68].map((line) => [line, DiagnosticRule.reportCallIssue]),
+            ]
+        );
+    });
+}
+
 test('Sentinel1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel1.py']);
     TestUtils.validateResults(analysisResults, 5);

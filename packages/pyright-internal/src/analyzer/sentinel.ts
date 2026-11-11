@@ -11,6 +11,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
 import { ArgCategory, ExpressionNode, ParseNodeType } from '../parser/parseNodes';
 import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
+import { validateConstructorArgs } from './constructors';
 import {
     getClassFullName,
     getEvaluationScopeNode,
@@ -18,40 +19,47 @@ import {
     getTypeSourceId,
     isWithinLoop,
 } from './parseTreeUtils';
-import { Arg, TypeEvaluator } from './typeEvaluatorTypes';
-import { ClassType, ClassTypeFlags, SentinelLiteral, Type, TypeBase } from './types';
-import { computeMroLinearization } from './typeUtils';
+import { Arg, CallResult, TypeEvaluator } from './typeEvaluatorTypes';
+import { ClassType, ClassTypeFlags, SentinelLiteral, TypeBase } from './types';
+import { InferenceContext, computeMroLinearization } from './typeUtils';
 
 export function createSentinelType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     argList: Arg[],
     sentinelBaseClass: ClassType,
-    nodeInfo: AnalyzerNodeInfoAccessor
-): Type | undefined {
+    nodeInfo: AnalyzerNodeInfoAccessor,
+    skipUnknownArgCheck: boolean | undefined,
+    inferenceContext: InferenceContext | undefined
+): CallResult {
     let className = '';
 
     if (argList.length !== 1) {
         evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.sentinelParamCount(), errorNode);
-        return undefined;
+        return {};
     }
 
     const nameArg = argList[0];
     if (
         nameArg.argCategory === ArgCategory.Simple &&
         nameArg.valueExpression &&
-        nameArg.valueExpression.nodeType === ParseNodeType.StringList
+        nameArg.valueExpression.nodeType === ParseNodeType.StringList &&
+        nameArg.valueExpression.d.strings.every((s) => s.nodeType === ParseNodeType.String)
     ) {
         className = nameArg.valueExpression.d.strings.map((s) => s.d.value).join('');
     }
 
     if (!className) {
-        evaluator.addDiagnostic(
-            DiagnosticRule.reportArgumentType,
-            LocMessage.sentinelBadName(),
-            argList[0].node ?? errorNode
+        // Runtime names do not declare singleton types. Use ordinary constructor
+        // validation so argument types and unpacking follow the class signature.
+        return validateConstructorArgs(
+            evaluator,
+            errorNode,
+            argList,
+            sentinelBaseClass,
+            skipUnknownArgCheck,
+            inferenceContext
         );
-        return undefined;
     }
 
     if (
@@ -64,7 +72,7 @@ export function createSentinelType(
             LocMessage.sentinelNameMismatch(),
             errorNode.parent.d.leftExpr
         );
-        return undefined;
+        return {};
     }
 
     const fileInfo = nodeInfo.getFileInfo(errorNode);
@@ -97,5 +105,5 @@ export function createSentinelType(
 
     instanceType = TypeBase.cloneWithTypeForm(instanceType, instanceType);
 
-    return instanceType;
+    return { returnType: instanceType };
 }
