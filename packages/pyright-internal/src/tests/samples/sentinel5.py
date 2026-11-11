@@ -1,12 +1,7 @@
 # This sample tests that repeated sentinel allocations are not treated as one singleton.
 
-import sys
 from typing import assert_never
-
-if sys.version_info >= (3, 15):
-    from builtins import sentinel
-else:
-    from typing_extensions import sentinel  # pyright: ignore[reportMissingModuleSource]
+from typing_extensions import sentinel
 
 
 Shared = sentinel("Shared")
