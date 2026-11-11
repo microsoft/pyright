@@ -16447,6 +16447,21 @@ export function createTypeEvaluator(
         return memberResolution.includesVariableTypeDecl(decls);
     }
 
+    function isNodeWithinInferredTypeSource(decl: Declaration, node: ParseNode): boolean {
+        if (decl.type !== DeclarationType.Variable || !decl.inferredTypeSource) {
+            return false;
+        }
+
+        let source = decl.inferredTypeSource;
+        if (source.nodeType === ParseNodeType.For || source.nodeType === ParseNodeType.ComprehensionFor) {
+            source = source.d.iterableExpr;
+        }
+
+        // An except clause source contains code that runs after the
+        // assignment, so check only expression sources.
+        return isExpressionNode(source) && ParseTreeUtils.isNodeContainedWithin(node, source);
+    }
+
     function inferTypeOfSymbolForUsage(symbol: Symbol, usageNode?: NameNode, useLastDecl = false): EffectiveTypeResult {
         // Look in the inferred type cache to see if we've computed this already.
         let cacheEntries = effectiveTypeCache.get(symbol.id);
@@ -16553,7 +16568,10 @@ export function createTypeEvaluator(
                     // to determine the type in this context.
                     const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode, nodeInfo);
                     const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node, nodeInfo);
-                    if (usageScope === declScope) {
+                    if (
+                        usageScope === declScope &&
+                        !(decl.type === DeclarationType.Variable && decl.isExplicitBinding)
+                    ) {
                         // Skip declarations that appear after the usage in the source.
                         // Such declarations are typically only reached via loop back-edges,
                         // and including them causes circular evaluation (producing Unknown).
@@ -16566,7 +16584,7 @@ export function createTypeEvaluator(
                         // Note: for the cases filtered out here (decl after usage in same
                         // scope), the code-flow engine handles loop-carried narrowing when
                         // it evaluates the type at the actual usage site.
-                        if (decl.node.start >= usageNode.start) {
+                        if (decl.node.start >= usageNode.start || isNodeWithinInferredTypeSource(decl, usageNode)) {
                             return;
                         }
                     }
