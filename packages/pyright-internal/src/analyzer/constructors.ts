@@ -256,8 +256,21 @@ function validateNewAndInitMethods(
     const overloadsUsedForCall: FunctionType[] = [];
     let newMethodReturnType: Type | undefined;
 
-    // Validate __new__ if it is present.
-    if (newMethodTypeResult) {
+    // Validate __new__ unless it is a synthesized placeholder for object.__new__.
+    // This placeholder accepts arbitrary arguments and always returns
+    // an instance of the constructed class, so validating its arguments only
+    // causes them to be evaluated speculatively before __init__ evaluates them
+    // again. ParamSpec specialization also synthesizes methods, but retains
+    // the original function scope and still requires validation.
+    if (
+        newMethodTypeResult &&
+        !(
+            isFunction(newMethodTypeResult.type) &&
+            FunctionType.isSynthesizedMethod(newMethodTypeResult.type) &&
+            !newMethodTypeResult.type.shared.typeVarScopeId &&
+            isDefaultNewMethod(newMethodTypeResult.type)
+        )
+    ) {
         // Use speculative mode for arg expressions because we don't know whether
         // we'll need to re-evaluate these expressions later for __init__.
         const newCallResult = validateNewMethod(

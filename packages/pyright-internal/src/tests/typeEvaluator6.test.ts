@@ -1031,6 +1031,15 @@ test('Constructor1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('ConstructorPerformance1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.diagnosticRuleSet.reportDeprecated = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorPerformance1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 9);
+});
+
 test('Constructor2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor2.py']);
 
