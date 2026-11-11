@@ -1037,7 +1037,7 @@ test('ConstructorPerformance1', () => {
     configOptions.diagnosticRuleSet.reportDeprecated = 'error';
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorPerformance1.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('Constructor2', () => {

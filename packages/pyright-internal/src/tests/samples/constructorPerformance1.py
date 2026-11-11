@@ -2,7 +2,7 @@
 # constructors inherit the default object.__new__ implementation.
 
 from dataclasses import dataclass
-from typing import Self
+from typing import Callable, Generic, ParamSpec, Self
 from warnings import deprecated
 
 
@@ -79,3 +79,41 @@ class DeprecatedNew:
 
 
 DeprecatedNew()  # E
+
+
+P = ParamSpec("P")
+
+
+class Allocation(Generic[P]):
+    def __new__(cls, *args: P.args, **kwargs: P.kwargs) -> Self:
+        return super().__new__(cls)
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        pass
+
+
+def bind(callback: Callable[P, object]) -> type[Allocation[P]]:
+    return Allocation[P]
+
+
+def shape(*args: int, **kwargs: str) -> None:
+    pass
+
+
+Bound = bind(shape)
+Bound(1, key="ok")
+Bound("bad")  # E
+Bound(key=1)  # E
+
+
+class DeprecatedAllocation(Generic[P]):
+    @deprecated("old allocator", category=None)
+    def __new__(cls, *args: P.args, **kwargs: P.kwargs) -> Self:
+        return super().__new__(cls)
+
+    def __init__(self) -> None:
+        pass
+
+
+Gradual = DeprecatedAllocation[...]
+Gradual()  # E

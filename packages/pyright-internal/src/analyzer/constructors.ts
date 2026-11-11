@@ -260,12 +260,14 @@ function validateNewAndInitMethods(
     // This placeholder accepts arbitrary arguments and always returns
     // an instance of the constructed class, so validating its arguments only
     // causes them to be evaluated speculatively before __init__ evaluates them
-    // again.
+    // again. ParamSpec specialization also synthesizes methods, but retains
+    // the original function scope and still requires validation.
     if (
         newMethodTypeResult &&
         !(
             isFunction(newMethodTypeResult.type) &&
             FunctionType.isSynthesizedMethod(newMethodTypeResult.type) &&
+            !newMethodTypeResult.type.shared.typeVarScopeId &&
             isDefaultNewMethod(newMethodTypeResult.type)
         )
     ) {
