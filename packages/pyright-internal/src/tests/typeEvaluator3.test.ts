@@ -8,7 +8,10 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import * as assert from 'assert';
+
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
@@ -631,6 +634,30 @@ test('Literals7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals7.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Literals8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals8.py']);
+
+    TestUtils.validateResults(analysisResults, 6, 0, 1);
+    const types = [
+        "Literal['a$&b']",
+        "Literal['a$$b']",
+        "Literal['a$`b']",
+        "Literal['a$\\'b']",
+        "Literal['a$b']",
+        "Literal['plain']",
+    ];
+    analysisResults[0].errors.forEach((diagnostic, index) => {
+        assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportAssignmentType);
+        assert.strictEqual(diagnostic.range.start.line, 6 + index);
+        assert.strictEqual(
+            diagnostic.message,
+            `Type "Literal['c']" is not assignable to declared type "${types[index]}"\n` +
+                `\u00a0\u00a0"Literal['c']" is not assignable to type "${types[index]}"`
+        );
+    });
+    assert.strictEqual(analysisResults[0].infos[0].message, `Type of "valid1" is "Literal['a$&b']"`);
 });
 
 test('TypeAlias1', () => {
