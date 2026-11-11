@@ -319,8 +319,14 @@ export function parseDiff(contents: string, shard: number): ProjectDiff[] {
             const delta =
                 project!.added.filter((d) => d.severity === severity).length -
                 project!.removed.filter((d) => d.severity === severity).length;
-            // Unchanged totals are omitted from the diff altogether.
-            if (delta !== (after && before ? after[index] - before[index] : 0)) {
+            const totalDelta = after && before ? after[index] - before[index] : 0;
+            // Unchanged totals are omitted from the diff altogether. Concise diffs can also
+            // omit canonically equivalent headers, so the observed delta may undercount the
+            // total, but it must still be nonzero in the same direction and cannot exceed it.
+            if (
+                delta !== totalDelta &&
+                (delta === 0 || Math.sign(delta) !== Math.sign(totalDelta) || Math.abs(delta) > Math.abs(totalDelta))
+            ) {
                 throw new Error(`Diagnostic counts do not match the totals for ${project!.name}`);
             }
         });
@@ -362,7 +368,7 @@ export function parseDiff(contents: string, shard: number): ProjectDiff[] {
             continue;
         }
         const rule = /\((report\w+)\)$/.exec(line)?.[1] ?? 'unspecified';
-        const diagnostic = /^[+-] {3}(\S.*:\d+:\d+ - (error|warning|information): .+)$/.exec(line);
+        const diagnostic = /^[+-](?: | {3})(\S.*:\d+:\d+ - (error|warning|information): .+)$/.exec(line);
         if (diagnostic) {
             const entry = { severity: diagnostic[2], text: diagnostic[1], rule };
             (sign === '+' ? project.added : project.removed).push(entry);

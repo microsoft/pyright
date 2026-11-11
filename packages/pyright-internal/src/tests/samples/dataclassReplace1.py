@@ -43,3 +43,15 @@ nt1.__replace__(b=2)
 
 # This should generate an error.
 nt1.__replace__(d="")
+
+
+# _replace is the historical NamedTuple API and should use the same
+# keyword-only field signature as __replace__.
+nt1_clone2 = nt1._replace(c="")
+reveal_type(nt1_clone2, expected_text="NT1")
+
+# This should generate an error.
+nt1._replace(b=2)
+
+# This should generate an error.
+nt1._replace(d="")

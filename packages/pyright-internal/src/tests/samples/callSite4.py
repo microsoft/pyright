@@ -127,4 +127,4 @@ class PingPong:
 
 
 b = PingPong().ping(Node, 5)
-reveal_type(b, expected_text="Unknown | Geometry | <subclass of Node and Geometry> | Node")
+reveal_type(b, expected_text="Unknown | Geometry | callSite4.PingPong.<subclass of Node and Geometry> | Node")

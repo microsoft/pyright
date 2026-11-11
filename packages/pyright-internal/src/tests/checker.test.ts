@@ -795,3 +795,13 @@ test('Deprecated8', () => {
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated8.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 4);
 });
+
+test('TypeNarrowingContainer1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingContainer1.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingContainer2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingContainer2.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});

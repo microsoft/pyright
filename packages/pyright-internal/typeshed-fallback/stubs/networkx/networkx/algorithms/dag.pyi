@@ -1,5 +1,6 @@
 from _typeshed import Incomplete
 from collections.abc import Callable, Generator, Iterable
+from typing import Any, TypeVar
 
 from networkx.classes.digraph import DiGraph
 from networkx.classes.graph import Graph, _EdgeData, _Node, _NodeData
@@ -23,6 +24,8 @@ __all__ = [
     "dag_to_branching",
 ]
 
+_G = TypeVar("_G", bound=Graph[Any, Any, Any])
+
 @_dispatchable
 def descendants(G: Graph[_Node], source) -> set[_Node]: ...
 @_dispatchable
@@ -40,9 +43,7 @@ def all_topological_sorts(G: DiGraph[_Node]) -> Generator[list[_Node]]: ...
 @_dispatchable
 def is_aperiodic(G: DiGraph[_Node]) -> bool: ...
 @_dispatchable
-def transitive_closure(
-    G: Graph[_Node, _NodeData, _EdgeData], reflexive: bool | None = False
-) -> Graph[_Node, _NodeData, _EdgeData]: ...
+def transitive_closure(G: _G, reflexive: bool | None = False) -> _G: ...
 @_dispatchable
 def transitive_closure_dag(
     G: DiGraph[_Node, _NodeData, _EdgeData], topo_order: Iterable[Incomplete] | None = None
