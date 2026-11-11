@@ -19029,6 +19029,7 @@ export function createTypeEvaluator(
         addDiagnostic,
         assignType,
         evaluatorInterface,
+        getAbstractSymbols: memberResolution.getAbstractSymbols,
         getEffectiveTypeOfSymbol,
         getScopeForNode,
         getScopeIdForNode,

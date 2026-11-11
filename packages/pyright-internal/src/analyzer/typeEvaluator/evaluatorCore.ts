@@ -116,6 +116,7 @@ interface Context {
     readonly addDiagnostic: TypeEvaluator['addDiagnostic'];
     readonly assignType: TypeEvaluator['assignType'];
     readonly evaluatorInterface: TypeEvaluator;
+    readonly getAbstractSymbols: TypeEvaluator['getAbstractSymbols'];
     readonly getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     readonly getScopeForNode: (node: ParseNode) => Scope | undefined;
     readonly getScopeIdForNode: (node: ParseNode) => string;
@@ -166,6 +167,7 @@ export function createEvaluatorCore(contextDependencies: Context) {
         addDiagnostic,
         assignType,
         evaluatorInterface,
+        getAbstractSymbols,
         getEffectiveTypeOfSymbol,
         getScopeForNode,
         getScopeIdForNode,
@@ -1116,6 +1118,20 @@ export function createEvaluatorCore(contextDependencies: Context) {
                 );
                 inferredParamType = stripTypeForm(inferredParamType);
                 inferredParamType = stripLiteralValue(inferredParamType);
+
+                // Keep a final class exact, because it has no subclasses, and a
+                // protocol or abstract class, because it can't be instantiated.
+                if (
+                    isInstantiableClass(inferredParamType) &&
+                    !(
+                        ClassType.isFinal(inferredParamType) ||
+                        ClassType.isProtocolClass(inferredParamType) ||
+                        (ClassType.supportsAbstractMethods(inferredParamType) &&
+                            getAbstractSymbols(inferredParamType).length > 0)
+                    )
+                ) {
+                    inferredParamType = ClassType.cloneIncludeSubclasses(inferredParamType);
+                }
             }
         }
 
