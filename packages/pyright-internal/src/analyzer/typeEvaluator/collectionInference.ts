@@ -985,8 +985,49 @@ export function createCollectionInference(context: Context) {
                 { type: valueType, isUnbounded: false },
             ]);
         } else if (node.d.expr.nodeType === ParseNodeType.DictionaryExpandEntry) {
-            // The parser should have reported an error in this case because it's not allowed.
-            getTypeOfExpression(node.d.expr.d.expr, flags, makeInferenceContext(expectedValueOrElementType));
+            const results: DictionaryEntryTypeResults = {
+                keyTypes: [],
+                valueTypes: [],
+                isIncomplete: false,
+                typeErrors: false,
+            };
+            const isExpanded = tryInferDictionaryExpansion(
+                node.d.expr,
+                flags,
+                {
+                    forceStrictInference: false,
+                    isValueTypeInvariant: false,
+                    expectedKeyType,
+                    expectedValueType: expectedValueOrElementType,
+                },
+                results,
+                /* retainEntryTypes */ true
+            );
+            if (results.isIncomplete) {
+                isIncomplete = true;
+            }
+            if (results.typeErrors) {
+                typeErrors = true;
+            }
+
+            let keyType: Type = UnknownType.create();
+            let valueType: Type = UnknownType.create();
+            if (isExpanded) {
+                keyType = combineTypes(results.keyTypes.map((result) => result.type));
+                valueType = combineTypes(results.valueTypes.map((result) => result.type));
+            }
+
+            if (!expectedKeyType || !containsLiteralType(expectedKeyType)) {
+                keyType = stripLiteralValue(keyType);
+            }
+            if (!expectedValueOrElementType || !containsLiteralType(expectedValueOrElementType)) {
+                valueType = stripLiteralValue(valueType);
+            }
+
+            type = makeTupleObject(evaluatorInterface, [
+                { type: keyType, isUnbounded: false },
+                { type: valueType, isUnbounded: false },
+            ]);
         } else if (isExpressionNode(node)) {
             const exprTypeResult = getTypeOfExpression(
                 node.d.expr as ExpressionNode,

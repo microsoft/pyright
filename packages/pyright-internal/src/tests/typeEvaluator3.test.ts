@@ -15,6 +15,7 @@ import {
     pythonVersion3_12,
     pythonVersion3_13,
     pythonVersion3_14,
+    pythonVersion3_15,
     pythonVersion3_9,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -589,6 +590,18 @@ test('Comprehension11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['comprehension11.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Comprehension12', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_14;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['comprehension12.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 20);
+
+    configOptions.defaultPythonVersion = pythonVersion3_15;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['comprehension12.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 5);
 });
 
 test('Literals1', () => {
