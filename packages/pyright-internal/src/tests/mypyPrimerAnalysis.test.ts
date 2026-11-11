@@ -328,6 +328,22 @@ describe('mypy_primer analysis', () => {
         expect(parseDiff(sample.replace(/\n/g, '\r\n'), 3)).toStrictEqual([{ ...expectedProject, shard: 3 }]);
     });
 
+    test('accepts diagnostics whose long paths consume the usual output indentation', () => {
+        const diagnostic =
+            '...tmp/mypy_primer/projects/scikit-learn/sklearn/feature_selection/tests/' +
+            'test_variance_threshold.py:36:32 - error: Cannot access attribute "shape" for class "list[Unknown]"';
+        const contents = [
+            'scikit-learn (https://github.com/scikit-learn/scikit-learn)',
+            `+ ${diagnostic}`,
+            '+ 1 error, 0 warnings, 0 informations',
+            '- 0 errors, 0 warnings, 0 informations',
+        ].join('\n');
+
+        expect(parseDiff(contents, 1)[0].added).toStrictEqual([
+            { severity: 'error', text: diagnostic, rule: 'unspecified' },
+        ]);
+    });
+
     test('preserves headerless details and groups only explicitly present rules', () => {
         const projects = parseDiff(detailOnlySample, 0);
         expect(projects).toStrictEqual([expectedDetailOnlyProject]);
@@ -435,7 +451,8 @@ describe('mypy_primer analysis', () => {
             sample.replace(/^-.*\n/gm, '') +
             '\n- 0 errors, 0 warnings, 0 informations\n+ 1 error, 0 warnings, 0 informations';
         expect(parseDiff(change, 0)[0].added).toHaveLength(1);
-        expect(() => parseDiff(change.replace('+ 1 error', '+ 2 errors'), 0)).toThrow('counts');
+        expect(parseDiff(change.replace('+ 1 error', '+ 2 errors'), 0)[0].added).toHaveLength(1);
+        expect(() => parseDiff(change.replace('+ 1 error', '+ 0 errors'), 0)).toThrow('counts');
         expect(() => parseDiff(change.replace('- 0 errors, 0 warnings, 0 informations\n', ''), 0)).toThrow(
             'Incomplete'
         );
@@ -480,6 +497,148 @@ describe('mypy_primer analysis', () => {
         f.run.head_branch = 'main';
         await expect(loadSource(f.request, repository, f.source)).resolves.toEqual(f.source);
     });
+
+    test.each(['current', 'changed head', 'closed', 'different head repository'])(
+        'raw commenter resolves %s PRs with a prototype-backed Actions context',
+        async (state) => {
+            const workflow = parseDocument(
+                readFileSync(join(__dirname, '../../../../.github/workflows/mypy_primer_comment.yaml'), 'utf8')
+            );
+            const steps = workflow.getIn(['jobs', 'comment', 'steps'], true);
+            if (!isSeq(steps)) {
+                throw new Error('Missing raw commenter steps');
+            }
+            const step = steps.items.find((item) => isMap(item) && item.get('id') === 'download');
+            if (!isMap(step)) {
+                throw new Error('Missing raw commenter download step');
+            }
+            const script = step.getIn(['with', 'script']);
+            if (typeof script !== 'string') {
+                throw new Error('Missing raw commenter download script');
+            }
+
+            const f = fixture(sample, 'contributor/pyright');
+            f.run.event = 'workflow_run';
+            f.run.display_title = 'Run mypy_primer after Validation #41';
+            f.run.head_sha = 'b'.repeat(40);
+            f.run.head_repository = { full_name: repository };
+            f.run.head_branch = 'main';
+            const validation = {
+                ...f.validation,
+                name: 'Validation',
+                head_repository: { ...f.validation.head_repository, id: 123, owner: { login: 'contributor' } },
+            };
+            const pullRequest = {
+                ...f.pr,
+                head: { ...f.pr.head, repo: { ...f.pr.head.repo, id: 123 } },
+            };
+            const refreshedPullRequest = {
+                ...pullRequest,
+                state: state === 'closed' ? 'closed' : 'open',
+                head: {
+                    ...pullRequest.head,
+                    sha: state === 'changed head' ? 'c'.repeat(40) : headSha,
+                    repo: { ...pullRequest.head.repo, id: state === 'different head repository' ? 456 : 123 },
+                },
+            };
+            const artifacts = f.artifacts.map((artifact, id) => ({ ...artifact, id }));
+            const rest = {
+                actions: {
+                    listWorkflowRunArtifacts: jest.fn(),
+                    getWorkflowRun: jest.fn().mockResolvedValue({ data: validation }),
+                    downloadArtifact: jest.fn().mockResolvedValue({ data: Buffer.from('mock archive') }),
+                },
+                pulls: {
+                    list: jest.fn(),
+                    get: jest.fn().mockResolvedValue({ data: refreshedPullRequest }),
+                    listFiles: jest.fn(),
+                },
+            };
+            const paginate = jest.fn(async (method: unknown) => {
+                if (method === rest.actions.listWorkflowRunArtifacts) {
+                    return artifacts;
+                }
+                if (method === rest.pulls.list) {
+                    return [pullRequest];
+                }
+                if (method === rest.pulls.listFiles) {
+                    return [{ filename: 'example.py' }];
+                }
+                throw new Error('Unexpected pagination method');
+            });
+            const core = { notice: jest.fn(), setFailed: jest.fn(), setOutput: jest.fn() };
+            const fs = { mkdirSync: jest.fn(), writeFileSync: jest.fn() };
+            class ActionsContext {
+                payload = { workflow_run: f.run };
+
+                get repo() {
+                    return { owner: 'microsoft', repo: 'pyright' };
+                }
+            }
+            const context = new ActionsContext();
+            expect(Object.keys(context)).not.toContain('repo');
+            await runInNewContext(`(async () => { ${script} })()`, {
+                require: (name: string): unknown => {
+                    if (name === 'fs') {
+                        return fs;
+                    }
+                    if (name === 'path') {
+                        return { join };
+                    }
+                    if (name === './build/ci/mypyPrimerAnalysis.ts') {
+                        return { loadSource };
+                    }
+                    if (name === './build/resolveValidatedPullRequest.js') {
+                        return require('../../../../build/resolveValidatedPullRequest.js');
+                    }
+                    throw new Error(`Unexpected module: ${name}`);
+                },
+                process: { env: { RUNNER_TEMP: directory } },
+                Buffer,
+                github: { rest, paginate, request: f.request },
+                context,
+                core,
+            });
+            expect(context.payload.workflow_run).toBe(f.run);
+            expect(rest.actions.getWorkflowRun.mock.calls).toStrictEqual([
+                [{ ...context.repo, run_id: validation.id }],
+            ]);
+            expect(paginate).toHaveBeenCalledWith(rest.pulls.list, {
+                ...context.repo,
+                state: 'open',
+                head: 'contributor:feature',
+                per_page: 100,
+            });
+            expect(rest.pulls.get.mock.calls).toStrictEqual([[{ ...context.repo, pull_number: 7 }]]);
+            expect(core.setFailed).not.toHaveBeenCalled();
+            if (state === 'current') {
+                expect(core.notice).not.toHaveBeenCalled();
+                expect(core.setOutput.mock.calls).toStrictEqual([
+                    ['pr-number', 7],
+                    ['head-sha', headSha],
+                    ['has-diffs', 'true'],
+                ]);
+                expect(rest.actions.downloadArtifact.mock.calls).toStrictEqual(
+                    artifacts
+                        .slice(1)
+                        .map((artifact) => [{ ...context.repo, artifact_id: artifact.id, archive_format: 'zip' }])
+                );
+                expect(fs.writeFileSync.mock.calls).toStrictEqual(
+                    Array.from({ length: 8 }, (_, shard) => [
+                        join(directory, 'primer-diffs', `diff_${shard}.zip`),
+                        Buffer.from('mock archive'),
+                    ])
+                );
+            } else {
+                expect(core.setOutput).not.toHaveBeenCalled();
+                expect(rest.actions.downloadArtifact).not.toHaveBeenCalled();
+                expect(fs.writeFileSync.mock.calls).toStrictEqual([
+                    ['primer-analysis-context.json', JSON.stringify({ skipped: true })],
+                ]);
+                expect(core.notice).toHaveBeenCalledWith('Skipping comments for a stale or closed pull request');
+            }
+        }
+    );
 
     test.each(['failure', 'cancelled'])('rejects unsuccessful %s source Validation', async (conclusion) => {
         const f = fixture();

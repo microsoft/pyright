@@ -1,6 +1,6 @@
 # Pyright PR review agents
 
-`pyright-pr-review` assesses whether a PR is a good change for Pyright. It coordinates four independent perspectives,
+`pyright-pr-review` assesses whether a PR is a good change for Pyright. It coordinates five independent perspectives,
 then reconciles their evidence into one decision. Personalities encourage different questions, not role-play or a
 majority vote. The coordinator can also discuss remedies and, when explicitly asked, repair PRs that need localized fixes.
 
@@ -13,7 +13,7 @@ The profiles live in `.github/agents/`. Restart Copilot CLI after adding them so
 copilot --agent pyright-pr-review --prompt "Analyze microsoft/pyright#11571, including unresolved review feedback. Do not modify code or post a review."
 ```
 
-The coordinator is explicitly selected rather than automatically invoked for ordinary tasks. The four specialist
+The coordinator is explicitly selected rather than automatically invoked for ordinary tasks. The five specialist
 profiles are subagent-only. Models inherit the user's settings. This requires a host that supports custom-agent
 delegation; if it cannot load or invoke the specialists, the coordinator reports that limitation instead of pretending
 the panel ran. Shell/GitHub access and test execution still require the host's usual permissions.
@@ -22,13 +22,27 @@ the panel ran. Shell/GitHub access and test execution still require the host's u
 | --- | --- |
 | Skeptic | Challenge correctness, soundness, precision, and claimed benefit. |
 | Architect | Check ownership of behavior and compare less disruptive alternatives. |
-| Monkey | Design and run small counterexamples and discriminating regression probes. |
+| Monkey | Design and run adversarial examples that expose regressions and weak test coverage. |
 | Perf professor | Trace cost, identify hot-path risks, and run warranted measurements. |
+| Safety reviewer | Execute the PR safety review skill's independent investigation and return evidence-backed findings and feedback. |
 
 The coordinator gathers PR feedback once, supplies a common revision-pinned context, and coordinates validation ownership
 and shared resources. Specialists independently inspect their scoped paths, run focused tests and probes, and return
 evidence. They do not spawn more agents. The coordinator may request a bounded clarification or targeted validation from
 an existing specialist, not launch a second panel.
+
+The [safety reviewer](../.github/agents/pyright-pr-safety-reviewer.agent.md) uses the canonical
+[PR type-specification review skill](../.github/skills/pyright-pr-typespec-review/SKILL.md), including its discovery and probe-design
+references. It develops hypotheses independently of Monkey's ordinary adversarial review. Both investigations contribute;
+neither replaces the other. They may reuse compatible builds and completed checks under shared validation ownership,
+but passing checks do not replace independent discovery.
+
+The coordinator reconciles all five reports, resolves disagreements, and deduplicates findings by root cause while
+preserving distinct supported issues, consequences, and variants. The ordinary reviewers' feedback retains its
+semantic and code-review style. The safety reviewer's additional actionable findings receive a separate comment in the
+skill's example-led style. Already-covered issues are omitted from that supplement; useful verified new details
+strengthen the established finding without changing its style. If no additional findings remain, there is no supplemental
+comment. Full findings and evidence remain in the reports regardless of their feedback destination.
 
 ## Conversation and optional repair
 
@@ -182,7 +196,14 @@ Lead with the recommendation and most important reason, followed by:
 5. **Alternatives:** no change versus the PR versus a simpler viable option, with a recommended approach.
 6. **Validation and limits:** what actually ran and where, baseline/head results, unexecuted probes, and unresolved questions.
 
-Keep empty sections short. Do not include four verbose persona transcripts or a numeric average.
+Keep empty sections short. Do not include verbose persona transcripts or a numeric average.
+
+PR feedback is separate from this assessment report. Follow the coordinator's
+[feedback reconciliation rules](../.github/agents/pyright-pr-review.agent.md#prepare-pr-feedback) for the established review
+comment and any additional skill-style comment. Account for each actionable finding and its supporting evidence;
+do not replace the original feedback style or repeat shared issues in both comments. Full projects and raw output
+remain supporting evidence. Only the coordinator publishes either comment, on explicit request and after checking the
+head.
 
 - **Good change:** all four gates pass, with no unresolved blocking feedback or material missing evidence.
 - **Needs changes:** evidence establishes a blocking regression, unmet goal, unjustified precision loss, or unapproved

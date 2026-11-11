@@ -11,7 +11,14 @@ from typing import Any
 import typecheck_benchmark
 
 
-VARIABLE_FIELDS = {"aggregate", "date", "package_count", "results", "timestamp"}
+VARIABLE_FIELDS = {
+    "aggregate",
+    "date",
+    "package_count",
+    "platform_details",
+    "results",
+    "timestamp",
+}
 
 
 def merge_results(paths: list[Path]) -> dict[str, Any]:
@@ -22,6 +29,7 @@ def merge_results(paths: list[Path]) -> dict[str, Any]:
     expected_metadata: dict[str, Any] | None = None
     results: list[typecheck_benchmark.PackageResult] = []
     package_names: set[str] = set()
+    platform_details: set[str] = set()
     timestamps: list[str] = []
 
     for path in paths:
@@ -37,6 +45,12 @@ def merge_results(paths: list[Path]) -> dict[str, Any]:
             merged = copy.deepcopy(data)
         elif metadata != expected_metadata:
             raise ValueError(f"{path} uses different benchmark metadata")
+
+        details = data.get("platform_details")
+        if details is not None:
+            if not isinstance(details, str) or not details:
+                raise ValueError(f"{path} contains invalid platform details")
+            platform_details.add(details)
 
         timestamp = data.get("timestamp")
         if not isinstance(timestamp, str) or not timestamp:
@@ -68,6 +82,8 @@ def merge_results(paths: list[Path]) -> dict[str, Any]:
     merged["timestamp"] = timestamp
     merged["date"] = timestamp[:10]
     merged["package_count"] = len(results)
+    if platform_details:
+        merged["platform_details"] = "; ".join(sorted(platform_details))
     merged["results"] = sorted(results, key=lambda result: result["package_name"])
     merged["aggregate"] = typecheck_benchmark.compute_aggregate_stats(
         merged["results"], type_checkers

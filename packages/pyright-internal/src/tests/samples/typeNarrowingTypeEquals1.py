@@ -1,5 +1,6 @@
 # This sample exercises the type analyzer's type narrowing
 # logic for tests of the form "type(X) == Y" or "type(X) != Y".
+# Forward bare-class comparisons retain legacy narrowing behavior.
 
 from typing import Any, Generic, TypeVar, final
 
@@ -11,7 +12,7 @@ def func1(a: str | int) -> int:
         return a
 
     # This should generate an error because
-    # "a" is provably type str at this point.
+    # "a" is str.
     return a
 
 
@@ -20,7 +21,7 @@ def func2(a: str | None) -> str:
         return a
 
     # This should generate an error because
-    # "a" is provably type str at this point.
+    # "a" can still be None.
     return a
 
 
