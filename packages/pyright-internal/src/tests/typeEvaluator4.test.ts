@@ -90,6 +90,46 @@ test('CallSite4', () => {
     TestUtils.validateResults(analysisResults, 0, 0, 7);
 });
 
+test('CallSite5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite5.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('CallSite6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite6.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('CallSite7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite7.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('CallSite8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite8.py']);
+    TestUtils.validateResults(analysisResults, 5);
+});
+
+test('CallSite9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite9.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('CallSite10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite10.py']);
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('CallSite11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite11.py']);
+    TestUtils.validateResults(analysisResults, 3);
+});
+
+test('CallSite12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite12.py']);
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('FString1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

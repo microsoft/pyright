@@ -676,6 +676,14 @@ test('TypeVarTuple33', () => {
     TestUtils.validateResults(analysisResults, 9);
 });
 
+test('TypeVarTuple34', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple34.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('Match1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -1278,6 +1286,11 @@ test('Constructor35', () => {
         DiagnosticRule.reportCallIssue,
         DiagnosticRule.reportGeneralTypeIssues,
     ]);
+});
+
+test('Constructor36', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor36.py']);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('ConstructorCallable1', () => {

@@ -553,6 +553,45 @@ test('StrictRawToContentMapping_LfMapsButCrDoesNot', () => {
     assert.equal(tryConvertContentOffsetToRawOffset(file, file.content.indexOf('\n')), rawOffsetLf);
 });
 
+test.each(['\n', '\r\n'])('ChompLeadingSpacePreservesMappings newline=%j', (newline) => {
+    const lines = [' first', '', ' ', '     [|/*marker*/last|]', ' '];
+    const code = lines.map((line) => `////${line}${newline}`).join('');
+    const data = parseTestData('.', code, 'test.py');
+    const file = data.files[0];
+
+    assert.equal(file.content, 'first\n\n\n    last\n');
+    assert.equal(data.markerPositions.get('marker')?.position, file.content.indexOf('last'));
+    assert.equal(data.ranges[0].pos, file.content.indexOf('last'));
+    assert.equal(data.ranges[0].end, file.content.indexOf('last') + 'last'.length);
+
+    for (const text of ['first', 'last']) {
+        for (let index = 0; index < text.length; index++) {
+            const rawOffset = code.indexOf(text) + index;
+            const contentOffset = file.content.indexOf(text) + index;
+            assert.equal(tryConvertRawOffsetToContentOffset(file, rawOffset), contentOffset);
+            assert.equal(tryConvertContentOffsetToRawOffset(file, contentOffset), rawOffset);
+        }
+    }
+
+    let rawLineStart = 0;
+    let contentLineStart = 0;
+    const contentLines = file.content.split('\n');
+    for (let index = 0; index < lines.length; index++) {
+        assert.equal(tryConvertRawOffsetToContentOffset(file, rawLineStart + 2), undefined);
+        if (lines[index].length > 0) {
+            assert.equal(tryConvertRawOffsetToContentOffset(file, rawLineStart + 4), undefined);
+        }
+        if (index < lines.length - 1) {
+            const rawLf = rawLineStart + 4 + lines[index].length + newline.length - 1;
+            const contentLf = contentLineStart + contentLines[index].length;
+            assert.equal(tryConvertRawOffsetToContentOffset(file, rawLf), contentLf);
+            assert.equal(tryConvertContentOffsetToRawOffset(file, contentLf), rawLf);
+            contentLineStart = contentLf + 1;
+        }
+        rawLineStart += 4 + lines[index].length + newline.length;
+    }
+});
+
 test('InvalidSlashStarMarkerIsTreatedAsComment', () => {
     const code = '////a/*bad-marker*/b\n';
     const data = parseTestData('.', code, 'test.py');

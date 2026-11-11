@@ -8,7 +8,7 @@
 
 import * as assert from 'assert';
 
-import { containsLiteralType, mapSignatures, transformTypePair } from '../analyzer/typeUtils';
+import { containsLiteralType, mapSignatures, transformExpectedType, transformTypePair } from '../analyzer/typeUtils';
 import {
     AnyType,
     ClassType,
@@ -32,6 +32,48 @@ import {
 } from '../analyzer/types';
 import { Uri } from '../common/uri/uri';
 import { ParamCategory } from '../parser/parseNodes';
+
+test('Expected types preserve borrowed bound variables but unify out-of-scope free variables', () => {
+    const caller = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('K'),
+        'caller',
+        'caller',
+        TypeVarScopeType.Function
+    );
+    const boundCaller = TypeVarType.cloneAsBound(caller);
+    const local = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('V'),
+        'local',
+        'local',
+        TypeVarScopeType.Function
+    );
+
+    for (const liveScopes of [[], ['local']]) {
+        assert.strictEqual(transformExpectedType(boundCaller, liveScopes, 100), boundCaller);
+        assert.strictEqual(boundCaller.priv.scopeId, TypeVarType.makeBoundScopeId('caller'));
+        assert.strictEqual(boundCaller.priv.freeTypeVar, caller);
+        assert.ok(!TypeVarType.isUnification(boundCaller));
+    }
+
+    assert.strictEqual(transformExpectedType(caller, ['caller'], 100), caller);
+    assert.strictEqual(transformExpectedType(boundCaller, ['caller'], 100), boundCaller);
+    assert.strictEqual(transformExpectedType(local, ['local'], 100), local);
+    const unified = transformExpectedType(caller, ['local'], 100);
+    assert.ok(isTypeVar(unified));
+    assert.ok(TypeVarType.isUnification(unified));
+    assert.ok(!TypeVarType.isBound(unified));
+    assert.notStrictEqual(unified.priv.scopeId, caller.priv.scopeId);
+    assert.strictEqual(caller.priv.scopeId, 'caller');
+
+    const container = createClass('Container');
+    container.shared.typeParams.push(caller, local);
+    const nested = ClassType.specialize(ClassType.cloneAsInstance(container), [boundCaller, local]);
+    const transformed = transformExpectedType(nested, [], 200);
+    assert.ok(isClass(transformed));
+    assert.strictEqual(transformed.priv.typeArgs?.[0], boundCaller);
+    const nestedFree = transformed.priv.typeArgs?.[1];
+    assert.ok(nestedFree && isTypeVar(nestedFree) && TypeVarType.isUnification(nestedFree));
+});
 
 test('Literal detection keeps cancellation and type-argument options local to each walk', () => {
     const plain = ClassType.cloneAsInstance(createClass('Value'));
