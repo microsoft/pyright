@@ -139,6 +139,7 @@ export class ProcessTreeBatchTerminationError extends Error {
 
 export class ProcessTreeTerminationError extends Error {
     readonly child: child_process.ChildProcess;
+    readonly rootExitPending: boolean;
 
     constructor(child: child_process.ChildProcess, error: unknown) {
         super(
@@ -148,7 +149,49 @@ export class ProcessTreeTerminationError extends Error {
         );
         this.name = 'ProcessTreeTerminationError';
         this.child = child;
+        this.rootExitPending = isRootExitPending(child, error);
         // Preserve retry ownership without exposing a circular ChildProcess in JSON error output.
         Object.defineProperty(this, 'child', { enumerable: false });
+    }
+}
+
+function isRootExitPending(child: child_process.ChildProcess, error: unknown): boolean {
+    if (
+        !child.pid ||
+        !Number.isSafeInteger(child.pid) ||
+        child.pid <= 0 ||
+        typeof error !== 'object' ||
+        error === null ||
+        !('stderr' in error)
+    ) {
+        return false;
+    }
+    const stderr = error.stderr;
+    const text = typeof stderr === 'string' ? stderr : Buffer.isBuffer(stderr) ? stderr.toString('utf8') : undefined;
+    if (text === undefined) {
+        return false;
+    }
+    const prefix = 'OWNED_PROCESS_ROOT_EXIT_PENDING ';
+    const receipts = text.split(/\r?\n/).filter((line) => line.startsWith(prefix));
+    if (receipts.length !== 1) {
+        return false;
+    }
+    try {
+        const receipt: unknown = JSON.parse(receipts[0].slice(prefix.length));
+        return (
+            typeof receipt === 'object' &&
+            receipt !== null &&
+            'version' in receipt &&
+            receipt.version === 1 &&
+            'rootProcessId' in receipt &&
+            receipt.rootProcessId === child.pid &&
+            'rootCreationTimeUtcTicks' in receipt &&
+            typeof receipt.rootCreationTimeUtcTicks === 'string' &&
+            /^[1-9]\d{0,18}$/.test(receipt.rootCreationTimeUtcTicks) &&
+            BigInt(receipt.rootCreationTimeUtcTicks) <= BigInt('9223372036854775807')
+        );
+    } catch {
+        // Invalid completion metadata must leave the original cleanup failure unresolved.
+        return false;
     }
 }

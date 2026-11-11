@@ -490,6 +490,34 @@ test('signature help overloads: source uses *args/**kwargs, no substitution', ()
     assert.strictEqual(actual.signatures[1].label, '(a: str = ...) -> None');
 });
 
+test('signature help includes constructors with specialized cls annotations', () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "pythonVersion": "3.15"
+//// }
+
+// @filename: test.py
+//// frozendict([|/*marker*/|])
+`;
+
+    const state = parseAndGetTestState(code).state;
+    const actual = getSignatureHelpForMarker(state, 'marker');
+
+    assert(actual, 'Expected signature help for frozendict()');
+    assert.deepStrictEqual(
+        actual.signatures.map((signature) => signature.label),
+        [
+            '() -> frozendict[Any, Any]',
+            '(**kwargs: _VT@__new__) -> frozendict[str, _VT@__new__]',
+            '(map: SupportsKeysAndGetItem[_KT@frozendict, _VT@__new__], /) -> frozendict[_KT@frozendict, _VT@__new__]',
+            '(map: SupportsKeysAndGetItem[str, _VT@__new__], /, **kwargs: _VT@__new__) -> frozendict[str, _VT@__new__]',
+            '(iterable: Iterable[tuple[_KT@frozendict, _VT@__new__]], /) -> frozendict[_KT@frozendict, _VT@__new__]',
+            '(iterable: Iterable[tuple[str, _VT@__new__]], /, **kwargs: _VT@__new__) -> frozendict[str, _VT@__new__]',
+        ]
+    );
+});
+
 test('signature help overloads: different param counts, extra params keep ellipsis', () => {
     const code = `
 // @filename: pyrightconfig.json

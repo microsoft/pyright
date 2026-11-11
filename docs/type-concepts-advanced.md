@@ -75,7 +75,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `x[I] is B` and `x[I] is not B` (where I is a literal expression, B is a `bool` or enum literal, and x is a known-length tuple that is distinguished by the index indicated by I)
 * `x[I] is None` and `x[I] is not None` (where I is a literal expression and x is a known-length tuple that is distinguished by the index indicated by I)
 * `len(x) == L`, `len(x) != L`, `len(x) < L`, etc. (where x is tuple and L is an expression that evaluates to an int literal type)
-* `x in y` or `x not in y` (where y is instance of list, set, frozenset, deque, tuple, dict, defaultdict, or OrderedDict)
+* `x in y` or `x not in y` (where y is an instance of list, set, frozenset, deque, tuple, dict, defaultdict, OrderedDict, a concrete dictionary keys/values view, or a union of these types)
 * `S in D` and `S not in D` (where S is a string literal and D is a TypedDict)
 * `isinstance(x, T)` (where T is a type or a tuple of types)
 * `issubclass(x, T)` (where T is a type or a tuple of types)
@@ -83,7 +83,11 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `bool(x)` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 * `x` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 
+Containment narrowing accounts for equality between different built-in types. For example, a float that equals an integer literal retains its `float` type, and `set` and `frozenset` values can compare equal. Abstract collection interfaces do not provide the same narrowing guarantee, because their membership implementations can accept values unrelated to their element type. For a union of container types, narrowing is skipped if any alternative's element or key type is `Any`, unknown, or a union containing either.
+
 Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, subscripts that are integer literals (e.g. `a[2]` or `a[-1]`), and call expressions. Other operators (such as arithmetic operators or other subscripts) are not supported.
+
+Sentinel identity guards retain singleton identity for sentinels created at module scope or in class bodies outside functions and loops, including aliases and members that refer to those singletons. Names need not be uppercase or `Final`. Factory calls in function bodies, comprehensions, generators, or loops can create distinct objects on each execution, so comparisons between their results do not establish singleton identity.
 
 For user-defined `TypeGuard` and `TypeIs` calls, Pyright narrows the argument corresponding to the first parameter after any method receiver (`self` or `cls`). This applies to bound and unbound methods, including method aliases, and arguments supplied by keyword. Guards with gradual (`...`), tuple-unpacked, or variadic positional parameter lists support narrowing of explicit positional arguments. If selected overloads identify different guarded arguments, or argument unpacking obscures the guarded expression, Pyright does not apply narrowing.
 

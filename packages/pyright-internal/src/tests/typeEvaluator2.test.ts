@@ -11,6 +11,7 @@
 import assert from 'assert';
 
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
@@ -434,6 +435,18 @@ test('Unbound6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound6.py']);
 
     TestUtils.validateResults(analysisResults, 8);
+});
+
+test('Unbound7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound7.py']);
+
+    TestUtils.validateResults(analysisResults, 7);
+});
+
+test('Unbound8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound8.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('LiteralForLoop1', () => {
@@ -1058,4 +1071,46 @@ test('Sentinel2', () => {
     configOptions.defaultPythonVersion = pythonVersion3_15;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
+});
+
+test('Sentinel3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Sentinel4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Sentinel5', () => {
+    for (const pythonVersion of [pythonVersion3_13, pythonVersion3_15]) {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.defaultPythonVersion = pythonVersion;
+        const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel5.py'], configOptions);
+        TestUtils.validateResults(analysisResults, 8);
+        assert.deepStrictEqual(
+            analysisResults[0].errors
+                .slice()
+                .sort((left, right) => left.range.start.line - right.range.start.line)
+                .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+            [
+                [27, DiagnosticRule.reportReturnType],
+                [38, DiagnosticRule.reportArgumentType],
+                [50, DiagnosticRule.reportAttributeAccessIssue],
+                [62, DiagnosticRule.reportArgumentType],
+                [70, DiagnosticRule.reportArgumentType],
+                [85, DiagnosticRule.reportArgumentType],
+                [102, DiagnosticRule.reportArgumentType],
+                [135, DiagnosticRule.reportArgumentType],
+            ]
+        );
+    }
+});
+
+test('Frozendict1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_15;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['frozendict1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4);
 });

@@ -46,8 +46,6 @@ export interface SpeculativeTypeEntry extends ContextualTypeCacheEntry {
     dependentTypes?: DependentType[];
 }
 
-export type SpeculativeTypeCache = Map<number, SpeculativeTypeEntry[]>;
-
 export interface SpeculativeModeOptions {
     // If specified, the type cached speculative result depends on
     // this dependent type.
@@ -165,6 +163,16 @@ export class SpeculativeTypeTracker {
     private _speculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
     private _activeDependentTypes: DependentType[] = [];
 
+    useSpeculativeTypeCacheIsolation<T>(callback: () => T): T {
+        const prevCache = this._speculativeTypeCache;
+        this._speculativeTypeCache = new Map<number, SpeculativeTypeEntry[]>();
+        try {
+            return callback();
+        } finally {
+            this._speculativeTypeCache = prevCache;
+        }
+    }
+
     evictCacheEntries(nodeIds: ReadonlySet<number>) {
         assert(this._speculativeContextStack.length === 0);
         nodeIds.forEach((id) => this._speculativeTypeCache.delete(id));
@@ -267,8 +275,7 @@ export class SpeculativeTypeTracker {
         node: ParseNode,
         typeResult: TypeResult,
         incompleteGenerationCount: number,
-        expectedType: Type | undefined,
-        cache: SpeculativeTypeCache = this._speculativeTypeCache
+        expectedType: Type | undefined
     ) {
         assert(this._speculativeContextStack.length > 0);
 
@@ -283,24 +290,20 @@ export class SpeculativeTypeTracker {
         }
 
         const cacheEntries = addContextualTypeCacheEntry(
-            cache.get(node.id) ?? [],
+            this._speculativeTypeCache.get(node.id) ?? [],
             newEntry,
             (entry) => !entry.typeResult.isIncomplete || entry.incompleteGenerationCount === incompleteGenerationCount
         );
-        cache.set(node.id, cacheEntries);
+        this._speculativeTypeCache.set(node.id, cacheEntries);
     }
 
-    getSpeculativeType(
-        node: ParseNode,
-        expectedType: Type | undefined,
-        cache: SpeculativeTypeCache = this._speculativeTypeCache
-    ): SpeculativeTypeEntry | undefined {
+    getSpeculativeType(node: ParseNode, expectedType: Type | undefined): SpeculativeTypeEntry | undefined {
         if (
             this._speculativeContextStack.some((context) =>
                 ParseTreeUtils.isNodeContainedWithin(node, context.speculativeRootNode)
             )
         ) {
-            const entries = cache.get(node.id);
+            const entries = this._speculativeTypeCache.get(node.id);
             if (entries) {
                 for (const entry of entries) {
                     if (contextualTypeCacheEntryMatches(entry, expectedType) && this._dependentTypesMatch(entry)) {
