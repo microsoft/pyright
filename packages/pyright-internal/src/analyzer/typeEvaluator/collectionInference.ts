@@ -985,64 +985,36 @@ export function createCollectionInference(context: Context) {
                 { type: valueType, isUnbounded: false },
             ]);
         } else if (node.d.expr.nodeType === ParseNodeType.DictionaryExpandEntry) {
-            const supportsKeysAndGetItemClass = context.prefetched?.supportsKeysAndGetItemClass;
-            let expectedType: Type | undefined;
-            if (expectedKeyType && expectedValueOrElementType && supportsKeysAndGetItemClass) {
-                if (isInstantiableClass(supportsKeysAndGetItemClass)) {
-                    expectedType = ClassType.cloneAsInstance(
-                        ClassType.specialize(supportsKeysAndGetItemClass, [expectedKeyType, expectedValueOrElementType])
-                    );
-                }
-            }
-
-            const mappingTypeResult = getTypeOfExpression(
-                node.d.expr.d.expr,
+            const results: DictionaryEntryTypeResults = {
+                keyTypes: [],
+                valueTypes: [],
+                isIncomplete: false,
+                typeErrors: false,
+            };
+            const isExpanded = tryInferDictionaryExpansion(
+                node.d.expr,
                 flags,
-                makeInferenceContext(expectedType)
+                {
+                    forceStrictInference: false,
+                    isValueTypeInvariant: false,
+                    expectedKeyType,
+                    expectedValueType: expectedValueOrElementType,
+                },
+                results,
+                /* retainEntryTypes */ true
             );
-            if (mappingTypeResult.isIncomplete) {
+            if (results.isIncomplete) {
                 isIncomplete = true;
             }
-            if (mappingTypeResult.typeErrors) {
+            if (results.typeErrors) {
                 typeErrors = true;
             }
 
-            const mappingType = mappingTypeResult.type;
             let keyType: Type = UnknownType.create();
             let valueType: Type = UnknownType.create();
-
-            if (isAnyOrUnknown(mappingType)) {
-                keyType = mappingType;
-                valueType = mappingType;
-            } else if (supportsKeysAndGetItemClass && isInstantiableClass(supportsKeysAndGetItemClass)) {
-                const mappingConstraints = new ConstraintTracker();
-                const selfSpecializedClass = selfSpecializeClass(supportsKeysAndGetItemClass);
-
-                if (
-                    assignType(
-                        ClassType.cloneAsInstance(selfSpecializedClass),
-                        mappingType,
-                        /* diag */ undefined,
-                        mappingConstraints,
-                        AssignTypeFlags.RetainLiteralsForTypeVar
-                    )
-                ) {
-                    const specializedMapping = solveAndApplyConstraints(
-                        selfSpecializedClass,
-                        mappingConstraints
-                    ) as ClassType;
-                    const typeArgs = specializedMapping.priv.typeArgs;
-                    if (typeArgs && typeArgs.length >= 2) {
-                        keyType = typeArgs[0];
-                        valueType = typeArgs[1];
-                    }
-                } else if (!mappingTypeResult.isIncomplete) {
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.dictUnpackIsNotMapping(),
-                        node.d.expr
-                    );
-                }
+            if (isExpanded) {
+                keyType = combineTypes(results.keyTypes.map((result) => result.type));
+                valueType = combineTypes(results.valueTypes.map((result) => result.type));
             }
 
             if (!expectedKeyType || !containsLiteralType(expectedKeyType)) {

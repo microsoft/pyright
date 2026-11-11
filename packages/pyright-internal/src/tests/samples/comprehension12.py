@@ -39,7 +39,7 @@ def func2(
     reveal_type(v3, expected_text="dict[Any, Any]")
 
     v4 = {**x for x in d}
-    reveal_type(v4, expected_text="dict[str, object]")
+    reveal_type(v4, expected_text="dict[str, int | str | object]")
 
     v5: dict[str, float] = {**x for x in a}
     reveal_type(v5, expected_text="dict[str, float]")
