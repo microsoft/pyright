@@ -528,6 +528,14 @@ export function adjustTupleTypeArgs(
     const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
     let skipAdjustSrc = false;
 
+    // The source entries that correspond to the dest variadic element can
+    // be packaged only if the source contains no unbounded entry outside of
+    // this range.
+    const isSrcUnboundedCaptured =
+        srcUnboundedIndex < 0 ||
+        (srcUnboundedIndex >= destUnboundedOrVariadicIndex &&
+            srcUnboundedIndex < destUnboundedOrVariadicIndex + srcArgsToCapture);
+
     // If we're doing reverse type mappings and the source contains a TypeVarTuple,
     // we need to adjust the dest so the reverse type mapping assignment
     // can be performed.
@@ -575,7 +583,7 @@ export function adjustTupleTypeArgs(
             if (isTypeVarTuple(destVariadicType) || isUnpackedTypeVar(destVariadicType)) {
                 const tupleClass = evaluator.getTupleClassType();
 
-                if (tupleClass && isInstantiableClass(tupleClass)) {
+                if (tupleClass && isInstantiableClass(tupleClass) && isSrcUnboundedCaptured) {
                     const removedArgs = srcTypeArgs.splice(destUnboundedOrVariadicIndex, srcArgsToCapture);
 
                     let variadicTuple: Type;
@@ -617,14 +625,7 @@ export function adjustTupleTypeArgs(
     }
 
     if (!skipAdjustSrc && destUnboundedOrVariadicIndex >= 0 && srcArgsToCapture >= 0) {
-        // If possible, package up the source entries that correspond to
-        // the dest unbounded tuple. This isn't possible if the source contains
-        // an unbounded tuple outside of this range.
-        if (
-            srcUnboundedIndex < 0 ||
-            (srcUnboundedIndex >= destUnboundedOrVariadicIndex &&
-                srcUnboundedIndex < destUnboundedOrVariadicIndex + srcArgsToCapture)
-        ) {
+        if (isSrcUnboundedCaptured) {
             const removedArgTypes = srcTypeArgs.splice(destUnboundedOrVariadicIndex, srcArgsToCapture).map((t) => {
                 if (isTypeVar(t.type) && isUnpackedTypeVarTuple(t.type)) {
                     return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);

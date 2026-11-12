@@ -420,7 +420,7 @@ test('TypeVarTuple3', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('TypeVarTuple4', () => {

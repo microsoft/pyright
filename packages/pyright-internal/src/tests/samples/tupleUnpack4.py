@@ -348,3 +348,11 @@ def func37(cb: Callable[[Unpack[U]], None], t: tuple[int, ...], u: tuple[Any, in
 
     # This should generate an error.
     cb(*u)
+
+
+def func38[S: tuple[int, ...]](t: tuple[int, *S]) -> S: ...
+
+
+def func39(t: tuple[int, ...]):
+    # This should generate an error.
+    func38(t)
