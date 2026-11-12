@@ -53,7 +53,7 @@ import {
 } from './backgroundAnalysisProgram';
 import { ImportLogger } from './importLogger';
 import { ImportResolver, ImportResolverFactory } from './importResolver';
-import { ChangedRange, MaxAnalysisTime, Program } from './program';
+import { AnalyzeFileResult, ChangedRange, MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import {
     findConfigFile,
@@ -447,7 +447,7 @@ export class AnalyzerService {
         return this._backgroundAnalysisProgram.analyzeFile(fileUri, token);
     }
 
-    analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<Diagnostic[]> {
+    analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<AnalyzeFileResult> {
         return this._backgroundAnalysisProgram.analyzeFileAndGetDiagnostics(fileUri, token);
     }
 

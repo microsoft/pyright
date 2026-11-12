@@ -18,7 +18,7 @@ import {
 } from './analyzer/analysis';
 import { InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
 import { ImportResolver } from './analyzer/importResolver';
-import { OpenFileOptions, Program } from './analyzer/program';
+import { AnalyzeFileResult, OpenFileOptions, Program } from './analyzer/program';
 import { generateTypeStubFiles, TypeStubGenerationPlan, TypeStubGenerationResult } from './analyzer/typeStubGeneration';
 import {
     BackgroundThreadBase,
@@ -64,7 +64,7 @@ export interface IBackgroundAnalysis extends Disposable {
     markFilesDirty(fileUris: Uri[], evenIfContentsAreSame: boolean): void;
     startAnalysis(token: CancellationToken): void;
     analyzeFile(fileUri: Uri, token: CancellationToken): Promise<boolean>;
-    analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<Diagnostic[]>;
+    analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<AnalyzeFileResult>;
     getDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken): Promise<Diagnostic[]>;
     generateTypeStubFiles(plan: TypeStubGenerationPlan, token: CancellationToken): Promise<TypeStubGenerationResult>;
     invalidateAndForceReanalysis(reason: InvalidatedReason): void;
@@ -196,11 +196,11 @@ export class BackgroundAnalysisBase implements IBackgroundAnalysis {
         return result;
     }
 
-    async analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<Diagnostic[]> {
+    async analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<AnalyzeFileResult> {
         throwIfCancellationRequested(token);
 
         const { port1, port2 } = new MessageChannel();
-        const waiter = getBackgroundWaiter<Diagnostic[]>(port1);
+        const waiter = getBackgroundWaiter<AnalyzeFileResult>(port1);
 
         const cancellationId = getCancellationTokenId(token);
         this.enqueueRequest({
@@ -214,7 +214,10 @@ export class BackgroundAnalysisBase implements IBackgroundAnalysis {
         port2.close();
         port1.close();
 
-        return convertDiagnostics(result);
+        return {
+            diagnostics: convertDiagnostics(result.diagnostics),
+            requiringAnalysisCount: result.requiringAnalysisCount,
+        };
     }
 
     async getDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
