@@ -1,2 +1,2 @@
-version = "1.2.*"
+version = "~=1.2.4"
 upstream-repository = "https://github.com/PyMySQL/PyMySQL"

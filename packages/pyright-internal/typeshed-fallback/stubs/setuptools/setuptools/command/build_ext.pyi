@@ -9,7 +9,7 @@ have_rtld: bool
 use_stubs: bool
 libtype: str
 
-def get_abi3_suffix(): ...
+def get_abi3_suffix() -> str | None: ...
 
 class build_ext(_build_ext):
     distribution: Distribution  # override distutils.dist.Distribution with setuptools.dist.Distribution

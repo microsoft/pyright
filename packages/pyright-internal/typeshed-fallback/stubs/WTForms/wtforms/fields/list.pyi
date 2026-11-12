@@ -2,7 +2,7 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from typing import Any, Generic, TypeVar
 
 from wtforms.datalist import DataList
-from wtforms.fields.core import Field, UnboundField, _FormT, _Validator, _Widget
+from wtforms.fields.core import Field, UnboundField, _FormT, _Text, _Validator, _Widget
 from wtforms.form import BaseForm
 from wtforms.meta import DefaultMeta, _SupportsGettextAndNgettext
 
@@ -26,16 +26,16 @@ class FieldList(Field, Generic[_BoundFieldT]):
         self: FieldList[_BoundFieldT],  # pyright: ignore[reportInvalidTypeVarUse]  #11780
         # because of our workaround we need to accept Field as well
         unbound_field: UnboundField[_BoundFieldT] | _BoundFieldT,
-        label: str | None = None,
+        label: _Text | None = None,
         validators: tuple[_Validator[_FormT, _BoundFieldT], ...] | list[Any] | None = None,
         min_entries: int = 0,
         max_entries: int | None = None,
         separator: str = "-",
         default: Iterable[Any] | Callable[[], Iterable[Any]] = (),
         *,
-        description: str = "",
+        description: _Text = "",
         id: str | None = None,
-        invalid_value_message: str | None = None,
+        invalid_value_message: _Text | None = None,
         widget: _Widget[FieldList[Any]] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,

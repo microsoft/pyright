@@ -3,6 +3,8 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager
 from typing import ClassVar, ParamSpec
 
+from behave.model import Row, Table
+
 _P = ParamSpec("_P")
 
 class Context:
@@ -14,10 +16,10 @@ class Context:
     tags: set[str]
     aborted: bool
     failed: bool
-    table: Incomplete | None
+    table: Table | None
     text: str | None
     config: Incomplete
-    active_outline: Incomplete
+    active_outline: Row | None
     fail_on_cleanup_errors: bool
 
     def __init__(self, runner) -> None: ...

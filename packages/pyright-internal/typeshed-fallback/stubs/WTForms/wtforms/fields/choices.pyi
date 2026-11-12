@@ -5,7 +5,7 @@ from typing import Any, Literal, NamedTuple, TypeAlias, TypeVar, overload
 from typing_extensions import Self, deprecated
 
 from wtforms.datalist import DataList
-from wtforms.fields.core import Field, _Filter, _FormT, _Validator, _Widget
+from wtforms.fields.core import Field, _Filter, _FormT, _Text, _Validator, _Widget
 from wtforms.form import BaseForm
 from wtforms.meta import DefaultMeta, _SupportsGettextAndNgettext
 
@@ -60,15 +60,15 @@ class SelectFieldBase(Field):
     option_widget: _Widget[_Option]
     def __init__(
         self,
-        label: str | None = None,
+        label: _Text | None = None,
         validators: tuple[_Validator[_FormT, Self], ...] | list[Any] | None = None,
         option_widget: _Widget[_Option] | None = None,
         *,
         filters: Sequence[_Filter] = (),
-        description: str = "",
+        description: _Text = "",
         id: str | None = None,
         default: object | None = None,
-        invalid_value_message: str | None = None,
+        invalid_value_message: _Text | None = None,
         widget: _Widget[Self] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,
@@ -91,23 +91,23 @@ class SelectFieldBase(Field):
 class SelectField(SelectFieldBase):
     coerce: Callable[[Any], Any]
     validate_choice: bool
-    invalid_choice_message: str
+    invalid_choice_message: _Text
 
     @overload
     @deprecated("Starting with WTForms 3.4 only SelectChoice will be supported as choices inputs")
     def __init__(
         self,
-        label: str | None,
+        label: _Text | None,
         validators: tuple[_Validator[_FormT, Self], ...] | list[Any] | None,
         coerce: Callable[[Any], Any],
         choices: _LegacyChoices | _LegacyChoicesCallback,
         validate_choice: bool = True,
-        invalid_value_message: str | None = None,
-        invalid_choice_message: str | None = None,
+        invalid_value_message: _Text | None = None,
+        invalid_choice_message: _Text | None = None,
         *,
         option_widget: _Widget[_Option] | None = None,
         filters: Sequence[_Filter] = (),
-        description: str = "",
+        description: _Text = "",
         id: str | None = None,
         default: object | None = None,
         widget: _Widget[Self] | None = None,
@@ -123,17 +123,17 @@ class SelectField(SelectFieldBase):
     @deprecated("Starting with WTForms 3.4 only SelectChoice will be supported as choices inputs")
     def __init__(
         self,
-        label: str | None = None,
+        label: _Text | None = None,
         validators: tuple[_Validator[_FormT, Self], ...] | list[Any] | None = None,
         coerce: Callable[[Any], Any] = ...,
         *,
         choices: _LegacyChoices | _LegacyChoicesCallback,
         validate_choice: bool = True,
-        invalid_value_message: str | None = None,
-        invalid_choice_message: str | None = None,
+        invalid_value_message: _Text | None = None,
+        invalid_choice_message: _Text | None = None,
         option_widget: _Widget[_Option] | None = None,
         filters: Sequence[_Filter] = (),
-        description: str = "",
+        description: _Text = "",
         id: str | None = None,
         default: object | None = None,
         widget: _Widget[Self] | None = None,
@@ -148,17 +148,17 @@ class SelectField(SelectFieldBase):
     @overload
     def __init__(
         self,
-        label: str | None = None,
+        label: _Text | None = None,
         validators: tuple[_Validator[_FormT, Self], ...] | list[Any] | None = None,
         coerce: Callable[[Any], Any] = ...,
         choices: Iterable[SelectChoice] | _SelectChoicesCallback[Self] | None = None,
         validate_choice: bool = True,
-        invalid_value_message: str | None = None,
-        invalid_choice_message: str | None = None,
+        invalid_value_message: _Text | None = None,
+        invalid_choice_message: _Text | None = None,
         *,
         option_widget: _Widget[_Option] | None = None,
         filters: Sequence[_Filter] = (),
-        description: str = "",
+        description: _Text = "",
         id: str | None = None,
         default: object | None = None,
         widget: _Widget[Self] | None = None,
@@ -187,17 +187,17 @@ class RadioField(SelectField):
     @deprecated("Starting with WTForms 3.4 only SelectChoice will be supported as choices inputs")
     def __init__(
         self,
-        label: str | None = None,
+        label: _Text | None = None,
         validators: tuple[_Validator[_FormT, Self], ...] | list[Any] | None = None,
         *,
         option_widget: _Widget[_Option] | None = None,
         coerce: Callable[[Any], Any] = ...,
         choices: _LegacyChoices | _LegacyChoicesCallback | None = None,
         validate_choice: bool = True,
-        invalid_value_message: str | None = None,
-        invalid_choice_message: str | None = None,
+        invalid_value_message: _Text | None = None,
+        invalid_choice_message: _Text | None = None,
         filters: Sequence[_Filter] = (),
-        description: str = "",
+        description: _Text = "",
         id: str | None = None,
         default: object | None = None,
         widget: _Widget[Self] | None = None,
@@ -212,17 +212,17 @@ class RadioField(SelectField):
     @overload
     def __init__(
         self,
-        label: str | None = None,
+        label: _Text | None = None,
         validators: tuple[_Validator[_FormT, Self], ...] | list[Any] | None = None,
         *,
         option_widget: _Widget[_Option] | None = None,
         coerce: Callable[[Any], Any] = ...,
         choices: Iterable[SelectChoice] | _SelectChoicesCallback[Self] | None = None,
         validate_choice: bool = True,
-        invalid_value_message: str | None = None,
-        invalid_choice_message: str | None = None,
+        invalid_value_message: _Text | None = None,
+        invalid_choice_message: _Text | None = None,
         filters: Sequence[_Filter] = (),
-        description: str = "",
+        description: _Text = "",
         id: str | None = None,
         default: object | None = None,
         widget: _Widget[Self] | None = None,
