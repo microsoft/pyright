@@ -24,7 +24,7 @@ def func1(ts: int | complex | None) -> datetime | None:
     )
 
 
-reveal_type(func1(2418049), expected_text="datetime")
+reveal_type(func1(2418049), expected_text="datetime[Any]")
 reveal_type(func1(None), expected_text="None")
 reveal_type(func1(3j), expected_text="Unknown")
 
