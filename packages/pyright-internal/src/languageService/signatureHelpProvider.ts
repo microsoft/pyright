@@ -22,17 +22,20 @@ import {
 
 import { getInfoReader, AnalyzerNodeInfoReader, getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { DeclarationType } from '../analyzer/declaration';
-import { getParamListDetails, ParamKind } from '../analyzer/parameterUtils';
+import { getParamListDetails, ParamKind, ParamListDetails } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParamIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { getFunctionOwnDocString, isBuiltInModule } from '../analyzer/typeDocStringUtils';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { PrintTypeFlags } from '../analyzer/typePrinter';
+import { getClassMemberIterator } from '../analyzer/typeUtils';
 import {
     FunctionParam,
     FunctionType,
+    isClassInstance,
     isFunction,
+    isFunctionOrOverloaded,
     isInstantiableClass,
     isOverloaded,
     isPositionOnlySeparator,
@@ -44,6 +47,7 @@ import { ProgramView } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position, TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
+import { Localizer } from '../localization/localize';
 import { ArgCategory, CallNode, NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
 import { Tokenizer } from '../parser/tokenizer';
@@ -161,7 +165,7 @@ export class SignatureHelpProvider {
         }
 
         const signatures = callSignatureInfo.signatures.map((sig) =>
-            this._makeSignature(callSignatureInfo.callNode, sig)
+            this._makeSignature(callSignatureInfo.callNode, sig, callSignatureInfo.signatures.length === 1)
         );
 
         const callHasParameters = !!callSignatureInfo.callNode.d.args?.length;
@@ -251,6 +255,21 @@ export class SignatureHelpProvider {
             }
         }
 
+        const definitionParameters = signatureHelpResults.signatures[0]?.decoratedDefinitionParameters;
+        if (definitionParameters !== undefined) {
+            const documentation = signatures[0].documentation;
+            const existingText = typeof documentation === 'string' ? documentation : documentation?.value;
+            const formattedParameters =
+                this._format === MarkupKind.Markdown
+                    ? `\n\n${definitionParameters.replace(/^/gm, '    ')}`
+                    : ` ${definitionParameters}`;
+            const definition = `${Localizer.SignatureHelp.decoratedDefinitionParameters()}${formattedParameters}`;
+            signatures[0].documentation = {
+                kind: this._format,
+                value: existingText ? `${existingText}\n\n${definition}` : definition,
+            };
+        }
+
         if (this._hasActiveParameterCapability || activeSignature === undefined) {
             // If there is no active parameter, then we want the client to not highlight anything.
             // Unfortunately, the LSP spec says that "undefined" or "out of bounds" values should be
@@ -279,7 +298,7 @@ export class SignatureHelpProvider {
         return { signatures, activeSignature, activeParameter };
     }
 
-    private _makeSignature(callNode: CallNode, signature: CallSignature): SignatureInfo {
+    private _makeSignature(callNode: CallNode, signature: CallSignature, isOnlySignature: boolean): SignatureInfo {
         let functionType = signature.type;
         // Check if this is a function decorated with @functools.wraps and extract the wrapped function type if so.
         const wrappedFunctionType = this._getWrappedFunctionType(callNode, functionType);
@@ -388,6 +407,10 @@ export class SignatureHelpProvider {
             label,
             parameters,
             activeParameter,
+            decoratedDefinitionParameters:
+                isOnlySignature && !wrappedFunctionType
+                    ? this._getDecoratedDefinitionParameters(callNode, paramListDetails)
+                    : undefined,
         };
 
         if (ownDocString) {
@@ -399,6 +422,49 @@ export class SignatureHelpProvider {
         }
 
         return sigInfo;
+    }
+
+    private _getDecoratedDefinitionParameters(callNode: CallNode, callable: ParamListDetails): string | undefined {
+        if (!isOpaqueVariadicSignature(callable)) {
+            return undefined;
+        }
+
+        const callee = callNode.d.leftExpr;
+        if (callee.nodeType !== ParseNodeType.Name && callee.nodeType !== ParseNodeType.MemberAccess) {
+            return undefined;
+        }
+        const calleeType = this._evaluator.getType(callee);
+        if (!calleeType || !isClassInstance(calleeType)) {
+            return undefined;
+        }
+        // A declared callable __wrapped__ is evidence of wrapping, not the identity of its target.
+        const wrapped = getClassMemberIterator(calleeType, '__wrapped__').next().value;
+        if (!wrapped?.isTypeDeclared || !isFunctionOrOverloaded(this._evaluator.getTypeOfMember(wrapped))) {
+            return undefined;
+        }
+
+        const name = callee.nodeType === ParseNodeType.Name ? callee : callee.d.member;
+        const declarations = this._evaluator.getDeclInfoForNameNode(name)?.decls;
+        if (declarations?.length !== 1) {
+            return undefined;
+        }
+
+        const declaration = this._evaluator.resolveAliasDeclaration(declarations[0], /* resolveLocalNames */ true);
+        if (
+            declaration?.type !== DeclarationType.Function ||
+            declaration.isMethod ||
+            declaration.node.d.decorators.length === 0
+        ) {
+            return undefined;
+        }
+
+        const definition = this._evaluator.getTypeOfFunction(declaration.node)?.functionType;
+        if (!definition || isOpaqueVariadicSignature(getParamListDetails(definition))) {
+            return undefined;
+        }
+
+        const [parameters] = this._evaluator.printFunctionParts(definition);
+        return `(${parameters.join(', ')})`;
     }
 
     private _formatDocString(docString: string, fileUri: Uri | undefined): MarkupContent {
@@ -549,6 +615,10 @@ export class SignatureHelpProvider {
     }
 }
 
+function isOpaqueVariadicSignature(details: ParamListDetails): boolean {
+    return details.params.length === 2 && details.argsIndex === 0 && details.kwargsIndex === 1;
+}
+
 interface ParamInfo {
     startOffset: number;
     endOffset: number;
@@ -560,6 +630,7 @@ interface SignatureInfo {
     label: string;
     documentation?: MarkupContent | undefined;
     borrowedDocumentation?: MarkupContent | undefined;
+    decoratedDefinitionParameters?: string | undefined;
     parameters?: ParamInfo[] | undefined;
     activeParameter?: number | undefined;
 }

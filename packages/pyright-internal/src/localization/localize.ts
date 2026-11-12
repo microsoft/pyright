@@ -1703,6 +1703,10 @@ export namespace Localizer {
     export namespace Service {
         export const longOperation = () => getRawString('Service.longOperation');
     }
+
+    export namespace SignatureHelp {
+        export const decoratedDefinitionParameters = () => getRawString('SignatureHelp.decoratedDefinitionParameters');
+    }
 }
 
 export const LocMessage = Localizer.Diagnostic;
