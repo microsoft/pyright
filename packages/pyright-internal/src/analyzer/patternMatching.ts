@@ -73,6 +73,8 @@ import {
     containsAnyOrUnknown,
     convertToInstance,
     doForEachSubtype,
+    expandUnpackedTypeVarsInTupleArgs,
+    getSpecializedTupleType,
     getTypeCondition,
     getTypeVarScopeIds,
     getUnknownForTypeVar,
@@ -257,7 +259,8 @@ function narrowTypeBasedOnSequencePattern(
         let isDefiniteMatch = true;
         const narrowedEntryTypes: Type[] = [];
         const unnarrowedEntryTypes: Type[] = [];
-        let canNarrowTuple = entry.isTuple;
+        const tupleType = getSpecializedTupleType(evaluator.makeTopLevelTypeVarsConcrete(entry.subtype));
+        let canNarrowTuple = entry.isTuple && !tupleType?.priv.tupleTypeArgs?.some((t) => isUnpackedTypeVar(t.type));
 
         // Don't attempt to narrow tuples in the negative case if the subject
         // contains indeterminate-length entries or the tuple is of indeterminate
@@ -1712,9 +1715,9 @@ function getSequencePatternInfo(
                 ) as ClassType;
 
                 if (isTupleClass(specializedSequence)) {
-                    const typeArgs = specializedSequence.priv.tupleTypeArgs ?? [
-                        { type: UnknownType.create(), isUnbounded: true },
-                    ];
+                    const typeArgs = specializedSequence.priv.tupleTypeArgs
+                        ? expandUnpackedTypeVarsInTupleArgs(specializedSequence.priv.tupleTypeArgs)
+                        : [{ type: UnknownType.create(), isUnbounded: true }];
 
                     let tupleIndeterminateIndex = typeArgs.findIndex(
                         (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)

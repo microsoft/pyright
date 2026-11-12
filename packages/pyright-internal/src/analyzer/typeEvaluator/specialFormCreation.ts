@@ -62,6 +62,7 @@ import {
     isUnion,
     isUnknown,
     isUnpackedClass,
+    isUnpackedTypeVar,
     isUnpackedTypeVarTuple,
     LiteralValue,
     NeverType,
@@ -469,6 +470,9 @@ export function createSpecialFormCreation(context: Context) {
                             ) {
                                 noteSawUnpacked(entry);
                             }
+                        } else if (isUnpackedTypeVar(entryType)) {
+                            paramCategory = ParamCategory.ArgsList;
+                            noteSawUnpacked(entry);
                         }
                     } else {
                         entryType = UnknownType.create();
@@ -1067,7 +1071,7 @@ export function createSpecialFormCreation(context: Context) {
                                     LocMessage.typeVarTupleContext(),
                                     typeArgs[0].node
                                 );
-                            } else if (isUnpackedClass(typeArgs[0].type)) {
+                            } else if (isUnpackedClass(typeArgs[0].type) || isUnpackedTypeVar(typeArgs[0].type)) {
                                 addDiagnostic(
                                     DiagnosticRule.reportInvalidTypeForm,
                                     LocMessage.ellipsisAfterUnpacked(),
@@ -1082,6 +1086,8 @@ export function createSpecialFormCreation(context: Context) {
                             noteSawUnpacked(typeArg);
                         }
                         validateTypeVarTupleIsUnpacked(typeArg.type, typeArg.node);
+                    } else if (paramLimit === undefined && isUnpackedTypeVar(typeArg.type)) {
+                        noteSawUnpacked(typeArg);
                     } else if (paramLimit === undefined && isUnpackedClass(typeArg.type)) {
                         if (isUnboundedTupleClass(typeArg.type)) {
                             noteSawUnpacked(typeArg);

@@ -257,6 +257,7 @@ import {
     isUnknown,
     isUnpacked,
     isUnpackedClass,
+    isUnpackedTypeVar,
     isUnpackedTypeVarTuple,
     LiteralValue,
     maxTypeRecursionCount,
@@ -301,6 +302,7 @@ import {
     derivesFromStdlibClass,
     doForEachSubtype,
     ensureSignaturesAreUnique,
+    expandUnpackedTypeVarsInTupleArgs,
     getSpecializedTupleType,
     getTypeCondition,
     getTypeVarArgsRecursive,
@@ -324,6 +326,7 @@ import {
     isProperty,
     isSentinelLiteral,
     isTupleClass,
+    isTupleGradualForm,
     isTypeAliasPlaceholder,
     isTypeAliasRecursive,
     isTypeVarSame,
@@ -2784,11 +2787,12 @@ export function createTypeEvaluator(
             // Is this subtype a tuple?
             const tupleType = getSpecializedTupleType(subtype);
             if (tupleType && tupleType.priv.tupleTypeArgs) {
-                const sourceEntryTypes = tupleType.priv.tupleTypeArgs.map((t) =>
+                const tupleTypeArgs = expandUnpackedTypeVarsInTupleArgs(tupleType.priv.tupleTypeArgs);
+                const sourceEntryTypes = tupleTypeArgs.map((t) =>
                     addConditionToType(t.type, getTypeCondition(subtype), { skipSelfCondition: true })
                 );
 
-                const unboundedIndex = tupleType.priv.tupleTypeArgs.findIndex((t) => t.isUnbounded);
+                const unboundedIndex = tupleTypeArgs.findIndex((t) => t.isUnbounded);
 
                 if (unboundedIndex >= 0) {
                     if (sourceEntryTypes.length < targetTypes.length) {
@@ -8536,7 +8540,12 @@ export function createTypeEvaluator(
         let isTypeVarTupleFullyMatched = false;
 
         // Expand any unpacked tuples in the arg list.
-        argList = expressionEvaluation.expandArgList(argList);
+        const unpackedTypeVarArgs = new Map<Arg, TupleTypeArg>();
+        const emptyUnpackedTypeVarArgs: { argIndex: number; typeArg: TupleTypeArg }[] = [];
+        argList = expressionEvaluation.expandArgList(argList, unpackedTypeVarArgs, emptyUnpackedTypeVarArgs);
+
+        // The index of the first positional arg that the *args parameter can receive.
+        let argsParamArgIndex: number | undefined;
 
         // Construct an object that racks which parameters have been assigned arguments.
         const paramTracker = new ParamAssignmentTracker(paramDetails.params);
@@ -8657,6 +8666,10 @@ export function createTypeEvaluator(
 
             const remainingArgCount = positionalArgCount - argIndex;
             const remainingParamCount = positionParamLimitIndex - paramIndex - 1;
+
+            if (paramIndex === paramDetails.argsIndex && argsParamArgIndex === undefined) {
+                argsParamArgIndex = argIndex;
+            }
 
             if (paramIndex >= positionParamLimitIndex) {
                 if (paramSpecArgList) {
@@ -8845,6 +8858,11 @@ export function createTypeEvaluator(
                     }
 
                     if (funcArg) {
+                        const unpackedTypeVarArg = unpackedTypeVarArgs.get(argList[argIndex]);
+                        if (unpackedTypeVarArg) {
+                            unpackedTypeVarArgs.set(funcArg, unpackedTypeVarArg);
+                        }
+
                         validateArgTypeParams.push({
                             paramCategory: paramInfo.param.category,
                             paramType,
@@ -8952,6 +8970,14 @@ export function createTypeEvaluator(
                 argIndex++;
                 paramIndex++;
             }
+        }
+
+        if (
+            argsParamArgIndex === undefined &&
+            paramDetails.argsIndex !== undefined &&
+            paramIndex <= paramDetails.argsIndex
+        ) {
+            argsParamArgIndex = argIndex;
         }
 
         // If there weren't enough positional arguments to populate all of the
@@ -9473,7 +9499,35 @@ export function createTypeEvaluator(
                 const variadicArgs = validateArgTypeParams.filter((argParam) => argParam.mapsToVarArgList);
 
                 if (isUnpacked(paramType) && (!isTypeVarTuple(paramType) || !paramType.priv.isInUnion)) {
-                    const tupleTypeArgs: TupleTypeArg[] = variadicArgs.map((argParam) => {
+                    const tupleTypeArgs: TupleTypeArg[] = [];
+
+                    if (variadicArgs.length === 0 && isUnpackedTypeVar(paramType)) {
+                        emptyUnpackedTypeVarArgs.forEach((emptyArg) => {
+                            if (emptyArg.argIndex === argsParamArgIndex) {
+                                tupleTypeArgs.push(emptyArg.typeArg);
+                            }
+                        });
+                    }
+
+                    variadicArgs.forEach((argParam) => {
+                        // An unpacked TypeVar arg that maps entirely to an
+                        // unpacked TypeVar parameter stays a single entry.
+                        const unpackedTypeVarArg = unpackedTypeVarArgs.get(argParam.argument);
+                        if (
+                            unpackedTypeVarArg &&
+                            isUnpackedTypeVar(paramType) &&
+                            !validateArgTypeParams.some(
+                                (other) =>
+                                    !other.mapsToVarArgList &&
+                                    unpackedTypeVarArgs.get(other.argument) === unpackedTypeVarArg
+                            )
+                        ) {
+                            if (!tupleTypeArgs.includes(unpackedTypeVarArg)) {
+                                tupleTypeArgs.push(unpackedTypeVarArg);
+                            }
+                            return;
+                        }
+
                         const argType = getTypeOfArg(argParam.argument, /* inferenceContext */ undefined).type;
 
                         const containsTypeVarTuple =
@@ -9499,17 +9553,23 @@ export function createTypeEvaluator(
                             reportedArgError = true;
                         }
 
-                        return {
+                        tupleTypeArgs.push({
                             type: argType,
                             isUnbounded: argParam.argument.argCategory === ArgCategory.UnpackedList,
-                        };
+                        });
                     });
 
                     let specializedTuple: Type | undefined;
                     if (tupleTypeArgs.length === 1 && !tupleTypeArgs[0].isUnbounded) {
                         const entryType = tupleTypeArgs[0].type;
 
-                        if (isUnpacked(entryType)) {
+                        // A bound TypeVar parameter isn't solved, so the arguments are
+                        // matched as that TypeVar rather than as a tuple of its entries.
+                        if (
+                            isUnpacked(entryType) &&
+                            (!isUnpackedTypeVar(entryType) ||
+                                (isUnpackedTypeVar(paramType) && TypeVarType.isBound(paramType)))
+                        ) {
                             specializedTuple = makePacked(entryType);
                         }
                     }
@@ -9518,9 +9578,16 @@ export function createTypeEvaluator(
                         specializedTuple = makeTupleObject(evaluatorInterface, tupleTypeArgs, /* isUnpacked */ false);
                     }
 
+                    // A `tuple[Any, ...]` is compared against the tuple form of a
+                    // bound TypeVar parameter, which accepts it.
+                    const combinedParamType =
+                        isTupleGradualForm(specializedTuple) && isTypeVar(paramType) && TypeVarType.isBound(paramType)
+                            ? makeTupleObject(evaluatorInterface, [{ type: paramType, isUnbounded: false }])
+                            : makePacked(paramType);
+
                     const combinedArg: ValidateArgTypeParams = {
                         paramCategory: ParamCategory.Simple,
-                        paramType: makePacked(paramType),
+                        paramType: combinedParamType,
                         requiresTypeVarMatching: true,
                         argument: {
                             argCategory: ArgCategory.Simple,

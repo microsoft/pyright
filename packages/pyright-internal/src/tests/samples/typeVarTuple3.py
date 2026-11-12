@@ -127,3 +127,11 @@ def func8():
     # This should generate an error because only one unpacked unbounded
     # tuple can be used.
     x4: ArrayAlias[*tuple[str, ...], *tuple[int, ...], *tuple[str]]
+
+
+def func9(a: tuple[int, Unpack[_Xs]]) -> tuple[Unpack[_Xs]]: ...
+
+
+def func10(a: tuple[int, ...]):
+    # This should generate an error.
+    func9(a)

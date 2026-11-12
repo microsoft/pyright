@@ -109,6 +109,7 @@ import {
     derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
     doForEachSubtype,
+    expandUnpackedTypeVarsInTupleArgs,
     getGeneratorTypeArgs,
     getGeneratorYieldType,
     getSpecializedTupleType,
@@ -133,6 +134,7 @@ import {
     synthesizeTypeVarForSelfCls,
     transformPossibleRecursiveTypeAlias,
 } from '../typeUtils';
+import { applyUnpackToTupleLike } from './tupleUnpacking';
 
 export function getIndexAccessMagicMethodName(usage: EvaluatorUsage): string {
     if (usage.method === 'get') {
@@ -325,8 +327,14 @@ export function createExpressionEvaluation(context: Context) {
 
         const iterTypeResult = getTypeOfExpression(node.d.expr, flags, makeInferenceContext(iterExpectedType));
         const iterType = iterTypeResult.type;
+        const unpackedTypeVar =
+            (flags & EvalFlags.AllowUnpackedTuple) !== 0 && isTypeVar(iterType) && !isTypeVarTuple(iterType)
+                ? applyUnpackToTupleLike(iterType)
+                : undefined;
         if ((flags & EvalFlags.NoTypeVarTuple) === 0 && isTypeVarTuple(iterType) && !iterType.priv.isUnpacked) {
             typeResult = { type: TypeVarType.cloneForUnpacked(iterType) };
+        } else if (unpackedTypeVar) {
+            typeResult = { type: unpackedTypeVar };
         } else if (
             (flags & EvalFlags.AllowUnpackedTuple) !== 0 &&
             isInstantiableClass(iterType) &&
@@ -1255,14 +1263,13 @@ export function createExpressionEvaluation(context: Context) {
                 const tupleType = getSpecializedTupleType(baseType);
 
                 if (tupleType && tupleType.priv.tupleTypeArgs) {
-                    if (isTupleIndexUnambiguous(tupleType, indexValue)) {
-                        if (indexValue >= 0 && indexValue < tupleType.priv.tupleTypeArgs.length) {
-                            return { type: tupleType.priv.tupleTypeArgs[indexValue].type };
-                        } else if (indexValue < 0 && tupleType.priv.tupleTypeArgs.length + indexValue >= 0) {
-                            return {
-                                type: tupleType.priv.tupleTypeArgs[tupleType.priv.tupleTypeArgs.length + indexValue]
-                                    .type,
-                            };
+                    const tupleTypeArgs = expandUnpackedTypeVarsInTupleArgs(tupleType.priv.tupleTypeArgs);
+
+                    if (isTupleIndexUnambiguous(tupleTypeArgs, indexValue)) {
+                        if (indexValue >= 0 && indexValue < tupleTypeArgs.length) {
+                            return { type: tupleTypeArgs[indexValue].type };
+                        } else if (indexValue < 0 && tupleTypeArgs.length + indexValue >= 0) {
+                            return { type: tupleTypeArgs[tupleTypeArgs.length + indexValue].type };
                         }
                     }
                 }
@@ -2501,7 +2508,15 @@ export function createExpressionEvaluation(context: Context) {
         return newExpandedArgTypes;
     }
 
-    function expandArgList(argList: Arg[]): Arg[] {
+    // Expands any unpacked tuples within an argument list. The args that an
+    // unpacked TypeVar expands to are recorded in unpackedTypeVarArgs, and an
+    // unpacked TypeVar that expands to no args is recorded in emptyUnpackedTypeVarArgs
+    // with the index of the arg that follows it.
+    function expandArgList(
+        argList: Arg[],
+        unpackedTypeVarArgs: Map<Arg, TupleTypeArg>,
+        emptyUnpackedTypeVarArgs: { argIndex: number; typeArg: TupleTypeArg }[]
+    ): Arg[] {
         const expandedArgList: Arg[] = [];
 
         for (const arg of argList) {
@@ -2517,31 +2532,70 @@ export function createExpressionEvaluation(context: Context) {
                 );
 
                 if (isClassInstance(combinedArgType) && isTupleClass(combinedArgType)) {
-                    const tupleTypeArgs = combinedArgType.priv.tupleTypeArgs ?? [];
+                    const unexpandedTypeArgs = combinedArgType.priv.tupleTypeArgs ?? [];
+                    const tupleTypeArgs = expandUnpackedTypeVarsInTupleArgs(unexpandedTypeArgs);
+
+                    // A TypeVar with a tuple bound expands like an unpacked TypeVar.
+                    const unpackedArgType =
+                        isTypeVar(argType) && !isTypeVarTuple(argType) ? applyUnpackToTupleLike(argType) : undefined;
+                    const unpackedArgTypeVar: TupleTypeArg | undefined = unpackedArgType
+                        ? { type: unpackedArgType, isUnbounded: false }
+                        : undefined;
 
                     if (tupleTypeArgs.length !== 1 || !tupleTypeArgs[0].isUnbounded) {
-                        for (const tupleTypeArg of tupleTypeArgs) {
-                            if (tupleTypeArg.isUnbounded) {
-                                expandedArgList.push({
-                                    ...arg,
-                                    argCategory: ArgCategory.UnpackedList,
-                                    valueExpression: undefined,
-                                    typeResult: {
-                                        type: makeTupleObject(evaluatorInterface, [tupleTypeArg]),
-                                    },
+                        if (unpackedArgTypeVar && tupleTypeArgs.length === 0) {
+                            emptyUnpackedTypeVarArgs.push({
+                                argIndex: expandedArgList.length,
+                                typeArg: unpackedArgTypeVar,
+                            });
+                        }
+
+                        for (const unexpandedTypeArg of unexpandedTypeArgs) {
+                            const expandedTypeArgs = expandUnpackedTypeVarsInTupleArgs([unexpandedTypeArg]);
+                            const unpackedTypeVarArg =
+                                unpackedArgTypeVar ??
+                                (expandedTypeArgs[0] !== unexpandedTypeArg ? { ...unexpandedTypeArg } : undefined);
+
+                            if (!unpackedArgTypeVar && unpackedTypeVarArg && expandedTypeArgs.length === 0) {
+                                emptyUnpackedTypeVarArgs.push({
+                                    argIndex: expandedArgList.length,
+                                    typeArg: unpackedTypeVarArg,
                                 });
-                            } else {
-                                expandedArgList.push({
-                                    ...arg,
-                                    argCategory: ArgCategory.Simple,
-                                    valueExpression: undefined,
-                                    typeResult: {
-                                        type: tupleTypeArg.type,
-                                    },
-                                });
+                            }
+
+                            for (const tupleTypeArg of expandedTypeArgs) {
+                                const expandedArg: Arg = tupleTypeArg.isUnbounded
+                                    ? {
+                                          ...arg,
+                                          argCategory: ArgCategory.UnpackedList,
+                                          valueExpression: undefined,
+                                          typeResult: {
+                                              type: makeTupleObject(evaluatorInterface, [tupleTypeArg]),
+                                          },
+                                      }
+                                    : {
+                                          ...arg,
+                                          argCategory: ArgCategory.Simple,
+                                          valueExpression: undefined,
+                                          typeResult: {
+                                              type: tupleTypeArg.type,
+                                          },
+                                      };
+
+                                expandedArgList.push(expandedArg);
+
+                                if (unpackedTypeVarArg) {
+                                    unpackedTypeVarArgs.set(expandedArg, unpackedTypeVarArg);
+                                }
                             }
                         }
                         continue;
+                    }
+
+                    if (unpackedArgTypeVar) {
+                        unpackedTypeVarArgs.set(arg, unpackedArgTypeVar);
+                    } else if (tupleTypeArgs[0] !== unexpandedTypeArgs[0]) {
+                        unpackedTypeVarArgs.set(arg, { ...unexpandedTypeArgs[0] });
                     }
                 }
             }
