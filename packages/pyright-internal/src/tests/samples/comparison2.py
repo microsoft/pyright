@@ -3,7 +3,7 @@
 
 
 from enum import Enum
-from typing import Any, Callable, Coroutine, Protocol
+from typing import Any, Callable, ClassVar, Coroutine, Hashable, Protocol
 from dataclasses import dataclass
 
 
@@ -155,4 +155,89 @@ def func13(x: IntVal):
 
     # This should generate an error if reportUnnecessaryComparison is enabled.
     if x == 4:
+        pass
+
+
+class ClassWithEq:
+    def __eq__(self, other: object) -> bool:
+        return True
+
+
+class MetaWithEq(type):
+    def __eq__(self, other: object) -> bool:
+        return True
+
+
+class ClassWithMetaEq(metaclass=MetaWithEq): ...
+
+
+def func14(b: Hashable, c: object):
+    if int == b:
+        pass
+
+    if int is c:
+        pass
+
+
+def func15(a: A):
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if int == a:
+        pass
+
+
+def func16(a: A, d: ClassWithEq, e: DC1):
+    if a == d or e == d or int == d:
+        pass
+
+    if int == ClassWithMetaEq or a == ClassWithMetaEq:
+        pass
+
+
+def func17(a: A, d: ClassWithEq):
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if a is d:
+        pass
+
+
+class ClassWithInstanceEq:
+    def __init__(self) -> None:
+        self.__eq__ = lambda other: True
+
+
+def func18(a: A, f: ClassWithInstanceEq):
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if a == f:
+        pass
+
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if f == a:
+        pass
+
+
+class ClassWithDeclaredInstanceEq:
+    __eq__: Callable[[object, object], bool]
+
+    def __init__(self) -> None:
+        self.__eq__ = lambda a, b: True
+
+
+def func19(a: A, f: ClassWithDeclaredInstanceEq):
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if a == f:
+        pass
+
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if f == a:
+        pass
+
+
+class ClassWithDeclaredClassEq:
+    __eq__: ClassVar[Callable[[object, object], bool]]
+
+
+def func20(a: A, f: ClassWithDeclaredClassEq):
+    if a == f:
+        pass
+
+    if f == a:
         pass
