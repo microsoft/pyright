@@ -83,6 +83,7 @@ export interface MemberAccessTypeResult {
     isAsymmetricAccessor?: boolean;
     memberAccessDeprecationInfo?: MemberAccessDeprecationInfo;
     typeErrors?: boolean;
+    isIncomplete?: boolean;
 }
 
 export interface ScopedTypeVarResult {
