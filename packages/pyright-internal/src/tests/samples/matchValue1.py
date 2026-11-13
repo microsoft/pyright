@@ -1,6 +1,8 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain value patterns.
 
+import typing
+import typing_extensions  # pyright: ignore[reportMissingModuleSource]
 from dataclasses import dataclass
 from enum import Enum, auto
 from http import HTTPStatus
@@ -411,3 +413,35 @@ def test_bool_expansion(subj: bool):
 
         case x:
             reveal_type(subj, expected_text="Literal[True]")
+
+
+def test_never_value_pattern(subj: object):
+    result = None
+    match subj:
+        case typing_extensions.Never as a1:
+            reveal_type(a1, expected_text="type[Never]")
+            result = a1
+        case typing.NoReturn as a2:
+            reveal_type(a2, expected_text="type[NoReturn]")
+            result = a2
+    reveal_type(result, expected_text="type[Never] | type[NoReturn] | None")
+
+
+def test_never_value_pattern_unrelated(subj: PlainToken, form: typing._SpecialForm):
+    match subj:
+        case typing.NoReturn as a1:
+            reveal_type(a1, expected_text="PlainToken")
+    match form:
+        case typing_extensions.Never as a2:
+            reveal_type(a2, expected_text="_SpecialForm")
+
+
+def test_unrelated_identity_eq_value_pattern(subj: PlainBase, final_subj: IdentityClassB):
+    result = None
+    match subj:
+        case PlainTokens.value as a1:
+            reveal_type(a1, expected_text="PlainBase")
+    match final_subj:
+        case PlainTokens.value:
+            result = final_subj
+    reveal_type(result, expected_text="None")
