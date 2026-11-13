@@ -11,7 +11,7 @@ import { ArgCategory, ExpressionNode, NameNode, ParamCategory, ParseNodeType } f
 import { KeywordType, OperatorType } from '../../parser/tokenizerTypes';
 import { AnalyzerNodeInfoAccessor, getInfoReader } from '../analyzerNodeInfo';
 import { ConstraintTracker } from '../constraintTracker';
-import { transformTypeForEnumMember } from '../enums';
+import { hasStandardEnumConstruction, transformTypeForEnumMember } from '../enums';
 import { customMetaclassSupportsMethod } from '../operations';
 import { isScopeContainedWithin } from '../scopeUtils';
 import { getTypedDictMembersForClass } from '../typedDicts';
@@ -61,6 +61,7 @@ import {
     isLiteralTypeOrUnion,
     isMaybeDescriptorClass,
     isMaybeDescriptorInstance,
+    MemberAccessFlags,
     isNoneInstance,
     isNoneTypeClass,
     isProperty,
@@ -155,6 +156,7 @@ export interface TypeIsCallNarrowingInfo {
     classTypeVar?: TypeVarType;
     isOrIsNotOperator: boolean;
     allowLegacyEquality: boolean;
+    allowExactStringFlow: boolean;
     isIncomplete: boolean;
 }
 
@@ -384,6 +386,8 @@ export function getTypeIsCallNarrowingInfo(
         adjIsPositiveTest,
         isOrIsNotOperator,
         allowLegacyEquality,
+        // Attribute and index reads can invoke a different getter each time.
+        allowExactStringFlow: reference.nodeType === ParseNodeType.Name,
         isIncomplete: !!otherResult.isIncomplete,
     };
 }
@@ -1519,6 +1523,39 @@ export function getElementTypeForContainerNarrowing(containerType: Type): Type |
     return containerType.priv.typeArgs[0];
 }
 
+function getStringLiteralForStrEnumMember(enumMember: ClassType): ClassType | undefined {
+    const literalValue = enumMember.priv.literalValue;
+    if (
+        !(literalValue instanceof EnumLiteral) ||
+        !ClassType.isEnumClass(enumMember) ||
+        !derivesFromStdlibClass(enumMember, 'str') ||
+        ClassType.isEnumMemberSetMayBeIncomplete(enumMember) ||
+        !hasStandardEnumConstruction(enumMember)
+    ) {
+        return undefined;
+    }
+
+    const equalityMember = lookUpObjectMember(
+        enumMember,
+        '__eq__',
+        MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
+    );
+    if (
+        !equalityMember ||
+        !isClass(equalityMember.classType) ||
+        !ClassType.isBuiltIn(equalityMember.classType, 'str')
+    ) {
+        return undefined;
+    }
+
+    const valueType = literalValue.itemType;
+    if (isClassInstance(valueType) && isLiteralType(valueType) && ClassType.isBuiltIn(valueType, 'str')) {
+        return valueType;
+    }
+
+    return undefined;
+}
+
 export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, referenceType: Type, elementType: Type) {
     return evaluator.mapSubtypesExpandTypeVars(referenceType, /* options */ undefined, (referenceSubtype) => {
         return mapSubtypes(elementType, (elementSubtype) => {
@@ -1529,6 +1566,21 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
             // If the two types are disjoint (i.e. are not comparable), eliminate this subtype.
             if (!evaluator.isTypeComparable(elementSubtype, referenceSubtype)) {
                 return undefined;
+            }
+
+            if (
+                isClassInstance(referenceSubtype) &&
+                ClassType.isBuiltIn(referenceSubtype, ['str', 'LiteralString']) &&
+                // A plain str type includes subclasses such as StrEnum; only an exact str can become a primitive literal.
+                (referenceSubtype.priv.isExactStringFlow || isLiteralType(referenceSubtype)) &&
+                isClassInstance(elementSubtype)
+            ) {
+                const stringLiteral = getStringLiteralForStrEnumMember(elementSubtype);
+                // A broad string type can admit the enum member or another equal string subtype,
+                // so convert to the primitive literal only when the reference is an exact str.
+                if (stringLiteral && evaluator.assignType(referenceSubtype, stringLiteral)) {
+                    return stripTypeForm(addConditionToType(stringLiteral, referenceSubtype.props?.condition));
+                }
             }
 
             // If one of the two types is a literal, we can narrow to that type.
@@ -1867,7 +1919,8 @@ export function narrowTypeForTypeIs(
     isPositiveTest: boolean,
     isIsOperator: boolean,
     classTypeVar: TypeVarType | undefined,
-    allowLegacyEquality: boolean
+    allowLegacyEquality: boolean,
+    allowExactStringFlow: boolean
 ) {
     const metaclassEqualityResults = isIsOperator ? undefined : new Map<ClassDetailsShared, boolean>();
     const hasEqualitySemantics = allowLegacyEquality
@@ -1893,6 +1946,12 @@ export function narrowTypeForTypeIs(
 
     let gradualArgResults: Map<Type, Map<Type, Type>> | undefined;
     const typesToCombine = classTypes.map((classType) => {
+        const isExactStringClass =
+            isIsOperator &&
+            allowExactStringFlow &&
+            !classTypeVar &&
+            !classType.priv.includeSubclasses &&
+            ClassType.isBuiltIn(classType, 'str');
         return evaluator.mapSubtypesExpandTypeVars(
             type,
             /* options */ undefined,
@@ -1922,7 +1981,12 @@ export function narrowTypeForTypeIs(
                     if (isPositiveTest) {
                         if (matches) {
                             if (ClassType.isSameGenericClass(instantiableSubtype, classType)) {
-                                return addConditionToType(subtype, getTypeCondition(classType));
+                                // Keep exact-str information for a later string-literal membership check.
+                                const narrowedSubtype =
+                                    isExactStringClass && !isLiteral
+                                        ? ClassType.cloneExactStringFlow(subtype, true)
+                                        : subtype;
+                                return addConditionToType(narrowedSubtype, getTypeCondition(classType));
                             }
 
                             let narrowedClass = classType;
@@ -1981,10 +2045,11 @@ export function narrowTypeForTypeIs(
                                 }
                             }
 
-                            return addConditionToType(
-                                ClassType.cloneAsInstance(narrowedClass),
-                                subtype.props?.condition
-                            );
+                            let instance = ClassType.cloneAsInstance(narrowedClass);
+                            if (isExactStringClass) {
+                                instance = ClassType.cloneExactStringFlow(instance, true);
+                            }
+                            return addConditionToType(instance, subtype.props?.condition);
                         }
 
                         if (!classType.priv.includeSubclasses) {
