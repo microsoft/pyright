@@ -40,8 +40,9 @@ _Palette: TypeAlias = str | Sequence[ColorType] | Mapping[Any, ColorType]  # noq
 _Seed: TypeAlias = int | np.random.Generator | np.random.RandomState  # noqa: Y047
 _Scalar: TypeAlias = (
     # numeric
-    float
-    | complex
+    complex
+    | float
+    | int
     | np.number[Any]
     # dates
     | dt.date

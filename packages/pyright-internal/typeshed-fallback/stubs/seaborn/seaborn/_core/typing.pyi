@@ -11,7 +11,7 @@ from pandas import DataFrame, Index, Series, Timedelta, Timestamp
 class SupportsDataFrame(Protocol):
     def __dataframe__(self, nan_as_null: bool = ..., allow_copy: bool = ...): ...
 
-ColumnName: TypeAlias = str | bytes | date | datetime | timedelta | bool | complex | Timestamp | Timedelta
+ColumnName: TypeAlias = str | bytes | date | datetime | timedelta | bool | complex | float | int | Timestamp | Timedelta
 Vector: TypeAlias = Series[Any] | Index[Any] | ndarray[Any, Any]
 VariableSpec: TypeAlias = ColumnName | Vector | None
 VariableSpecList: TypeAlias = list[VariableSpec] | Index[Any] | None

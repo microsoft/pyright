@@ -1,4 +1,4 @@
-from typing import Any
+from _typeshed import MaybeNone
 
 from urllib3.exceptions import HTTPError as BaseHTTPError
 
@@ -17,8 +17,8 @@ class InvalidJSONError(RequestException): ...
 class JSONDecodeError(InvalidJSONError, CompatJSONDecodeError): ...
 
 class HTTPError(RequestException):
-    request: Request | PreparedRequest | Any
-    response: Response | Any
+    request: Request | PreparedRequest | MaybeNone
+    response: Response | MaybeNone
 
 class ConnectionError(RequestException): ...
 class ProxyError(ConnectionError): ...

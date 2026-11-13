@@ -1,6 +1,5 @@
-from _typeshed import Incomplete
+from django.dispatch import Signal
 
-# actual types is django.dispatch.Signal
-client_authenticated: Incomplete
-token_revoked: Incomplete
-token_authenticated: Incomplete
+client_authenticated: Signal
+token_revoked: Signal
+token_authenticated: Signal

@@ -16,6 +16,5 @@ class Options:
     def __getattr__(self, key: str) -> Any: ...
 
 display_precision: Option
-use_pygeos: Option
 io_engine: Option
 options: Options

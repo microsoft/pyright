@@ -7,6 +7,7 @@ from typing_extensions import deprecated
 import numpy as np
 from affine import Affine as Affine
 from numpy.typing import DTypeLike, NDArray
+from rasterio import Band
 from rasterio._typing import Geometry as Geometry
 from rasterio.enums import MergeAlg as MergeAlg
 from rasterio.io import DatasetReaderBase
@@ -18,7 +19,10 @@ def geometry_mask(
     geometries: Iterable[Geometry], out_shape: tuple[int, int], transform: Affine, all_touched: bool = False, invert: bool = False
 ) -> NDArray[np.bool_]: ...
 def shapes(
-    source: NDArray[Any], mask: NDArray[np.bool_] | None = None, connectivity: int = 4, transform: Affine = ...
+    source: NDArray[Any] | Band | tuple[DatasetReaderBase, int],
+    mask: NDArray[np.bool_] | Band | None = None,
+    connectivity: int = 4,
+    transform: Affine = ...,
 ) -> Iterator[tuple[dict[str, Any], float | int]]: ...
 def sieve(
     source: NDArray[Any], size: int, out: NDArray[Any] | None = None, mask: NDArray[np.bool_] | None = None, connectivity: int = 4

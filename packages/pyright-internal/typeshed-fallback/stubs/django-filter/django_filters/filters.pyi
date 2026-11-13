@@ -298,7 +298,7 @@ class OrderingFilter(BaseCSVFilter, ChoiceFilter):
     # from BaseCSVField.
     field_class: type[BaseCSVField]
     descending_fmt: str
-    param_map: dict[str, str] | None
+    param_map: dict[str, str]
     def __init__(
         self,
         field_name: str | None = None,

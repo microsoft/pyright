@@ -7,7 +7,7 @@ from typing_extensions import TypeVarTuple, Unpack
 
 _Ts = TypeVarTuple("_Ts")
 
-# gevent uses zope.interface interanlly which does not work well with type checkers
+# gevent uses zope.interface internally which does not work well with type checkers
 # partially due to the odd call signatures without self and partially due to them
 # behaving essentially like a Protocol, so a mypy plugin is necessary to type check
 # them correctly, and then you still have to give up on some valuable features due
