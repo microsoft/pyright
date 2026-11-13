@@ -2,7 +2,7 @@
 # diagnostic check.
 
 
-from typing import Any, Generic, ParamSpec, Self, TypeVar
+from typing import Any, Generic, ParamSpec, Protocol, Self, TypeVar
 
 
 class Base1:
@@ -92,3 +92,49 @@ class Derived3(Generic[T], Base3):
 
     # This should generate an error.
     def method3(self, x: Self) -> Self: ...
+
+
+class HasValue4(Protocol):
+    value: int
+
+
+class Base4(Protocol):
+    def method1(self: HasValue4) -> int: ...
+
+
+class Derived4_1(Base4):
+    value: int
+
+    def method1(self) -> int: ...
+
+
+class Derived4_2(Base4):
+    def method1(self: HasValue4) -> int: ...
+
+
+class Derived4_3(Base4):
+    # This should generate an error.
+    def method1(self) -> int: ...
+
+
+class Base5[T]:
+    def method1(self: Base5[int]) -> int: ...
+
+    @classmethod
+    def method2(cls: type[Base5[int]]) -> int: ...
+
+
+class Derived5_1(Base5[int]):
+    def method1(self) -> int: ...
+
+    @classmethod
+    def method2(cls) -> int: ...
+
+
+class Derived5_2(Base5[str]):
+    # This should generate an error.
+    def method1(self) -> int: ...
+
+    # This should generate an error.
+    @classmethod
+    def method2(cls) -> int: ...
