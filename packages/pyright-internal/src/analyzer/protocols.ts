@@ -863,6 +863,10 @@ function assignToProtocolInternal(
                     srcMemberInfo = lookUpClassMember(srcType, name);
                 }
 
+                if (!srcMemberInfo && (flags & AssignTypeFlags.AllowMissingProtocolMembers) !== 0) {
+                    return;
+                }
+
                 if (!srcMemberInfo) {
                     diag?.addMessage(LocAddendum.protocolMemberMissing().format({ name }));
                     typesAreConsistent = false;
@@ -1232,7 +1236,14 @@ function assignToProtocolInternal(
 
         if (destType.priv.typeArgs) {
             if (
-                !evaluator.assignTypeArgs(destType, specializedProtocolType, diag, constraints, flags, recursionCount)
+                !evaluator.assignTypeArgs(
+                    destType,
+                    specializedProtocolType,
+                    diag,
+                    constraints,
+                    flags & ~AssignTypeFlags.AllowMissingProtocolMembers,
+                    recursionCount
+                )
             ) {
                 typesAreConsistent = false;
             }

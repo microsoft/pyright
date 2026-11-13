@@ -684,6 +684,11 @@ export const enum AssignTypeFlags {
     // records it. Overload consistency validation uses this when comparing
     // return types.
     RejectCyclicLowerBound = 1 << 18,
+
+    // Protocol matching skips members that the source class doesn't declare.
+    // The source is the class object of an unbound TypeVar, whose solution
+    // can declare them.
+    AllowMissingProtocolMembers = 1 << 19,
 }
 
 export interface TypeEvaluator {
