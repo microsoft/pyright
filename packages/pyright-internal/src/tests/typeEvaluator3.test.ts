@@ -9,6 +9,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
@@ -1191,4 +1192,21 @@ test('EnumNarrowing2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumNarrowing2.py']);
 
     TestUtils.validateResults(analysisResults, 5);
+});
+
+test('EnumNarrowing3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumNarrowing3.py']);
+
+    TestUtils.validateResults(analysisResults, 14);
+    expect(
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+    ).toEqual(
+        [22, 25, 33, 41, 60, 70, 85, 94, 112, 131, 139, 148, 156, 164].map((line) => [
+            line,
+            DiagnosticRule.reportArgumentType,
+        ])
+    );
 });

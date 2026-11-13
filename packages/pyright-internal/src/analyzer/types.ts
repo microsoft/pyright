@@ -136,6 +136,7 @@ export interface TypeSameOptions {
     honorCallBehavior?: boolean;
     honorTypedDictNarrowedValues?: boolean;
     ignoreOverloadOwner?: boolean;
+    honorExactStringFlow?: boolean;
 }
 
 export interface TypeAliasSharedInfo {
@@ -859,6 +860,9 @@ export interface ClassDetailsPriv {
     // of abstract or protocol classes.
     includeSubclasses?: boolean;
 
+    // An exact built-in str established by code flow. This must not escape flow analysis.
+    isExactStringFlow?: boolean;
+
     // This class type represents the class and any auto-promotion
     // types that PEP 484 indicates should be treated as subclasses
     // when the type appears within a type annotation.
@@ -1083,6 +1087,16 @@ export namespace ClassType {
 
         const newClassType = TypeBase.cloneType(classType);
         newClassType.priv.includeSubclasses = includeSubclasses;
+        return newClassType;
+    }
+
+    export function cloneExactStringFlow(classType: ClassType, isExact: boolean) {
+        if (!!classType.priv.isExactStringFlow === isExact) {
+            return classType;
+        }
+
+        const newClassType = TypeBase.cloneType(classType);
+        newClassType.priv.isExactStringFlow = isExact || undefined;
         return newClassType;
     }
 
@@ -3640,6 +3654,13 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
+            if (
+                options.honorExactStringFlow &&
+                !!type1.priv.isExactStringFlow !== !!classType2.priv.isExactStringFlow
+            ) {
+                return false;
+            }
+
             if (!type1.priv.isUnpacked !== !classType2.priv.isUnpacked) {
                 return false;
             }
@@ -4420,7 +4441,17 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
 
         // Does this type already exist in the types array?
         if (isTypeSame(type, typeToAdd, { honorTypeForm: true })) {
-            unionType.priv.subtypes[i] = _mergeInferredTupleLiterals(type, typeToAdd);
+            let merged = _mergeInferredTupleLiterals(type, typeToAdd);
+            // An exact-string proof survives a join only if both paths carry it.
+            if (
+                isClass(merged) &&
+                isClass(typeToAdd) &&
+                merged.priv.isExactStringFlow &&
+                !typeToAdd.priv.isExactStringFlow
+            ) {
+                merged = ClassType.cloneExactStringFlow(merged, false);
+            }
+            unionType.priv.subtypes[i] = merged;
             return;
         }
 

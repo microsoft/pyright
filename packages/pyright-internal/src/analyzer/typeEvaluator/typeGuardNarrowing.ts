@@ -156,6 +156,7 @@ export interface TypeIsCallNarrowingInfo {
     classTypeVar?: TypeVarType;
     isOrIsNotOperator: boolean;
     allowLegacyEquality: boolean;
+    allowExactStringFlow: boolean;
     isIncomplete: boolean;
 }
 
@@ -385,6 +386,8 @@ export function getTypeIsCallNarrowingInfo(
         adjIsPositiveTest,
         isOrIsNotOperator,
         allowLegacyEquality,
+        // Attribute and index reads can invoke a different getter each time.
+        allowExactStringFlow: reference.nodeType === ParseNodeType.Name,
         isIncomplete: !!otherResult.isIncomplete,
     };
 }
@@ -1569,7 +1572,7 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
                 isClassInstance(referenceSubtype) &&
                 ClassType.isBuiltIn(referenceSubtype, ['str', 'LiteralString']) &&
                 // A plain str type includes subclasses such as StrEnum; only an exact str can become a primitive literal.
-                (!referenceSubtype.priv.includeSubclasses || isLiteralType(referenceSubtype)) &&
+                (referenceSubtype.priv.isExactStringFlow || isLiteralType(referenceSubtype)) &&
                 isClassInstance(elementSubtype)
             ) {
                 const stringLiteral = getStringLiteralForStrEnumMember(elementSubtype);
@@ -1916,7 +1919,8 @@ export function narrowTypeForTypeIs(
     isPositiveTest: boolean,
     isIsOperator: boolean,
     classTypeVar: TypeVarType | undefined,
-    allowLegacyEquality: boolean
+    allowLegacyEquality: boolean,
+    allowExactStringFlow: boolean
 ) {
     const metaclassEqualityResults = isIsOperator ? undefined : new Map<ClassDetailsShared, boolean>();
     const hasEqualitySemantics = allowLegacyEquality
@@ -1942,6 +1946,12 @@ export function narrowTypeForTypeIs(
 
     let gradualArgResults: Map<Type, Map<Type, Type>> | undefined;
     const typesToCombine = classTypes.map((classType) => {
+        const isExactStringClass =
+            isIsOperator &&
+            allowExactStringFlow &&
+            !classTypeVar &&
+            !classType.priv.includeSubclasses &&
+            ClassType.isBuiltIn(classType, 'str');
         return evaluator.mapSubtypesExpandTypeVars(
             type,
             /* options */ undefined,
@@ -1973,8 +1983,8 @@ export function narrowTypeForTypeIs(
                             if (ClassType.isSameGenericClass(instantiableSubtype, classType)) {
                                 // Keep exact-str information for a later string-literal membership check.
                                 const narrowedSubtype =
-                                    isIsOperator && ClassType.isBuiltIn(classType, 'str')
-                                        ? ClassType.cloneIncludeSubclasses(subtype, /* includeSubclasses */ false)
+                                    isExactStringClass && !isLiteral
+                                        ? ClassType.cloneExactStringFlow(subtype, true)
                                         : subtype;
                                 return addConditionToType(narrowedSubtype, getTypeCondition(classType));
                             }
@@ -2035,13 +2045,11 @@ export function narrowTypeForTypeIs(
                                 }
                             }
 
-                            return addConditionToType(
-                                ClassType.cloneAsInstance(
-                                    narrowedClass,
-                                    /* includeSubclasses */ !isIsOperator || !ClassType.isBuiltIn(classType, 'str')
-                                ),
-                                subtype.props?.condition
-                            );
+                            let instance = ClassType.cloneAsInstance(narrowedClass);
+                            if (isExactStringClass) {
+                                instance = ClassType.cloneExactStringFlow(instance, true);
+                            }
+                            return addConditionToType(instance, subtype.props?.condition);
                         }
 
                         if (!classType.priv.includeSubclasses) {
