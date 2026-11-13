@@ -6,6 +6,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import render_pyright_history
+from test_benchmark_evidence import modern_result
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -104,6 +105,33 @@ def _result(version: str, published_at: str, scale: float = 1.0) -> dict:
 
 
 class RenderPyrightHistoryTest(unittest.TestCase):
+    def test_current_history_rejects_mixed_config_versions_and_native_counts(self) -> None:
+        import copy
+
+        first = modern_result()
+        first["type_checker_versions"] = {"pyright": "1.1.413"}
+        first["timestamp"] = "2026-11-02T00:00:00+00:00"
+        second = copy.deepcopy(first)
+        second["type_checker_versions"] = {"pyright": "1.1.414"}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old_path, new_path = root / "old.json", root / "new.json"
+            old_path.write_text(json.dumps(first))
+            second["checker_config_version"] = 7
+            new_path.write_text(json.dumps(second))
+            with self.assertRaisesRegex(ValueError, "different benchmark profile"):
+                render_pyright_history.load_history([old_path, new_path])
+            second["checker_config_version"] = 8
+            second["results"][0]["metrics"]["pyright"]["files_selected"] = 3
+            new_path.write_text(json.dumps(second))
+            with self.assertRaisesRegex(ValueError, "different native source counts"):
+                render_pyright_history.load_history([old_path, new_path])
+            second["results"][0]["metrics"]["pyright"]["files_selected"] = 2
+            new_path.write_text(json.dumps(second))
+            history = render_pyright_history.load_history([old_path, new_path])
+            self.assertEqual(history["source_counts"], {"example": 2})
+            self.assertEqual(history["releases"][0]["packages"]["example"]["files_selected"], 2)
+
     def test_appends_candidate_to_release_history(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
