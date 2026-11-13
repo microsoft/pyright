@@ -63,6 +63,8 @@ const transform = {
 
 module.exports = {
     testEnvironment: 'node',
+    // Avoid cross-context lookups for Math.imul in the string fingerprinting hot path.
+    sandboxInjectedGlobals: ['Math'],
     roots: ['<rootDir>/src/tests'],
     transform,
     // Place jest's transform cache inside node_modules so the existing node_modules CI cache
