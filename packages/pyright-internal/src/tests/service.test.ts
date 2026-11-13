@@ -1080,3 +1080,39 @@ function getRegisteredLibraryFileWatchers(root: string, extraPaths: string[], ex
 
     return state.testFS.fileWatchers;
 }
+
+test.each([
+    ['unlink', true],
+    ['unlinkDir', true],
+    ['unlink', false],
+    ['unlinkDir', false],
+] as const)('source watcher handles native %s events (tracked: %s)', (event, tracked) => {
+    const state = parseAndGetTestState(
+        `
+// @filename: package/test.py
+//// value: int = "wrong"
+    `,
+        '/projectRoot'
+    ).state;
+    const cmdOptions = new CommandLineOptions(state.workspace.rootUri, false);
+    cmdOptions.languageServerSettings.watchForSourceChanges = true;
+    state.workspace.service.setOptions(cmdOptions);
+    const program = state.workspace.service.test_program;
+    while (program.analyze());
+    let invalidatedReason: InvalidatedReason | undefined;
+    state.workspace.service.test_setOnInvalidatedCallback((reason) => {
+        invalidatedReason = reason;
+    });
+    const fileUri = Uri.file('/projectRoot/package/test.py', state.serviceProvider);
+    state.testFS.unlinkSync(fileUri);
+    let removedUri = event === 'unlink' ? fileUri : fileUri.getDirectory();
+    if (event === 'unlinkDir') {
+        state.testFS.rmdirSync(removedUri);
+    }
+    if (!tracked) {
+        removedUri = Uri.file('/projectRoot/unrelated' + (event === 'unlink' ? '.py' : ''), state.serviceProvider);
+    }
+    state.testFS.fireFileWatcherEvent(removedUri.toString(), event);
+    assert.strictEqual(invalidatedReason, tracked ? InvalidatedReason.SourceWatcherChanged : undefined);
+    state.dispose();
+});
