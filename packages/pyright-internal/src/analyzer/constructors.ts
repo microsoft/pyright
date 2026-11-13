@@ -41,6 +41,7 @@ import {
     isNever,
     isOverloaded,
     isPositionOnlySeparator,
+    isTypeSame,
     isTypeVar,
     isUnknown,
 } from './types';
@@ -57,8 +58,10 @@ import {
     getTypeVarScopeIds,
     isTupleClass,
     lookUpClassMember,
+    mapSignatures,
     mapSubtypes,
     selfSpecializeClass,
+    specializeForBaseClass,
     specializeTupleClass,
 } from './typeUtils';
 
@@ -558,6 +561,16 @@ function validateInitMethod(
         addConstraintsForExpectedType(evaluator, type, type, constraints, /* liveTypeVarScopes */ undefined);
     }
 
+    if (isFunctionOrOverloaded(initMethodType)) {
+        initMethodType =
+            mapSignatures(initMethodType, (initMethod) => {
+                const methodConstraints = solveInheritedInitSelfTypeParams(evaluator, type, initMethod);
+                return methodConstraints
+                    ? (evaluator.solveAndApplyConstraints(initMethod, methodConstraints) as FunctionType)
+                    : initMethod;
+            }) ?? initMethodType;
+    }
+
     const returnTypeOverride = selfSpecializeClass(type);
     const callResult = evaluator.validateCallArgs(
         errorNode,
@@ -1007,6 +1020,77 @@ function createFunctionFromObjectNewMethod(classType: ClassType) {
     return constructorFunction;
 }
 
+export function usesFunctionTypeParams(functionType: FunctionType, type: Type): boolean {
+    return getTypeVarArgsRecursive(type).some((typeVar) => typeVar.priv.scopeId === functionType.shared.typeVarScopeId);
+}
+
+// Returns the subclass's specialization of the base class named by an
+// inherited __init__ method's "self" annotation.
+function getInheritedInitSelfBaseType(classType: ClassType, selfType: ClassType): ClassType | undefined {
+    const selfClass = ClassType.cloneAsInstantiable(selfType);
+    const mroClass = classType.shared.mro.find(
+        (mroClass) => isInstantiableClass(mroClass) && ClassType.isSameGenericClass(mroClass, selfClass)
+    );
+
+    if (!mroClass || !isInstantiableClass(mroClass)) {
+        return undefined;
+    }
+
+    return ClassType.cloneAsInstance(specializeForBaseClass(classType, mroClass));
+}
+
+// Solves the type parameters that a subclass forwards to the base class named
+// by an inherited __init__ method's "self" annotation.
+export function addConstraintsForInheritedInitSelfType(
+    evaluator: Pick<TypeEvaluator, 'assignType'>,
+    classType: ClassType,
+    selfType: ClassType,
+    constraints: ConstraintTracker
+): boolean {
+    const baseType = getInheritedInitSelfBaseType(classType, selfType);
+    if (!baseType) {
+        return true;
+    }
+
+    const selfConstraints = constraints.clone();
+    if (!evaluator.assignType(baseType, selfType, /* diag */ undefined, selfConstraints)) {
+        return false;
+    }
+
+    constraints.copyFromClone(selfConstraints);
+    return true;
+}
+
+// Solves the method's own type parameters in an inherited __init__ method's
+// "self" annotation if they make it the subclass's specialization of the base class.
+function solveInheritedInitSelfTypeParams(
+    evaluator: Pick<TypeEvaluator, 'assignType' | 'solveAndApplyConstraints'>,
+    classType: ClassType,
+    initMethod: FunctionType
+): ConstraintTracker | undefined {
+    const initSelfType = initMethod.priv.strippedFirstParamType;
+    if (
+        !initSelfType ||
+        !isClassInstance(initSelfType) ||
+        ClassType.isSameGenericClass(initSelfType, ClassType.cloneAsInstance(classType)) ||
+        !usesFunctionTypeParams(initMethod, initSelfType)
+    ) {
+        return undefined;
+    }
+
+    const baseType = getInheritedInitSelfBaseType(classType, initSelfType);
+    const constraints = new ConstraintTracker();
+    if (
+        !baseType ||
+        !evaluator.assignType(initSelfType, baseType, /* diag */ undefined, constraints) ||
+        !isTypeSame(evaluator.solveAndApplyConstraints(initSelfType, constraints), baseType)
+    ) {
+        return undefined;
+    }
+
+    return constraints;
+}
+
 function createFunctionFromInitMethod(
     evaluator: TypeEvaluator,
     classType: ClassType,
@@ -1029,7 +1113,7 @@ function createFunctionFromInitMethod(
     const initType = evaluator.getTypeOfMember(initInfo);
     const objectType = ClassType.cloneAsInstance(classType);
 
-    function convertInitToConstructor(initSubtype: FunctionType) {
+    function convertInitToConstructor(initSubtype: FunctionType, dropIfSelfMismatch: boolean) {
         const boundInit = evaluator.bindFunctionToClassOrObject(
             objectType,
             initSubtype,
@@ -1044,7 +1128,35 @@ function createFunctionFromInitMethod(
             return undefined;
         }
 
-        const convertedInit = FunctionType.clone(boundInit);
+        let convertedInit = FunctionType.clone(boundInit);
+
+        // If a TypeVar is not used in any of the parameter types, it should take
+        // on its default value (typically Unknown) in the resulting specialized type.
+        function createParamTypeVarConstraints() {
+            const constraints = new ConstraintTracker();
+            const typeVarsInParams: TypeVarType[] = [];
+
+            convertedInit.shared.parameters.forEach((param, index) => {
+                const paramType = FunctionType.getParamType(convertedInit, index);
+                addTypeVarsToListIfUnique(typeVarsInParams, getTypeVarArgsRecursive(paramType));
+            });
+
+            typeVarsInParams.forEach((typeVar) => {
+                constraints.setBounds(typeVar, typeVar);
+            });
+
+            return constraints;
+        }
+
+        function specializeObjectType(constraints: ConstraintTracker) {
+            return evaluator.solveAndApplyConstraints(objectType, constraints, {
+                replaceUnsolved: {
+                    scopeIds: getTypeVarScopeIds(objectType),
+                    tupleClassType: evaluator.getTupleClassType(),
+                },
+            }) as ClassType;
+        }
+
         let returnType = selfType;
         if (!returnType) {
             returnType = objectType;
@@ -1052,31 +1164,34 @@ function createFunctionFromInitMethod(
             // If this is a generic type, self-specialize the class (i.e. fill in
             // its own type parameters as type arguments).
             if (objectType.shared.typeParams.length > 0 && !objectType.priv.typeArgs) {
-                const constraints = new ConstraintTracker();
-
-                // If a TypeVar is not used in any of the parameter types, it should take
-                // on its default value (typically Unknown) in the resulting specialized type.
-                const typeVarsInParams: TypeVarType[] = [];
-
-                convertedInit.shared.parameters.forEach((param, index) => {
-                    const paramType = FunctionType.getParamType(convertedInit, index);
-                    addTypeVarsToListIfUnique(typeVarsInParams, getTypeVarArgsRecursive(paramType));
-                });
-
-                typeVarsInParams.forEach((typeVar) => {
-                    constraints.setBounds(typeVar, typeVar);
-                });
-
-                returnType = evaluator.solveAndApplyConstraints(objectType, constraints, {
-                    replaceUnsolved: {
-                        scopeIds: getTypeVarScopeIds(objectType),
-                        tupleClassType: evaluator.getTupleClassType(),
-                    },
-                }) as ClassType;
+                returnType = specializeObjectType(createParamTypeVarConstraints());
             }
         }
 
-        convertedInit.shared.declaredReturnType = boundInit.priv.strippedFirstParamType ?? returnType;
+        const initSelfType = boundInit.priv.strippedFirstParamType;
+        let declaredReturnType = initSelfType ?? returnType;
+        if (
+            !selfType &&
+            initSelfType &&
+            isClassInstance(initSelfType) &&
+            initSelfType.priv.typeArgs &&
+            !ClassType.isSameGenericClass(initSelfType, objectType)
+        ) {
+            const methodConstraints = solveInheritedInitSelfTypeParams(evaluator, objectType, boundInit);
+            if (methodConstraints) {
+                convertedInit = evaluator.solveAndApplyConstraints(convertedInit, methodConstraints) as FunctionType;
+                returnType = declaredReturnType = specializeObjectType(createParamTypeVarConstraints());
+            } else {
+                const constraints = createParamTypeVarConstraints();
+                if (addConstraintsForInheritedInitSelfType(evaluator, objectType, initSelfType, constraints)) {
+                    returnType = declaredReturnType = specializeObjectType(constraints);
+                } else if (dropIfSelfMismatch) {
+                    return undefined;
+                }
+            }
+        }
+
+        convertedInit.shared.declaredReturnType = declaredReturnType;
 
         if (convertedInit.priv.specializedTypes) {
             convertedInit.priv.specializedTypes.returnType = returnType;
@@ -1093,20 +1208,33 @@ function createFunctionFromInitMethod(
     }
 
     if (isFunction(initType)) {
-        return convertInitToConstructor(initType);
+        return convertInitToConstructor(initType, /* dropIfSelfMismatch */ false);
     }
 
     if (!isOverloaded(initType)) {
         return undefined;
     }
 
-    const initOverloads: FunctionType[] = [];
-    OverloadedType.getOverloads(initType).forEach((overload) => {
-        const converted = convertInitToConstructor(overload);
-        if (converted) {
-            initOverloads.push(converted);
-        }
-    });
+    const overloads = OverloadedType.getOverloads(initType);
+
+    function convertInitOverloads(dropIfSelfMismatch: boolean) {
+        const initOverloads: FunctionType[] = [];
+        overloads.forEach((overload) => {
+            const converted = convertInitToConstructor(overload, dropIfSelfMismatch);
+            if (converted) {
+                initOverloads.push(converted);
+            }
+        });
+
+        return initOverloads;
+    }
+
+    // Drop an overload whose "self" annotation doesn't match the subclass,
+    // since no call can match it, unless that drops all of them.
+    let initOverloads = convertInitOverloads(/* dropIfSelfMismatch */ true);
+    if (initOverloads.length === 0) {
+        initOverloads = convertInitOverloads(/* dropIfSelfMismatch */ false);
+    }
 
     if (initOverloads.length === 0) {
         return undefined;
