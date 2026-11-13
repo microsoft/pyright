@@ -333,7 +333,7 @@ test('FutureImport3', () => {
 
 test('Conditional1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['conditional1.py']);
-    TestUtils.validateResults(analysisResults, 15);
+    TestUtils.validateResults(analysisResults, 21);
 });
 
 test('TypePrinter1', () => {
