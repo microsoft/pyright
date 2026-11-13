@@ -2813,6 +2813,8 @@ export interface UnionDetailsPriv {
     literalInstances: LiteralTypes;
     literalClasses: LiteralTypes;
     typeAliasSources: Set<UnionType> | undefined;
+    // Set when a union special form (e.g. Union[A, B]) was combined into this union.
+    includesSpecialForm: boolean;
     includesRecursiveTypeAlias: boolean;
     // This cached value relies on all union construction adding subtypes through UnionType.addType.
     includesEnumLiteral: boolean;
@@ -2843,6 +2845,7 @@ export namespace UnionType {
                     literalEnumMap: undefined,
                 },
                 typeAliasSources: undefined,
+                includesSpecialForm: false,
                 includesRecursiveTypeAlias: false,
                 includesEnumLiteral: false,
             },
@@ -2934,6 +2937,10 @@ export namespace UnionType {
 
         exclusionSet?.add(foundIndex);
         return true;
+    }
+
+    export function isOrIncludesSpecialForm(unionType: UnionType) {
+        return !!unionType.props?.specialForm || unionType.priv.includesSpecialForm;
     }
 
     export function addTypeAliasSource(unionType: UnionType, typeAliasSource: Type) {
@@ -4066,6 +4073,10 @@ export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolea
 
             if (isUnion(newType)) {
                 UnionType.addTypeAliasSource(newType, type);
+
+                if (UnionType.isOrIncludesSpecialForm(type)) {
+                    newType.priv.includesSpecialForm = true;
+                }
             }
 
             return newType;
@@ -4277,6 +4288,7 @@ function _combineTypes(subtypes: Type[], options?: CombineTypesOptions): Type {
     // Expand all union types.
     let expandedTypes: Type[] | undefined;
     const typeAliasSources = new Set<UnionType>();
+    let includesSpecialForm = false;
 
     for (let i = 0; i < subtypes.length; i++) {
         const subtype = subtypes[i];
@@ -4292,6 +4304,10 @@ function _combineTypes(subtypes: Type[], options?: CombineTypesOptions): Type {
                 subtype.priv.typeAliasSources.forEach((subtype) => {
                     typeAliasSources.add(subtype);
                 });
+            }
+
+            if (UnionType.isOrIncludesSpecialForm(subtype)) {
+                includesSpecialForm = true;
             }
         } else if (expandedTypes) {
             expandedTypes.push(subtype);
@@ -4329,6 +4345,7 @@ function _combineTypes(subtypes: Type[], options?: CombineTypesOptions): Type {
     if (typeAliasSources.size > 0) {
         newUnionType.priv.typeAliasSources = typeAliasSources;
     }
+    newUnionType.priv.includesSpecialForm = includesSpecialForm;
 
     let hitMaxSubtypeCount = false;
 
