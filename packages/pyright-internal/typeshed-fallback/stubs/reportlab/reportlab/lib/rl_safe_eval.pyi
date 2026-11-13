@@ -2,14 +2,24 @@ import ast
 import math
 import re
 import time
+import types
 from _typeshed import Incomplete
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
+from typing import Any, type_check_only
 from typing_extensions import Never, Self
 
 eval_debug: int
 strTypes: tuple[type[bytes], type[str]]
 isPy39: bool
 isPy313: bool
+
+class FilteredModule:
+    def __init__(
+        self, m: types.ModuleType, mnames: str | tuple[str, ...] = (), mpattern: re.Pattern[str] | None = None
+    ) -> None: ...
+    # Forwarded to the module passed to __init__; disallowed submodules raise AttributeError
+    def __getattr__(self, a: str) -> Any: ...
+    def __eq__(self, other: object) -> bool: ...
 
 class BadCode(ValueError): ...
 
@@ -164,6 +174,7 @@ def safer_globals(g=None): ...
 
 math_log10 = math.log10
 __rl_undef__: Incomplete
+GenericAlias = types.GenericAlias
 
 class __RL_SAFE_ENV__:
     __time_time__ = time.time
@@ -176,6 +187,7 @@ class __RL_SAFE_ENV__:
     real_bi: Incomplete
     bi_replace: Incomplete
     __rl_builtins__: Incomplete
+    __rl_mpattern__: re.Pattern[str] | None
     def __init__(self, timeout=None, allowed_magic_methods=None, allowed_magic_names=None) -> None: ...
     def __rl_type__(self, *args): ...
     def __rl_check__(self) -> None: ...
@@ -198,9 +210,12 @@ class __RL_SAFE_ENV__:
     def __rl_frozenset__(self, it=()): ...
     def __rl_iter_unpack_sequence__(self, it, spec, _getiter_) -> Generator[Incomplete]: ...
     def __rl_unpack_sequence__(self, it, spec, _getiter_): ...
+    def __rl_allowed_obj__(self, obj) -> None: ...
     def __rl_is_allowed_name__(self, name, crash: bool = True) -> bool: ...
     def __rl_getattr__(self, obj, a, *args): ...
     def __rl_getitem__(self, obj, a): ...
+    def __inner_rl_getitem__(self, obj, a): ...
+    def __rl_setattr__(self, obj, a, v, *args): ...
     __rl_tmax__: int
     __rl_max_len__: int
     __rl_max_pow_digits__: int
@@ -216,14 +231,34 @@ class __RL_SAFE_ENV__:
     ): ...
     __rl_limit__: Incomplete
     def __rl_safe_eval__(
-        self, expr, g, l, mode, timeout=None, allowed_magic_methods=None, __frame_depth__: int = 3, allowed_magic_names=None
+        self,
+        expr,
+        g,
+        l,
+        mode,
+        timeout=None,
+        allowed_magic_methods=None,
+        __frame_depth__: int = 3,
+        allowed_magic_names=None,
+        mnames: str | tuple[str, ...] = (),
+        excluded_names: Iterable[str] | None = None,
     ): ...
 
 class __rl_safe_eval__:
     mode: str
     env: Incomplete
     def __init__(self) -> None: ...
-    def __call__(self, expr, g=None, l=None, timeout=None, allowed_magic_methods=None, allowed_magic_names=None): ...
+    def __call__(
+        self,
+        expr,
+        g=None,
+        l=None,
+        timeout=None,
+        allowed_magic_methods=None,
+        allowed_magic_names=None,
+        mnames: str | tuple[str, ...] = (),
+        excluded_names: Iterable[str] | None = None,
+    ): ...
 
 class __rl_safe_exec__(__rl_safe_eval__):
     mode: str
@@ -235,3 +270,14 @@ rl_safe_eval: __rl_safe_eval__
 
 def __fix_set__(value, default=...): ...
 def rl_less_safe_eval(expr, NS): ...
+
+@type_check_only
+class _DefaultNamespace:
+    class ModuleChangeDetector(types.ModuleType):
+        def __setattr__(self, a: str, v: object) -> None: ...
+        def __delattr__(self, a: str) -> None: ...
+
+    def __call__(self, warn: bool = False) -> dict[str, Any]: ...
+    def check(self, strict: bool = False) -> None: ...
+
+DefaultNamespace: _DefaultNamespace

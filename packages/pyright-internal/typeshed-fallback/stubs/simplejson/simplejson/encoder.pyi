@@ -2,7 +2,6 @@ import re
 from _typeshed import SupportsRichComparison
 from collections.abc import Callable, Iterator
 from typing import Any
-from typing_extensions import Never
 
 ESCAPE: re.Pattern[str]
 ESCAPE_ASCII: re.Pattern[str]
@@ -52,7 +51,7 @@ class JSONEncoder:
         iterable_as_array: bool = False,
     ) -> None: ...
     def encode(self, o: Any) -> str: ...
-    def default(self, o: Any) -> Never: ...
+    def default(self, o: object) -> Any: ...  # returns a JSON-serializable object
     def iterencode(self, o: Any) -> Iterator[str]: ...
 
 class JSONEncoderForHTML(JSONEncoder): ...

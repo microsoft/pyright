@@ -13,6 +13,7 @@ class HealthStub:
 class HealthServicer:
     # Generated methods are overridden by both synchronous and asynchronous servicers.
     def Check(self, request: health_pb2.HealthCheckRequest, context: Any) -> Any: ...
+    def List(self, request: health_pb2.HealthListRequest, context: Any) -> Any: ...
     def Watch(self, request: health_pb2.HealthCheckRequest, context: Any) -> Any: ...
 
 def add_HealthServicer_to_server(servicer: HealthServicer, server: grpc.Server | aio.Server) -> None: ...
@@ -20,6 +21,19 @@ def add_HealthServicer_to_server(servicer: HealthServicer, server: grpc.Server |
 class Health:
     @staticmethod
     def Check(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ): ...
+    @staticmethod
+    def List(
         request,
         target,
         options=(),

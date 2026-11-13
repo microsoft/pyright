@@ -92,4 +92,8 @@ class FlexibleAlias(Generic[_T, _U]): ...
 i64 = int
 i32 = int
 i16 = int
+i8 = int
+u64 = int
+u32 = int
+u16 = int
 u8 = int

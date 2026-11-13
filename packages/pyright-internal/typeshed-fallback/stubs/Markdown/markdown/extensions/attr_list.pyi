@@ -1,4 +1,5 @@
 from re import Pattern
+from typing import Final
 from xml.etree.ElementTree import Element
 
 from markdown.extensions import Extension
@@ -8,12 +9,17 @@ def get_attrs_and_remainder(attrs_string: str) -> tuple[list[tuple[str, str]], s
 def get_attrs(str: str) -> list[tuple[str, str]]: ...
 def isheader(elem: Element) -> bool: ...
 
+NAME_RE: Final[Pattern[str]]
+
+def sanitize_name(name: str) -> str: ...
+
 class AttrListTreeprocessor(Treeprocessor):
-    BASE_RE: str
-    HEADER_RE: Pattern[str]
-    BLOCK_RE: Pattern[str]
-    INLINE_RE: Pattern[str]
-    NAME_RE: Pattern[str]
+    BASE_RE: Final[str]
+    HEADER_RE: Final[Pattern[str]]
+    BLOCK_RE: Final[Pattern[str]]
+    INLINE_RE: Final[Pattern[str]]
+    NAME_RE: Final[Pattern[str]]
+
     def run(self, doc: Element) -> None: ...
     def assign_attrs(self, elem: Element, attrs_string: str, *, strict: bool = False) -> str: ...
     def sanitize_name(self, name: str) -> str: ...
