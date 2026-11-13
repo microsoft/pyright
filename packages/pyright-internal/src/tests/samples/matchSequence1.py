@@ -709,3 +709,65 @@ def test_unpacked_variadic_regression(
             reveal_type(y, expected_text="str")
             reveal_type(z, expected_text="int")
 
+
+def test_typevar_subject(subj: _T) -> _T:
+    match subj:
+        case (a, b):
+            reveal_type(subj, expected_text="Sequence[Unknown]*")
+            return subj
+        case _:
+            reveal_type(subj, expected_text="_T@test_typevar_subject")
+            return subj
+
+
+_TAny = TypeVar("_TAny", bound=Any)
+
+
+def test_any_bound_typevar_subject(subj: _TAny) -> _TAny:
+    match subj:
+        case (a, b):
+            reveal_type(subj, expected_text="Sequence[Any]*")
+            return subj
+        case _:
+            reveal_type(subj, expected_text="_TAny@test_any_bound_typevar_subject")
+            return subj
+
+
+_TTuple = TypeVar("_TTuple", bound=tuple[int, int])
+
+
+def test_tuple_bound_typevar_subject(subj: _TTuple) -> _TTuple:
+    match subj:
+        case (1, b):
+            reveal_type(subj, expected_text="tuple[Literal[1], int]*")
+            return subj
+        case _:
+            reveal_type(subj, expected_text="tuple[int, int]*")
+            return subj
+
+
+_TUnion = TypeVar("_TUnion", bound=int | Sequence[int])
+
+
+def test_union_bound_typevar_subject(subj: _TUnion) -> _TUnion:
+    match subj:
+        case (a, b):
+            reveal_type(subj, expected_text="Sequence[int]*")
+            return subj
+        case _:
+            reveal_type(subj, expected_text="_TUnion@test_union_bound_typevar_subject")
+            return subj
+
+
+_TConstrained = TypeVar("_TConstrained", tuple[int, int], str)
+
+
+def test_constrained_typevar_subject(subj: _TConstrained) -> _TConstrained:
+    match subj:
+        case (1, b):
+            reveal_type(subj, expected_text="tuple[Literal[1], int]*")
+            return subj
+        case _:
+            reveal_type(subj, expected_text="tuple[int, int]* | str*")
+            return subj
+
