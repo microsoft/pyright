@@ -15,6 +15,10 @@ class ReturnsNonBool:
         raise TypeError("Not a bool")
 
 
+class BoolIsNone:
+    __bool__: None = None
+
+
 def func1(val: ReturnsNonBool):
     # This should generate an error.
     if val:
@@ -88,6 +92,12 @@ class MetaDerived(metaclass=Meta):
 
 
 def func3(val: type[MetaDerived]):
+    # This should generate an error.
+    if val:
+        pass
+
+
+def func4(val: BoolIsNone):
     # This should generate an error.
     if val:
         pass

@@ -1900,6 +1900,31 @@ export class Checker extends ParseTreeWalker {
                 return undefined;
             }
 
+            // A __bool__ attribute explicitly set to None disables truth-value
+            // testing at runtime. Treat it as an invalid conditional operand
+            // rather than as a class without a __bool__ method.
+            if (isClassInstance(expandedSubtype)) {
+                const boolMember = this._evaluator.getTypeOfBoundMember(
+                    node,
+                    expandedSubtype,
+                    '__bool__',
+                    /* usage */ undefined,
+                    /* diag */ undefined,
+                    MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride
+                );
+
+                if (boolMember && !boolMember.typeErrors && isNoneInstance(boolMember.type)) {
+                    isTypeBool = false;
+                    diag.addMessage(
+                        LocAddendum.conditionalRequiresBool().format({
+                            operandType: this._evaluator.printType(expandedSubtype),
+                            boolReturnType: this._evaluator.printType(boolMember.type),
+                        })
+                    );
+                    return undefined;
+                }
+            }
+
             // Invoke the __bool__ method on the type.
             const boolReturnType = this._evaluator.getTypeOfMagicMethodCall(
                 expandedSubtype,
