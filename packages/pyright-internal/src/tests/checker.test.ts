@@ -141,6 +141,28 @@ test('AbstractClass11', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('AbstractClass12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['abstractClass12.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+});
+
+test('AbstractClass13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['abstractClass13.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('AbstractClass14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['abstractClass14.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+    expect(analysisResults[0].errors.map((diagnostic) => diagnostic.getRule())).toEqual([
+        DiagnosticRule.reportAbstractUsage,
+        DiagnosticRule.reportAbstractUsage,
+    ]);
+});
+
 test('Constants1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constants1.py']);
 
