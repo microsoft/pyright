@@ -13,6 +13,44 @@ import { LocMessage, Localizer, ParameterizedString, setGetRawString } from '../
 
 const namespaces = [Localizer.Diagnostic, Localizer.DiagnosticAddendum, Localizer.CodeAction];
 
+test.each(['a$&b', 'a$$b', 'a$`b', "a$'b", 'a$b', '$5', 'plain', ''])(
+    'Parameterized strings preserve parameter value %j',
+    (value) => {
+        const message = new ParameterizedString<{ value: string }>('before {value}, {value} after');
+
+        assert.strictEqual(message.format({ value }), `before ${value}, ${value} after`);
+    }
+);
+
+test('Parameterized strings format multiple parameters', () => {
+    const message = new ParameterizedString<{ source: string; dest: string }>(
+        'Type {source} is not assignable to {dest}'
+    );
+
+    assert.strictEqual(message.format({ source: 'a$&b', dest: 'a$$b' }), 'Type a$&b is not assignable to a$$b');
+});
+
+test('Parameterized strings preserve existing formatting behavior', () => {
+    const message = new ParameterizedString<{ count: number; value: string; unused: string }>(
+        '{count}: {value}, {value}; {missing}'
+    );
+
+    assert.strictEqual(message.format({ count: 0, value: 'plain', unused: 'ignored' }), '0: plain, plain; {missing}');
+    assert.strictEqual(message.format({ count: 2, value: '', unused: 'ignored' }), '2: , ; {missing}');
+    assert.strictEqual(message.getFormatString(), '{count}: {value}, {value}; {missing}');
+});
+
+test('Parameterized strings convert each parameter to a string once', () => {
+    let calls = 0;
+    const value = {
+        toString: () => `${++calls}`,
+    };
+    const message = new ParameterizedString<{ value: typeof value }>('{value}, {value}');
+
+    assert.strictEqual(message.format({ value }), '1, 1');
+    assert.strictEqual(calls, 1);
+});
+
 test('Raw strings present', () => {
     // Allocate a map so we can detect duplicate strings. This is
     // an indication that the string key (e.g. 'DiagnosticAddendum.useDictInstead')
