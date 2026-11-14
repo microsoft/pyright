@@ -49,6 +49,7 @@ import {
     printExpression,
 } from './parseTreeUtils';
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
+import { SymbolWithScope } from './scope';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment, narrowForKeyDeletion } from './typedDicts';
 import { EvalFlags, Reachability, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
@@ -198,6 +199,34 @@ const enablePrintCallNoReturn = false;
 // to determine whether it is `NoReturn`? Enabling this produces more consistent
 // and complete results, but it can be very expensive.
 const inferNoReturnForUnannotatedFunctions = false;
+
+// Determines whether the type of a conditional reference is worth narrowing. A
+// reference with a declared type is cheap to narrow; one without it requires
+// inference, which is normally skipped because it can be expensive. An
+// unannotated Final declaration is the exception: it has exactly one assignment,
+// and uses of a bare Final initialized with a literal are expected to be treated
+// as the literal itself, so the inference is bounded.
+function isReferenceTypeNarrowable(evaluator: TypeEvaluator, symbolWithScope?: SymbolWithScope): boolean {
+    if (!symbolWithScope) {
+        return false;
+    }
+
+    const symbol = symbolWithScope.symbol;
+    if (symbol.hasTypedDeclarations()) {
+        return true;
+    }
+
+    if (!evaluator.isFinalVariable(symbol)) {
+        return false;
+    }
+
+    const declarations = symbol.getDeclarations();
+    return (
+        declarations.length === 1 &&
+        declarations[0].type === DeclarationType.Variable &&
+        !!declarations[0].inferredTypeSource
+    );
+}
 
 // In rare circumstances, it's possible for types in a loop not to converge. This
 // can happen, for example, if there are many symbols that depend on each other
@@ -1649,16 +1678,13 @@ export function getCodeFlowEngine(
                 ) {
                     const conditionalFlowNode = curFlowNode as FlowCondition;
                     if (conditionalFlowNode.reference) {
-                        // Make sure the reference type has a declared type. If not,
-                        // don't bother trying to infer its type because that would be
-                        // too expensive.
                         const symbolWithScope = evaluator.lookUpSymbolRecursive(
                             conditionalFlowNode.reference,
                             conditionalFlowNode.reference.d.value,
                             /* honorCodeFlow */ false
                         );
 
-                        if (symbolWithScope && symbolWithScope.symbol.hasTypedDeclarations()) {
+                        if (isReferenceTypeNarrowable(evaluator, symbolWithScope)) {
                             let isUnreachable = false;
 
                             const typeNarrowingCallback = getTypeNarrowingCallback(
