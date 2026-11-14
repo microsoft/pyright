@@ -337,6 +337,31 @@ export function createOverrideValidation(context: Context) {
                         FunctionType.isClassMethod(overrideMethod) ||
                         FunctionType.isConstructorMethod(overrideMethod)
                     ) {
+                        const baseParamType = baseParamDetails.params[i].type;
+                        const overrideParamType = overrideParamDetails.params[i].type;
+
+                        // A declared "self" or "cls" type in the base method must
+                        // still accept the override's.
+                        if (
+                            !(isTypeVar(baseParamType) && baseParamType.shared.isSynthesized) &&
+                            !assignType(
+                                baseParamType,
+                                overrideParamType,
+                                diag?.createAddendum(),
+                                /* constraints */ undefined,
+                                AssignTypeFlags.Default
+                            )
+                        ) {
+                            diag?.addMessage(
+                                LocAddendum.overrideParamType().format({
+                                    index: i + 1,
+                                    baseType: printType(baseParamType),
+                                    overrideType: printType(overrideParamType),
+                                })
+                            );
+                            canOverride = false;
+                        }
+
                         continue;
                     }
                 }
