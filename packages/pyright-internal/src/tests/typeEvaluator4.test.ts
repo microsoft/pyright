@@ -60,6 +60,23 @@ test('Final8', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('Final10', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonPlatform = 'Linux';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final10.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Final11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final12.py', 'final11.py']);
+
+    assert.strictEqual(analysisResults.length, 2);
+    assert.strictEqual(analysisResults[0].errors.length, 0);
+    assert.strictEqual(analysisResults[1].errors.length, 1);
+});
+
 test('InferredTypes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['inferredTypes1.py']);
     TestUtils.validateResults(analysisResults, 0);

@@ -314,6 +314,7 @@ import {
     isEllipsisType,
     isIncompleteUnknown,
     isInstantiableMetaclass,
+    isLiteralType,
     isMaybeDescriptorInstance,
     isMemberReadOnly,
     isMetaclassInstance,
@@ -550,6 +551,7 @@ export function createTypeEvaluator(
     let exceptionTargetSymbolCache = new Map<number, boolean>();
     let expectedTypeCache = new Map<number, ExpectedTypeCacheEntry>();
     let asymmetricAccessorAssignmentCache = new Set<number>();
+    const finalLiteralResolutionStack = new Set<VariableDeclaration>();
     let deferredClassCompletions: DeferredClassCompletion[] = [];
     let cancellationToken: CancellationToken | undefined;
     let printExpressionSpaceCount = 0;
@@ -12000,17 +12002,9 @@ export function createTypeEvaluator(
                     rightHandType.props?.typeAliasInfo?.shared.typeParams;
             } else {
                 // If the RHS is a constant boolean expression, assign it a literal type.
-                const constExprValue = evaluateStaticBoolExpression(
-                    node.d.rightExpr,
-                    fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
-                );
-
-                if (constExprValue !== undefined) {
-                    const boolType = getBuiltInObject(node, 'bool');
-                    if (isClassInstance(boolType)) {
-                        rightHandType = ClassType.cloneWithLiteral(boolType, constExprValue);
-                    }
+                const literalBoolType = getStaticBoolLiteralType(node.d.rightExpr, fileInfo);
+                if (literalBoolType) {
+                    rightHandType = literalBoolType;
                 }
             }
         }
@@ -15955,6 +15949,110 @@ export function createTypeEvaluator(
         }
     }
 
+    // A module-scope "Final" variable can't be rebound, so a literal value it is
+    // initialized with is exposed as its type even when the annotation is wider.
+    // Code flow analysis narrows the declared type within the declaring module,
+    // but a read from another module isn't flow-narrowed, so a platform check
+    // stored in a "Final[bool]" would otherwise degrade to "bool" and its
+    // statically known value would be lost.
+    //
+    // Other inferred types are deliberately not exposed. Widening them would
+    // leak a subclass into every variable that is inferred from such a read,
+    // breaking code that widens a sentinel with an annotation, as in
+    // "NO_INFO: Final[Base] = Sentinel()".
+    function getFinalVariableLiteralType(declaration: VariableDeclaration): Type | undefined {
+        if (!declaration.isFinal || !declaration.inferredTypeSource) {
+            return undefined;
+        }
+
+        // A "Final" member declared in a class can still be assigned in a
+        // constructor, so its declared type remains authoritative.
+        if (ParseTreeUtils.getEnclosingClass(declaration.node, /* stopAtFunction */ true)) {
+            return undefined;
+        }
+
+        if (ParseTreeUtils.getExecutionScopeNode(declaration.node, nodeInfo).nodeType !== ParseNodeType.Module) {
+            return undefined;
+        }
+
+        const source = declaration.inferredTypeSource;
+        const sourceExpr =
+            source.nodeType === ParseNodeType.Assignment || source.nodeType === ParseNodeType.AssignmentExpression
+                ? source.d.rightExpr
+                : isExpressionNode(source)
+                ? source
+                : undefined;
+        if (!sourceExpr) {
+            return undefined;
+        }
+
+        // Don't recurse while the initializer of this declaration is being
+        // evaluated for the declaration's own type.
+        if (finalLiteralResolutionStack.has(declaration)) {
+            return undefined;
+        }
+
+        finalLiteralResolutionStack.add(declaration);
+        try {
+            const staticBoolType = getStaticBoolLiteralType(sourceExpr, nodeInfo.getFileInfo(declaration.node));
+            if (staticBoolType) {
+                return staticBoolType;
+            }
+
+            // Only literal forms are considered. The initializer is evaluated on every
+            // read of the symbol, and the type of any other form can depend on the
+            // contextual type supplied by the declaration.
+            if (!isLiteralInitializerForm(sourceExpr)) {
+                return undefined;
+            }
+
+            // Evaluate the initializer speculatively so its type is not cached without
+            // the contextual type that the declaration's own inference supplies.
+            const inferredType = useSpeculativeMode(sourceExpr, () => getTypeOfExpression(sourceExpr).type);
+            return isClassInstance(inferredType) && isLiteralType(inferredType) ? inferredType : undefined;
+        } finally {
+            finalLiteralResolutionStack.delete(declaration);
+        }
+    }
+
+    // Indicates whether the expression is a form whose type is a literal and does
+    // not depend on context.
+    function isLiteralInitializerForm(node: ExpressionNode): boolean {
+        switch (node.nodeType) {
+            case ParseNodeType.Name:
+            case ParseNodeType.Number:
+            case ParseNodeType.StringList:
+            case ParseNodeType.MemberAccess:
+            case ParseNodeType.UnaryOperation:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    function getFinalLiteralTypeForSymbol(symbol: Symbol): Type | undefined {
+        const finalDecl = symbol
+            .getDeclarations()
+            .find((decl): decl is VariableDeclaration => decl.type === DeclarationType.Variable && !!decl.isFinal);
+        return finalDecl ? getFinalVariableLiteralType(finalDecl) : undefined;
+    }
+
+    // Returns a "Literal[True]" or "Literal[False]" type if the expression can be
+    // evaluated statically as a bool (e.g. a platform or version check).
+    function getStaticBoolLiteralType(node: ExpressionNode, fileInfo: AnalyzerFileInfo): Type | undefined {
+        const constExprValue = evaluateStaticBoolExpression(
+            node,
+            fileInfo.executionEnvironment,
+            fileInfo.definedConstants
+        );
+        if (constExprValue === undefined) {
+            return undefined;
+        }
+
+        const boolType = getBuiltInObject(node, 'bool');
+        return isClassInstance(boolType) ? ClassType.cloneWithLiteral(boolType, constExprValue) : undefined;
+    }
+
     function getTypeOfTypeParam(node: TypeParameterNode): TypeVarType {
         // Is this type already cached?
         const cachedTypeVarType = readTypeCache(node.d.name, EvalFlags.None) as FunctionType;
@@ -16225,6 +16323,16 @@ export function createTypeEvaluator(
 
         const declaredType = getTypeForDeclaration(resolvedDecl);
         if (declaredType.type) {
+            // A "Final" read that resolves through an alias (an imported symbol or
+            // a module member access) has no code flow to narrow it, so the literal
+            // initializer value is exposed here rather than the declared type.
+            if (resolvedDecl.type === DeclarationType.Variable && resolvedDecl.isFinal) {
+                const literalType = getFinalVariableLiteralType(resolvedDecl);
+                if (literalType) {
+                    return literalType;
+                }
+            }
+
             return declaredType.type;
         }
 
@@ -16426,7 +16534,7 @@ export function createTypeEvaluator(
                     !speculativeTypeTracker.isSpeculative(/* node */ undefined);
 
                 const result: EffectiveTypeResult = {
-                    type: declaredType ?? UnknownType.create(),
+                    type: declaredType ? getFinalLiteralTypeForSymbol(symbol) ?? declaredType : UnknownType.create(),
                     isIncomplete,
                     includesVariableDecl: includesVariableTypeDecl(typedDecls),
                     includesIllegalTypeAliasDecl: !typedDecls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
