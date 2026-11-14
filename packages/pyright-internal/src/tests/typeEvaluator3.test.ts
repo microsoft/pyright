@@ -1170,6 +1170,12 @@ test('Enum16', () => {
     TestUtils.validateResults(analysisResults, 38);
 });
 
+test('EnumTupleMixinValue', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumTupleMixinValue.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('EnumAuto1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumAuto1.py']);
 
