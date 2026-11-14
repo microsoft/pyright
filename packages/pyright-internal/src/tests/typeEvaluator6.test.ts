@@ -1288,6 +1288,25 @@ test('Constructor35', () => {
     ]);
 });
 
+test('ConstructorAmbiguousSelf', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorAmbiguousSelf.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('ConstructorNestedAlias', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorNestedAlias.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportArgumentType);
+});
+
+test('ConstructorRepeatedAlias', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorRepeatedAlias.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Constructor36', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor36.py']);
     TestUtils.validateResults(analysisResults, 1);
