@@ -319,6 +319,12 @@ test('Protocol1', () => {
     TestUtils.validateResults(analysisResults, 9);
 });
 
+test('ProtocolDuplicateTypeVar', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolDuplicateTypeVar.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Protocol2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol2.py']);
 

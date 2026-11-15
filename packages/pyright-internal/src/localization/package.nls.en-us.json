@@ -1104,6 +1104,10 @@
             "message": "Type argument for \"Protocol\" must be a type parameter",
             "comment": "{Locked='Protocol'}"
         },
+        "protocolTypeArgUnique": {
+            "message": "Type arguments for \"Protocol\" must be unique",
+            "comment": "{Locked='Protocol'}"
+        },
         "protocolUnsafeOverlap": "Class overlaps \"{name}\" unsafely and could produce a match at runtime",
         "protocolVarianceContravariant": {
             "message": "Type variable \"{variable}\" used in generic Protocol \"{class}\" should be contravariant",
