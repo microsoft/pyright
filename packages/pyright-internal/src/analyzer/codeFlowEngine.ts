@@ -49,6 +49,7 @@ import {
     printExpression,
 } from './parseTreeUtils';
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
+import { Symbol } from './symbol';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment, narrowForKeyDeletion } from './typedDicts';
 import { EvalFlags, Reachability, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
@@ -196,6 +197,30 @@ const enablePrintCallNoReturn = false;
 // to determine whether it is `NoReturn`? Enabling this produces more consistent
 // and complete results, but it can be very expensive.
 const inferNoReturnForUnannotatedFunctions = false;
+
+// A reference to an imported name resolves to an alias declaration, which has no
+// declared type in the file that reads it, so the check above skips it. Look
+// through the alias to see whether the imported symbol is a Final with an
+// initializer: uses of a bare Final initialized with a literal are expected to be
+// treated as the literal itself, and that applies at the place of use rather than
+// only where the Final is declared. Aliases are followed here only when they
+// resolve to a symbol whose type would otherwise have to be inferred, so the fast
+// path for declared types is unaffected.
+function isImportedFinalWithInitializer(evaluator: TypeEvaluator, symbol: Symbol): boolean {
+    for (const decl of symbol.getDeclarations()) {
+        if (decl.type !== DeclarationType.Alias) {
+            continue;
+        }
+
+        // Resolve "as" renames so that "from flags import IS_WIN as WIN" is handled.
+        const resolved = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+        if (resolved?.type === DeclarationType.Variable && resolved.isFinal && resolved.inferredTypeSource) {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 // In rare circumstances, it's possible for types in a loop not to converge. This
 // can happen, for example, if there are many symbols that depend on each other
@@ -1618,7 +1643,11 @@ export function getCodeFlowEngine(
                             /* honorCodeFlow */ false
                         );
 
-                        if (symbolWithScope && symbolWithScope.symbol.hasTypedDeclarations()) {
+                        if (
+                            symbolWithScope &&
+                            (symbolWithScope.symbol.hasTypedDeclarations() ||
+                                isImportedFinalWithInitializer(evaluator, symbolWithScope.symbol))
+                        ) {
                             let isUnreachable = false;
 
                             const typeNarrowingCallback = getTypeNarrowingCallback(
