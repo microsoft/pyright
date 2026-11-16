@@ -40,6 +40,7 @@ class GrantTypeBase:
     default_response_mode: str
     refresh_token: bool
     response_types: list[str]
+    custom_validators: ValidatorsContainer
     def __init__(
         self,
         request_validator: RequestValidator | None = None,

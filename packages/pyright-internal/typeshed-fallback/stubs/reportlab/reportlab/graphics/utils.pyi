@@ -6,7 +6,7 @@ def text2Path(
     text,
     x: int = 0,
     y: int = 0,
-    fontName="Times-Roman",
+    fontName: str | None = None,
     fontSize: int = 1000,
     anchor: str = "start",
     truncate: int = 1,
