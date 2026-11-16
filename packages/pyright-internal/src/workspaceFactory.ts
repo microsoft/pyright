@@ -15,6 +15,7 @@ import { ConsoleInterface } from './common/console';
 import { createDeferred } from './common/deferred';
 import { ServiceProvider } from './common/serviceProvider';
 import { Uri } from './common/uri/uri';
+import { NotebookUriMapper } from './typeServer/notebookUriMapper';
 
 let WorkspaceFactoryIdCounter = 0;
 
@@ -392,6 +393,11 @@ export class WorkspaceFactory implements IWorkspaceFactory {
                 this._getBestRegularWorkspace(
                     regularWorkspaces.filter((w) => w.service.hasSourceFile(uri) && w.rootUri.scheme === uri.scheme)
                 ) || bestInstance;
+        }
+
+        // A fresh notebook cell is virtual and therefore not yet tracked by any workspace.
+        if (bestInstance === undefined && NotebookUriMapper.isNotebookCell(uri)) {
+            bestInstance = this.getContainingWorkspace(uri);
         }
 
         // If that still didn't work, that must mean we don't have a workspace. Create a default one.

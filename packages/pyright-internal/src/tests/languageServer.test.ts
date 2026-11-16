@@ -8,6 +8,9 @@
 
 import assert from 'assert';
 import {
+    CallHierarchyIncomingCallsRequest,
+    CallHierarchyOutgoingCallsRequest,
+    CallHierarchyPrepareRequest,
     CancellationToken,
     CompletionItem,
     CompletionRequest,
@@ -19,6 +22,8 @@ import {
     InitializedNotification,
     InitializeRequest,
     MarkupContent,
+    SymbolKind,
+    UnregistrationRequest,
 } from 'vscode-languageserver';
 
 import { convertOffsetToPosition } from '../common/positionUtils';
@@ -35,6 +40,7 @@ import {
     openFile,
     PyrightServerInfo,
     runPyrightServer,
+    sleep,
     waitForDiagnostics,
 } from './lsp/languageServerTestUtils';
 
@@ -177,6 +183,120 @@ describe(`Basic language server tests`, () => {
 
         const completionItem = completionResult.items.find((i: CompletionItem) => i.label === 'path')!;
         assert(completionItem);
+    });
+
+    test('Shutdown waits for capability unregistration responses', async () => {
+        const info = await runLanguageServer(
+            DEFAULT_WORKSPACE_ROOT,
+            `
+// @filename: test.py
+//// import os
+`
+        );
+        let unregistered = false;
+        info.disposables.push(
+            info.connection.onRequest(UnregistrationRequest.type, async () => {
+                // Exceed the old teardown polling limit to simulate a busy client.
+                await sleep(250);
+                unregistered = true;
+            })
+        );
+
+        await info.dispose();
+        serverInfo = undefined;
+        expect(unregistered).toBe(true);
+    });
+
+    test.each([
+        { decorated: false, direction: 'incoming' },
+        { decorated: false, direction: 'outgoing' },
+        { decorated: true, direction: 'incoming' },
+        { decorated: true, direction: 'outgoing' },
+    ])('Call hierarchy round trip: decorated=$decorated, direction=$direction', async ({ decorated, direction }) => {
+        const code = `
+// @filename: test.py
+//// from typing import Callable, TypeVar
+//// F = TypeVar("F", bound=Callable[..., object])
+//// def identity(f: F) -> F:
+////     return f
+////
+//// def /*leaf*/leaf/*leafNameEnd*/():
+////     pass
+////
+//// /*callerStart*/${decorated ? '@identity\n//// ' : ''}def /*caller*/caller/*callerNameEnd*/():
+////     /*leafCall*/leaf/*leafCallEnd*/()/*callerEnd*/
+////
+//// /*parentStart*/def /*parent*/parent/*parentNameEnd*/():
+////     /*callerCall*/caller/*callerCallEnd*/()/*parentEnd*/
+        `;
+        const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code);
+        await openFile(info, 'leaf');
+        const marker = info.testData.markerPositions.get('leaf')!;
+        const uri = marker.fileUri.toString();
+        const text = info.testData.files.find((file) => file.fileName === marker.fileName)!.content;
+        const lines = getParseResults(text).tokenizerOutput.lines;
+        const position = (name: string) =>
+            convertOffsetToPosition(info.testData.markerPositions.get(name)!.position, lines);
+        const range = (start: string, end: string) => ({ start: position(start), end: position(end) });
+
+        const prepared = await info.connection.sendRequest(
+            CallHierarchyPrepareRequest.type,
+            { textDocument: { uri }, position: position('leaf') },
+            CancellationToken.None
+        );
+        assert(prepared);
+        assert.strictEqual(prepared.length, 1);
+        const incoming = await info.connection.sendRequest(
+            CallHierarchyIncomingCallsRequest.type,
+            { item: prepared[0] },
+            CancellationToken.None
+        );
+        assert(incoming);
+        assert.strictEqual(incoming.length, 1);
+        const caller = incoming[0].from;
+        expect(caller).toEqual(
+            expect.objectContaining({
+                name: 'caller',
+                kind: SymbolKind.Function,
+                uri,
+                range: range('callerStart', 'callerEnd'),
+                selectionRange: range('caller', 'callerNameEnd'),
+            })
+        );
+        expect(incoming[0].fromRanges).toEqual([range('leafCall', 'leafCallEnd')]);
+
+        // Send the returned item unchanged, as a client expanding the hierarchy would.
+        if (direction === 'incoming') {
+            const parents = await info.connection.sendRequest(
+                CallHierarchyIncomingCallsRequest.type,
+                { item: caller },
+                CancellationToken.None
+            );
+            expect(parents).toEqual([
+                {
+                    from: expect.objectContaining({
+                        name: 'parent',
+                        kind: SymbolKind.Function,
+                        uri,
+                        range: range('parentStart', 'parentEnd'),
+                        selectionRange: range('parent', 'parentNameEnd'),
+                    }),
+                    fromRanges: [range('callerCall', 'callerCallEnd')],
+                },
+            ]);
+        } else {
+            const outgoing = await info.connection.sendRequest(
+                CallHierarchyOutgoingCallsRequest.type,
+                { item: caller },
+                CancellationToken.None
+            );
+            assert(outgoing);
+            assert.strictEqual(outgoing.length, 1);
+            assert.strictEqual(outgoing[0].to.name, 'leaf');
+            assert.strictEqual(outgoing[0].to.uri, uri);
+            expect(outgoing[0].to.selectionRange).toEqual(range('leaf', 'leafNameEnd'));
+            expect(outgoing[0].fromRanges).toEqual([range('leafCall', 'leafCallEnd')]);
+        }
     });
 
     [false, true].forEach((supportsPullDiagnostics) => {

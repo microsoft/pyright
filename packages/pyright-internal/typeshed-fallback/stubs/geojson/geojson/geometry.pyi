@@ -12,9 +12,9 @@ DEFAULT_PRECISION: int
 class Geometry(GeoJSON):
     def __init__(
         self,
-        coordinates: None | Sequence[_InputCoord] | Geometry = None,
+        coordinates: Sequence[_InputCoord] | Geometry | None = None,
         validate: bool = False,
-        precision: None | int = None,
+        precision: int | None = None,
         **extra,
     ) -> None: ...
     @classmethod

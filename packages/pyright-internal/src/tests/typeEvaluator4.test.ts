@@ -8,6 +8,8 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import assert from 'assert';
+
 import { ConfigOptions } from '../common/configOptions';
 import {
     pythonVersion3_10,
@@ -20,6 +22,7 @@ import {
     pythonVersion3_9,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { LocMessage } from '../localization/localize';
 import * as TestUtils from './testUtils';
 
 test('Final1', () => {
@@ -87,6 +90,46 @@ test('CallSite4', () => {
     TestUtils.validateResults(analysisResults, 0, 0, 7);
 });
 
+test('CallSite5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite5.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('CallSite6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite6.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('CallSite7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite7.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('CallSite8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite8.py']);
+    TestUtils.validateResults(analysisResults, 5);
+});
+
+test('CallSite9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite9.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('CallSite10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite10.py']);
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('CallSite11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite11.py']);
+    TestUtils.validateResults(analysisResults, 3);
+});
+
+test('CallSite12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite12.py']);
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('FString1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -145,7 +188,10 @@ test('TString2', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_14;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tstring2.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 1);
+    TestUtils.validateResults(analysisResults1, 6);
+
+    const mixingErrors = analysisResults1[0].errors.filter((e) => e.message === LocMessage.mixingTemplateAndStr());
+    assert.strictEqual(mixingErrors.length, 4);
 });
 
 test('MemberAccess1', () => {
@@ -424,11 +470,11 @@ test('DataClassReplace1', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['dataclassReplace1.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 10);
+    TestUtils.validateResults(analysisResults1, 12);
 
     configOptions.defaultPythonVersion = pythonVersion3_13;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['dataclassReplace1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 4);
+    TestUtils.validateResults(analysisResults2, 6);
 });
 
 test('DataClassFrozen1', () => {
@@ -576,7 +622,7 @@ test('FunctionAssignabilityPositionalParamMessage1', () => {
         [
             'Argument of type "(a: int, b: int, /) -> int" cannot be assigned to parameter "func" of type "(int) -> int" in function "decorator"',
             '  Type "(a: int, b: int, /) -> int" is not assignable to type "(int) -> int"',
-            '    Position-only parameter mismatch; expected 2 but received 1',
+            '    Position-only parameter mismatch; expected 1 but received 2',
             '    Function accepts too many positional parameters; expected 1 but received 2',
         ].join('\n')
     );
@@ -641,7 +687,7 @@ test('Unions3', () => {
 test('Unions4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unions4.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Unions5', () => {
@@ -654,6 +700,12 @@ test('Unions6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unions6.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Unions7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unions7.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('ParamSpec1', () => {

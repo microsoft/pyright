@@ -100,7 +100,7 @@ export class RenameProvider {
         }
 
         // Return the range of the symbol.
-        return getRenameSymbolRange(referencesResult.nodeAtOffset, this._parseResults.tokenizerOutput.lines);
+        return getRenameSymbolRange(referencesResult.nodeAtOffset, this._parseResults.parserOutput.lines);
     }
 
     renameSymbol(newName: string, isDefaultWorkspace: boolean, isUntitled: boolean): WorkspaceEdit | null {

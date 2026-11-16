@@ -789,7 +789,10 @@ function assignUnconstrainedTypeVar(
             // `T := T | int` arising from protocol matching against `T | int`)
             // are *not* considered cyclic - the original `adjSrcType` is
             // recorded as the lower bound and existing logic resolves it.
-            if (typeVarOccursIn(destType, adjSrcType)) {
+            if (
+                (constraints || (flags & AssignTypeFlags.RejectCyclicLowerBound) !== 0) &&
+                typeVarOccursIn(destType, adjSrcType)
+            ) {
                 diag?.addMessage(
                     LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(adjSrcType, destType))
                 );
@@ -951,7 +954,7 @@ function assignUnconstrainedTypeVar(
                         newLowerBound,
                         diag?.createAddendum(),
                         /* constraints */ undefined,
-                        AssignTypeFlags.Default,
+                        flags & AssignTypeFlags.RejectCyclicLowerBound,
                         recursionCount
                     )
                 ) {

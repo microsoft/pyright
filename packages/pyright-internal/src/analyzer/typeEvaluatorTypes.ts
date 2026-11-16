@@ -23,6 +23,7 @@ import {
     DecoratorNode,
     ExpressionNode,
     FunctionNode,
+    IndexNode,
     MatchNode,
     NameNode,
     ParamCategory,
@@ -55,9 +56,7 @@ import {
 } from './types';
 import { ApplyTypeVarOptions, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
 
-// Maximum number of unioned subtypes for an inferred type (e.g.
-// a list) before the type is considered an "Any".
-export const maxSubtypesForInferredType = 64;
+export { maxSubtypesForInferredType } from './types';
 
 // In certain loops, it's possible to construct arbitrarily-deep containers
 // (tuples, lists, sets, or dicts) which can lead to infinite type analysis.
@@ -680,6 +679,11 @@ export const enum AssignTypeFlags {
     // When assigning callables, should a kwargs with an unpacked TypedDict
     // disallow additional named arguments if it does not have extraItems?
     DisallowExtraKwargsForTd = 1 << 17,
+
+    // Reject a cyclic TypeVar lower bound even when no constraint tracker
+    // records it. Overload consistency validation uses this when comparing
+    // return types.
+    RejectCyclicLowerBound = 1 << 18,
 }
 
 export interface TypeEvaluator {
@@ -732,6 +736,7 @@ export interface TypeEvaluator {
 
     isNodeReachable: (node: ParseNode, sourceNode?: ParseNode | undefined) => boolean;
     isAfterNodeReachable: (node: ParseNode) => boolean;
+    isKeyPresentInTypedDict: (node: IndexNode) => boolean;
     getNodeReachability: (node: ParseNode, sourceNode?: ParseNode | undefined) => Reachability;
     getAfterNodeReachability: (node: ParseNode) => Reachability;
 
@@ -874,6 +879,7 @@ export interface TypeEvaluator {
     getNoneType: () => Type;
     getUnionClassType(): Type;
     getTypeClassType(): ClassType | undefined;
+    getFunctionClassType(type: FunctionType | OverloadedType): ClassType | undefined;
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     getTypeCheckerInternalsType: (node: ParseNode, symbolName: string) => Type | undefined;
     inferReturnTypeIfNecessary: (type: Type) => void;

@@ -976,6 +976,10 @@ export class ConfigOptions {
     // within those directories are included.
     exclude: FileSpec[] = [];
 
+    // Whether to apply built-in excludes and virtual-environment auto-detection.
+    // Defaults to true when unspecified.
+    useDefaultExcludes?: boolean | undefined;
+
     // Automatically detect virtual environment folders and exclude them.
     // This property is for internal use and not exposed externally
     // as a config setting. It mirrors the `useDefaultExcludes` setting
@@ -1217,6 +1221,15 @@ export class ConfigOptions {
                         this.exclude.push(getFileSpec(configDirUri, fileSpec));
                     }
                 });
+            }
+        }
+
+        if (configObj.useDefaultExcludes !== undefined) {
+            unusedConfigKeys.delete('useDefaultExcludes');
+            if (typeof configObj.useDefaultExcludes === 'boolean') {
+                this.useDefaultExcludes = configObj.useDefaultExcludes;
+            } else {
+                console.error(`Config "useDefaultExcludes" entry must be true or false.`);
             }
         }
 

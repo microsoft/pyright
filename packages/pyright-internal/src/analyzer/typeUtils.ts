@@ -840,20 +840,20 @@ export function preserveUnknown(type1: Type, type2: Type): AnyType | UnknownType
     }
 }
 
-// Determines whether the specified type is a type that can be
-// combined with other types for a union.
-export function isUnionableType(subtypes: Type[]): boolean {
-    // If all of the subtypes are TypeForm types, we know that they
-    // are unionable.
-    if (subtypes.every((t) => t.props?.typeForm !== undefined)) {
+// Determines whether the two types will produce a union using the "|" operator.
+export function isUnionable(leftType: Type, rightType: Type): boolean {
+    // If both types are TypeForm types, we know that they are unionable.
+    if (leftType.props?.typeForm !== undefined && rightType.props?.typeForm !== undefined) {
         return true;
     }
 
-    let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
-
-    for (const subtype of subtypes) {
-        typeFlags &= subtype.flags;
+    // Special forms like Any and Never are unionable even though their
+    // types represent both instances and instantiable types.
+    if (leftType.props?.specialForm !== undefined && rightType.props?.specialForm !== undefined) {
+        return true;
     }
+
+    const typeFlags = leftType.flags & rightType.flags;
 
     // All subtypes need to be instantiable. Some types (like Any
     // and None) are both instances and instantiable. It's OK to
@@ -1042,10 +1042,11 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined, recu
             }
 
             const solution = buildSolution(type.shared.recursiveAlias.typeParams, aliasInfo.typeArgs);
-            return transformPossibleRecursiveTypeAlias(
+            const transformedType = transformPossibleRecursiveTypeAlias(
                 applySolvedTypeVars(unspecializedType, solution),
                 recursionCount
             );
+            return TypeBase.cloneForTypeAlias(transformedType, aliasInfo);
         }
 
         if (isUnion(type) && type.priv.includesRecursiveTypeAlias) {
@@ -1240,6 +1241,23 @@ export function isLiteralTypeOrUnion(type: Type, allowNone = false): boolean {
     }
 
     return false;
+}
+
+// Determines whether two defaulted parameters overlap only when the
+// argument is omitted and the dest parameter's default decides the result.
+// This requires literal and None types throughout, a dest default that is
+// a member of the dest type, and dest and source types with no shared member.
+export function isOverlapOnlyByOmission(destType: Type, destDefaultType: Type, srcType: Type): boolean {
+    if (![destType, destDefaultType, srcType].every((type) => isLiteralTypeOrUnion(type, /* allowNone */ true))) {
+        return false;
+    }
+
+    const isMemberOf = (subtype: Type, type: Type) => !!findSubtype(type, (member) => isTypeSame(subtype, member));
+
+    return (
+        !findSubtype(destDefaultType, (subtype) => !isMemberOf(subtype, destType)) &&
+        !findSubtype(destType, (subtype) => isMemberOf(subtype, srcType))
+    );
 }
 
 export function isLiteralLikeType(type: ClassType): boolean {
@@ -1771,7 +1789,18 @@ export function lookUpClassMember(
     // define any instance variables, and it's by far the most common metaclass.
     if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
         const metaMemberItr = getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers);
-        const metaMember = metaMemberItr.next()?.value;
+        let metaMember = metaMemberItr.next()?.value;
+
+        // type.__dict__ describes class namespaces, not instance dictionaries.
+        if (
+            memberName === '__dict__' &&
+            isClassInstance(classType) &&
+            metaMember &&
+            isClass(metaMember.classType) &&
+            ClassType.isBuiltIn(metaMember.classType, 'type')
+        ) {
+            metaMember = undefined;
+        }
 
         // If the metaclass defines the member and we didn't hit an Unknown
         // class in the metaclass MRO, use the metaclass member.
@@ -3907,7 +3936,12 @@ export class TypeVarTransformer {
 
     transformGenericTypeAlias(type: Type, recursionCount: number) {
         const aliasInfo = type.props?.typeAliasInfo;
-        if (!aliasInfo || !aliasInfo.shared.typeParams || !aliasInfo.typeArgs) {
+        if (
+            !aliasInfo ||
+            !aliasInfo.shared.typeParams ||
+            !aliasInfo.typeArgs ||
+            (isTypeVar(type) && type.shared.recursiveAlias)
+        ) {
             return type;
         }
 
@@ -4017,6 +4051,10 @@ export class TypeVarTransformer {
 
             // If this is an empty tuple, don't recompute the non-tuple type argument.
             if (newTupleTypeArgs && newTupleTypeArgs.length > 0) {
+                if (!specializationNeeded) {
+                    return classType;
+                }
+
                 // Combine the tuple type args into a single non-tuple type argument.
                 newTypeArgs = [combineTupleTypeArgs(newTupleTypeArgs)];
             }
@@ -4728,7 +4766,8 @@ class UnificationTypeTransformer extends TypeVarTransformer {
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
-        if (!this._isTypeVarLive(typeVar)) {
+        // A borrowed caller variable remains bound even outside its lexical scope.
+        if (!TypeVarType.isBound(typeVar) && !this._isTypeVarLive(typeVar)) {
             return TypeVarType.cloneAsUnificationVar(typeVar, this._usageOffset);
         }
 

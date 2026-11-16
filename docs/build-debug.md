@@ -1,9 +1,13 @@
 ## Building Pyright
 
 To install the dependencies for all packages in the repo:
-1. Install [nodejs](https://nodejs.org/en/) version 16.x
+1. Install [Node.js](https://nodejs.org/en/) 24 with npm
 2. Open terminal window in main directory of cloned source
-3. Execute `pnpm run install:all` to install dependencies for projects and sub-projects
+3. Execute `npm run installPinnedPackageManager` to install the pnpm version pinned in `package.json`
+4. Execute `pnpm run install:all` to install dependencies for projects and sub-projects
+
+See the [contributor setup guide](../CONTRIBUTING.md#development-setup) for existing pnpm/Corepack installations,
+reproducible installs, and [build and test commands](../CONTRIBUTING.md#building-and-testing).
 
 
 ## Building the CLI
@@ -29,6 +33,11 @@ To install in VS Code, go to the extensions panel and choose “Install from VSI
 1. cd to the `packages/pyright-internal` directory
 2. Execute `pnpm run test`
 
+
+## Reviewing pull requests
+
+See [Pyright PR review agents](pr-review-agents.md) for a coordinated review of performance, architectural fit, type
+precision, product benefit, and existing PR feedback.
 
 ## Debugging Pyright
 

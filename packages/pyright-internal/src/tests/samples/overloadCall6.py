@@ -349,8 +349,7 @@ class ClassA(Generic[_T]):
 
 
 def func7(a: ClassA[Any]):
-    # Known rollback limitation (#11601/#11732): gradual self no longer retains both results.
-    reveal_type(a.m1(), expected_text="ClassA[int]")
+    reveal_type(a.m1(), expected_text="OverloadResult[ClassA[int], ClassA[str]]")
 
 
 class ClassB(Generic[_T]):

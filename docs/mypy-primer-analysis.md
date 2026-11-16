@@ -5,6 +5,21 @@ differences** analyzes the complete eight-shard output and posts a separate,
 commit-specific explanation. It is advisory: it does not approve PRs, change
 labels, merge changes, or make mypy_primer diagnostic differences fail CI.
 
+Follow-up checks are queued from Validation's `workflow_run` events, not
+`pull_request_target`. They appear when Validation is requested or starts, rather
+than immediately when a PR opens or updates; unsuccessful Validation completes
+queued checks as skipped. Both the queue and raw-comment workflows check out the
+trusted workflow commit without persisting credentials.
+The `mypy_primer` check reports computation, not comment publication; a successful
+check does not imply that a result comment was posted.
+
+Before posting the raw diff, the commenter verifies the source primer run,
+successful Validation, and complete artifact inventory. The target PR is resolved
+from Validation's repository, branch, and exact head SHA, never from
+`pr_number.txt`. Only the eight expected, bounded diff files are read from the
+archives; archive paths are never extracted. Closed or superseded PRs are skipped,
+and the head is checked again immediately before posting.
+
 The PR comment leads with potential regressions and unresolved investigations,
 not a diagnostic-count table. Each project analysis states baseline evidence,
 changed behavior, downstream impact, a causal explanation, PR attribution, and
@@ -56,12 +71,11 @@ New assertion failures must not be blamed on stubs without inspecting the releva
 declarations. The agent cannot execute reproductions and must label static reasoning
 and proposed follow-up checks accordingly.
 
-When the only changed project is the canonical `sympy` project, the comment is a
-short notice that treats these differences as non-blocking primer noise. It keeps
-the recorded counts and full-report link instead of presenting a regression table.
-This is a reporting policy, not proof that the checker change is harmless. The
-complete validated analysis remains in the artifact, and mixed-project runs retain
-their normal per-project analysis, including SymPy.
+SymPy differences receive the same investigation and reporting as other projects,
+including when SymPy is the only changed project. Potential regressions, warning
+signals, and unresolved investigations remain visible in the PR comment rather
+than being replaced with a noise notice. Attribution still requires evidence;
+appearing in a primer diff alone does not establish that the PR caused a change.
 
 ## Manual previews
 
@@ -201,8 +215,9 @@ and publisher gates; rerun the primer tests and compile again to confirm stable
 output. If Dependabot updated other actions in the generated workflow, reconcile
 their authored Markdown pins before regeneration rather than silently downgrading
 them. Local compilation does not prove a live comment was posted: `workflow_run`
-uses the trusted default-branch workflow, so a PR-only repair cannot fix an existing
-run on `main`.
+uses the trusted default-branch workflow. A reporting repair must reach `main`, and
+a new reporting run must use the fixed workflow commit. Rerunning an older failed
+run retains its original workflow SHA; it does not pick up later fixes on `main`.
 
 For `gh aw compile --staged`, the publisher reads the staged flag from the trusted
 activation artifact rather than relying on an environment variable inherited by
