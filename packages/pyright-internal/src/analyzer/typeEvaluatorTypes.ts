@@ -56,9 +56,7 @@ import {
 } from './types';
 import { ApplyTypeVarOptions, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
 
-// Maximum number of unioned subtypes for an inferred type (e.g.
-// a list) before the type is considered an "Any".
-export const maxSubtypesForInferredType = 64;
+export { maxSubtypesForInferredType } from './types';
 
 // In certain loops, it's possible to construct arbitrarily-deep containers
 // (tuples, lists, sets, or dicts) which can lead to infinite type analysis.

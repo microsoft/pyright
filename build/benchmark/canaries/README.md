@@ -46,8 +46,9 @@ pnpm --dir packages/pyright-internal exec jest --testPathPatterns=protocolRequir
 
 ## NumPy Integration Gate
 
-Use Node 24.15.0 and a dedicated Python 3.12 environment with NumPy 2.4.6. CI pins
-Python 3.12.3; the runner records the exact Python version and resolved NumPy path.
+Use Node 24.15.0 and a dedicated Python 3.12 environment with NumPy 2.4.6. CI selects
+a Python 3.12 patch release; the runner records the exact Python version and resolved
+NumPy path.
 Build the current source before measuring:
 
 ```sh
