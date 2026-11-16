@@ -1,4 +1,4 @@
-version = "1.5.1"
+version = "1.5.2"
 upstream-repository = "https://github.com/rasterio/rasterio"
 requires-python = ">=3.12"
 dependencies = ["numpy>=2", "click>=8", "affine>=3"]

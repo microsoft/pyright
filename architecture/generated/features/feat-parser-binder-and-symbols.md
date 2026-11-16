@@ -9,7 +9,7 @@ Do not edit directly — changes will be overwritten by the next refresh.
 ## Implementation summary
 
 - **Files:** 23
-- **Symbols:** 710
+- **Symbols:** 712
 
 ### Primary files
 
@@ -18,15 +18,15 @@ These are the main implementation files attached to this semantic node.
 | File | Summary |
 | ---- | ------- |
 | [packages/pyright/packages/pyright-internal/src/analyzer/analyzerNodeInfo.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/analyzerNodeInfo.ts#L1-L729) | Stores and provides access to analysis metadata (scopes, declarations, control flow, imports, annotations) for parse nodes |
-| [packages/pyright/packages/pyright-internal/src/analyzer/binder.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/binder.ts#L1-L4919) | Performs parse-tree name binding and scope creation for Python modules and reports runtime binding errors |
+| [packages/pyright/packages/pyright-internal/src/analyzer/binder.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/binder.ts#L1-L4930) | Performs name binding and scope/symbol-table creation for Python parse trees, detecting runtime binding errors |
 | [packages/pyright/packages/pyright-internal/src/analyzer/declaration.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/declaration.ts#L1-L305) | Represents and categorizes symbol declarations (variables, functions, classes, aliases) and their associated metadata |
 | [packages/pyright/packages/pyright-internal/src/analyzer/declarationUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/declarationUtils.ts#L1-L422) | Utilities for inspecting and resolving Python declaration nodes, names, aliases, and import-based resolutions |
-| [packages/pyright/packages/pyright-internal/src/analyzer/parseTreeUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/parseTreeUtils.ts#L1-L2814) | Utilities for traversing and analyzing parse trees, locating nodes, and formatting expressions |
+| [packages/pyright/packages/pyright-internal/src/analyzer/parseTreeUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/parseTreeUtils.ts#L1-L2818) | Utilities for traversing, querying, and analyzing Python parse trees and node metadata |
 | [packages/pyright/packages/pyright-internal/src/analyzer/parseTreeWalker.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/parseTreeWalker.ts#L1-L718) | Traverses Python parse trees and dispatches visitor callbacks for each parse node type |
 | [packages/pyright/packages/pyright-internal/src/analyzer/scope.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/scope.ts#L1-L281) | Represents scopes and symbol tables and provides recursive symbol lookup and binding info for Python analysis |
 | [packages/pyright/packages/pyright-internal/src/analyzer/scopeUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/scopeUtils.ts#L1-L105) | Provides utility functions for finding and traversing analysis scopes and associated parse nodes |
 | [packages/pyright/packages/pyright-internal/src/analyzer/symbol.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/symbol.ts#L1-L323) | Represents symbols mapping names to types, declarations, flags, and synthesized type information for analysis |
-| [packages/pyright/packages/pyright-internal/src/analyzer/symbolNameUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/symbolNameUtils.ts#L1-L51) | Classify Python symbol names (private, protected, dunder, constant, type alias, public constant/type alias) |
+| [packages/pyright/packages/pyright-internal/src/analyzer/symbolNameUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/symbolNameUtils.ts#L1-L56) | Utilities for classifying Python symbol names such as private, protected, dunder, constants, and type aliases |
 | [packages/pyright/packages/pyright-internal/src/analyzer/symbolUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/symbolUtils.ts#L1-L53) | Helpers for Symbol declaration queries, visibility checks, TypedDict index access, and class-var/final semantics |
 | [packages/pyright/packages/pyright-internal/src/analyzer/testWalker.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/testWalker.ts#L1-L123) | Walks parse trees to validate parent/child links and ranges and to evaluate NameNode types using the TypeEvaluator |
 | [packages/pyright/packages/pyright-internal/src/parser/characterStream.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/parser/characterStream.ts#L1-L167) | Provides a character stream for inspecting and advancing through text used by parsers and tokenizers |
@@ -41,7 +41,7 @@ These are the main implementation files attached to this semantic node.
 | [packages/pyright/packages/pyright-internal/src/parser/tokenizerTypes.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/parser/tokenizerTypes.ts#L1-L619) | Defines enums, interfaces, and factory creators for Python tokenizer tokens and comments |
 | [packages/pyright/packages/pyright-internal/src/parser/unicode.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/parser/unicode.ts#L1-L3649) | Unicode character range tables used by the Python language specification |
 
-### Symbol preview (40 of 710)
+### Symbol preview (40 of 712)
 
 | Symbol | Kind | Source |
 | ------ | ---- | ------ |
@@ -85,7 +85,7 @@ These are the main implementation files attached to this semantic node.
 | `AnalyzerNodeInfoAccessor.setScope` | method | [packages/pyright/packages/pyright-internal/src/analyzer/analyzerNodeInfo.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/analyzerNodeInfo.ts#L446-L448) |
 | `AnalyzerNodeInfoAccessor.getDeclaration` | method | [packages/pyright/packages/pyright-internal/src/analyzer/analyzerNodeInfo.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/analyzerNodeInfo.ts#L450-L452) |
 | `AnalyzerNodeInfoAccessor.setDeclaration` | method | [packages/pyright/packages/pyright-internal/src/analyzer/analyzerNodeInfo.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/analyzerNodeInfo.ts#L454-L456) |
-| _670 additional symbols omitted_ |  |  |
+| _672 additional symbols omitted_ |  |  |
 
 ## Dependencies
 
@@ -108,6 +108,9 @@ These are the main implementation files attached to this semantic node.
 - `packages/pyright/packages/pyright-internal/src/analyzer/importStatementUtils.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/namedTuples.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/operations.ts`
+- `packages/pyright/packages/pyright-internal/src/analyzer/overloadResultAdmission.ts`
+- `packages/pyright/packages/pyright-internal/src/analyzer/overloadResultController.ts`
+- `packages/pyright/packages/pyright-internal/src/analyzer/overloadResultSelector.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/packageTypeReport.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/packageTypeVerifier.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/parameterUtils.ts`

@@ -21,7 +21,7 @@ extends:
     settings:
       networkIsolationPolicy: Good, CFSClean, GitHub
     sdl:
-      sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
+      sourceAnalysisPool: VSEng-MicroBuildVSStable
     pool:
       name: AzurePipelines-EO
       demands:

@@ -23,6 +23,7 @@ import {
     InitializeRequest,
     MarkupContent,
     SymbolKind,
+    UnregistrationRequest,
 } from 'vscode-languageserver';
 
 import { convertOffsetToPosition } from '../common/positionUtils';
@@ -39,6 +40,7 @@ import {
     openFile,
     PyrightServerInfo,
     runPyrightServer,
+    sleep,
     waitForDiagnostics,
 } from './lsp/languageServerTestUtils';
 
@@ -181,6 +183,28 @@ describe(`Basic language server tests`, () => {
 
         const completionItem = completionResult.items.find((i: CompletionItem) => i.label === 'path')!;
         assert(completionItem);
+    });
+
+    test('Shutdown waits for capability unregistration responses', async () => {
+        const info = await runLanguageServer(
+            DEFAULT_WORKSPACE_ROOT,
+            `
+// @filename: test.py
+//// import os
+`
+        );
+        let unregistered = false;
+        info.disposables.push(
+            info.connection.onRequest(UnregistrationRequest.type, async () => {
+                // Exceed the old teardown polling limit to simulate a busy client.
+                await sleep(250);
+                unregistered = true;
+            })
+        );
+
+        await info.dispose();
+        serverInfo = undefined;
+        expect(unregistered).toBe(true);
     });
 
     test.each([

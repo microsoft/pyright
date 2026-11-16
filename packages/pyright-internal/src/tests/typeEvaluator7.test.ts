@@ -26,6 +26,7 @@ import {
     pythonVersion3_8,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { LocMessage } from '../localization/localize';
 import { ParseNodeType } from '../parser/parseNodes';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
@@ -795,7 +796,11 @@ test.each([false, true])('Protocol36CacheReuse positiveFirst=%s', (positiveFirst
 
     const diagnostics = new DiagnosticAddendum();
     assert.strictEqual(assign(rejectedType, diagnostics), false);
-    expect(diagnostics.getString()).toContain('"int" is not assignable to "str"');
+    const diagnosticText = diagnostics.getString();
+    expect(diagnosticText).toContain('"__iter__" is an incompatible type');
+    expect(diagnosticText).toContain(
+        'Type "() -> Iterator[int]" is not assignable to type "() -> Iterator[str | NestedSequence[str]]"'
+    );
     assert.ok(constraints.isSame(originalConstraints));
     assert.strictEqual(assign(rejectedType), false);
     assert.strictEqual(assign(acceptedType), true);
@@ -808,6 +813,61 @@ test.each([false, true])('Protocol36CacheReuse positiveFirst=%s', (positiveFirst
             'int'
         );
     }
+});
+
+test('ProtocolMethodTypeParamBound', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Protocol
+////
+//// class Expected(Protocol):
+////     def f[U: str](self, value: U) -> U: ...
+////
+//// class Actual:
+////     def f[U: int](self, value: U) -> U: ...
+////
+//// def check(source: Actual):
+////     invalid: Expected = source
+    `;
+    const state = parseAndGetTestState(code).state;
+    const file = state.testData.files[0];
+    const results = TestUtils.getAnalysisResults(state.program, [file.fileUri], state.configOptions);
+    TestUtils.validateResults(results, 1);
+    const message = results[0].errors[0].message;
+    expect(message).toContain('"f" is an incompatible type');
+    expect(message).toContain('Type "U@f" is not assignable to type "int"');
+});
+
+test('ProtocolMethodParamNameAndKind', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Protocol
+////
+//// class NameProto[T](Protocol):
+////     def f(self, x: T) -> None: ...
+////
+//// class NameImpl:
+////     def f(self, y: int) -> None: ...
+////
+//// class KindProto[T](Protocol):
+////     def f(self, *, x: T) -> None: ...
+////
+//// class KindImpl:
+////     def f(self, x: int, /) -> None: ...
+////
+//// def check(a: NameImpl, b: KindImpl):
+////     v1: NameProto[int] = a
+////     v2: KindProto[int] = b
+    `;
+    const state = parseAndGetTestState(code).state;
+    const file = state.testData.files[0];
+    const results = TestUtils.getAnalysisResults(state.program, [file.fileUri], state.configOptions);
+    TestUtils.validateResults(results, 2);
+    const [nameError, kindError] = results[0].errors;
+    expect(nameError.message).toContain('Type "(y: int) -> None" is not assignable to type "(x: T@NameProto) -> None"');
+    expect(kindError.message).toContain(
+        'Type "(x: int, /) -> None" is not assignable to type "(*, x: T@KindProto) -> None"'
+    );
 });
 
 test.each([
@@ -1018,6 +1078,136 @@ test('Protocol54', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Protocol55', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol55.py']);
+
+    TestUtils.validateResults(analysisResults, 5);
+
+    const decoratorErrors = analysisResults[0].errors.filter(
+        (diag) => diag.getRule() === DiagnosticRule.reportGeneralTypeIssues
+    );
+    assert.deepStrictEqual(
+        decoratorErrors.map((diag) => ({ message: diag.message, range: diag.range })),
+        [13, 24, 45, 156].map((line) => ({
+            message: LocMessage.runtimeCheckableNotProtocol(),
+            range: { start: { line, character: 1 }, end: { line, character: 18 } },
+        }))
+    );
+    const protocolErrors = analysisResults[0].errors.filter(
+        (diag) => diag.getRule() === DiagnosticRule.reportArgumentType
+    );
+    assert.deepStrictEqual(
+        protocolErrors.map((diag) => diag.range.start.line),
+        [97]
+    );
+});
+
+test('Protocol55UntypedDecorators', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportUntypedClassDecorator = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol55.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 12);
+    const untypedDecoratorErrors = analysisResults[0].errors.filter(
+        (diag) => diag.getRule() === DiagnosticRule.reportUntypedClassDecorator
+    );
+    assert.deepStrictEqual(
+        untypedDecoratorErrors.map((diag) => diag.range.start.line),
+        [127, 135, 142, 149, 158, 165, 190]
+    );
+});
+
+test('Protocol56', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol56.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+    const defaultTypeError = analysisResults[0].errors.find((error) => error.message.includes('"list[object]"'));
+    assert.strictEqual(defaultTypeError?.getRule(), DiagnosticRule.reportArgumentType);
+});
+
+test.each(
+    (['source', 'destination'] as const).flatMap((side) =>
+        ['Any', 'int'].flatMap((defaultType) =>
+            [false, true].flatMap((diagnostics) =>
+                [false, true].map((positiveFirst) => ({ side, defaultType, diagnostics, positiveFirst }))
+            )
+        )
+    )
+)(
+    'ProtocolDefaultCache $side default=$defaultType diagnostics=$diagnostics positiveFirst=$positiveFirst',
+    ({ side, defaultType, diagnostics, positiveFirst }) => {
+        const sourceIsGeneric = side === 'source';
+        const state = parseAndGetTestState(`
+// @filename: test.py
+//// from typing import Any, Protocol
+//// class Source${sourceIsGeneric ? `[T = ${defaultType}]` : ''}:
+////     ${sourceIsGeneric ? 'def put(self, value: T) -> None: ...' : 'def get(self) -> int: ...'}
+//// class Target${sourceIsGeneric ? '' : `[T = ${defaultType}]`}(Protocol):
+////     ${sourceIsGeneric ? 'def put(self, value: int) -> None: ...' : 'def get(self) -> T: ...'}
+//// def check(
+////     good_source: ${sourceIsGeneric ? 'Source[int]' : 'Source'},
+////     bad_source: ${sourceIsGeneric ? 'Source[str]' : 'Source'},
+////     good_target: ${sourceIsGeneric ? 'Target' : 'Target[int]'},
+////     bad_target: ${sourceIsGeneric ? 'Target' : 'Target[str]'},
+//// ):
+////     /*good_source*/good_source
+////     /*bad_source*/bad_source
+////     /*good_target*/good_target
+////     /*bad_target*/bad_target
+        `).state;
+        const evaluator = state.program.evaluator!;
+        const typeAt = (marker: string) => {
+            const node = getNodeAtMarker(state, marker);
+            assert.strictEqual(node.nodeType, ParseNodeType.Name);
+            const type = evaluator.getTypeOfExpression(node).type;
+            assert.ok(isClassInstance(type));
+            return type;
+        };
+        const goodSource = typeAt('good_source');
+        const badSource = typeAt('bad_source');
+        const goodTarget = ClassType.cloneAsInstantiable(typeAt('good_target'));
+        const badTarget = ClassType.cloneAsInstantiable(typeAt('bad_target'));
+        const assign = (target: ClassType, source: ClassType) =>
+            assignClassToProtocol(
+                evaluator,
+                target,
+                source,
+                diagnostics ? new DiagnosticAddendum() : undefined,
+                undefined,
+                AssignTypeFlags.Default,
+                0
+            );
+
+        if (positiveFirst) {
+            assert.strictEqual(assign(goodTarget, goodSource), true);
+        }
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+            assert.strictEqual(assign(badTarget, badSource), false);
+            assert.strictEqual(assign(goodTarget, goodSource), true);
+        }
+
+        if (!sourceIsGeneric) {
+            const typeParam = goodTarget.shared.typeParams[0];
+            const genericTarget = ClassType.specialize(goodTarget, [typeParam]);
+            const constraints = new ConstraintTracker();
+            assert.strictEqual(
+                assignClassToProtocol(
+                    evaluator,
+                    genericTarget,
+                    goodSource,
+                    undefined,
+                    constraints,
+                    AssignTypeFlags.Default,
+                    0
+                ),
+                true
+            );
+            assert.strictEqual(evaluator.printType(evaluator.solveAndApplyConstraints(typeParam, constraints)), 'int');
+        }
+    }
+);
+
 test('ProtocolExplicit1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit1.py']);
 
@@ -1028,6 +1218,575 @@ test('ProtocolExplicit3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit3.py']);
 
     TestUtils.validateResults(analysisResults, 3);
+});
+
+test.each(
+    (['cache', 'recursiveArgument', 'recursiveReturn'] as const).flatMap((path) =>
+        (['standard', 'positionalOnly', 'keywordOnly'] as const).flatMap((kind) =>
+            (
+                [
+                    ['optional', 'required', false],
+                    ['required', 'optional', false],
+                    ['optional', 'optional', true],
+                ] as const
+            ).map(([first, second, compatible]) => ({ path, kind, first, second, compatible }))
+        )
+    )
+)('TypedDictCallableIdentity $path $kind $first/$second', ({ path, kind, first, second, compatible }) => {
+    const suffix = kind === 'positionalOnly' ? ', /' : '';
+    const prefix = kind === 'keywordOnly' ? '*, ' : '';
+    const recursive = path !== 'cache';
+    const code = `
+// @filename: test.py
+//// from typing import Callable, ReadOnly, TypedDict
+////
+//// def optional(${prefix}x: int = 0${suffix}) -> None:
+////     pass
+////
+//// def required(${prefix}x: int${suffix}) -> None:
+////     pass
+////
+${
+    recursive
+        ? `//// class A[T](TypedDict, total=False):
+////     next: ReadOnly["A[T]"]
+////     value: ReadOnly[T]
+////
+//// class B[T, U](TypedDict, total=False):
+////     next: ReadOnly["B[U, T]"]
+////     value: ReadOnly[T]
+////     other: ReadOnly[U]
+////
+//// def source[T, U](t: T, u: U) -> B[T, U]:
+////     child: B[U, T] = {"value": u, "other": t}
+////     return {"value": t, "other": u, "next": child}
+////
+//// def consume(result: A[Callable[[], None]]) -> None:
+////     if "next" in result and "value" in result["next"]:
+////         result["next"]["value"]()
+////
+${
+    path === 'recursiveReturn'
+        ? `//// def bad() -> A[Callable[[], None]]:
+////     /*error*/return source(${first}, ${second})
+////
+//// consume(bad())`
+        : `//// /*error*/consume(source(${first}, ${second}))`
+}`
+        : `//// class A(TypedDict):
+////     value: ReadOnly[Callable[[], None]]
+////
+//// class B[T](TypedDict):
+////     value: ReadOnly[T]
+////
+//// class Source[T, U](TypedDict):
+////     first: ReadOnly[B[T]]
+////     second: ReadOnly[B[U]]
+////
+//// class Dest(TypedDict):
+////     first: ReadOnly[A]
+////     second: ReadOnly[A]
+////
+//// def source[T, U](t: T, u: U) -> Source[T, U]:
+////     return {"first": {"value": t}, "second": {"value": u}}
+////
+//// def bad() -> Dest:
+////     /*error*/return source(${first}, ${second})
+////
+//// bad()["second"]["value"]()`
+}
+    `;
+    const state = parseAndGetTestState(code).state;
+    state.configOptions.defaultPythonVersion = pythonVersion3_13;
+    const file = state.testData.files[0];
+    const results = TestUtils.getAnalysisResults(state.program, [file.fileUri], state.configOptions);
+    TestUtils.validateResults(results, compatible ? 0 : 1);
+    if (!compatible) {
+        const diagnostic = results[0].errors[0];
+        assert.strictEqual(
+            diagnostic.getRule(),
+            path === 'recursiveArgument' ? DiagnosticRule.reportArgumentType : DiagnosticRule.reportReturnType
+        );
+        const marker = state.getMarkerByName('error');
+        const line = file.content.slice(0, marker.position).split('\n').length - 1;
+        assert.strictEqual(diagnostic.range.start.line, line);
+        const callable = (name: string) => `(${prefix}x: int${name === 'optional' ? ' = 0' : ''}${suffix}) -> None`;
+        const source = `${recursive ? 'B' : 'Source'}[${callable(first)}, ${callable(second)}]`;
+        const destination = recursive ? 'A[() -> None]' : 'Dest';
+        const header =
+            path === 'recursiveArgument'
+                ? `Argument of type "${source}" cannot be assigned to parameter "result" of type "${destination}" in function "consume"`
+                : `Type "${source}" is not assignable to return type "${destination}"`;
+        const indent = '\u00a0\u00a0';
+        const entry =
+            path === 'cache'
+                ? [`${indent}"${first === 'required' ? 'first' : 'second'}" is an incompatible type`]
+                : first === 'optional'
+                ? [`${indent}"next" is an incompatible type`]
+                : [];
+        const depth = entry.length + 1;
+        assert.strictEqual(
+            diagnostic.message,
+            [
+                header,
+                ...entry,
+                `${indent.repeat(depth)}"value" is an incompatible type`,
+                `${indent.repeat(depth + 1)}Type "${callable('required')}" is not assignable to type "() -> None"`,
+                ...(kind === 'positionalOnly'
+                    ? [
+                          `${indent.repeat(depth + 2)}Position-only parameter mismatch; expected 0 but received 1`,
+                          `${indent.repeat(
+                              depth + 2
+                          )}Function accepts too many positional parameters; expected 0 but received 1`,
+                      ]
+                    : [`${indent.repeat(depth + 2)}Extra parameter "x"`]),
+            ].join('\n')
+        );
+    }
+});
+
+test.each([
+    ['optional', 'required', false],
+    ['required', 'optional', false],
+    ['optional', 'optional', true],
+] as const)('TypedDictCallableConstructor %s/%s', (first, second, compatible) => {
+    const code = `
+// @filename: test.py
+//// from typing import Callable, ReadOnly, TypedDict, assert_type
+////
+//// class A[T](TypedDict):
+////     value: ReadOnly[T]
+////
+//// class B[T](TypedDict):
+////     value: ReadOnly[T]
+////
+//// class Dest(TypedDict):
+////     first: ReadOnly[A[Callable[[], int]]]
+////     second: ReadOnly[A[Callable[[], int]]]
+////
+//// class Source[T, U](TypedDict):
+////     first: ReadOnly[B[T]]
+////     second: ReadOnly[B[U]]
+////
+//// def optional(x: int = 0) -> int:
+////     return x
+////
+//// def required(x: int) -> int:
+////     return x
+////
+//// def expose() -> Dest:
+////     source = Source(first=B(value=${first}), second=B(value=${second}))
+////     /*error*/return source
+////
+//// def consumer() -> int:
+////     assert_type(expose()["second"]["value"], Callable[[], int])
+////     return expose()["second"]["value"]()
+    `;
+    const state = parseAndGetTestState(code).state;
+    state.configOptions.defaultPythonVersion = pythonVersion3_13;
+    const file = state.testData.files[0];
+    const results = TestUtils.getAnalysisResults(state.program, [file.fileUri], state.configOptions);
+    TestUtils.validateResults(results, compatible ? 0 : 1);
+    if (!compatible) {
+        const diagnostic = results[0].errors[0];
+        assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportReturnType);
+        const marker = state.getMarkerByName('error');
+        const line = file.content.slice(0, marker.position).split('\n').length - 1;
+        assert.strictEqual(diagnostic.range.start.line, line);
+        const callable = (name: string) => `(x: int${name === 'optional' ? ' = 0' : ''}) -> int`;
+        const indent = '\u00a0\u00a0';
+        assert.strictEqual(
+            diagnostic.message,
+            [
+                `Type "Source[${callable(first)}, ${callable(second)}]" is not assignable to return type "Dest"`,
+                `${indent}"${first === 'required' ? 'first' : 'second'}" is an incompatible type`,
+                `${indent.repeat(2)}"value" is an incompatible type`,
+                `${indent.repeat(3)}Type "(x: int) -> int" is not assignable to type "() -> int"`,
+                `${indent.repeat(4)}Extra parameter "x"`,
+            ].join('\n')
+        );
+    }
+});
+
+test('TypedDictNestedSiblingDiagnostics', () => {
+    const classes = (['Int', 'Str'] as const)
+        .map(
+            (prefix) => `
+//// class ${prefix}Leaf(TypedDict):
+////     value: ReadOnly[${prefix === 'Int' ? 'int' : 'str'}]
+////
+//// class ${prefix}Pair(TypedDict):
+////     first: ReadOnly[${prefix}Leaf]
+////     second: ReadOnly[${prefix}Leaf]
+////
+//// class ${prefix}Root(TypedDict):
+////     inside: ReadOnly[${prefix}Pair]
+////
+//// class ${prefix}Outer(TypedDict):
+////     outer: ReadOnly[${prefix}Root]
+////`
+        )
+        .join('\n');
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+//// from typing_extensions import ReadOnly
+////
+${classes}
+//// def check(a: IntOuter, b: StrOuter):
+////     /*a*/a
+////     /*b*/b
+    `;
+    const state = parseAndGetTestState(code).state;
+    const evaluator = state.program.evaluator!;
+    const [aType, bType] = ['a', 'b'].map((marker) => {
+        const node = getNodeAtMarker(state, marker);
+        assert.strictEqual(node.nodeType, ParseNodeType.Name);
+        return evaluator.getTypeOfExpression(node).type;
+    });
+    const diagnostics = new DiagnosticAddendum();
+    assert.strictEqual(evaluator.assignType(aType, bType, diagnostics), false);
+    const rendered = diagnostics.getString(undefined, 1000);
+    const indent = '\u00a0\u00a0';
+    assert.strictEqual(
+        rendered,
+        [
+            '',
+            `${indent}"outer" is an incompatible type`,
+            `${indent.repeat(2)}"inside" is an incompatible type`,
+            `${indent.repeat(3)}"first" is an incompatible type`,
+            `${indent.repeat(4)}"value" is an incompatible type`,
+            `${indent.repeat(5)}"str" is not assignable to "int"`,
+            `${indent.repeat(3)}"second" is an incompatible type`,
+            `${indent.repeat(4)}"value" is an incompatible type`,
+            `${indent.repeat(5)}"str" is not assignable to "int"`,
+        ].join('\n')
+    );
+});
+
+test.each([64, 65].flatMap((width) => [false, true].map((hotFirst) => ({ width, hotFirst }))))(
+    'TypedDictDestinationWorkingSet width=$width hotFirst=$hotFirst',
+    ({ width, hotFirst }) => {
+        const layers = 4;
+        const classes = Array.from({ length: layers }, (_, layer) => {
+            const indices = Array.from({ length: width }, (_, index) => index);
+            const fields = (prefix: string) => {
+                if (layer === 0) {
+                    return '////     value: ReadOnly[int]';
+                }
+                const hot = Array.from({ length: 8 }, (_, index) => (hotFirst ? index : width - 8 + index));
+                const repeatedHot = Array.from({ length: 8 }, () => hot).flat();
+                const targets = hotFirst ? [...repeatedHot, ...indices] : [...indices, ...repeatedHot];
+                return targets
+                    .map(
+                        (target, field) =>
+                            `////     field${field}: ReadOnly["${
+                                prefix === 'Source' ? `Source${layer - 1}` : `Dest${layer - 1}_${target}`
+                            }"]`
+                    )
+                    .join('\n');
+            };
+            return (
+                `//// class Source${layer}(TypedDict):\n${fields('Source')}\n////\n` +
+                indices
+                    .map((index) => `//// class Dest${layer}_${index}(TypedDict):\n${fields('Dest')}\n////`)
+                    .join('\n')
+            );
+        }).join('\n');
+        const code = `
+// @filename: test.py
+//// from typing import TypedDict
+//// from typing_extensions import ReadOnly
+////
+${classes}
+//// def check(dest: Dest${layers - 1}_0, source: Source${layers - 1}):
+////     /*dest*/dest
+////     /*source*/source
+    `;
+        const state = parseAndGetTestState(code).state;
+        const evaluator = state.program.evaluator!;
+        const [destType, sourceType] = ['dest', 'source'].map((marker) => {
+            const node = getNodeAtMarker(state, marker);
+            assert.strictEqual(node.nodeType, ParseNodeType.Name);
+            return evaluator.getTypeOfExpression(node).type;
+        });
+        const assignType = evaluator.assignType;
+        let comparisons = 0;
+        const spy = jest.spyOn(evaluator, 'assignType').mockImplementation((...args) => {
+            assert.ok(++comparisons < 20000, 'Destination classes evicted each other from the comparison cache');
+            return assignType(...args);
+        });
+        try {
+            assert.strictEqual(evaluator.assignType(destType, sourceType), true);
+        } finally {
+            spy.mockRestore();
+        }
+    }
+);
+
+test('TypedDictRecursive1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictRecursive1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypedDictRecursive2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictRecursive2.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 5);
+    const indent = '\u00a0\u00a0';
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => diagnostic.message),
+        [
+            [
+                'Type "ReadOnlyStr" is not assignable to declared type "ReadOnlyInt"',
+                `${indent}"value" is an incompatible type`,
+                `${indent.repeat(2)}"str" is not assignable to "int"`,
+            ].join('\n'),
+            [
+                'Type "StrParent" is not assignable to declared type "IntParent"',
+                `${indent}"value" is an incompatible type`,
+                `${indent.repeat(2)}"str" is not assignable to "int"`,
+            ].join('\n'),
+            [
+                'Type "StrChild" is not assignable to declared type "IntChild"',
+                `${indent}"parent" is an incompatible type`,
+                `${indent.repeat(2)}"value" is an incompatible type`,
+                `${indent.repeat(3)}"str" is not assignable to "int"`,
+            ].join('\n'),
+            [
+                'Type "StrWrapper" is not assignable to declared type "IntWrapper"',
+                `${indent}"parent" is an incompatible type`,
+                `${indent.repeat(2)}"value" is an incompatible type`,
+                `${indent.repeat(3)}"str" is not assignable to "int"`,
+                `${indent}"child" is an incompatible type`,
+                `${indent.repeat(2)}"parent" is an incompatible type`,
+                `${indent.repeat(3)}"value" is an incompatible type`,
+                `${indent.repeat(4)}"str" is not assignable to "int"`,
+                `${indent}"again" is an incompatible type`,
+            ].join('\n'),
+            [
+                'Type "GenericB[str]" is not assignable to declared type "GenericA[int]"',
+                `${indent}"value" is an incompatible type`,
+                `${indent.repeat(2)}"str" is not assignable to "int"`,
+            ].join('\n'),
+        ]
+    );
+});
+
+test('TypedDictRecursive3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictRecursive3.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypedDictRecursiveRecursionBudget', () => {
+    const chains = ['A', 'B']
+        .map((prefix) =>
+            Array.from(
+                { length: 19 },
+                (_, index) => `
+//// class ${prefix}Chain${index}(TypedDict):
+////     next: ReadOnly["${prefix}${index === 18 ? 'Leaf' : `Chain${index + 1}`}"]
+////`
+            ).join('\n')
+        )
+        .join('\n');
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+//// from typing_extensions import ReadOnly
+////
+//// class ALeaf(TypedDict):
+////     value: ReadOnly[int]
+////
+//// class BLeaf(TypedDict):
+////     value: ReadOnly[str]
+////
+${chains}
+//// class ARoot(TypedDict):
+////     deep: ReadOnly[AChain0]
+////     shallow: ReadOnly[ALeaf]
+////
+//// class BRoot(TypedDict):
+////     deep: ReadOnly[BChain0]
+////     shallow: ReadOnly[BLeaf]
+////
+//// def check(a: ARoot, b: BRoot):
+////     /*a*/a
+////     /*b*/b
+    `;
+    const state = parseAndGetTestState(code).state;
+    const evaluator = state.program.evaluator!;
+    const [aType, bType] = ['a', 'b'].map((marker) => {
+        const node = getNodeAtMarker(state, marker);
+        assert.strictEqual(node.nodeType, ParseNodeType.Name);
+        return evaluator.getTypeOfExpression(node).type;
+    });
+
+    assert.strictEqual(evaluator.assignType(aType, bType), false);
+    const diagnostics = new DiagnosticAddendum();
+    assert.strictEqual(evaluator.assignType(aType, bType, diagnostics), false);
+    const indent = '\u00a0\u00a0';
+    assert.strictEqual(
+        diagnostics.getString(),
+        [
+            '',
+            `${indent}"shallow" is an incompatible type`,
+            `${indent.repeat(2)}"value" is an incompatible type`,
+            `${indent.repeat(3)}"str" is not assignable to "int"`,
+        ].join('\n')
+    );
+});
+
+test.each([true, false])('TypedDictRecursiveSharedGraph compatible=%s', (compatible) => {
+    const width = compatible ? 64 : 16;
+    const layers = compatible ? 4 : 3;
+    const classes = ['A', 'B']
+        .map((prefix) =>
+            Array.from({ length: layers }, (_, layer) =>
+                Array.from({ length: width }, (_, index) => {
+                    const fields = Array.from(
+                        { length: layer === 0 ? 1 : width },
+                        (_, field) =>
+                            `////     field${field}: ReadOnly["${
+                                layer === 0 ? `${prefix}Leaf` : `${prefix}${layer - 1}_${field}`
+                            }"]`
+                    ).join('\n');
+                    return `//// class ${prefix}${layer}_${index}(TypedDict):\n${fields}\n////`;
+                }).join('\n')
+            ).join('\n')
+        )
+        .join('\n');
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+//// from typing_extensions import ReadOnly
+////
+//// class ALeaf(TypedDict):
+////     value: ReadOnly[int]
+////
+//// class BLeaf(TypedDict):
+////     value: ReadOnly[${compatible ? 'int' : 'str'}]
+////
+${classes}
+//// def check(a: A${layers - 1}_0, b: B${layers - 1}_0):
+////     /*a*/a
+////     /*b*/b
+    `;
+    const state = parseAndGetTestState(code).state;
+    const evaluator = state.program.evaluator!;
+    const [aType, bType] = ['a', 'b'].map((marker) => {
+        const node = getNodeAtMarker(state, marker);
+        assert.strictEqual(node.nodeType, ParseNodeType.Name);
+        return evaluator.getTypeOfExpression(node).type;
+    });
+    const assignType = evaluator.assignType;
+    let comparisons = 0;
+    const spy = jest.spyOn(evaluator, 'assignType').mockImplementation((...args) => {
+        assert.ok(++comparisons < 20000, 'Shared TypedDict subgraphs were repeatedly recomputed');
+        return assignType(...args);
+    });
+    try {
+        assert.strictEqual(evaluator.assignType(aType, bType), compatible);
+        if (!compatible) {
+            const diagnostics = new DiagnosticAddendum();
+            assert.strictEqual(evaluator.assignType(aType, bType, diagnostics), false);
+            const indent = '\u00a0\u00a0';
+            // Assert the complete 1000-line rendering, including its line-budget boundary:
+            // 15 full outer fields (65 lines each) and a final field with 6 children (25 lines).
+            const expectedLines = Array.from({ length: 16 }, (_, outer) => [
+                `${indent}"field${outer}" is an incompatible type`,
+                ...Array.from({ length: outer === 15 ? 6 : 16 }, (_, inner) => [
+                    `${indent.repeat(2)}"field${inner}" is an incompatible type`,
+                    `${indent.repeat(3)}"field0" is an incompatible type`,
+                    `${indent.repeat(4)}"value" is an incompatible type`,
+                    `${indent.repeat(5)}"str" is not assignable to "int"`,
+                ]).flat(),
+            ]).flat();
+            assert.strictEqual(diagnostics.getString(undefined, 1000), ['', ...expectedLines].join('\n'));
+        }
+    } finally {
+        spy.mockRestore();
+    }
+});
+
+test.each([
+    [false, true],
+    [true, true],
+    [false, false],
+    [true, false],
+])('TypedDictRecursiveWide constraints=%s compatible=%s', (withConstraints, expectedCompatibility) => {
+    const fields = (prefix: string) =>
+        Array.from({ length: 56 }, (_, index) => `////     rel${index}: bool | "${prefix}Args"`).join('\n');
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+////
+//// class AInclude(TypedDict, total=False):
+${fields('A')}
+////     value: int
+////
+//// class AArgs(TypedDict, total=False):
+////     include: "AInclude"
+////
+//// class BInclude(TypedDict, total=False):
+${fields('B')}
+////     value: ${expectedCompatibility ? 'int' : 'str'}
+////
+//// class BArgs(TypedDict, total=False):
+////     include: "BInclude"
+////
+//// def check(a: AInclude, b: BInclude):
+////     /*a*/a
+////     /*b*/b
+    `;
+    const state = parseAndGetTestState(code).state;
+    const evaluator = state.program.evaluator!;
+    const [aType, bType] = ['a', 'b'].map((marker) => {
+        const node = getNodeAtMarker(state, marker);
+        assert.strictEqual(node.nodeType, ParseNodeType.Name);
+        return evaluator.getTypeOfExpression(node).type;
+    });
+
+    const assignType = evaluator.assignType;
+    let comparisons = 0;
+    const spy = jest.spyOn(evaluator, 'assignType').mockImplementation((...args) => {
+        // Bound work rather than wall-clock time, and fail promptly if recursion returns.
+        assert.ok(++comparisons < 2000, 'Recursive TypedDict comparison exceeded its work budget');
+        return assignType(...args);
+    });
+    try {
+        const constraints = withConstraints ? new ConstraintTracker() : undefined;
+        assert.strictEqual(evaluator.assignType(bType, aType, undefined, constraints), expectedCompatibility);
+        const diagnostics = new DiagnosticAddendum();
+        assert.strictEqual(evaluator.assignType(aType, bType, diagnostics, constraints), expectedCompatibility);
+        if (!expectedCompatibility) {
+            const indent = '\u00a0\u00a0';
+            const expectedLines = Array.from({ length: 56 }, (_, index) => [
+                `${indent}"rel${index}" is an incompatible type`,
+                `${indent.repeat(2)}Type "bool | BArgs" is not assignable to type "bool | AArgs"`,
+                `${indent.repeat(3)}Type "BArgs" is not assignable to type "bool | AArgs"`,
+                `${indent.repeat(4)}"BArgs" is not assignable to "bool"`,
+            ]).flat();
+            assert.strictEqual(
+                diagnostics.getString(undefined, 1000),
+                [
+                    '',
+                    ...expectedLines,
+                    `${indent}"value" is an incompatible type`,
+                    `${indent.repeat(2)}"str" is not assignable to "int"`,
+                ].join('\n')
+            );
+        }
+    } finally {
+        spy.mockRestore();
+    }
 });
 
 test('TypedDict1', () => {

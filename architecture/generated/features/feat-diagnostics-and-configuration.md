@@ -27,7 +27,7 @@ These are the main implementation files attached to this semantic node.
 | [packages/pyright/packages/pyright-internal/src/commands/restartServer.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/commands/restartServer.ts#L1-L21) | Provides a command to restart the language server |
 | [packages/pyright/packages/pyright-internal/src/common/commandLineOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/commandLineOptions.ts#L1-L185) | Defines command-line and language-server configuration types and helpers for Pyright, including diagnostic severity overrides |
 | [packages/pyright/packages/pyright-internal/src/common/commandUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/commandUtils.ts#L1-L22) | Helpers to create LSP Command objects with URI arguments converted to string form |
-| [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L1-L1869) | Provides configuration options and execution environment models for the Pyright analyzer |
+| [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L1-L1889) | Defines execution and configuration options plus diagnostic and file-matching utilities for the Pyright analyzer |
 | [packages/pyright/packages/pyright-internal/src/common/diagnostic.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/diagnostic.ts#L1-L341) | Defines Diagnostic types, serialization, comparison, and addendum helpers for building and formatting diagnostics |
 | [packages/pyright/packages/pyright-internal/src/common/diagnosticRules.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/diagnosticRules.ts#L1-L107) | Enumerates string identifiers for configurable diagnostic rules used by the type checker |
 | [packages/pyright/packages/pyright-internal/src/common/diagnosticSink.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/diagnosticSink.ts#L1-L202) | Collects and deduplicates file diagnostics and provides a TextRange-aware sink that converts offsets to position ranges |
@@ -71,12 +71,12 @@ These are the main implementation files attached to this semantic node.
 | `getStandardDiagnosticRuleSet` | function | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L734-L835) |
 | `getStrictDiagnosticRuleSet` | function | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L837-L938) |
 | `matchFileSpecs` | function | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L940-L948) |
-| `ConfigOptions` | class | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L952-L1847) |
-| `ConfigOptions.getDiagnosticRuleSet` | method | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L1105-L1119) |
-| `ConfigOptions.getDefaultExecEnvironment` | method | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L1121-L1131) |
-| `ConfigOptions.findExecEnvironment` | method | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L1137-L1144) |
-| `ConfigOptions.getExecutionEnvironments` | method | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L1146-L1152) |
-| `ConfigOptions.initializeTypeCheckingMode` | method | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L1154-L1164) |
+| `ConfigOptions` | class | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L952-L1867) |
+| `ConfigOptions.getDiagnosticRuleSet` | method | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L1115-L1129) |
+| `ConfigOptions.getDefaultExecEnvironment` | method | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L1131-L1141) |
+| `ConfigOptions.findExecEnvironment` | method | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L1147-L1154) |
+| `ConfigOptions.getExecutionEnvironments` | method | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L1156-L1162) |
+| `ConfigOptions.initializeTypeCheckingMode` | method | [packages/pyright/packages/pyright-internal/src/common/configOptions.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/common/configOptions.ts#L1164-L1174) |
 | _76 additional symbols omitted_ |  |  |
 
 ## Dependencies
@@ -99,6 +99,7 @@ These are the main implementation files attached to this semantic node.
 - `packages/pyright/packages/pyright-internal/src/analyzer/importStatementUtils.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/namedTuples.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/operations.ts`
+- `packages/pyright/packages/pyright-internal/src/analyzer/overloadResultController.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/packageTypeReport.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/packageTypeVerifier.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/patternMatching.ts`

@@ -102,7 +102,7 @@ class Plot:
         self,
         *,
         size: tuple[float, float] | Default = ...,
-        engine: str | None | Default = ...,
+        engine: str | Default | None = ...,
         extent: tuple[float, float, float, float] | Default = ...,
     ) -> Plot: ...
     def theme(self, config: dict[str, Any], /) -> Plot: ...
@@ -115,7 +115,7 @@ class Plot:
         dpi: float | None = 96,
         facecolor: ColorType | Literal["auto"] | None = ...,
         edgecolor: ColorType | Literal["auto"] | None = ...,
-        orientation: str = "protrait",
+        orientation: str = "portrait",
         format: str | None = None,
         bbox_inches: Literal["tight"] | Bbox | None = None,
         pad_inches: float | None = None,
@@ -140,7 +140,7 @@ class Plotter:
         dpi: float | None = 96,
         facecolor: ColorType | Literal["auto"] | None = ...,
         edgecolor: ColorType | Literal["auto"] | None = ...,
-        orientation: str = "protrait",
+        orientation: str = "portrait",
         format: str | None = None,
         bbox_inches: Literal["tight"] | Bbox | None = None,
         pad_inches: float | None = None,

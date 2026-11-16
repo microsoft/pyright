@@ -75,6 +75,9 @@ export const enum SymbolFlags {
 
     // Indicates that the symbol is a KW_ONLY separator in a dataclass.
     DataClassKeywordOnly = 1 << 14,
+
+    // A del statement or exception cleanup can unbind this symbol from another scope.
+    UnboundInOtherScope = 1 << 15,
 }
 
 let nextSymbolId = 1;
@@ -129,6 +132,14 @@ export class Symbol {
 
     isInitiallyUnbound() {
         return !!(this._flags & SymbolFlags.InitiallyUnbound);
+    }
+
+    setIsUnboundInOtherScope() {
+        this._flags |= SymbolFlags.UnboundInOtherScope;
+    }
+
+    isUnboundInOtherScope() {
+        return !!(this._flags & SymbolFlags.UnboundInOtherScope);
     }
 
     setIsExternallyHidden() {

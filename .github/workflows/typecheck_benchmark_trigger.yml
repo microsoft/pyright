@@ -56,14 +56,17 @@ jobs:
               if (!validated) return
               const { pullRequest, files } = validated
               issueNumber = pullRequest.number
-              if (!files.some((file) => file.filename.startsWith('packages/pyright-internal/src/analyzer/'))) {
+              if (!files.some((file) =>
+                file.filename.startsWith('packages/pyright-internal/src/analyzer/') ||
+                file.filename.startsWith('packages/pyright-internal/typeshed-fallback/')
+              )) {
                 const report = require('./build/reportPullRequestCheck.js')
                 await report({
                   github, context, name: 'Type checker benchmark', headSha: pullRequest.head.sha,
                   status: 'completed', conclusion: 'skipped',
-                  summary: 'Not run because the pull request does not change analyzer sources.',
+                  summary: 'Not run because the pull request does not change analyzer sources or bundled typeshed.',
                 })
-                core.notice('The pull request does not change analyzer sources')
+                core.notice('The pull request does not change analyzer sources or bundled typeshed')
                 return
               }
             } else {
@@ -119,7 +122,7 @@ jobs:
             const report = require('./build/reportPullRequestCheck.js')
             const checkId = await report({
               github, context, name: 'Type checker benchmark', headSha: pullRequest.data.head.sha,
-              status: 'in_progress', summary: 'Running analyzer benchmarks after successful Validation.',
+              status: 'in_progress', summary: 'Running type checker benchmarks after successful Validation.',
             })
             core.setOutput('check-id', checkId)
             let candidateRef

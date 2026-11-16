@@ -80,12 +80,17 @@ interface TrackedImportSymbol {
 class TrackedImportFrom extends TrackedImport {
     symbols: TrackedImportSymbol[] = [];
 
-    constructor(importName: string, public isWildcardImport: boolean, public node?: ImportFromNode) {
+    constructor(
+        importName: string,
+        public isWildcardImport: boolean,
+        public node?: ImportFromNode,
+        private readonly _preserveAliases = false
+    ) {
         super(importName);
     }
 
     addSymbol(symbol: Symbol | undefined, name: string, alias: string | undefined, isAccessed = false) {
-        if (!this.symbols.find((s) => s.name === name)) {
+        if (!this.symbols.find((s) => s.name === name && (!this._preserveAliases || s.alias === alias))) {
             this.symbols.push({
                 symbol,
                 name,
@@ -160,9 +165,10 @@ export function renderTypeStubFile(
     stubPath: Uri,
     parseResults: ParseFileResults,
     evaluator: TypeEvaluator,
-    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+    nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
+    options: TypeStubRenderOptions = {}
 ): string {
-    return new TypeStubRenderer(stubPath, parseResults, evaluator, nodeInfo).render();
+    return new TypeStubRenderer(stubPath, parseResults, evaluator, nodeInfo, options).render();
 }
 
 class TypeStubRenderer extends ParseTreeWalker {
@@ -184,14 +190,15 @@ class TypeStubRenderer extends ParseTreeWalker {
         private readonly _stubPath: Uri,
         private readonly _parseResults: ParseFileResults,
         private readonly _evaluator: TypeEvaluator,
-        private readonly _nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+        private readonly _nodeInfo: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
+        private readonly _options: TypeStubRenderOptions
     ) {
         super(_nodeInfo);
 
         // As a heuristic, we'll include all of the import statements
         // in "__init__.pyi" files even if they're not locally referenced
         // because these are often used as ways to re-export symbols.
-        if (this._stubPath.fileName === '__init__.pyi') {
+        if (this._stubPath.fileName === '__init__.pyi' || this._options.includeAllImports) {
             this._includeAllImports = true;
         }
     }
@@ -262,7 +269,10 @@ class TypeStubRenderer extends ParseTreeWalker {
         const functionName = node.d.name.d.value;
 
         // Skip if we're already within a function or if the name is private/protected.
-        if (this._functionNestCount === 0 && !SymbolNameUtils.isPrivateOrProtectedName(functionName)) {
+        if (
+            this._functionNestCount === 0 &&
+            (this._options.includePrivateDeclarations || !SymbolNameUtils.isPrivateOrProtectedName(functionName))
+        ) {
             this._emittedSuite = true;
             this._emitDocString = true;
             this._emitDecorators(node.d.decorators);
@@ -283,7 +293,7 @@ class TypeStubRenderer extends ParseTreeWalker {
                     node.d.funcAnnotationComment.d.returnAnnotation,
                     /* treatStringsAsSymbols */ true
                 );
-            } else {
+            } else if (this._options.inferSpecialReturns !== false) {
                 // Handle a few common cases where we always know the answer.
                 if (node.d.name.d.value === '__init__') {
                     returnAnnotation = 'None';
@@ -513,7 +523,10 @@ class TypeStubRenderer extends ParseTreeWalker {
                 if (baseExpression.nodeType === ParseNodeType.Name) {
                     if (baseExpression.d.value === 'self') {
                         const memberName = node.d.valueExpr.d.member.d.value;
-                        if (!SymbolNameUtils.isPrivateOrProtectedName(memberName)) {
+                        if (
+                            this._options.includePrivateDeclarations ||
+                            !SymbolNameUtils.isPrivateOrProtectedName(memberName)
+                        ) {
                             line = this._printExpression(node.d.valueExpr);
                         }
                     }
@@ -539,7 +552,10 @@ class TypeStubRenderer extends ParseTreeWalker {
             // Record the input for later.
             node.d.list.forEach((imp) => {
                 const moduleName = this._printModuleName(imp.d.module);
-                if (!this._trackedImportAs.has(moduleName)) {
+                const importKey = this._options.includeAllImports
+                    ? `${moduleName}\u0000${imp.d.alias?.d.value ?? ''}`
+                    : moduleName;
+                if (!this._trackedImportAs.has(importKey)) {
                     const symbolName = imp.d.alias
                         ? imp.d.alias.d.value
                         : imp.d.module.d.nameParts.length > 0
@@ -552,7 +568,7 @@ class TypeStubRenderer extends ParseTreeWalker {
                             imp.d.alias ? imp.d.alias.d.value : undefined,
                             symbolInfo.symbol
                         );
-                        this._trackedImportAs.set(moduleName, trackedImportAs);
+                        this._trackedImportAs.set(importKey, trackedImportAs);
                     }
                 }
             });
@@ -572,7 +588,12 @@ class TypeStubRenderer extends ParseTreeWalker {
             const moduleName = this._printModuleName(node.d.module);
             let trackedImportFrom = this._trackedImportFrom.get(moduleName);
             if (!trackedImportFrom) {
-                trackedImportFrom = new TrackedImportFrom(moduleName, node.d.isWildcardImport, node);
+                trackedImportFrom = new TrackedImportFrom(
+                    moduleName,
+                    node.d.isWildcardImport,
+                    node,
+                    this._options.includeAllImports
+                );
                 this._trackedImportFrom.set(moduleName, trackedImportFrom);
             }
 
@@ -824,4 +845,10 @@ class TypeStubRenderer extends ParseTreeWalker {
         finalText += this._typeStubText;
         return finalText;
     }
+}
+
+export interface TypeStubRenderOptions {
+    includeAllImports?: boolean;
+    includePrivateDeclarations?: boolean;
+    inferSpecialReturns?: boolean;
 }

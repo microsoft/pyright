@@ -1,3 +1,4 @@
+import os
 from _typeshed import Incomplete
 from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
 from typing import Literal, TypeAlias, overload
@@ -14,6 +15,9 @@ from .geodataframe import GeoDataFrame
 from .geoseries import GeoSeries
 
 _ColorOrColors: TypeAlias = ColorType | Sequence[ColorType] | ArrayLike
+ColumnLike: TypeAlias = Hashable | pd.Series | pd.Index | pd.Categorical | NDArray[Incomplete] | Sequence[Incomplete] | None
+# Also accepts xyzservices.TileProvider and rasterio.io.MemoryFile
+_Tiles: TypeAlias = bool | str | os.PathLike[str] | Incomplete
 
 def plot_series(
     s: GeoSeries,
@@ -23,6 +27,9 @@ def plot_series(
     figsize: tuple[float, float] | None = None,
     aspect: Literal["auto", "equal"] | float | None = "auto",
     autolim: bool = True,
+    tiles: _Tiles = False,
+    attr: str | None = None,
+    add_labels: bool = True,
     *,
     # Extracted from `**style_kwds`
     vmin: float = ...,
@@ -35,7 +42,7 @@ def plot_series(
 # IMPORTANT: keep roughly in sync with `GeoplotAccessor` methods below
 def plot_dataframe(
     df: GeoDataFrame,
-    column: Hashable | None = None,
+    column: ColumnLike = None,
     cmap: str | Colormap | None = None,
     color: _ColorOrColors | None = None,
     ax: Axes | None = None,
@@ -54,6 +61,9 @@ def plot_dataframe(
     missing_kwds: dict[str, Incomplete] | None = None,
     aspect: Literal["auto", "equal"] | float | None = "auto",
     autolim: bool = True,
+    tiles: _Tiles = False,
+    attr: str | None = None,
+    add_labels: bool = True,
     *,
     # Extracted from `**style_kwds`
     norm: Normalize | None = None,
@@ -197,7 +207,7 @@ class GeoplotAccessor(PlotAccessor):
     @overload
     def __call__(
         self,
-        column: Hashable | pd.Series | pd.Index | NDArray | None = None,
+        column: ColumnLike = None,
         cmap: str | Colormap | None = None,
         color: _ColorOrColors | None = None,
         ax: Axes | None = None,
@@ -229,7 +239,7 @@ class GeoplotAccessor(PlotAccessor):
 
     def geo(
         self,
-        column: Hashable | pd.Series | pd.Index | NDArray | None = None,
+        column: ColumnLike = None,
         cmap: str | Colormap | None = None,
         color: _ColorOrColors | None = None,
         ax: Axes | None = None,

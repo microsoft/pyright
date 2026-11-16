@@ -9,7 +9,7 @@ Do not edit directly — changes will be overwritten by the next refresh.
 ## Implementation summary
 
 - **Files:** 15
-- **Symbols:** 228
+- **Symbols:** 230
 
 ### Primary files
 
@@ -27,13 +27,13 @@ These are the main implementation files attached to this semantic node.
 | [packages/pyright/packages/pyright-internal/src/analyzer/packageTypeVerifier.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/packageTypeVerifier.ts#L1-L1594) | Validates a package's public exports to ensure exported symbols have complete and correct type information |
 | [packages/pyright/packages/pyright-internal/src/analyzer/pyTypedUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/pyTypedUtils.ts#L1-L66) | Determines whether a py.typed file exists and if it marks the package as partially typed |
 | [packages/pyright/packages/pyright-internal/src/analyzer/pythonPathUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/pythonPathUtils.ts#L1-L255) | Resolves Python import search paths, typeshed locations, site-packages, and .pth entries |
-| [packages/pyright/packages/pyright-internal/src/analyzer/sourceEnumerator.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/sourceEnumerator.ts#L1-L311) | Enumerates workspace Python source files and metadata like matches, auto-excluded dirs, symlink roots and config files |
+| [packages/pyright/packages/pyright-internal/src/analyzer/sourceEnumerator.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/sourceEnumerator.ts#L1-L335) | Enumerates Python source and config files in workspace directories, honoring includes, excludes, symlinks, and venvs |
 | [packages/pyright/packages/pyright-internal/src/analyzer/sourceMapper.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/sourceMapper.ts#L1-L1156) | Maps Python stub (.pyi) files to their implementation (.py) sources and resolves related declarations and imports |
 | [packages/pyright/packages/pyright-internal/src/analyzer/sourceMapperUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/sourceMapperUtils.ts#L1-L64) | Finds an import chain between two Uri nodes and returns the sequence of Uris |
 | [packages/pyright/packages/pyright-internal/src/analyzer/typeshedInfoProvider.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/typeshedInfoProvider.ts#L1-L253) | Provides typeshed root/subdirectory lookup, third-party package mapping, and stdlib version info |
 | [packages/pyright/packages/pyright-internal/src/partialStubService.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/partialStubService.ts#L1-L181) | Maps partially typed stub packages into corresponding installed library directories and provides a no-op alternative |
 
-### Symbol preview (40 of 228)
+### Symbol preview (40 of 230)
 
 | Symbol | Kind | Source |
 | ------ | ---- | ------ |
@@ -77,7 +77,7 @@ These are the main implementation files attached to this semantic node.
 | `ImportResolver._resolveAbsoluteImport` | method | [packages/pyright/packages/pyright-internal/src/analyzer/importResolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/importResolver.ts#L1275-L1500) |
 | `ImportResolver._getImportCacheKey` | method | [packages/pyright/packages/pyright-internal/src/analyzer/importResolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/importResolver.ts#L1502-L1504) |
 | `ImportResolver._lookUpResultsInCache` | method | [packages/pyright/packages/pyright-internal/src/analyzer/importResolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/importResolver.ts#L1506-L1530) |
-| _188 additional symbols omitted_ |  |  |
+| _190 additional symbols omitted_ |  |  |
 
 ## Dependencies
 

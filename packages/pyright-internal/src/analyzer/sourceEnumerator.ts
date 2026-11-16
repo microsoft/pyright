@@ -49,11 +49,9 @@ export class SourceEnumerator {
     private _isComplete = false;
     private _numFilesVisited = 0;
     private _loggedLongOperationError = false;
-    private _seenDirs = new Set<string>();
-    // Real (symlink-resolved) paths of the include roots. A symlink that resolves
-    // outside every include root (e.g. a link to filesystem root "/" or "C:\") is
-    // not a cycle, so `_seenDirs` won't catch it; without this bound the whole
-    // filesystem would be enumerated and Pylance would hang. See issue #6006.
+    private readonly _seenDirs = new Map<string, Uri>();
+    // Real include roots let us distinguish explicit includes from symlinks that
+    // broaden traversal to filesystem roots or workspace ancestors.
     private readonly _includeRoots: Uri[];
     // This tracks symlinked directory roots across the entire enumeration cycle,
     // potentially spanning multiple include roots, so Pylance can later filter
@@ -75,9 +73,7 @@ export class SourceEnumerator {
     ) {
         this._includesToExplore = include.slice(0).reverse();
 
-        // Resolve include roots to their real paths up front (an include root may
-        // itself be a symlink) so we can bound enumeration to directories that
-        // physically live under one of the workspace's include roots.
+        // An include root may itself be a symlink.
         this._includeRoots = include.map((spec) => tryRealpath(_fs, spec.wildcardRoot) ?? spec.wildcardRoot);
 
         this._console.log(`Searching for source files`);
@@ -205,14 +201,18 @@ export class SourceEnumerator {
             this._console.info(`Skipping recursive symlink "${dir.uri}" -> "${realDirPath}"`);
             return;
         }
-        this._seenDirs.add(realDirPath.key);
 
-        // A symlink that resolves outside every include root is not a recursive
-        // cycle (so `_seenDirs` won't catch it), but following it would pull in
-        // directories that don't belong to the workspace -- in the worst case a
-        // link to filesystem root "/" would enumerate the entire disk (issue #6006).
-        // Skip silently: external symlinks are legitimate and shouldn't be noisy.
-        if (this._includeRoots.length > 0 && !this._includeRoots.some((root) => realDirPath.startsWith(root))) {
+        // External package symlinks are legitimate. Block only targets that would
+        // broaden traversal to an entire filesystem, an ancestor of an include
+        // root, or an ancestor of a directory already entered during this include
+        // traversal, unless that target is covered by an explicit include.
+        const broadensTraversal = this._isTraversalBroadeningTarget(realDirPath);
+        this._seenDirs.set(realDirPath.key, realDirPath);
+        if (
+            this._includeRoots.length > 0 &&
+            !this._includeRoots.some((root) => realDirPath.startsWith(root)) &&
+            broadensTraversal
+        ) {
             return;
         }
 
@@ -263,6 +263,30 @@ export class SourceEnumerator {
                 }
             }
         }
+    }
+
+    private _isFileSystemRoot(uri: Uri): boolean {
+        if (uri.isRoot()) {
+            return true;
+        }
+
+        // URI roots stop at the UNC server; a share is also a filesystem root.
+        const components = uri.getPathComponents();
+        return components.length === 2 && components[0].startsWith('//');
+    }
+
+    private _isTraversalBroadeningTarget(uri: Uri): boolean {
+        if (this._isFileSystemRoot(uri) || this._includeRoots.some((root) => root.isChild(uri))) {
+            return true;
+        }
+
+        for (const seenDir of this._seenDirs.values()) {
+            if (seenDir.isChild(uri)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private _exploreInclude(includeSpec: FileSpec) {

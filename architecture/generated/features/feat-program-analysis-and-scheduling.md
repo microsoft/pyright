@@ -9,7 +9,7 @@ Do not edit directly — changes will be overwritten by the next refresh.
 ## Implementation summary
 
 - **Files:** 14
-- **Symbols:** 310
+- **Symbols:** 312
 
 ### Primary files
 
@@ -24,15 +24,15 @@ These are the main implementation files attached to this semantic node.
 | [packages/pyright/packages/pyright-internal/src/analyzer/cellChainIndex.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/cellChainIndex.ts#L1-L155) | Provides a lazily-built index mapping notebook CellDocs cells to their chain tails for fast later-cell lookups |
 | [packages/pyright/packages/pyright-internal/src/analyzer/circularDependency.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/circularDependency.ts#L1-L55) | Represents circular import chains as ordered lists of file URIs, normalizing start and comparing equality |
 | [packages/pyright/packages/pyright-internal/src/analyzer/parentDirectoryCache.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/parentDirectoryCache.ts#L1-L88) | Cache for storing parent-directory import lookup results to avoid repeated folder searches |
-| [packages/pyright/packages/pyright-internal/src/analyzer/program.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/program.ts#L1-L2593) | Tracks and manages source files, imports, analysis state, and type evaluation for the analyzer's program |
+| [packages/pyright/packages/pyright-internal/src/analyzer/program.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/program.ts#L1-L2691) | Tracks and analyzes source files, imports, symbols, and diagnostics for the Pyright program |
 | [packages/pyright/packages/pyright-internal/src/analyzer/programTypes.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/programTypes.ts#L1-L33) | Defines ISourceFileFactory interface and a type guard for creating SourceFile instances |
-| [packages/pyright/packages/pyright-internal/src/analyzer/service.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/service.ts#L1-L1908) | Provides AnalyzerService for analyzing collections of Python files, managing program lifecycle, config, and updates |
+| [packages/pyright/packages/pyright-internal/src/analyzer/service.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/service.ts#L1-L1913) | Performs and manages Python static analysis and diagnostics for a collection of files |
 | [packages/pyright/packages/pyright-internal/src/analyzer/serviceUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/serviceUtils.ts#L1-L30) | Helpers to locate pyproject.toml and project config files starting from a given Uri |
-| [packages/pyright/packages/pyright-internal/src/analyzer/sourceFile.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/sourceFile.ts#L1-L1653) | Represents and analyzes a single Python source or stub file, handling parsing, binding, imports, and diagnostics |
+| [packages/pyright/packages/pyright-internal/src/analyzer/sourceFile.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/sourceFile.ts#L1-L1672) | Represents and manages analysis state for a Python source or stub file, covering parsing, imports, and diagnostics |
 | [packages/pyright/packages/pyright-internal/src/analyzer/sourceFileInfo.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/sourceFileInfo.ts#L1-L259) | Holds per-file metadata and mutable program relations like imports, diagnostics, and edit-mode snapshots |
 | [packages/pyright/packages/pyright-internal/src/analyzer/sourceFileInfoUtils.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/sourceFileInfoUtils.ts#L1-L117) | Utilities for inspecting and traversing SourceFileInfo relationships, imports, chained files, and notebook cells |
 
-### Symbol preview (40 of 310)
+### Symbol preview (40 of 312)
 
 | Symbol | Kind | Source |
 | ------ | ---- | ------ |
@@ -76,7 +76,7 @@ These are the main implementation files attached to this semantic node.
 | `CacheManager.getCacheUsage` | method | [packages/pyright/packages/pyright-internal/src/analyzer/cacheManager.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/cacheManager.ts#L92-L104) |
 | `CacheManager.emptyCache` | method | [packages/pyright/packages/pyright-internal/src/analyzer/cacheManager.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/cacheManager.ts#L106-L120) |
 | `CacheManager.getUsedHeapRatio` | method | [packages/pyright/packages/pyright-internal/src/analyzer/cacheManager.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/cacheManager.ts#L123-L154) |
-| _270 additional symbols omitted_ |  |  |
+| _272 additional symbols omitted_ |  |  |
 
 ## Dependencies
 
@@ -88,6 +88,7 @@ These are the main implementation files attached to this semantic node.
 - `packages/pyright/packages/pyright-internal/src/analyzer/declarationUtils.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/importResolver.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/importStatementUtils.ts`
+- `packages/pyright/packages/pyright-internal/src/analyzer/overloadResultController.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/packageTypeVerifier.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/sourceMapper.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/tracePrinter.ts`
@@ -112,6 +113,7 @@ These are the main implementation files attached to this semantic node.
 - `packages/pyright/packages/pyright-internal/src/languageService/workspaceSymbolProvider.ts`
 - `packages/pyright/packages/pyright-internal/src/pyright.ts`
 - `packages/pyright/packages/pyright-internal/src/server.ts`
+- `packages/pyright/packages/pyright-internal/src/trace/capture.ts`
 - `packages/pyright/packages/pyright-internal/src/typeServer/nodeMain.ts`
 - `packages/pyright/packages/pyright-internal/src/typeServer/notebookCellChain.ts`
 - `packages/pyright/packages/pyright-internal/src/typeServer/notebookDocumentHandler.ts`
@@ -130,6 +132,7 @@ These are the main implementation files attached to this semantic node.
 - `packages/pyright/packages/pyright-internal/src/analyzer/importLogger.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/importResolver.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/importResult.ts`
+- `packages/pyright/packages/pyright-internal/src/analyzer/overloadResultController.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/parseTreeUtils.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/pythonPathUtils.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/scope.ts`
@@ -138,6 +141,7 @@ These are the main implementation files attached to this semantic node.
 - `packages/pyright/packages/pyright-internal/src/analyzer/symbol.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/testWalker.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/tracePrinter.ts`
+- `packages/pyright/packages/pyright-internal/src/analyzer/typeEvaluator.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/typeEvaluatorTypes.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/typeEvaluatorWithTracker.ts`
 - `packages/pyright/packages/pyright-internal/src/analyzer/typePrinter.ts`
