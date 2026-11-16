@@ -12,6 +12,17 @@ Both agents use `.github/skills/pyright-issue-analysis/SKILL.md` for the shared 
 For example: "Use pyright-issue-reviewer to analyze <issue URL> and draft a response" or
 "Use pyright-issue-fixer to fix <issue URL>; prepare a patch and PR description, but do not publish."
 Posting comments, committing/pushing, or creating a PR requires explicit authorization; reviewer mode never publishes.
+In fixer mode, complete the skill's pre-handoff self-review: compare focused baseline and fixed behavior where feasible,
+check nearby invalid and unchanged cases, and assess architecture, type precision, and performance before reporting.
+
+## PR Reviews
+
+Select `pyright-pr-review` for the coordinated review workflow described in
+[PR review agents](../docs/pr-review-agents.md). Its five independent specialists include the ordinary
+`pyright-pr-monkey` adversarial reviewer and a dedicated `pyright-pr-safety-reviewer` using the
+[PR type-specification review skill](skills/pyright-pr-typespec-review/SKILL.md) for an additional investigation and example-led feedback.
+The skill also supports standalone assessments and QA callers with their own execution and result contracts.
+Specialists return evidence and drafts; the coordinator owns the final assessment and explicitly authorized publication.
 
 ## Build and Test
 
@@ -76,13 +87,15 @@ Source files are processed through these phases in order:
 
 ### Key Design Patterns
 
-**Type Evaluator closure pattern**: `typeEvaluator.ts` uses a single large `createTypeEvaluator()` factory function. Internal methods access the full closure for performance (same approach as the TypeScript compiler). The public API is defined as the `TypeEvaluator` interface in `typeEvaluatorTypes.ts`.
+**Type Evaluator ownership pattern**: `typeEvaluator.ts` keeps evaluator state in the `createTypeEvaluator()` closure. Topic modules in `analyzer/typeEvaluator/` receive narrow private contexts; mutable bindings use live accessors rather than snapshots. Keep the public `TypeEvaluator` API in `typeEvaluatorTypes.ts` unchanged, and do not back-import `typeEvaluator.ts` from extracted modules or `codeFlowEngine.ts`. See the [architecture guide](../docs/type-evaluator-architecture.md). Current upstream implementations supersede historical refactor algorithms.
 
 **Service → Program → SourceFile**: A `Service` manages a `Program`, which tracks `SourceFile` instances. The `Program` coordinates analysis ordering, prioritizing open editor files and their dependencies.
 
 **Typeshed fallback**: `packages/pyright-internal/typeshed-fallback/` contains a bundled copy of typeshed stubs. This provides the Python stdlib type stubs when no external typeshed is available.
 
 **Localized diagnostics**: All user-facing diagnostic messages come from `localization/localize.ts`, not inline strings.
+
+**CLI contracts**: Preserve documented exit statuses and JSON output schemas in `packages/pyright-internal/src/pyright.ts`.
 
 ### Evaluation tracing
 
@@ -116,6 +129,11 @@ Tests live in `packages/pyright-internal/src/tests/`. There are two main pattern
 ### Test Policy
 
 Tests are the specification for Pyright behavior. Never modify tests just to make CI pass. Any change that makes types less precise (e.g., `T → Unknown`, `list[int] → list[Any]`, `Literal["x"] → str`) is a regression by default and requires explicit justification. See `.github/agents/pyright-test-policy.md` for details.
+
+For repairs to shared inference or narrowing logic, apply the
+[bounded repair-completion checkpoint](skills/pyright-pr-typespec-review/references/probe-design.md#repair-completion-checkpoint)
+as part of the existing self-review, including ordinary fixes outside a PR review. Reuse compatible evidence; this does
+not require another reviewer panel.
 
 ## Code Style
 

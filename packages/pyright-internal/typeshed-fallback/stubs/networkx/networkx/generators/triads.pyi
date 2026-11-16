@@ -1,4 +1,3 @@
-from _typeshed import Incomplete
 from typing import Final
 
 from networkx import DiGraph
@@ -9,4 +8,4 @@ __all__ = ["triad_graph"]
 TRIAD_EDGES: Final[dict[str, list[str]]]
 
 @_dispatchable
-def triad_graph(triad_name: str) -> DiGraph[Incomplete]: ...
+def triad_graph(triad_name: str) -> DiGraph[str]: ...
