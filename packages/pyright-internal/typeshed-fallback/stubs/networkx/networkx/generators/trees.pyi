@@ -1,6 +1,10 @@
 from _typeshed import Incomplete
+from collections.abc import Iterable
+from typing import overload
 
+from networkx.classes.graph import Graph
 from networkx.utils.backends import _dispatchable
+from networkx.utils.misc import _RandomState
 
 from ..classes.digraph import DiGraph
 
@@ -16,18 +20,45 @@ __all__ = [
 ]
 
 @_dispatchable
-def prefix_tree(paths) -> DiGraph[Incomplete]: ...
+def prefix_tree(paths: Iterable[Incomplete]) -> DiGraph[Incomplete]: ...
 @_dispatchable
-def prefix_tree_recursive(paths) -> DiGraph[Incomplete]: ...
+def prefix_tree_recursive(paths: Iterable[Incomplete]) -> DiGraph[Incomplete]: ...
 @_dispatchable
-def random_labeled_tree(n, *, seed=None): ...
+def random_labeled_tree(n: int, *, seed: _RandomState = None) -> Graph[int]: ...
 @_dispatchable
-def random_labeled_rooted_tree(n, *, seed=None): ...
+def random_labeled_rooted_tree(n: int, *, seed: _RandomState = None) -> Graph[int]: ...
+
+@overload
+def random_unlabeled_rooted_tree(
+    n: int,
+    *,
+    number_of_trees: None = None,
+    seed: _RandomState = None,
+    backend=None,  # @_dispatchable adds these arguments, but we can't use this decorator with @overload
+    **backend_kwargs,
+) -> Graph[int]: ...
+@overload
+def random_unlabeled_rooted_tree(
+    n: int, *, number_of_trees: int, seed: _RandomState = None, backend=None, **backend_kwargs
+) -> list[Graph[int]]: ...
+
 @_dispatchable
-def random_unlabeled_rooted_tree(n, *, number_of_trees=None, seed=None) -> Incomplete | list[Incomplete]: ...
-@_dispatchable
-def random_labeled_rooted_forest(n, *, seed=None): ...
-@_dispatchable
-def random_unlabeled_rooted_forest(n, *, q=None, number_of_forests=None, seed=None) -> Incomplete | list[Incomplete]: ...
-@_dispatchable
-def random_unlabeled_tree(n, *, number_of_trees=None, seed=None) -> Incomplete | list[Incomplete]: ...
+def random_labeled_rooted_forest(n: int, *, seed: _RandomState = None) -> Graph[int]: ...
+
+@overload
+def random_unlabeled_rooted_forest(
+    n: int, *, q: int | None = None, number_of_forests: None = None, seed: _RandomState = None, backend=None, **backend_kwargs
+) -> Graph[int]: ...
+@overload
+def random_unlabeled_rooted_forest(
+    n: int, *, q: int | None = None, number_of_forests: int, seed: _RandomState = None, backend=None, **backend_kwargs
+) -> list[Graph[int]]: ...
+
+@overload
+def random_unlabeled_tree(
+    n: int, *, number_of_trees: None = None, seed: _RandomState = None, backend=None, **backend_kwargs
+) -> Graph[int]: ...
+@overload
+def random_unlabeled_tree(
+    n: int, *, number_of_trees: int, seed: _RandomState = None, backend=None, **backend_kwargs
+) -> list[Graph[int]]: ...

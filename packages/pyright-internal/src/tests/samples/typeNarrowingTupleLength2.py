@@ -1,7 +1,7 @@
 # This sample tests invalidation of tuple length narrowing for attributes
 # across calls that can mutate the object.
 
-from typing import Literal
+from typing import Literal, NotRequired, TypedDict
 
 
 class TupleContainer:
@@ -56,6 +56,28 @@ def test_alias(container: TupleContainer) -> None:
 
     assert len(container.values) == 4
     reveal_type(container.values, expected_text="tuple[int, int, int, int]")
+
+
+def test_alias_across_dynamic_index_assignment(
+    container: TupleContainer, mapping: dict[str, int], key: str
+) -> None:
+    alias = container
+    assert len(container.values) == 5
+
+    mapping[key] = 0
+    alias.shorten()
+    reveal_type(container.values, expected_text="tuple[int, ...]")
+
+
+def test_alias_across_dynamic_index_deletion(
+    container: TupleContainer, mapping: dict[str, int], key: str
+) -> None:
+    alias = container
+    assert len(container.values) == 5
+
+    del mapping[key]
+    alias.shorten()
+    reveal_type(container.values, expected_text="tuple[int, ...]")
 
 
 def test_alias_across_branch(
@@ -229,3 +251,26 @@ def test_element_narrowing(container: TaggedTupleContainer) -> None:
         reveal_type(
             container.value, expected_text="tuple[Literal['a'], int]"
         )
+
+
+class TupleMapping(TypedDict):
+    values: tuple[int, ...]
+    extra: NotRequired[object]
+
+
+class MappingContainer:
+    data: TupleMapping
+
+
+def test_typed_dict_pop(container: MappingContainer) -> None:
+    container.data["extra"] = 1
+    assert len(container.data["values"]) == 2
+
+    container.data.pop("extra", container)
+    reveal_type(container.data["values"], expected_text="tuple[int, ...]")
+
+    match container.data:
+        case {"extra": _}:
+            pass
+        case _:
+            reveal_type(container.data, expected_text="TupleMapping")

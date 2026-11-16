@@ -8,7 +8,7 @@ from typing import Any, TypeVar
 _T = TypeVar("_T", str, types.EllipsisType)
 
 
-def func1(val: int | ellipsis):
+def func1(val: int | types.EllipsisType):
     if val is not ...:
         reveal_type(val, expected_text="int")
     else:
@@ -29,7 +29,7 @@ def func3(val: int | types.EllipsisType):
         reveal_type(val, expected_text="EllipsisType")
 
 
-def func4(val: int | ellipsis):
+def func4(val: int | types.EllipsisType):
     if not val == ...:
         reveal_type(val, expected_text="int")
     else:

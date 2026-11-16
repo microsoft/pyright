@@ -27,18 +27,18 @@ class CheckpointOptions:
         "experimental_sharding_callback",
         "experimental_skip_slot_variables",
     )
-    experimental_io_device: None | str
+    experimental_io_device: str | None
     experimental_enable_async_checkpoint: bool
-    experimental_write_callbacks: None | list[Callable[[str], object] | Callable[[], object]]
+    experimental_write_callbacks: list[Callable[[str], object] | Callable[[], object]] | None
     enable_async: bool
     experimental_sharding_callback: Incomplete  # should be ShardingCallback
     experimental_skip_slot_variables: bool
 
     def __init__(
         self,
-        experimental_io_device: None | str = None,
+        experimental_io_device: str | None = None,
         experimental_enable_async_checkpoint: bool = False,
-        experimental_write_callbacks: None | list[Callable[[str], object] | Callable[[], object]] = None,
+        experimental_write_callbacks: list[Callable[[str], object] | Callable[[], object]] | None = None,
         enable_async: bool = False,
         experimental_skip_slot_variables: bool = False,
         experimental_sharding_callback=None,

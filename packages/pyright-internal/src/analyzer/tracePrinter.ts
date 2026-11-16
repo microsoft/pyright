@@ -100,6 +100,11 @@ export function createTracePrinter(
                 case TypeCategory.Unknown:
                     return `Unknown ${wrap(type.props?.typeAliasInfo?.shared.fullName)}`;
 
+                case TypeCategory.OverloadResult:
+                    return `OverloadResult [${type.priv.candidates
+                        .map((candidate) => printType(candidate))
+                        .join(',')}]`;
+
                 default:
                     assertNever(type);
             }

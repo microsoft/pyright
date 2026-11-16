@@ -287,6 +287,18 @@ export class RealFileSystem implements FileSystem {
         return yarnFS.readFileSync(path);
     }
 
+    readFileRangeSync(uri: Uri, offset: number, length: number): Buffer {
+        const path = uri.getFilePath();
+        const buffer = Buffer.alloc(length);
+        const fd = yarnFS.openSync(path, 'r');
+        try {
+            const bytesRead = yarnFS.readSync(fd, buffer, 0, length, offset);
+            return buffer.subarray(0, bytesRead);
+        } finally {
+            yarnFS.closeSync(fd);
+        }
+    }
+
     writeFileSync(uri: Uri, data: string | Buffer, encoding: BufferEncoding | null) {
         const path = uri.getFilePath();
         yarnFS.writeFileSync(path, data, encoding || undefined);

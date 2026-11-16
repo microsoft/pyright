@@ -481,9 +481,15 @@ export class ProgramWrapper implements IProgram {
         }
         // Sync `ProgramView.getParseResults` returns the upstream `ParseFileResults`; the
         // type server's `ParseResults` adds `moduleName` and `uri`. Synthesize them so the
-        // wrapper satisfies the shared `IProgram` contract used by snapshot-aware callers.
+        // wrapper satisfies the shared `IProgram` contract without eagerly tokenizing closed files.
+        const parseResults = results;
         return {
-            ...results,
+            text: parseResults.text,
+            contentHash: parseResults.contentHash,
+            parserOutput: parseResults.parserOutput,
+            get tokenizerOutput() {
+                return parseResults.tokenizerOutput;
+            },
             moduleName: this.getModuleName(fileUri) ?? '',
             uri: fileUri,
         };

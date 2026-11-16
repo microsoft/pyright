@@ -1223,6 +1223,12 @@ class CombinedFileSystem implements FileSystem {
         return this._realFS.readFileSync(path, encoding);
     }
 
+    readFileRangeSync(path: Uri, offset: number, length: number): Buffer {
+        return this._testFS.existsSync(path)
+            ? this._testFS.readFileRangeSync(path, offset, length)
+            : this._realFS.readFileRangeSync(path, offset, length);
+    }
+
     statSync(path: Uri): Stats {
         if (this._testFS.existsSync(path)) {
             return this._testFS.statSync(path);

@@ -63,6 +63,7 @@ import {
     TypeCondition,
     TypeFlags,
     TypeSameOptions,
+    UnionableType,
     TypeVarScopeId,
     TypeVarScopeType,
     TypeVarTupleType,
@@ -846,20 +847,20 @@ export function preserveUnknown(type1: Type, type2: Type): AnyType | UnknownType
     }
 }
 
-// Determines whether the specified type is a type that can be
-// combined with other types for a union.
-export function isUnionableType(subtypes: Type[]): boolean {
-    // If all of the subtypes are TypeForm types, we know that they
-    // are unionable.
-    if (subtypes.every((t) => t.props?.typeForm !== undefined)) {
+// Determines whether the two types will produce a union using the "|" operator.
+export function isUnionable(leftType: Type, rightType: Type): boolean {
+    // If both types are TypeForm types, we know that they are unionable.
+    if (leftType.props?.typeForm !== undefined && rightType.props?.typeForm !== undefined) {
         return true;
     }
 
-    let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
-
-    for (const subtype of subtypes) {
-        typeFlags &= subtype.flags;
+    // Special forms like Any and Never are unionable even though their
+    // types represent both instances and instantiable types.
+    if (leftType.props?.specialForm !== undefined && rightType.props?.specialForm !== undefined) {
+        return true;
     }
+
+    const typeFlags = leftType.flags & rightType.flags;
 
     // All subtypes need to be instantiable. Some types (like Any
     // and None) are both instances and instantiable. It's OK to
@@ -958,6 +959,9 @@ export function addConditionToType<T extends Type>(
         case TypeCategory.Function:
             return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
 
+        case TypeCategory.OverloadResult:
+            return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
+
         case TypeCategory.Overloaded:
             return OverloadedType.create(
                 OverloadedType.getOverloads(type).map((t) => addConditionToType(t, condition))
@@ -985,6 +989,7 @@ export function getTypeCondition(type: Type): TypeCondition[] | undefined {
 
         case TypeCategory.Class:
         case TypeCategory.Function:
+        case TypeCategory.OverloadResult:
             return type.props?.condition;
     }
 }
@@ -1044,10 +1049,11 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined, recu
             }
 
             const solution = buildSolution(type.shared.recursiveAlias.typeParams, aliasInfo.typeArgs);
-            return transformPossibleRecursiveTypeAlias(
+            const transformedType = transformPossibleRecursiveTypeAlias(
                 applySolvedTypeVars(unspecializedType, solution),
                 recursionCount
             );
+            return TypeBase.cloneForTypeAlias(transformedType, aliasInfo);
         }
 
         if (isUnion(type) && type.priv.includesRecursiveTypeAlias) {
@@ -1244,6 +1250,23 @@ export function isLiteralTypeOrUnion(type: Type, allowNone = false): boolean {
     return false;
 }
 
+// Determines whether two defaulted parameters overlap only when the
+// argument is omitted and the dest parameter's default decides the result.
+// This requires literal and None types throughout, a dest default that is
+// a member of the dest type, and dest and source types with no shared member.
+export function isOverlapOnlyByOmission(destType: Type, destDefaultType: Type, srcType: Type): boolean {
+    if (![destType, destDefaultType, srcType].every((type) => isLiteralTypeOrUnion(type, /* allowNone */ true))) {
+        return false;
+    }
+
+    const isMemberOf = (subtype: Type, type: Type) => !!findSubtype(type, (member) => isTypeSame(subtype, member));
+
+    return (
+        !findSubtype(destDefaultType, (subtype) => !isMemberOf(subtype, destType)) &&
+        !findSubtype(destType, (subtype) => isMemberOf(subtype, srcType))
+    );
+}
+
 export function isLiteralLikeType(type: ClassType): boolean {
     if (type.priv.literalValue !== undefined) {
         return true;
@@ -1260,28 +1283,28 @@ export function isSentinelLiteral(type: Type): boolean {
     return isClassInstance(type) && type.priv.literalValue instanceof SentinelLiteral;
 }
 
-export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
-    class ContainsLiteralTypeWalker extends TypeWalker {
-        foundLiteral = false;
+class ContainsLiteralTypeWalker extends TypeWalker {
+    foundLiteral = false;
 
-        constructor(private _includeTypeArgs: boolean) {
-            super();
-        }
-
-        override visitClass(classType: ClassType): void {
-            if (isClassInstance(classType)) {
-                if (isLiteralLikeType(classType)) {
-                    this.foundLiteral = true;
-                    this.cancelWalk();
-                }
-            }
-
-            if (this._includeTypeArgs) {
-                super.visitClass(classType);
-            }
-        }
+    constructor(private _includeTypeArgs: boolean) {
+        super();
     }
 
+    override visitClass(classType: ClassType): void {
+        if (isClassInstance(classType)) {
+            if (isLiteralLikeType(classType)) {
+                this.foundLiteral = true;
+                this.cancelWalk();
+            }
+        }
+
+        if (this._includeTypeArgs) {
+            super.visitClass(classType);
+        }
+    }
+}
+
+export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
     const walker = new ContainsLiteralTypeWalker(includeTypeArgs);
     walker.walk(type);
     return walker.foundLiteral;
@@ -1773,7 +1796,18 @@ export function lookUpClassMember(
     // define any instance variables, and it's by far the most common metaclass.
     if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
         const metaMemberItr = getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers);
-        const metaMember = metaMemberItr.next()?.value;
+        let metaMember = metaMemberItr.next()?.value;
+
+        // type.__dict__ describes class namespaces, not instance dictionaries.
+        if (
+            memberName === '__dict__' &&
+            isClassInstance(classType) &&
+            metaMember &&
+            isClass(metaMember.classType) &&
+            ClassType.isBuiltIn(metaMember.classType, 'type')
+        ) {
+            metaMember = undefined;
+        }
 
         // If the metaclass defines the member and we didn't hit an Unknown
         // class in the metaclass MRO, use the metaclass member.
@@ -3468,6 +3502,219 @@ export function simplifyFunctionToParamSpec(type: FunctionType): FunctionType | 
     return type;
 }
 
+// Recursively transforms two structurally-aligned type trees. The callback
+// decides whether an aligned node should be replaced; this function owns only
+// the traversal and cloning needed to preserve the source tree's shape.
+export function transformTypePair(
+    sourceType: Type,
+    targetType: Type,
+    transformNode: (sourceNode: Type, targetNode: Type) => Type | undefined
+): Type {
+    return transformTypePairRecursive(sourceType, targetType, transformNode, new Set<Type>(), 0);
+}
+
+function transformTypePairRecursive(
+    sourceType: Type,
+    targetType: Type,
+    transformNode: (sourceNode: Type, targetNode: Type) => Type | undefined,
+    pendingTypes: Set<Type>,
+    recursionCount: number
+): Type {
+    const replacementType = transformNode(sourceType, targetType);
+    if (replacementType) {
+        return replacementType;
+    }
+
+    if (recursionCount > maxTypeRecursionCount || pendingTypes.has(sourceType)) {
+        return sourceType;
+    }
+
+    pendingTypes.add(sourceType);
+    try {
+        if (isFunction(sourceType) && isFunction(targetType)) {
+            if (sourceType.shared.parameters.length !== targetType.shared.parameters.length) {
+                return sourceType;
+            }
+
+            const parameterTypes = sourceType.shared.parameters.map((_, index) =>
+                transformTypePairRecursive(
+                    FunctionType.getParamType(sourceType, index),
+                    FunctionType.getParamType(targetType, index),
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                )
+            );
+            const parameterDefaultTypes = sourceType.shared.parameters.map((_, index) => {
+                const sourceDefaultType = FunctionType.getParamDefaultType(sourceType, index);
+                const targetDefaultType = FunctionType.getParamDefaultType(targetType, index);
+                return sourceDefaultType && targetDefaultType
+                    ? transformTypePairRecursive(
+                          sourceDefaultType,
+                          targetDefaultType,
+                          transformNode,
+                          pendingTypes,
+                          recursionCount + 1
+                      )
+                    : sourceDefaultType;
+            });
+            const sourceReturnType = FunctionType.getEffectiveReturnType(sourceType);
+            const targetReturnType = FunctionType.getEffectiveReturnType(targetType);
+            const returnType =
+                sourceReturnType && targetReturnType
+                    ? transformTypePairRecursive(
+                          sourceReturnType,
+                          targetReturnType,
+                          transformNode,
+                          pendingTypes,
+                          recursionCount + 1
+                      )
+                    : sourceReturnType;
+
+            if (
+                parameterTypes.every((type, index) => type === FunctionType.getParamType(sourceType, index)) &&
+                parameterDefaultTypes.every(
+                    (type, index) => type === FunctionType.getParamDefaultType(sourceType, index)
+                ) &&
+                returnType === sourceReturnType
+            ) {
+                return sourceType;
+            }
+
+            const transformedType = FunctionType.clone(sourceType);
+            transformedType.priv.specializedTypes = {
+                parameterTypes,
+                parameterDefaultTypes,
+                returnType,
+            };
+            return transformedType;
+        }
+
+        if (isTypeVar(sourceType) && isTypeVar(targetType)) {
+            if (sourceType.shared.constraints.length !== targetType.shared.constraints.length) {
+                return sourceType;
+            }
+
+            const constraints = sourceType.shared.constraints.map((constraint, index) =>
+                transformTypePairRecursive(
+                    constraint,
+                    targetType.shared.constraints[index],
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                )
+            );
+            const boundType =
+                sourceType.shared.boundType && targetType.shared.boundType
+                    ? transformTypePairRecursive(
+                          sourceType.shared.boundType,
+                          targetType.shared.boundType,
+                          transformNode,
+                          pendingTypes,
+                          recursionCount + 1
+                      )
+                    : sourceType.shared.boundType;
+            const defaultType = transformTypePairRecursive(
+                sourceType.shared.defaultType,
+                targetType.shared.defaultType,
+                transformNode,
+                pendingTypes,
+                recursionCount + 1
+            );
+
+            if (
+                constraints.every((type, index) => type === sourceType.shared.constraints[index]) &&
+                boundType === sourceType.shared.boundType &&
+                defaultType === sourceType.shared.defaultType
+            ) {
+                return sourceType;
+            }
+
+            const transformedType = TypeBase.cloneType(sourceType);
+            transformedType.shared = {
+                ...sourceType.shared,
+                constraints,
+                boundType,
+                defaultType,
+            };
+            return transformedType;
+        }
+
+        if (isUnion(sourceType) && isUnion(targetType)) {
+            if (sourceType.priv.subtypes.length !== targetType.priv.subtypes.length) {
+                return sourceType;
+            }
+
+            const subtypes: UnionableType[] = sourceType.priv.subtypes.map((subtype, index) => {
+                const transformedSubtype = transformTypePairRecursive(
+                    subtype,
+                    targetType.priv.subtypes[index],
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                );
+                return isNever(transformedSubtype) || isUnion(transformedSubtype) ? subtype : transformedSubtype;
+            });
+            if (subtypes.every((type, index) => type === sourceType.priv.subtypes[index])) {
+                return sourceType;
+            }
+
+            const transformedType = TypeBase.cloneType(sourceType);
+            transformedType.priv.subtypes = subtypes;
+            return transformedType;
+        }
+
+        if (isClass(sourceType) && isClass(targetType)) {
+            if (
+                sourceType.shared.fullName !== targetType.shared.fullName ||
+                TypeBase.isInstance(sourceType) !== TypeBase.isInstance(targetType) ||
+                sourceType.priv.typeArgs?.length !== targetType.priv.typeArgs?.length ||
+                sourceType.priv.tupleTypeArgs?.length !== targetType.priv.tupleTypeArgs?.length
+            ) {
+                return sourceType;
+            }
+
+            const typeArgs = sourceType.priv.typeArgs?.map((typeArg, index) =>
+                transformTypePairRecursive(
+                    typeArg,
+                    targetType.priv.typeArgs![index],
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                )
+            );
+            const tupleTypeArgs = sourceType.priv.tupleTypeArgs?.map((tupleTypeArg, index) => ({
+                ...tupleTypeArg,
+                type: transformTypePairRecursive(
+                    tupleTypeArg.type,
+                    targetType.priv.tupleTypeArgs![index].type,
+                    transformNode,
+                    pendingTypes,
+                    recursionCount + 1
+                ),
+            }));
+
+            if (
+                !typeArgs?.some((type, index) => type !== sourceType.priv.typeArgs![index]) &&
+                !tupleTypeArgs?.some(
+                    (tupleTypeArg, index) => tupleTypeArg.type !== sourceType.priv.tupleTypeArgs![index].type
+                )
+            ) {
+                return sourceType;
+            }
+
+            const transformedType = TypeBase.cloneType(sourceType);
+            transformedType.priv.typeArgs = typeArgs;
+            transformedType.priv.tupleTypeArgs = tupleTypeArgs;
+            return transformedType;
+        }
+
+        return sourceType;
+    } finally {
+        pendingTypes.delete(sourceType);
+    }
+}
+
 // Recursively walks a type and calls a callback for each TypeVar, allowing
 // it to be replaced with something else.
 export class TypeVarTransformer {
@@ -3696,7 +3943,12 @@ export class TypeVarTransformer {
 
     transformGenericTypeAlias(type: Type, recursionCount: number) {
         const aliasInfo = type.props?.typeAliasInfo;
-        if (!aliasInfo || !aliasInfo.shared.typeParams || !aliasInfo.typeArgs) {
+        if (
+            !aliasInfo ||
+            !aliasInfo.shared.typeParams ||
+            !aliasInfo.typeArgs ||
+            (isTypeVar(type) && type.shared.recursiveAlias)
+        ) {
             return type;
         }
 
@@ -3806,6 +4058,10 @@ export class TypeVarTransformer {
 
             // If this is an empty tuple, don't recompute the non-tuple type argument.
             if (newTupleTypeArgs && newTupleTypeArgs.length > 0) {
+                if (!specializationNeeded) {
+                    return classType;
+                }
+
                 // Combine the tuple type args into a single non-tuple type argument.
                 newTypeArgs = [combineTupleTypeArgs(newTupleTypeArgs)];
             }
@@ -4517,7 +4773,8 @@ class UnificationTypeTransformer extends TypeVarTransformer {
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
-        if (!this._isTypeVarLive(typeVar)) {
+        // A borrowed caller variable remains bound even outside its lexical scope.
+        if (!TypeVarType.isBound(typeVar) && !this._isTypeVarLive(typeVar)) {
             return TypeVarType.cloneAsUnificationVar(typeVar, this._usageOffset);
         }
 

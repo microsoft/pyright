@@ -102,9 +102,8 @@ class Client:
         token: str,
         token_type_hint: Literal["access_token", "refresh_token"] | None = "access_token",
         body: str = "",
-        callback: Callable[[Incomplete], Incomplete] | None = None,
         **kwargs,
-    ): ...
+    ) -> tuple[str, dict[str, str], str]: ...
     def parse_request_body_response(
         self, body: str, scope: str | set[object] | tuple[object] | list[object] | None = None, **kwargs
     ) -> OAuth2Token: ...

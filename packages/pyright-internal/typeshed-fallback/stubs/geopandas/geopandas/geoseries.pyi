@@ -19,7 +19,7 @@ from .explore import _explore_geoseries
 from .io._geoarrow import GeoArrowArray
 from .plotting import plot_series
 
-class GeoSeries(GeoPandasBase, pd.Series[BaseGeometry]):  # type: ignore[type-var,misc]  # pyright: ignore[reportInvalidTypeArguments]
+class GeoSeries(GeoPandasBase, pd.Series[BaseGeometry]):  # type: ignore[type-var,misc]  # pyright: ignore[reportInvalidTypeArguments]  # ty:ignore[invalid-type-arguments]  # pyrefly: ignore [bad-specialization, inconsistent-inheritance]
     # Override the weird annotation of Series.__new__ in pandas-stubs
     def __new__(
         self,
@@ -194,7 +194,7 @@ class GeoSeries(GeoPandasBase, pd.Series[BaseGeometry]):  # type: ignore[type-va
         check_circular: bool = True,
         allow_nan: bool = True,
         cls: type[json.JSONEncoder] | None = None,
-        indent: None | int | str = None,
+        indent: int | str | None = None,
         separators: tuple[str, str] | None = None,
         default: Callable[..., Any] | None = None,  # as typed in the json stdlib module
         sort_keys: bool = False,

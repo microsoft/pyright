@@ -11,6 +11,7 @@ from typing import (
     TypedDict,
 )
 import random
+from collections.abc import Container as AbcContainer, KeysView, Sequence
 
 
 def func0(x: str | None, y: int | str):
@@ -207,12 +208,15 @@ def func19(x: float, y: list[int]):
 
 def func20(x: float, y: list[Literal[0, 1]]):
     if x in y:
-        reveal_type(x, expected_text="Literal[0, 1]")
+        # Equality with an integer literal does not make a float an int.
+        reveal_type(x, expected_text="float")
+        x.hex()
 
 
 def func21(x: int, y: list[Literal[0, True]]):
     if x in y:
-        reveal_type(x, expected_text="Literal[0, True]")
+        # An int equal to True need not be a bool.
+        reveal_type(x, expected_text="int")
 
 
 def func22(x: bool, y: list[Literal[0, 1]]):
@@ -224,3 +228,93 @@ def func23[T: LiteralString](x: str, y: tuple[T, ...]) -> T:
     if x in y:
         return x
     raise ValueError(f"Invalid value {x!r}")
+
+
+def func24(a: bytes | int, b: list[bytearray], c: bytearray | str, d: list[memoryview]):
+    # bytes-like types (bytes, bytearray, memoryview) are mutually comparable,
+    # so container narrowing does not eliminate them against each other.
+    if a in b:
+        reveal_type(a, expected_text="bytes")
+
+    if c in d:
+        reveal_type(c, expected_text="bytearray")
+
+
+def func25(value: Literal[b"a", b"b"]) -> Literal[b"a"]:
+    if value in (b"a",):
+        reveal_type(value, expected_text='Literal[b"a"]')
+        return value
+
+    reveal_type(value, expected_text='Literal[b"b"]')
+    return b"a"
+
+
+def func26(value: Literal[b"a", b"b"], container: list[Literal[b"a"]]):
+    if value in container:
+        reveal_type(value, expected_text='Literal[b"a"]')
+
+    if value not in (b"a",):
+        reveal_type(value, expected_text='Literal[b"b"]')
+    else:
+        reveal_type(value, expected_text='Literal[b"a"]')
+
+
+def func27(value: Literal[b"a"] | int, a: list[bytearray], b: list[memoryview]):
+    if value in a:
+        reveal_type(value, expected_text='Literal[b"a"]')
+
+    if value in b:
+        reveal_type(value, expected_text='Literal[b"a"]')
+
+
+def func28(val: str | None, container: list[str] | tuple[str, ...]):
+    if val in container:
+        reveal_type(val, expected_text="str")
+    else:
+        reveal_type(val, expected_text="str | None")
+
+
+def func29(val: str | int | None, container: list[str] | set[int]):
+    if val in container:
+        reveal_type(val, expected_text="str | int")
+    else:
+        reveal_type(val, expected_text="str | int | None")
+
+
+def func30(k: str | int, d: dict[str, float]):
+    if k in d.keys():
+        reveal_type(k, expected_text="str")
+    else:
+        reveal_type(k, expected_text="str | int")
+
+
+def func31(v: float | str, d: dict[str, float]):
+    if v in d.values():
+        reveal_type(v, expected_text="float")
+    else:
+        reveal_type(v, expected_text="float | str")
+
+
+class PermissiveContainer(AbcContainer[str]):
+    def __contains__(self, x: object) -> bool:
+        return True
+
+
+def func32(x: int | str, c: PermissiveContainer, s: Sequence[int], ks: KeysView[str]):
+    # Abstract collection types don't constrain __contains__, so no narrowing.
+    if x in c:
+        reveal_type(x, expected_text="int | str")
+    if x in s:
+        reveal_type(x, expected_text="int | str")
+    if x in ks:
+        reveal_type(x, expected_text="int | str")
+
+
+def func33(x: bytes | int, s: Sequence[int] | list[int]):
+    if x in s:
+        reveal_type(x, expected_text="bytes | int")
+
+
+def func34[*Ts](x: int | None, c: tuple[*Ts] | list[int]):
+    if x in c:
+        reveal_type(x, expected_text="int | None")

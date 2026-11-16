@@ -57,6 +57,7 @@ import {
     isFunctionOrOverloaded,
     isInstantiableClass,
     isModule,
+    isOverloadResult,
     isUnknown,
     Type,
     TypeBase,
@@ -906,7 +907,10 @@ export class CompletionProvider {
             leftType = this.evaluator.makeTopLevelTypeVarsConcrete(leftType.priv.possibleType);
         }
 
-        doForEachSubtype(leftType, (subtype) => {
+        // Member availability follows the retained witnesses; keep the
+        // canonical value intact for subsequent hover and evaluator queries.
+        const memberType = isOverloadResult(leftType) ? combineTypes([...leftType.priv.candidates]) : leftType;
+        doForEachSubtype(memberType, (subtype) => {
             subtype = this.evaluator.makeTopLevelTypeVarsConcrete(subtype);
             let resolvedClassSubtype: ClassType | undefined;
 
@@ -1258,6 +1262,10 @@ export class CompletionProvider {
         _postText: string
     ): CompletionMap | undefined {
         return undefined;
+    }
+
+    protected getAdditionalIndexKeys(_indexNode: IndexNode, _invocationNode: ParseNode): string[] {
+        return [];
     }
 
     protected isEnumMember(containingType: ClassType | undefined, name: string) {
@@ -2730,7 +2738,7 @@ export class CompletionProvider {
             startingNode
         );
 
-        const keys: Set<string> = new Set<string>();
+        const keys = new Set<string>(this.getAdditionalIndexKeys(indexNode, invocationNode));
         for (const result of results) {
             const node =
                 result.node.parent?.nodeType === ParseNodeType.TypeAnnotation ? result.node.parent : result.node;

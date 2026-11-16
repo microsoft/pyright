@@ -10,8 +10,11 @@
 
 import * as assert from 'assert';
 
+import { AnalyzerNodeInfoAccessor } from '../analyzer/analyzerNodeInfo';
 import { ScopeType } from '../analyzer/scope';
+import { getTypeNarrowingCallback } from '../analyzer/typeGuards';
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
@@ -23,6 +26,7 @@ import {
 import { Uri } from '../common/uri/uri';
 import { getChildNodes } from '../parser/parseTreeUtils';
 import { getParserStringAnnotation, ParseNode, ParseNodeType, StringListNode } from '../parser/parseNodes';
+import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import * as TestUtils from './testUtils';
 
 function getNodes(root: ParseNode) {
@@ -225,9 +229,8 @@ test('Builtins1', () => {
         'type',
         'vars',
         'zip',
-        // These really shouldn't be exposed but are defined by builtins.pyi currently.
+        // This really shouldn't be exposed but is defined by builtins.pyi currently.
         'function',
-        'ellipsis',
     ];
 
     const moduleScope = analysisResults[0].moduleScope;
@@ -330,13 +333,32 @@ test('TypeNarrowingAssert1', () => {
 test('TypeNarrowingTypeIs1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypeIs1.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
+    assert.ok(
+        analysisResults[0].errors.every((diagnostic) => diagnostic.getRule() === DiagnosticRule.reportReturnType)
+    );
+});
+
+test('TypeGuardMethod1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuardMethod1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [276, DiagnosticRule.reportAttributeAccessIssue],
+            [282, DiagnosticRule.reportAttributeAccessIssue],
+        ]
+    );
 });
 
 test('TypeNarrowingTypeEquals1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypeEquals1.py']);
 
     TestUtils.validateResults(analysisResults, 3);
+    assert.ok(
+        analysisResults[0].errors.every((diagnostic) => diagnostic.getRule() === DiagnosticRule.reportReturnType)
+    );
 });
 
 test('TypeNarrowingIsNone1', () => {
@@ -349,6 +371,88 @@ test('TypeNarrowingIsNone2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsNone2.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingMemberNone1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingMemberNone1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [29, 40, 47, 58].map((line) => [line, DiagnosticRule.reportOperatorIssue])
+    );
+});
+
+test('TypeNarrowingComparisonRhs1', () => {
+    const cases = [
+        { parameterType: 'Literal[1, 2]', left: 'x', right: '1', positive: 'Literal[1]', negative: 'Literal[2]' },
+        {
+            parameterType: 'Literal[1, 2]',
+            left: '(saved := x)',
+            right: '1',
+            positive: 'Literal[1]',
+            negative: 'Literal[2]',
+        },
+        {
+            parameterType: 'type[int] | type[str]',
+            left: 'x',
+            right: 'int',
+            positive: 'type[int] | type[str]',
+            negative: 'type[int] | type[str]',
+        },
+        { parameterType: 'object', left: 'x', right: 'other', positive: undefined, negative: undefined },
+    ];
+    for (const testCase of cases) {
+        for (const operator of ['==', '!=']) {
+            for (const isPositiveTest of [true, false]) {
+                const left = testCase.left.replace('x', '/*reference*/x');
+                const state = parseAndGetTestState(`// @filename: test.py
+////from typing import Literal
+////def compare(x: ${testCase.parameterType}, other: object) -> None:
+////    if ${left} ${operator} ${testCase.right}:
+////        pass
+`).state;
+                const evaluator = state.program.evaluator!;
+                const reference = getNodeAtMarker(state, 'reference');
+                assert.ok(reference.nodeType === ParseNodeType.Name);
+                let comparison = reference.parent;
+                if (comparison?.nodeType === ParseNodeType.AssignmentExpression) {
+                    comparison = comparison.parent;
+                }
+                assert.ok(comparison?.nodeType === ParseNodeType.BinaryOperation);
+                evaluator.getTypeOfExpression(comparison);
+                const inputType = evaluator.getTypeOfExpression(reference).type;
+                const rightExpression = comparison.d.rightExpr;
+                const original = evaluator.getTypeOfExpression;
+                const spy = jest.spyOn(evaluator, 'getTypeOfExpression').mockImplementation((node, ...args) => {
+                    const result = original(node, ...args);
+                    return node === rightExpression ? { ...result, isIncomplete: true } : result;
+                });
+                try {
+                    const callback = getTypeNarrowingCallback(
+                        evaluator,
+                        reference,
+                        comparison,
+                        isPositiveTest,
+                        new AnalyzerNodeInfoAccessor(evaluator.getAnalyzerNodeInfoReader())
+                    );
+                    assert.strictEqual(spy.mock.calls.filter(([node]) => node === rightExpression).length, 1);
+                    const expected = isPositiveTest === (operator === '==') ? testCase.positive : testCase.negative;
+                    if (expected === undefined) {
+                        assert.strictEqual(callback, undefined);
+                    } else {
+                        assert.ok(callback);
+                        const result = callback(inputType);
+                        assert.ok(result);
+                        assert.strictEqual(evaluator.printType(result.type), expected);
+                        assert.strictEqual(result.isIncomplete, true);
+                    }
+                } finally {
+                    spy.mockRestore();
+                }
+            }
+        }
+    }
 });
 
 test('TypeNarrowingAny1', () => {
@@ -525,6 +629,34 @@ test('TypeNarrowingIsinstance21', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeNarrowingIsinstance22', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance22.py']);
+
+    TestUtils.validateResults(analysisResults, 4, 0, 80);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [70, DiagnosticRule.reportReturnType],
+            [107, DiagnosticRule.reportReturnType],
+            [115, DiagnosticRule.reportArgumentType],
+            [366, DiagnosticRule.reportReturnType],
+        ]
+    );
+});
+
+test('TypeNarrowingIsinstance23', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance23.py']);
+
+    TestUtils.validateResults(analysisResults, 1, 0, 15);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [[122, DiagnosticRule.reportReturnType]]
+    );
+});
+
 test('TypeNarrowingTupleLength1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTupleLength1.py']);
 
@@ -538,15 +670,64 @@ test('TypeNarrowingTupleLength2', () => {
 });
 
 test('TypeNarrowingIn1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn1.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 0);
+
+    configOptions.diagnosticRuleSet.disableBytesTypePromotions = false;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults2, 0);
 });
 
 test('TypeNarrowingIn2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn2.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingIn3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    configOptions.diagnosticRuleSet.reportUnnecessaryContains = 'error';
+    configOptions.diagnosticRuleSet.reportUnreachable = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn3.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 10);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [12, DiagnosticRule.reportAttributeAccessIssue],
+            [26, DiagnosticRule.reportAttributeAccessIssue],
+            [34, DiagnosticRule.reportAttributeAccessIssue],
+            [44, DiagnosticRule.reportAttributeAccessIssue],
+            [94, DiagnosticRule.reportArgumentType],
+            [102, DiagnosticRule.reportArgumentType],
+            [110, DiagnosticRule.reportArgumentType],
+            [120, DiagnosticRule.reportArgumentType],
+            [144, DiagnosticRule.reportUnnecessaryComparison],
+            [146, DiagnosticRule.reportUnnecessaryComparison],
+        ]
+    );
+});
+
+test('TypeNarrowingIn4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn4.py']);
+
+    TestUtils.validateResults(analysisResults, 7);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [72, DiagnosticRule.reportOptionalMemberAccess],
+            [78, DiagnosticRule.reportOptionalMemberAccess],
+            [84, DiagnosticRule.reportOptionalMemberAccess],
+            [90, DiagnosticRule.reportOptionalMemberAccess],
+            [97, DiagnosticRule.reportOptionalMemberAccess],
+            [103, DiagnosticRule.reportOptionalMemberAccess],
+            [109, DiagnosticRule.reportAttributeAccessIssue],
+        ]
+    );
 });
 
 test('TypeNarrowingLiteralMember1', () => {
@@ -582,7 +763,32 @@ test('TypeNarrowingTypedDict2', () => {
 test('TypeNarrowingTypedDict3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict3.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 12);
+});
+
+test('TypeNarrowingTypedDict4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict4.py']);
+
+    TestUtils.validateResults(analysisResults, 21);
+    expect(analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((a, b) => a - b)).toEqual([
+        118, 125, 132, 138, 144, 152, 159, 166, 174, 186, 193, 201, 208, 222, 236, 249, 264, 272, 279, 287, 321,
+    ]);
+});
+
+test('TypeNarrowingTypedDict5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict5.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+    expect(analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((a, b) => a - b)).toEqual([
+        22, 29, 46, 72, 79, 90,
+    ]);
+});
+
+test('CodeFlowMutation1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlowMutation1.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    expect(analysisResults[0].errors[0].range.start.line + 1).toBe(31);
 });
 
 test('typeNarrowingCallable1', () => {
@@ -750,7 +956,7 @@ test('Lambda3', () => {
 test('Lambda4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda4.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Lambda5', () => {
@@ -834,6 +1040,33 @@ test('Lambda16', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda16.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Lambda17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda17.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Lambda18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda18.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportAssignmentType);
+});
+
+test('Lambda19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda19.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [11, DiagnosticRule.reportAssignmentType],
+            [12, DiagnosticRule.reportAssignmentType],
+            [13, DiagnosticRule.reportAssignmentType],
+        ]
+    );
 });
 
 test('Call1', () => {
@@ -1021,13 +1254,13 @@ test('FunctionMember1', () => {
 
     configOptions.diagnosticRuleSet.reportFunctionMemberAccess = 'error';
     const analysisResult2 = TestUtils.typeAnalyzeSampleFiles(['functionMember1.py'], configOptions);
-    TestUtils.validateResults(analysisResult2, 3);
+    TestUtils.validateResults(analysisResult2, 7);
 });
 
 test('FunctionMember2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['functionMember2.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Annotations1', () => {
@@ -1206,6 +1439,15 @@ test('Metaclass11', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('Metaclass12', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass12.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('AssignmentExpr1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr1.py']);
     TestUtils.validateResults(analysisResults, 7);
@@ -1249,4 +1491,23 @@ test('AssignmentExpr8', () => {
 test('AssignmentExpr9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr9.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('AssignmentExprMessage1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExprMessage1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+
+    // A walrus within a comprehension's iterable expression cannot be fixed by
+    // adding parentheses, so it must use the comprehension-specific message
+    // rather than the generic "requires surrounding parentheses" message.
+    expect(analysisResults[0].errors[0].message).toBe(
+        'Operator ":=" is not allowed within a comprehension iterable expression'
+    );
+
+    // A bare walrus used as a comprehension "if" condition still uses the
+    // generic message because parenthesizing it makes the code legal.
+    expect(analysisResults[0].errors[1].message).toBe(
+        'Operator ":=" is not allowed in this context without surrounding parentheses'
+    );
 });

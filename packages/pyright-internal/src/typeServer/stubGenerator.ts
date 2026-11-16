@@ -9,8 +9,10 @@
 
 import { printType, PrintTypeFlags } from '../analyzer/typePrinter';
 import * as PyrightTypes from '../analyzer/types';
+import { getTypeVarArgsRecursive, TypeVarTransformer } from '../analyzer/typeUtils';
 import { PythonVersion, pythonVersion3_10, pythonVersion3_11 } from '../common/pythonVersion';
 import { ParamCategory } from '../parser/parseNodes';
+import { Tokenizer } from '../parser/tokenizer';
 
 import { ITypeServerEvaluator } from './typeServerEvaluator';
 
@@ -33,6 +35,11 @@ interface StubGenerationContext {
     methodClass?: PyrightTypes.ClassType; // Class type if generating stub for a method
     targetMethodName?: string; // If provided, adds marker to this specific method instead of the class
     selfTypeVarName?: string; // If set, replace 'Self' with this TypeVar name
+    classStubNames: Map<PyrightTypes.ClassType, string>;
+    usedClassStubNames: Set<string>;
+    unknownTypeName?: string;
+    usesUnknownType?: boolean;
+    typeVarNames?: Map<string, string>;
 }
 
 /**
@@ -50,6 +57,25 @@ export interface StubGenerationResult {
     primaryDefinitionOffset: number; // Character offset to the primary definition in stubContent
 }
 
+function getClassStubName(type: PyrightTypes.ClassType, context: StubGenerationContext): string {
+    const existing = context.classStubNames.get(type);
+    if (existing) {
+        return existing;
+    }
+
+    const sanitized = Tokenizer.isPythonIdentifier(type.shared.name)
+        ? type.shared.name
+        : type.shared.name.replace(/[^\p{ID_Continue}_]/gu, '_');
+    const baseName = Tokenizer.isPythonIdentifier(sanitized) ? sanitized : `_${sanitized || 'generated_class'}`;
+    let name = baseName;
+    for (let suffix = 2; context.usedClassStubNames.has(name); suffix++) {
+        name = `${baseName}_${suffix}`;
+    }
+    context.classStubNames.set(type, name);
+    context.usedClassStubNames.add(name);
+    return name;
+}
+
 export function generateStubFromTypeVar(
     typeVar: PyrightTypes.TypeVarType,
     options: StubGenerationOptions
@@ -58,6 +84,8 @@ export function generateStubFromTypeVar(
         imports: { imports: new Map() },
         pythonVersion: options.pythonVersion,
         moduleImports: new Map(),
+        classStubNames: new Map(),
+        usedClassStubNames: new Set(),
     };
 
     const typeVarName = typeVar.shared.name || 'T';
@@ -139,7 +167,30 @@ export function generateStubFromFunctionType(
         pythonVersion: options.pythonVersion,
         moduleImports: new Map(),
         methodClass: type.shared.methodClass,
+        classStubNames: new Map(),
+        usedClassStubNames: new Set(),
     };
+
+    // A direct partial.__call__ response is a standalone function, not the
+    // nominal partial stub. Preserve its Unknown annotations with the same
+    // ordinary unannotated binding used by the nominal producer.
+    let unknownFactoryName: string | undefined;
+    const boundType = type.priv.boundToType ?? type.priv.strippedFirstParamType;
+    if (boundType && PyrightTypes.isClassInstance(boundType) && boundType.priv.partialCallType) {
+        const typeNames = printType(
+            type,
+            PrintTypeFlags.UseFullyQualifiedNames,
+            (call) => PyrightTypes.FunctionType.getEffectiveReturnType(call) ?? PyrightTypes.UnknownType.create()
+        );
+        const freshName = (base: string) => {
+            while (typeNames.includes(base)) {
+                base += '_';
+            }
+            return base;
+        };
+        context.unknownTypeName = freshName('__partial_unknown');
+        unknownFactoryName = freshName('__partial_unknown_factory');
+    }
 
     const lines: string[] = [];
 
@@ -189,6 +240,9 @@ export function generateStubFromFunctionType(
 
     // Generate the function stub with docstring and deprecated decorator
     const functionStub = generateFunctionStub(type, context, type.shared.docString, type.shared.deprecatedMessage);
+    if (context.usesUnknownType && unknownFactoryName) {
+        lines.unshift(`def ${unknownFactoryName}(): ...`, `${context.unknownTypeName} = ${unknownFactoryName}()`, '');
+    }
     lines.push(functionStub);
 
     // Generate imports (will be inserted at top after we know what's needed)
@@ -255,6 +309,10 @@ function generateFunctionStub(
     const paramStrings: string[] = [];
     for (let i = 0; i < type.shared.parameters.length; i++) {
         const param = type.shared.parameters[i];
+        if (!param.name) {
+            paramStrings.push(param.category === ParamCategory.ArgsList ? '*' : '/');
+            continue;
+        }
         const paramParts: string[] = [];
 
         // Handle special parameter categories
@@ -265,11 +323,7 @@ function generateFunctionStub(
         }
 
         // Parameter name
-        if (param.name) {
-            paramParts.push(param.name);
-        } else {
-            paramParts.push('_');
-        }
+        paramParts.push(param.name);
 
         // Parameter type annotation
         if (param._type) {
@@ -339,13 +393,20 @@ function getReturnTypeStringFromFunction(type: PyrightTypes.FunctionType, contex
  */
 function pyrightTypeToString(type: PyrightTypes.Type, context?: StubGenerationContext): string {
     const flags = PrintTypeFlags.PythonSyntax | PrintTypeFlags.UseFullyQualifiedNames;
+    // Unknown has no Python annotation spelling. For a partial value, use a
+    // generated stub's unannotated return instead of silently turning it into Any.
+    const typePrinter =
+        context && (context.unknownTypeName || context.typeVarNames) ? new StubTypePrinter(context) : undefined;
+    if (typePrinter) {
+        type = typePrinter.apply(type, 0);
+    }
     // Simple callback for getting return types - just use declared or inferred return type
     const returnTypeCallback = (funcType: PyrightTypes.FunctionType): PyrightTypes.Type => {
-        return (
+        const returnType =
             funcType.shared.declaredReturnType ??
             funcType.shared.inferredReturnType?.type ??
-            PyrightTypes.UnknownType.create()
-        );
+            PyrightTypes.UnknownType.create();
+        return typePrinter ? typePrinter.apply(returnType, 0) : returnType;
     };
     const typeString = printType(type, flags, returnTypeCallback);
     // Remove 'builtins.' prefix from builtin types
@@ -357,6 +418,31 @@ function pyrightTypeToString(type: PyrightTypes.Type, context?: StubGenerationCo
     }
 
     return cleanedTypeString;
+}
+
+// This transforms only the printer's input, never a program's semantic types.
+// The generated name is bound to an ordinary Unknown-valued stub expression.
+class StubTypePrinter extends TypeVarTransformer {
+    constructor(private _context: StubGenerationContext) {
+        super();
+    }
+
+    override canSkipTransform(): boolean {
+        return false;
+    }
+
+    override apply(type: PyrightTypes.Type, recursionCount: number): PyrightTypes.Type {
+        if (PyrightTypes.isUnknown(type) && this._context.unknownTypeName) {
+            this._context.usesUnknownType = true;
+            return PyrightTypes.TypeVarType.createInstance(this._context.unknownTypeName);
+        }
+        return super.apply(type, recursionCount);
+    }
+
+    override transformTypeVar(typeVar: PyrightTypes.TypeVarType): PyrightTypes.TypeVarType {
+        const name = this._context.typeVarNames?.get(PyrightTypes.TypeVarType.getNameWithScope(typeVar));
+        return name && name !== typeVar.shared.name ? PyrightTypes.TypeVarType.cloneForNewName(typeVar, name) : typeVar;
+    }
 }
 
 /**
@@ -513,11 +599,18 @@ export function generateStubFromClassType(
     options: StubGenerationOptions,
     targetMethodName?: string
 ): StubGenerationResult {
+    const partialCall = type.priv.partialCallType;
+    if (partialCall && (PyrightTypes.isFunction(partialCall) || PyrightTypes.isOverloaded(partialCall))) {
+        return generatePartialStub(type, partialCall, options);
+    }
+
     const context: StubGenerationContext = {
         imports: { imports: new Map() },
         pythonVersion: options.pythonVersion,
         moduleImports: new Map(),
         targetMethodName,
+        classStubNames: new Map(),
+        usedClassStubNames: new Set(),
     };
 
     const lines: string[] = [];
@@ -529,6 +622,97 @@ export function generateStubFromClassType(
     // Special handling for NewType classes - generate as NewType call instead of class definition
     if (PyrightTypes.ClassType.isNewTypeClass(type)) {
         return generateNewTypeStub(type, context, options);
+    }
+
+    function generatePartialStub(
+        type: PyrightTypes.ClassType,
+        partialCall: PyrightTypes.FunctionType | PyrightTypes.OverloadedType,
+        options: StubGenerationOptions
+    ): StubGenerationResult {
+        const calls = PyrightTypes.isOverloaded(partialCall)
+            ? PyrightTypes.OverloadedType.getOverloads(partialCall)
+            : [partialCall];
+        const typeNames = [type, ...calls]
+            .map((value) =>
+                printType(
+                    value,
+                    PrintTypeFlags.UseFullyQualifiedNames,
+                    (call) =>
+                        PyrightTypes.FunctionType.getEffectiveReturnType(call) ?? PyrightTypes.UnknownType.create()
+                )
+            )
+            .join('\n');
+        const freshName = (base: string) => {
+            while (typeNames.includes(base)) {
+                base += '_';
+            }
+            return base;
+        };
+        const functionName = freshName('__partial_callable');
+        const valueName = freshName('__partial_value');
+        const unknownFactoryName = freshName('__partial_unknown_factory');
+        const context: StubGenerationContext = {
+            imports: { imports: new Map() },
+            pythonVersion: options.pythonVersion,
+            moduleImports: new Map(),
+            classStubNames: new Map(),
+            usedClassStubNames: new Set(),
+            unknownTypeName: freshName('__partial_unknown'),
+            typeVarNames: new Map(),
+        };
+        const typeVars = new Map<string, PyrightTypes.TypeVarType>();
+        const usedTypeVarNames = new Set<string>();
+        const functions = calls.map((call) => {
+            const clone = PyrightTypes.FunctionType.clone(call);
+            clone.shared.name = functionName;
+            // partialCallType is an unbound __call__; the generated function is
+            // the remaining callable itself, without the nominal instance's self.
+            clone.shared.parameters = call.shared.parameters.slice(1);
+            for (const typeVar of getTypeVarArgsRecursive(clone)) {
+                const identity = PyrightTypes.TypeVarType.getNameWithScope(typeVar);
+                if (!typeVars.has(identity)) {
+                    // Distinct overload scopes can reuse a spelling with different
+                    // bounds or constraints. Give each identity its own stub name.
+                    let name = typeVar.shared.name;
+                    while (usedTypeVarNames.has(name)) {
+                        name = freshName(name + '_');
+                    }
+                    typeVars.set(identity, typeVar);
+                    context.typeVarNames!.set(identity, name);
+                    usedTypeVarNames.add(name);
+                }
+            }
+            return clone;
+        });
+        const lines = generateTypeVarDeclarations([...typeVars.values()], context);
+        if (functions.length > 1) {
+            addImport(context, 'typing', 'overload');
+        }
+        for (const call of functions) {
+            if (functions.length > 1) {
+                lines.push('@overload');
+            }
+            lines.push(generateFunctionStub(call, context));
+        }
+        // Generic return variables must be inferred from that same generated
+        // callable scope, rather than rebound in a separate module occurrence.
+        const hasGenericReturn = getTypeVarArgsRecursive(type).length > 0;
+        const nominal = hasGenericReturn
+            ? type.shared.fullName
+            : pyrightTypeToString(PyrightTypes.ClassType.cloneAsInstance(type), context);
+        if (hasGenericReturn) {
+            extractModuleImportsFromTypeString(nominal, type, context);
+        }
+        const assignment = `${valueName} = ${nominal}(${functionName})`;
+        lines.push(assignment);
+        if (context.usesUnknownType) {
+            // A .pyi function without a return annotation returns Unknown. Binding
+            // that value provides legal Python names for nested Unknown annotations
+            // without an undefined symbol, an Any substitution or decoder markers.
+            lines.unshift(`def ${unknownFactoryName}(): ...`, `${context.unknownTypeName} = ${unknownFactoryName}()`);
+        }
+        const stubContent = [...generateImportStatements(context), '', ...lines].join('\n') + '\n';
+        return { stubContent, primaryDefinitionOffset: stubContent.lastIndexOf(assignment) };
     }
 
     // Generate the class stub (will include marker for main class)
@@ -561,7 +745,8 @@ export function generateStubFromClassType(
         primaryDefinitionOffset = match.index;
     } else {
         // Find the class definition - look for "class <ClassName>"
-        const classPattern = new RegExp(`\\bclass ${type.shared.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'm');
+        const className = getClassStubName(type, context);
+        const classPattern = new RegExp(`\\bclass ${className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'm');
         const match = stubContent.match(classPattern);
         if (!match || match.index === undefined) {
             throw new Error(`Failed to find class '${type.shared.name}' in generated stub`);
@@ -659,7 +844,7 @@ function generateClassStub(
     // Start class definition
     const parts: string[] = [];
     parts.push('class ');
-    parts.push(type.shared.name);
+    parts.push(getClassStubName(type, context));
 
     // Add type parameters for generic classes
     if (type.shared.typeParams && type.shared.typeParams.length > 0) {
@@ -677,13 +862,13 @@ function generateClassStub(
     // Check if any base classes are synthesized (no declaration) and need their stubs generated
     // We need to do this check before generating the base class list so we know which ones
     // to reference with simple names vs fully qualified names
-    const synthesizedBaseClasses = new Set<string>();
+    const synthesizedBaseClasses = new Set<PyrightTypes.ClassType>();
     const baseClassStubs: string[] = [];
     if (type.shared.baseClasses && type.shared.baseClasses.length > 0) {
         for (const bc of type.shared.baseClasses) {
             if (PyrightTypes.isClass(bc) && !bc.shared.declaration && bc.shared.name !== 'object') {
                 // Track this as a synthesized base class
-                synthesizedBaseClasses.add(bc.shared.name);
+                synthesizedBaseClasses.add(bc);
                 // Generate stub for synthesized base class
                 const baseStub = generateClassStub(evaluator, bc, context);
                 let bcStr = pyrightTypeToString(bc, context);
@@ -710,8 +895,8 @@ function generateClassStub(
                     bcStr = typeWrapperMatch[1];
                 }
                 // If this base class had its stub generated inline, use just the simple name
-                if (PyrightTypes.isClass(bc) && synthesizedBaseClasses.has(bc.shared.name)) {
-                    return bc.shared.name;
+                if (PyrightTypes.isClass(bc) && synthesizedBaseClasses.has(bc)) {
+                    return getClassStubName(bc, context);
                 }
                 return bcStr;
             })
@@ -873,7 +1058,7 @@ function generateTypedDictStub(type: PyrightTypes.ClassType, context: StubGenera
     // TypedDict class definition
     const parts: string[] = [];
     parts.push('class ');
-    parts.push(type.shared.name);
+    parts.push(getClassStubName(type, context));
     parts.push('(TypedDict');
 
     // Add total=False if not all fields are required
@@ -917,7 +1102,7 @@ function generateNamedTupleStub(
     // NamedTuple class definition
     const parts: string[] = [];
     parts.push('class ');
-    parts.push(type.shared.name);
+    parts.push(getClassStubName(type, context));
     parts.push('(NamedTuple):');
     lines.push(parts.join(''));
 
@@ -1014,7 +1199,9 @@ function generateTypeVarDeclarations(typeParams: PyrightTypes.TypeVarType[], con
 
     for (const typeParam of typeParams) {
         if (PyrightTypes.isTypeVar(typeParam)) {
-            const name = typeParam.shared.name;
+            const name =
+                context.typeVarNames?.get(PyrightTypes.TypeVarType.getNameWithScope(typeParam)) ??
+                typeParam.shared.name;
 
             // Check if it's a ParamSpec
             if (PyrightTypes.isParamSpec(typeParam)) {

@@ -122,7 +122,7 @@ class wsgify(Generic[_P, _RequestT_contra]):
     @overload
     @classmethod
     def middleware(
-        cls, middle_func: None = None, app: None | _AppT = None, *_: _P.args, **kw: _P.kwargs
+        cls, middle_func: None = None, app: _AppT | None = None, *_: _P.args, **kw: _P.kwargs
     ) -> _UnboundMiddleware[_P, _AppT, Any]: ...
     @overload
     @classmethod
