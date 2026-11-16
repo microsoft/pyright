@@ -31,6 +31,28 @@ new investigation or gates; only a fresh eligible candidate reaches the writer/f
 The launcher fails rather than substituting issues if any selected case is unavailable or closed.
 Its ordinary invocation still selects the existing 15-issue pilot.
 
+For the full currently open backlog outside the launcher's reserved holdout/pilot exclusions, run:
+
+```powershell
+.\run_overnight.ps1 -BacklogRehearsal
+```
+
+This mode retrieves all pages of open issue numbers, excludes pull requests and the reserved cases, and passes
+the deduplicated newest-first list explicitly to `--overnight --dry-run --rehearse-closures --no-rca`.
+It has no issue-count cap and processes two issues at a time; it may take substantial time and credits.
+Still-open previously reviewed cases are reinvestigated, not skipped or supplied with old answers.
+Only fresh eligible candidates generate rich-mirror comments and factual checks. No comments, labels or
+closures are published, and RCA remains disabled.
+
+Each invocation creates fresh `readiness-backlog-rehearsal-...` state and first saves the selected issue numbers
+and exclusions in an adjacent `<state-dir>.cohort.json`. The companion file is outside the state directory so
+the controller's empty-state requirement remains intact, and it survives partial/failed runs. Issue contents
+and targets are freshly captured by the controller; this is not an atomic GitHub snapshot or frozen benchmark.
+New issues opened after selection are not added, and changed/closed cases remain subject to normal gates.
+After a successful run the launcher checks that `rehearsals.json` covers the selected cohort and still denies
+publication. Inspect each candidate's `comment.md` and factual check rather than treating batch completion as
+approval. All rehearsal switches are mutually exclusive; the ordinary pilot and smaller modes remain unchanged.
+
 For the next coverage-oriented cohort, use `.\run_overnight.ps1 -FreshRehearsal`. It selects four open issues in two
 chunks: #11958 as a previously investigated literal-inference policy lead, plus newly selected #11988
 (dataclass transforms), #11990 (generic dictionary inference), and #12001 (platform policy). All investigations
@@ -1261,6 +1283,18 @@ finding; repeating an unsupported conclusion is not a repair. Waiting for operat
 budget, and approval prompts do not block the SDK event loop.
 Product checks still count toward the turn budget and retain their own process timeouts. Timing out aborts
 the turn, records an explicit error and SDK/tool-event timing, and does not manufacture an inconclusive verdict.
+Controller subprocess budgets include creation and execution. Windows launches are suspended until an owned
+kill-on-close job contains the process and all future descendants, including real Node processes launched by an NVM
+shim. Cleanup closes that tree before draining inherited pipes, with a separate five-second drain bound.
+`process_lifecycle` records in `checks.jsonl` distinguish `launch`, `running`, `terminate_owned_tree`, `drain` and
+`drained`; they are timing evidence, not completed execution receipts.
+
+Normal checkout diagnostic observations still require parsed Pyright JSON and exit code 0/1. A separately declared
+`observation=internal_error` can record reproduced checkout crash evidence for bug/inconclusive claims only:
+the linked controller receipt must contain exit code 2 and Pyright internal-error stderr naming a captured source
+input. `run_check` supplies matching `internal_errors` excerpts without discarding raw stderr. Arbitrary errors,
+configuration failures and unrecorded files stay blocked; this does not authorize release, not-reproduced or
+by-design conclusions.
 
 ### SDK timeout diagnostics
 

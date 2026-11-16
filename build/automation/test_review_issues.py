@@ -12,10 +12,11 @@ import time
 import tomllib
 import unittest
 from argparse import Namespace
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
 from copilot import ToolInvocation
@@ -94,6 +95,7 @@ from review_issues import (
     context_hash,
     dry_run_proposal,
     main as review_main,
+    process,
     reject_operator_approval,
     require_run_mode,
     review_reproduction_errors,
@@ -290,6 +292,78 @@ class ContextTests(unittest.TestCase):
 
 
 class ModelTests(unittest.TestCase):
+    def crash_evidence(self, directory: Path) -> tuple[Audit, dict[str, JsonValue]]:
+        data = audit().model_dump(mode="json")
+        data["claims"][0]["disposition"] = "inconclusive"
+        data["claims"][0]["reproduction"][2]["observation"] = "internal_error"
+        data["checks"][0]["cwd"] = str(directory)
+        data["checks"][0]["exit_code"] = 2
+        report = Audit.model_validate(data)
+        record = product_record(report)
+        record["stdout"] = ""
+        record["stderr"] = (
+            f'An internal error occurred while type checking file "{directory / "sample.py"}": '
+            "RangeError: Maximum call stack size exceeded\n    at getTypeOfMember (pyright-internal.js:1:1)\n"
+        )
+        return report, record
+
+    def test_internal_crash_observation_accepts_matching_source_without_design_authority(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report, record = self.crash_evidence(Path(directory))
+            validate_review_execution(report, [record])
+            self.assertFalse(report.closure_candidate())
+            for disposition in ("specification_correct", "intentional_limitation"):
+                data = report.model_dump(mode="json")
+                data["claims"][0]["disposition"] = disposition
+                with self.subTest(disposition=disposition), self.assertRaises(ValueError):
+                    Audit.model_validate(data)
+            for status in ("not_reproduced", "blocked"):
+                data = report.model_dump(mode="json")
+                data["claims"][0]["reproduction"][2]["status"] = status
+                with self.subTest(status=status), self.assertRaises(ValueError):
+                    Audit.model_validate(data)
+
+    def test_internal_crash_observation_rejects_nonproduct_or_unlinked_failures(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report, record = self.crash_evidence(Path(directory))
+            mutations = ("configuration", "foreign_source", "missing_snapshot", "wrong_cwd", "wrong_kind",
+                         "fractional_exit", "failed_command", "normal_diagnostic_claim")
+            if os.name == "nt":
+                mutations += ("drive_relative_snapshot",)
+            for mutation in mutations:
+                changed = json.loads(json.dumps(record))
+                current = report.model_copy(deep=True)
+                if mutation == "configuration":
+                    changed["stderr"] = "Configuration file could not be parsed"
+                elif mutation == "foreign_source":
+                    changed["stderr"] = str(changed["stderr"]).replace("sample.py", "unrecorded.py")
+                elif mutation == "missing_snapshot":
+                    changed["inputs"] = []
+                elif mutation == "drive_relative_snapshot":
+                    changed["inputs"][0]["file"] = Path(directory).drive + "sample.py"
+                elif mutation == "wrong_cwd":
+                    changed["cwd"] = "unrelated"
+                elif mutation == "wrong_kind":
+                    changed["kind"] = "prepared_pyright"
+                elif mutation == "fractional_exit":
+                    changed["exit_code"] = 2.0
+                elif mutation == "failed_command":
+                    changed["error"] = "Execution was blocked"
+                else:
+                    current.claims[0].reproduction[2].observation = "diagnostics"
+                with self.subTest(mutation=mutation), self.assertRaises(AutomationError):
+                    validate_review_execution(current, [changed])
+
+    def test_legacy_reproduction_still_requires_normal_diagnostic_output(self):
+        report = audit()
+        self.assertEqual(report.claims[0].reproduction[2].observation, "diagnostics")
+        validate_review_execution(report, [product_record(report)])
+        record = product_record(report)
+        record["exit_code"] = 2
+        record["stdout"] = ""
+        with self.assertRaises(AutomationError):
+            validate_review_execution(report, [record])
+
     def test_concern_grouping_retains_diagnostic_detail_and_does_not_merge_independent_uncertainty(self):
         report = audit()
         report.claims[0].summary = "Reject an unsupported construction"
@@ -3078,6 +3152,113 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(record["data"]["completed"])
 
 
+class ProcessTests(unittest.IsolatedAsyncioTestCase):
+    async def test_timeout_closes_owned_tree_before_draining_inherited_pipes(self):
+        terminated = asyncio.Event()
+        child = SimpleNamespace(
+            pid=12345, returncode=None, kill=Mock(), wait=AsyncMock(),
+        )
+
+        async def communicate(*_args):
+            if not terminated.is_set():
+                raise TimeoutError
+            child.returncode = 2
+            return b"", b""
+
+        child.communicate = AsyncMock(side_effect=communicate)
+
+        async def wait():
+            await terminated.wait()
+            return 2
+
+        child.wait.side_effect = wait
+
+        @contextmanager
+        def tree(_pid):
+            try:
+                yield
+            finally:
+                terminated.set()
+
+        with patch("review_issues.asyncio.create_subprocess_exec", AsyncMock(return_value=child)), \
+             patch("review_issues.owned_tree", tree, create=True), \
+             patch("review_issues.resume_owned_process", create=True):
+            with self.assertRaisesRegex(TimeoutError, "Timed out after 120s"):
+                await asyncio.wait_for(process(["node", "fixture"], ROOT), 0.5)
+        self.assertTrue(terminated.is_set())
+
+    async def test_process_creation_is_inside_the_execution_budget(self):
+        async def launch(*_args, **_kwargs):
+            await asyncio.sleep(0.2)
+            self.fail("Expired process creation must not proceed to launch")
+
+        with patch("review_issues.asyncio.create_subprocess_exec", launch):
+            with self.assertRaisesRegex(TimeoutError, "Timed out after 0.01s"):
+                await process(["node", "fixture"], ROOT, timeout=0.01)
+
+    async def test_preserves_stdin_stdout_stderr_and_nonzero_exit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = await process([
+                sys.executable, "-I", "-u", "-c",
+                "import sys; sys.stdout.buffer.write(sys.stdin.buffer.read()); "
+                "sys.stderr.buffer.write(b'stderr\\n'); sys.exit(3)",
+            ], Path(directory), stdin="captured input\n")
+        self.assertEqual(result, (3, "captured input\n", "stderr\n"))
+
+    @unittest.skipUnless(os.name == "nt", "Windows descendant ownership regression")
+    async def test_timeout_and_cancellation_terminate_inherited_pipe_descendants(self):
+        import ctypes
+        from ctypes import wintypes
+
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel.OpenProcess.restype = wintypes.HANDLE
+        kernel.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        with tempfile.TemporaryDirectory() as directory:
+            for mode in ("timeout", "cancel"):
+                with self.subTest(mode=mode):
+                    pidfile = Path(directory) / (mode + ".pid")
+                    child_code = (
+                        "import os, pathlib, sys, time; "
+                        "pathlib.Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(60)"
+                    )
+                    parent_code = (
+                        "import subprocess, sys, time; "
+                        "subprocess.Popen([sys.executable, '-I', '-u', '-c', sys.argv[1], sys.argv[2]]); "
+                        "time.sleep(60)"
+                    )
+                    task = asyncio.create_task(process([
+                        sys.executable, "-I", "-u", "-c", parent_code, child_code, str(pidfile),
+                    ], Path(directory), timeout=2 if mode == "timeout" else 30))
+
+                    async def cleanup(task=task):
+                        if not task.done():
+                            task.cancel()
+                        await asyncio.gather(task, return_exceptions=True)
+
+                    self.addAsyncCleanup(cleanup)
+                    async with asyncio.timeout(8):
+                        while not pidfile.is_file() or not pidfile.read_text(encoding="utf-8"):
+                            await asyncio.sleep(0.01)
+                        pid = int(pidfile.read_text(encoding="utf-8"))
+                        handle = kernel.OpenProcess(0x1000, False, pid)
+                        self.assertTrue(handle, "Owned descendant did not start")
+                        try:
+                            if mode == "cancel":
+                                task.cancel()
+                                with self.assertRaises(asyncio.CancelledError):
+                                    await task
+                            else:
+                                with self.assertRaisesRegex(TimeoutError, "Timed out after 2s"):
+                                    await task
+                            code = wintypes.DWORD()
+                            self.assertTrue(kernel.GetExitCodeProcess(handle, ctypes.byref(code)))
+                            self.assertNotEqual(code.value, 259, "Owned descendant remained running")
+                        finally:
+                            kernel.CloseHandle(handle)
+
+
 class CheckPreflightTests(unittest.IsolatedAsyncioTestCase):
     async def test_parallel_reviews_share_one_probe_per_executable(self):
         source_cli = ROOT / "packages" / "pyright" / "index.js"
@@ -3171,6 +3352,33 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         descriptions = {tool.name: tool.description for tool in self.tools.tools}
         self.assertIn("Omit ALL repo:", descriptions["github_read"])
         self.assertIn("arguments=[]", descriptions["run_check"])
+
+    async def test_source_crash_returns_exact_internal_error_and_lifecycle_evidence(self):
+        atomic_write(self.scratch / "sample.py", "value: int = 1\n")
+        atomic_write(self.scratch / "pyrightconfig.json", '{"include":["sample.py"]}\n')
+        error = (
+            f'An internal error occurred while type checking file "{self.scratch / "sample.py"}": '
+            "RangeError: Maximum call stack size exceeded"
+        )
+
+        async def execute(_command, _cwd, **options):
+            progress = options["progress"]
+            for phase in ("launch", "running", "terminate_owned_tree", "drain", "drained"):
+                progress(phase, None if phase == "launch" else 12345)
+            return 2, "", error + "\n"
+
+        with patch("review_issues.process", AsyncMock(side_effect=execute)):
+            result = await self.tools.run_check(ToolInvocation(
+                session_id="test", tool_call_id="call", tool_name="run_check", arguments={"kind": "pyright"},
+            ))
+        self.assertEqual(result.result_type, "success")
+        record = json.loads(result.text_result_for_llm)
+        self.assertEqual(record["internal_errors"], [error])
+        self.assertEqual(record["stderr"], error + "\n")
+        rows = [json.loads(line) for line in (self.scratch / "checks.jsonl").read_text(encoding="utf-8").splitlines()]
+        phases = [row["phase"] for row in rows if row.get("kind") == "process_lifecycle"]
+        self.assertEqual(phases, ["launch", "running", "terminate_owned_tree", "drain", "drained"])
+        self.assertEqual(rows[-1]["exit_code"], 2)
 
     async def test_rejected_search_scopes_are_not_stripped_or_sent_and_retain_correction(self):
         with patch.object(self.tools.github, "api", AsyncMock()) as api:

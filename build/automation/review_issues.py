@@ -96,9 +96,9 @@ from issue_review_models import (
     RootCausePublication,
     Text,
 )
-from issue_review_editor import EditorRuntime, editor_failure, editor_signature, fingerprint as editor_fingerprint
+from issue_review_editor import EditorRuntime, editor_failure, editor_signature, fingerprint as editor_fingerprint, owned_tree
 from issue_review_lsp import CAPABILITY as LSP_CAPABILITY
-from issue_review_lsp import LanguageServerRuntime, LspProbeRequest, observed_lsp_result
+from issue_review_lsp import LanguageServerRuntime, LspProbeRequest, observed_lsp_result, resume_owned_process
 from issue_review_prepared import PreparedCheck, PreparedChecks, selected_targets, validate_receipt as validate_prepared_receipt
 from issue_review_rca import RootCauseRun, RootCauseRuntime
 from issue_review_reproduction import (
@@ -158,6 +158,10 @@ REVIEW_REPRODUCTION_GUIDANCE = (
     "executed checks and in Markdown without promoting them to faithful integration reproduction. "
     "In every reviewer audit, reported_release/current_release must remain blocked/not_attempted/not_applicable; "
     "checkout/prepared-target experiments cannot replace the independent strict reproduction gate. "
+    "Checkout reproduction defaults to observation=diagnostics. For a source CLI internal crash, use "
+    "observation=internal_error only when run_check returns nonempty internal_errors tied to captured source "
+    "inputs; retain the exact stderr and linked check IDs. This permits reproduced checkout bug/inconclusive "
+    "observations, never not_reproduced, a design conclusion or released-checker evidence. "
     "Do not change product_surface or omit material claims to pass validation. "
 )
 EXPECTATION_GUIDANCE = (
@@ -588,6 +592,33 @@ def observed_pyright_result(record: JsonValue) -> bool:
     )
 
 
+def pyright_internal_errors(record: JsonValue) -> list[str]:
+    if (
+        not isinstance(record, dict) or record.get("kind") != "pyright"
+        or type(record.get("exit_code")) is not int or record["exit_code"] != 2 or "error" in record
+        or not isinstance(record.get("stdout"), str) or not isinstance(stderr := record.get("stderr"), str)
+        or not isinstance(cwd := record.get("cwd"), str) or not cwd
+        or not isinstance(inputs := record.get("inputs"), list)
+    ):
+        return []
+    captured = set()
+    for item in inputs:
+        if not isinstance(item, dict) or not isinstance(name := item.get("file"), str) or not isinstance(item.get("content"), str):
+            continue
+        relative = Path(name)
+        if relative.anchor or ".." in relative.parts or relative.suffix not in {".py", ".pyi"}:
+            continue
+        captured.add(os.path.normcase(os.path.abspath(Path(cwd) / relative)))
+    errors = []
+    for match in re.finditer(
+        r'^An internal error occurred while type checking file "([^"\r\n]+)": [A-Za-z]*Error:[^\r\n]+',
+        stderr, re.MULTILINE,
+    ):
+        if Path(match[1]).is_absolute() and os.path.normcase(os.path.abspath(match[1])) in captured:
+            errors.append(match[0])
+    return errors
+
+
 def review_reproduction_errors(report: JsonValue) -> list[str]:
     """Collect independently detectable policy violations; partial data still requires full schema validation."""
     if not isinstance(report, dict) or not isinstance(claims := report.get("claims"), list):
@@ -821,7 +852,10 @@ def validate_review_execution(report: ReviewEvidence, logged: list[JsonValue]) -
         for target in claim.reproduction:
             if target.target == "checkout" and target.status in {"reproduced", "not_reproduced"}:
                 if not any(
-                    isinstance(item, dict) and observed_pyright_result(item)
+                    isinstance(item, dict) and (
+                        observed_pyright_result(item) if target.observation == "diagnostics" else
+                        target.status == "reproduced" and bool(pyright_internal_errors(item))
+                    )
                     and any(
                         by_id[check_id].status == "executed"
                         and item.get("command") == by_id[check_id].command
@@ -832,7 +866,8 @@ def validate_review_execution(report: ReviewEvidence, logged: list[JsonValue]) -
                     for item in executions
                 ):
                     raise AutomationError(
-                        f"{claim.id}: observed checkout reproduction requires an actual source-CLI run; "
+                        f"{claim.id}: observed checkout reproduction requires an actual source-CLI run with "
+                        "normal diagnostic output or an explicitly declared, captured-source internal error; "
                         "a Python runtime, mypy or qualified LSP observation does not establish it."
                     )
 
@@ -856,26 +891,61 @@ def state_lock(directory: Path) -> Iterator[None]:
 
 
 async def process(
-    command: list[str], cwd: Path, *, stdin: str | None = None, timeout: float = 120
+    command: list[str], cwd: Path, *, stdin: str | None = None, timeout: float = 120,
+    progress: Callable[[str, int | None], None] | None = None,
 ) -> tuple[int, str, str]:
-    child = await asyncio.create_subprocess_exec(
-        *command, cwd=cwd, env=child_environment(), stdin=asyncio.subprocess.PIPE if stdin is not None else None,
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-    )
+    child: asyncio.subprocess.Process | None = None
     try:
-        stdout, stderr = await asyncio.wait_for(
-            child.communicate(None if stdin is None else stdin.encode("utf-8")), timeout
-        )
-    except (TimeoutError, asyncio.CancelledError) as error:
-        if child.returncode is None:
-            child.kill()
-        await child.wait()
-        if isinstance(error, TimeoutError):
-            raise TimeoutError(f"Timed out after {timeout:g}s running {subprocess.list2cmdline(command)} in {cwd}") from error
-        raise
-    if child.returncode is None:
-        raise AutomationError("Subprocess completed without an exit status")
-    return child.returncode, stdout.decode("utf-8", errors="replace"), stderr.decode("utf-8", errors="replace")
+        async with asyncio.timeout(timeout):
+            if progress:
+                progress("launch", None)
+            child = await asyncio.create_subprocess_exec(
+                *command, cwd=cwd, env=child_environment(), stdin=asyncio.subprocess.PIPE if stdin is not None else None,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                start_new_session=os.name != "nt", creationflags=0x00000004 if os.name == "nt" else 0,
+            )
+            with owned_tree(child.pid):
+                try:
+                    resume_owned_process(child.pid)
+                    if progress:
+                        progress("running", child.pid)
+                    stdout, stderr = await child.communicate(None if stdin is None else stdin.encode("utf-8"))
+                    if child.returncode is None:
+                        raise AutomationError("Subprocess completed without an exit status")
+                    return child.returncode, stdout.decode("utf-8", errors="replace"), stderr.decode("utf-8", errors="replace")
+                finally:
+                    if progress:
+                        progress("terminate_owned_tree", child.pid)
+    except TimeoutError as error:
+        raise TimeoutError(f"Timed out after {timeout:g}s running {subprocess.list2cmdline(command)} in {cwd}") from error
+    finally:
+        if child is not None:
+            if child.returncode is None:
+                try:
+                    child.kill()
+                except ProcessLookupError:
+                    pass
+
+            async def drain() -> None:
+                if progress:
+                    progress("drain", child.pid)
+                try:
+                    await asyncio.wait_for(child.communicate(), 5)
+                except TimeoutError as error:
+                    raise TimeoutError(f"Owned process pipes did not drain within 5s: {subprocess.list2cmdline(command)}") from error
+                if progress:
+                    progress("drained", child.pid)
+
+            cleanup = asyncio.create_task(drain())
+            cancelled = False
+            while not cleanup.done():
+                try:
+                    await asyncio.shield(cleanup)
+                except asyncio.CancelledError:
+                    cancelled = True
+            await cleanup
+            if cancelled:
+                raise asyncio.CancelledError
 
 
 async def target_process(command: list[str], cwd: Path) -> tuple[int, str, str]:
@@ -1497,7 +1567,14 @@ class InvestigationTools(ScreenedTools):
                     self.scratch / "pyrightconfig.json", *self.scratch.rglob("*.py"), *self.scratch.rglob("*.pyi"),
                 ]):
                     inputs.append({"file": str(path.relative_to(self.scratch)), "content": path.read_text(encoding="utf-8")})
-            code, output, error = await process(command, self.scratch)
+            def progress(phase: str, pid: int | None) -> None:
+                self.log({
+                    "kind": "process_lifecycle", "tool": "run_check", "check_kind": request.kind,
+                    "phase": phase, "pid": pid, "at": datetime.now(timezone.utc).isoformat(),
+                    "command": subprocess.list2cmdline(command), "cwd": str(self.scratch),
+                })
+
+            code, output, error = await process(command, self.scratch, progress=progress)
             result: dict[str, JsonValue] = {
                 "kind": request.kind,
                 "command": subprocess.list2cmdline(command), "cwd": str(self.scratch),
@@ -1505,6 +1582,8 @@ class InvestigationTools(ScreenedTools):
                 "inputs": inputs,
                 "audit_instruction": "Copy command, cwd, and exit_code verbatim into executed audit checks. Explanations belong in observations.",
             }
+            if request.kind == "pyright":
+                result["internal_errors"] = [value for value in pyright_internal_errors(result)]
             self.log(result)
             return ToolResult(text_result_for_llm=json.dumps(result), result_type="success")
         except (AutomationError, OSError, ValueError, TimeoutError, EOFError) as error:

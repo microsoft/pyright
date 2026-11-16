@@ -628,7 +628,12 @@ Each `claims` entry contains:
 -   `reproduction`: exactly three `{target, version, status, check_ids}` entries, one each for `reported_release`,
     `current_release`, and `checkout`. Version may be `null`. Status is `reproduced`, `not_reproduced`, `blocked`,
     `not_attempted`, or `not_applicable`. Check IDs refer to `checks`; `reproduced` and `not_reproduced` require an executed,
-    applicable check. Do not infer one target's result from another's version string.
+    applicable check. Optional `observation` defaults to `diagnostics`; `internal_error` is restricted to reproduced
+    checkout observations for bug/inconclusive claims. It requires an exact linked source-CLI receipt with exit code 2
+    and Pyright's internal-error stderr identifying a captured `.py`/`.pyi` input. Configuration failures, arbitrary
+    stderr, unrecorded files, normal-diagnostic claims and mere nonzero exits do not qualify. Internal errors cannot
+    establish not-reproduced, released-checker or by-design evidence. Do not infer one target's result from another's
+    version string.
 -   `basis`: reasoning connecting observations to the rule, permitted approximation, or documented policy.
 -   `source_ids`: references to supporting `sources`. Specification-correct and intentional-limitation claims require
     applicable source evidence, not merely an existing implementation or label.

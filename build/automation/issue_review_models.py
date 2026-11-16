@@ -59,6 +59,10 @@ class Reproduction(Record):
         "reproduced", "not_reproduced", "blocked", "not_attempted", "not_applicable"
     ]
     check_ids: list[str]
+    observation: Literal["diagnostics", "internal_error"] = Field(
+        default="diagnostics",
+        description="internal_error requires a reproduced checkout crash linked to controller-recorded source CLI evidence; not normal diagnostics, release evidence or a design conclusion.",
+    )
 
 
 class ExpectationEvidence(Record):
@@ -197,6 +201,11 @@ class ReviewEvidence(Record):
             }:
                 raise ValueError(f"Missing or repeated reproduction target in {claim.id}")
             for item in claim.reproduction:
+                if item.observation == "internal_error" and (
+                    item.target != "checkout" or item.status != "reproduced"
+                    or claim.disposition not in {"bug", "inconclusive"}
+                ):
+                    raise ValueError(f"Internal-error observations require a reproduced checkout bug or inconclusive claim: {claim.id}")
                 if not set(item.check_ids) <= checks.keys():
                     raise ValueError(f"Unresolved check reference in {claim.id}")
                 if item.status in {"reproduced", "not_reproduced"} and not any(
