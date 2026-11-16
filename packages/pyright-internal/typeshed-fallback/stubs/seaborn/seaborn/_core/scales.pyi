@@ -66,7 +66,7 @@ class Continuous(ContinuousBase):
         formatter: Formatter | None = None,
         *,
         like: str | Callable[[float], str] | None = None,
-        base: int | None | Default = ...,
+        base: int | Default | None = ...,
         unit: str | None = None,
     ) -> Self: ...
 

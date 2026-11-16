@@ -41,3 +41,26 @@ export function getWindowsProcessTreeTerminationScript(pid: number): string {
         'try { Stop-OwnedWindowsProcessTree -Root $root } finally { $root.Dispose() }',
     ].join('\n');
 }
+
+/** Retain every spawned child's native handle until this synchronous batch completes. */
+export function getWindowsProcessTreeBatchTerminationScript(pids: readonly number[]): string {
+    if (!pids.length || pids.some((pid) => !Number.isSafeInteger(pid) || pid <= 0)) {
+        throw new Error('Live, owned child PIDs are required for Windows process-tree cleanup.');
+    }
+    return [
+        windowsProcessTreeScript,
+        '$failures = [System.Collections.Generic.List[string]]::new()',
+        `foreach ($rootId in @(${pids.join(',')})) {`,
+        '    $root = $null',
+        '    try {',
+        '        $root = [PylanceOwnedWindowsProcess]::Open($rootId)',
+        '        Stop-OwnedWindowsProcessTree -Root $root',
+        '    } catch {',
+        '        $failures.Add("Owned root $rootId`: $($_.Exception.Message)")',
+        '    } finally {',
+        '        if ($null -ne $root) { $root.Dispose() }',
+        '    }',
+        '}',
+        'if ($failures.Count) { throw ($failures -join [Environment]::NewLine) }',
+    ].join('\n');
+}

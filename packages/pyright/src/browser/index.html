@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Pyright playground</title>
+        <style>
+            body {
+                font-family: system-ui, sans-serif;
+                max-width: 72rem;
+                margin: 2rem auto;
+                padding: 0 1rem;
+            }
+            textarea {
+                box-sizing: border-box;
+                width: 100%;
+                min-height: 20rem;
+                padding: 1rem;
+                font: 1rem monospace;
+                tab-size: 4;
+            }
+            pre {
+                padding: 1rem;
+                background: #f3f3f3;
+                white-space: pre-wrap;
+            }
+        </style>
+        <script src="./client.js" defer></script>
+    </head>
+    <body>
+        <h1>Pyright playground</h1>
+        <p>Static type checking runs in your browser. Python code is not executed or sent to a server.</p>
+        <label for="source">main.py</label>
+        <textarea id="source" spellcheck="false" disabled>
+from pathlib import Path
+
+name: str = Path("example.py").name
+answer: int = "not an integer"
+</textarea
+        >
+        <p id="status" role="status">Loading...</p>
+        <button id="restart" type="button">Restart worker</button>
+        <h2>Diagnostics</h2>
+        <pre id="diagnostics" aria-live="polite">Waiting for analysis...</pre>
+    </body>
+</html>

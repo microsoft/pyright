@@ -1,3 +1,4 @@
+from _typeshed import MaybeNone
 from array import array
 from collections.abc import Iterator
 from typing import Any, Generic, Literal, overload
@@ -111,7 +112,7 @@ class BaseGeometry(Geometry):
     @property
     def minimum_clearance(self) -> float: ...
     @property
-    def boundary(self) -> BaseMultipartGeometry | Any: ...  # is None for GeometryCollection
+    def boundary(self) -> BaseMultipartGeometry | MaybeNone: ...  # is None for GeometryCollection
     @property
     def bounds(self) -> tuple[float, float, float, float]: ...
     @property

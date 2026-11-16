@@ -69,7 +69,7 @@ def show_backrefs(
     shortnames: bool = True,
     output: SupportsWrite[str] | None = None,
     extra_node_attrs: Callable[[object], dict[str, str]] | None = None,
-) -> None | _GraphvizSource: ...
+) -> _GraphvizSource | None: ...
 def show_refs(
     objs: object,
     max_depth: int = 3,
@@ -83,7 +83,7 @@ def show_refs(
     shortnames: bool = True,
     output: SupportsWrite[str] | None = None,
     extra_node_attrs: Callable[[object], dict[str, str]] | None = None,
-) -> None | _GraphvizSource: ...
+) -> _GraphvizSource | None: ...
 def show_chain(
     *chains: list[object], obj: object, predicate: _Filter, max_depth: int = 20, extra_ignore: Iterable[int] = ()
 ) -> None: ...

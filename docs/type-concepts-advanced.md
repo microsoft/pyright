@@ -61,8 +61,8 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `x is ...` and `x is not ...` (where `...` is an ellipsis token)
 * `x == ...` and `x != ...` (where `...` is an ellipsis token)
 * `x is S` and `x is not S` (where S is a Sentinel)
-* `type(x) is T` and `type(x) is not T`
-* `type(x) == T` and `type(x) != T`
+* `type(x) is T` and `type(x) is not T` (including reversed comparisons and operands annotated as `type[T]`)
+* `type(x) == T` and `type(x) != T` (including reversed comparisons, subject to the equality restrictions described below)
 * `x is L` and `x is not L` (where L is an expression that evaluates to a literal type)
 * `x is C` and `x is not C` (where C is a class)
 * `x == C` and `x != C` (where C is a class and the compared class objects have statically known identity-based equality)
@@ -75,7 +75,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `x[I] is B` and `x[I] is not B` (where I is a literal expression, B is a `bool` or enum literal, and x is a known-length tuple that is distinguished by the index indicated by I)
 * `x[I] is None` and `x[I] is not None` (where I is a literal expression and x is a known-length tuple that is distinguished by the index indicated by I)
 * `len(x) == L`, `len(x) != L`, `len(x) < L`, etc. (where x is tuple and L is an expression that evaluates to an int literal type)
-* `x in y` or `x not in y` (where y is instance of list, set, frozenset, deque, tuple, dict, defaultdict, or OrderedDict)
+* `x in y` or `x not in y` (where y is an instance of list, set, frozenset, deque, tuple, dict, defaultdict, OrderedDict, a concrete dictionary keys/values view, or a union of these types)
 * `S in D` and `S not in D` (where S is a string literal and D is a TypedDict)
 * `isinstance(x, T)` (where T is a type or a tuple of types)
 * `issubclass(x, T)` (where T is a type or a tuple of types)
@@ -83,11 +83,19 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `bool(x)` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 * `x` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 
+Containment narrowing accounts for equality between different built-in types. For example, a float that equals an integer literal retains its `float` type, and `set` and `frozenset` values can compare equal. Abstract collection interfaces do not provide the same narrowing guarantee, because their membership implementations can accept values unrelated to their element type. For a union of container types, narrowing is skipped if any alternative's element or key type is `Any`, unknown, or a union containing either.
+
 Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, subscripts that are integer literals (e.g. `a[2]` or `a[-1]`), and call expressions. Other operators (such as arithmetic operators or other subscripts) are not supported.
+
+Sentinel identity guards retain singleton identity for sentinels created at module scope or in class bodies outside functions and loops, including aliases and members that refer to those singletons. Names need not be uppercase or `Final`. Factory calls in function bodies, comprehensions, generators, or loops can create distinct objects on each execution, so comparisons between their results do not establish singleton identity.
 
 For user-defined `TypeGuard` and `TypeIs` calls, Pyright narrows the argument corresponding to the first parameter after any method receiver (`self` or `cls`). This applies to bound and unbound methods, including method aliases, and arguments supplied by keyword. Guards with gradual (`...`), tuple-unpacked, or variadic positional parameter lists support narrowing of explicit positional arguments. If selected overloads identify different guarded arguments, or argument unpacking obscures the guarded expression, Pyright does not apply narrowing.
 
 Class equality guards can narrow exact or final, non-generic class objects whose metaclasses have known default equality semantics. Alternatives with open subclass hierarchies, generic aliases, custom equality methods, or uncertain metaclasses are retained. Callable metaclass factories and unknown metaclass ancestry do not establish identity-based equality. Constrained type variables that expand to unions are retained rather than narrowed by these equality guards. Identity guards (`is` and `is not`) do not have these equality-specific restrictions.
+
+For compatibility, forward `type(x) == T` and `type(x) != T` guards against bare classes or built-in `type(other)` calls retain legacy narrowing when the declared metaclasses do not override equality. This includes open subclass hierarchies and bare generic classes, but not explicitly specialized generic aliases. This legacy behavior does not rule out an unknown subclass with a custom metaclass, so equality does not always establish the runtime class. Reversed comparisons and comparisons against class-valued variables annotated as `type[T]` require statically known identity-based equality as described above. Use `is` or `is not` when testing exact class identity.
+
+An operand annotated as `type[T]` can refer to a subclass of `T`, unlike a direct reference to the class `T`; identity narrowing preserves this distinction and any known literal or generic instance information. Generic arguments inferred from the guarded value are retained, with information from the compared class filling gradual (`Any` or unknown) arguments.
 
 Some type guards are able to narrow in both the positive and negative cases. Positive cases are used in `if` statements, and negative cases are used in `else` statements. (Positive and negative cases are flipped if the type guard expression is preceded by a `not` operator.) In some cases, the type can be narrowed only in the positive or negative case but not both. Consider the following examples:
 

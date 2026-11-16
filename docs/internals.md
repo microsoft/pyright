@@ -23,6 +23,8 @@ The program tracks multiple [sourceFile](https://github.com/microsoft/pyright/bl
 
 The program makes use of an [importResolver](https://github.com/microsoft/pyright/blob/main/packages/pyright-internal/src/analyzer/importResolver.ts) to resolve the imported modules referenced within each source file.
 
+Language-service requests use a `SourceMapper` to map stub declarations to Python implementations for documentation, default values, and navigation. Completed function-declaration lookups, including unsuccessful lookups, are cached within each mapper instance and shared by its public declaration-lookup methods. Recursive search results are not cached because they can be partial when a declaration is already on the active traversal stack. A mapper should not be retained across program updates.
+
 
 ## Analysis Phases
 
@@ -39,4 +41,3 @@ The [checker](https://github.com/microsoft/pyright/blob/main/packages/pyright-in
 ## Type Evaluation Walkthroughs
 
 See [Overload Resolution and the NumPy Array Case](overload-resolution-numpy.md) for a detailed explanation of overloaded calls, callable compatibility, constraint inference, and requirement-first recursive protocol rejection.
-
