@@ -328,7 +328,8 @@ export function getTypeNarrowingCallback(
                             typeIsCallInfo.adjIsPositiveTest,
                             typeIsCallInfo.isOrIsNotOperator,
                             typeIsCallInfo.classTypeVar,
-                            typeIsCallInfo.allowLegacyEquality
+                            typeIsCallInfo.allowLegacyEquality,
+                            typeIsCallInfo.allowExactStringFlow
                         ),
                         isIncomplete: typeIsCallInfo.isIncomplete,
                     };
@@ -1877,7 +1878,8 @@ function narrowTypeForTypeIs(
     isPositiveTest: boolean,
     isIsOperator: boolean,
     classTypeVar: TypeVarType | undefined,
-    allowLegacyEquality: boolean
+    allowLegacyEquality: boolean,
+    allowExactStringFlow: boolean
 ) {
     return TypeEvaluatorNarrowing.narrowTypeForTypeIs(
         evaluator,
@@ -1886,7 +1888,8 @@ function narrowTypeForTypeIs(
         isPositiveTest,
         isIsOperator,
         classTypeVar,
-        allowLegacyEquality
+        allowLegacyEquality,
+        allowExactStringFlow
     );
 }
 
