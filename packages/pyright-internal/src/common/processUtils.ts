@@ -7,7 +7,11 @@
  */
 import * as child_process from 'child_process';
 
-import { getWindowsProcessTreeTerminationScript, windowsProcessTreePowerShellArgs } from './windowsProcessTree';
+import {
+    getWindowsProcessTreeBatchTerminationScript,
+    getWindowsProcessTreeTerminationScript,
+    windowsProcessTreePowerShellArgs,
+} from './windowsProcessTree';
 
 /** @deprecated Retain the spawned child and use terminateChild; a PID alone does not prove ownership. */
 export function terminateProcessTree(pid: number) {
@@ -77,8 +81,65 @@ export function terminateChild(
     }
 }
 
+export function terminateChildren(children: readonly child_process.ChildProcess[], signal: NodeJS.Signals = 'SIGTERM') {
+    if (process.platform !== 'win32') {
+        const retained = [...new Set(children)];
+        const errors: unknown[] = [];
+        for (const child of retained) {
+            try {
+                terminateChild(child, signal);
+            } catch (error) {
+                errors.push(error);
+            }
+        }
+        if (errors.length) {
+            throw new ProcessTreeBatchTerminationError(retained, errors);
+        }
+        return;
+    }
+    const owned = [...new Set(children)].filter(
+        (child) =>
+            child instanceof child_process.ChildProcess &&
+            child.pid &&
+            Number.isSafeInteger(child.pid) &&
+            child.pid > 0 &&
+            child.exitCode === null &&
+            !child.signalCode &&
+            Reflect.get(child, '_handle')
+    );
+    if (owned.length < 2) {
+        for (const child of owned) {
+            terminateChild(child, signal);
+        }
+        return;
+    }
+    try {
+        child_process.execFileSync('powershell.exe', windowsProcessTreePowerShellArgs, {
+            input: getWindowsProcessTreeBatchTerminationScript(owned.map((child) => child.pid!)),
+            stdio: ['pipe', 'pipe', 'pipe'],
+            windowsHide: true,
+        });
+    } catch (error) {
+        throw new ProcessTreeBatchTerminationError(owned, [error]);
+    }
+}
+
+export class ProcessTreeBatchTerminationError extends Error {
+    constructor(readonly children: readonly child_process.ChildProcess[], readonly errors: readonly unknown[]) {
+        super(
+            `Owned process-tree batch cleanup is incomplete: ${errors
+                .map((error) => (error instanceof Error ? error.message : String(error)))
+                .join('\n')}`
+        );
+        this.name = 'ProcessTreeBatchTerminationError';
+        Object.defineProperty(this, 'children', { enumerable: false });
+        Object.defineProperty(this, 'errors', { enumerable: false });
+    }
+}
+
 export class ProcessTreeTerminationError extends Error {
     readonly child: child_process.ChildProcess;
+    readonly rootExitPending: boolean;
 
     constructor(child: child_process.ChildProcess, error: unknown) {
         super(
@@ -88,7 +149,49 @@ export class ProcessTreeTerminationError extends Error {
         );
         this.name = 'ProcessTreeTerminationError';
         this.child = child;
+        this.rootExitPending = isRootExitPending(child, error);
         // Preserve retry ownership without exposing a circular ChildProcess in JSON error output.
         Object.defineProperty(this, 'child', { enumerable: false });
+    }
+}
+
+function isRootExitPending(child: child_process.ChildProcess, error: unknown): boolean {
+    if (
+        !child.pid ||
+        !Number.isSafeInteger(child.pid) ||
+        child.pid <= 0 ||
+        typeof error !== 'object' ||
+        error === null ||
+        !('stderr' in error)
+    ) {
+        return false;
+    }
+    const stderr = error.stderr;
+    const text = typeof stderr === 'string' ? stderr : Buffer.isBuffer(stderr) ? stderr.toString('utf8') : undefined;
+    if (text === undefined) {
+        return false;
+    }
+    const prefix = 'OWNED_PROCESS_ROOT_EXIT_PENDING ';
+    const receipts = text.split(/\r?\n/).filter((line) => line.startsWith(prefix));
+    if (receipts.length !== 1) {
+        return false;
+    }
+    try {
+        const receipt: unknown = JSON.parse(receipts[0].slice(prefix.length));
+        return (
+            typeof receipt === 'object' &&
+            receipt !== null &&
+            'version' in receipt &&
+            receipt.version === 1 &&
+            'rootProcessId' in receipt &&
+            receipt.rootProcessId === child.pid &&
+            'rootCreationTimeUtcTicks' in receipt &&
+            typeof receipt.rootCreationTimeUtcTicks === 'string' &&
+            /^[1-9]\d{0,18}$/.test(receipt.rootCreationTimeUtcTicks) &&
+            BigInt(receipt.rootCreationTimeUtcTicks) <= BigInt('9223372036854775807')
+        );
+    } catch {
+        // Invalid completion metadata must leave the original cleanup failure unresolved.
+        return false;
     }
 }

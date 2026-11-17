@@ -125,11 +125,13 @@ external contributors, both wait for a maintainer to approve workflows to run be
 start. Subsequent commits require successful Validation for the new head before either check runs.
 The trusted triggers run from the base repository and reject outdated PR heads.
 
-Both follow-up checks appear on the PR head as queued while Validation runs, then report their
-execution results with links to the workflow runs. If Validation does not pass, both are skipped;
-the benchmark is also skipped for PRs without analyzer or bundled typeshed changes. Check reporting does not change
-branch protection. Only trusted reporting jobs receive permission to write checks; jobs executing
-the candidate code keep read-only repository access.
+Both follow-ups appear as commit statuses on the PR head. Their links open Validation while it is
+pending and the corresponding workflow run once execution starts. If Validation does not pass, both
+are reported as successful with a description explaining they were skipped; the benchmark is also
+skipped for PRs without analyzer or bundled typeshed changes. Cancelled runs report an error.
+Reporting does not change branch protection. Only trusted reporting jobs can write commit statuses;
+jobs executing the candidate code keep read-only repository access. Check runs created before this
+change are not rewritten and can remain on existing PR heads.
 
 To run the benchmark again, or to run it for another pull request, a maintainer can comment exactly
 `/benchmark` on an open or merged pull request. The command must be the entire comment. The trusted
