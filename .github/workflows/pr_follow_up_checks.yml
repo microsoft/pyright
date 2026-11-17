@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
-  checks: write
+  statuses: write
 
 jobs:
   report:
@@ -26,6 +26,7 @@ jobs:
     concurrency:
       group: pr-follow-up-${{ matrix.check }}-${{ github.event.workflow_run.head_sha }}
       cancel-in-progress: false
+      queue: max
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,8 +43,11 @@ jobs:
             const validated = await resolve({ github, context, core, requireSuccess: false })
             if (!validated) return
             const headSha = validated.pullRequest.head.sha
+            const validationUrl = context.payload.workflow_run.html_url
+            if (!validationUrl) throw new Error('Validation run is missing its URL')
             await report({
-              github, context, name: process.env.CHECK_NAME, headSha,
+              github, context, name: process.env.CHECK_NAME, headSha, useCommitStatus: true,
+              targetUrl: validationUrl,
               status: failedValidation ? 'completed' : 'queued',
               conclusion: failedValidation ? 'skipped' : undefined,
               summary: failedValidation
