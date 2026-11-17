@@ -2,8 +2,8 @@ from _typeshed import SupportsRead
 from datetime import date, datetime, time, tzinfo
 from typing import TypeAlias
 
-_Readable: TypeAlias = SupportsRead[str | bytes]
-_TakesAscii: TypeAlias = str | bytes | _Readable
+_Readable: TypeAlias = SupportsRead[str | bytes | bytearray]
+_TakesAscii: TypeAlias = str | bytes | bytearray | _Readable
 
 __all__ = ["isoparse", "isoparser"]
 
