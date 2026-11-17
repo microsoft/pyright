@@ -170,7 +170,7 @@ import { assignProperty, createProperty } from './properties';
 import { assignClassToProtocol, assignModuleToProtocol, noteAssignTypeRecursionLimit } from './protocols';
 import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
-import { createSentinelType } from './sentinel';
+import { createSentinelType, getSentinelClass, isSentinelClass } from './sentinel';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags, SynthesizedTypeInfo } from './symbol';
 import { isConstantName, isMethodExemptFromLsp, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
@@ -509,7 +509,7 @@ import {
     TypeFormTypeCacheEntry,
     ValidateArgTypeOptions,
 } from './typeEvaluator/internals';
-export { EvaluatorOptions, MemberAccessTypeResult } from './typeEvaluator/internals';
+export type { EvaluatorOptions, MemberAccessTypeResult } from './typeEvaluator/internals';
 
 import { createBoundMethodSpecialization } from './typeEvaluator/boundMethodSpecialization';
 import { createClassConstruction } from './typeEvaluator/classConstruction';
@@ -2225,9 +2225,16 @@ export function createTypeEvaluator(
         typeResult: TypeResult,
         isAsync: boolean,
         errorNode: ExpressionNode,
-        emitNotIterableError = true
+        emitNotIterableError = true,
+        preserveInvalidSubtypes = false
     ): TypeResult | undefined {
-        return expressionEvaluation.getTypeOfIterator(typeResult, isAsync, errorNode, emitNotIterableError);
+        return expressionEvaluation.getTypeOfIterator(
+            typeResult,
+            isAsync,
+            errorNode,
+            emitNotIterableError,
+            preserveInvalidSubtypes
+        );
     }
 
     // Validates that the type is an iterable and returns the iterable type argument.
@@ -4075,6 +4082,14 @@ export function createTypeEvaluator(
             typeResult.isIncomplete = true;
         }
 
+        if (
+            (flags & EvalFlags.InstantiableType) !== 0 &&
+            isClassInstance(typeResult.type) &&
+            isSentinelLiteral(typeResult.type)
+        ) {
+            typeResult.type = ClassType.cloneAsInstantiable(typeResult.type);
+        }
+
         // See if we need to log an "unknown member access" diagnostic.
         let skipPartialUnknownCheck = typeResult.isIncomplete;
 
@@ -4234,6 +4249,13 @@ export function createTypeEvaluator(
 
             case TypeCategory.Class: {
                 let typeResult: TypeResult | undefined;
+
+                if (usage.method === 'get' && memberName === '__class__' && isClassInstance(baseType)) {
+                    const sentinelClass = getSentinelClass(baseType);
+                    if (sentinelClass) {
+                        typeResult = { type: ClassType.cloneIncludeSubclasses(sentinelClass) };
+                    }
+                }
 
                 // If this is a class-like function created via NewType, treat
                 // it like a function for purposes of member accesses.
@@ -8193,12 +8215,10 @@ export function createTypeEvaluator(
                                 }
                             }
 
-                            // stripLiteralValue retains sentinel literals, but type() of a
-                            // sentinel evaluates to its class, not the sentinel object.
-                            const classSubtype = isSentinelLiteral(subtype)
-                                ? ClassType.cloneWithLiteral(subtype, /* value */ undefined)
-                                : stripLiteralValue(subtype);
-                            return convertToInstantiable(classSubtype);
+                            const sentinelClass = isClassInstance(subtype) ? getSentinelClass(subtype) : undefined;
+                            return sentinelClass
+                                ? ClassType.cloneIncludeSubclasses(sentinelClass)
+                                : convertToInstantiable(stripLiteralValue(subtype));
                         }
 
                         if (TypeBase.isInstance(subtype)) {
@@ -8291,14 +8311,31 @@ export function createTypeEvaluator(
             }
 
             // Handle sentinel calls specially.
-            if (
-                expandedCallType.shared.fullName === 'builtins.sentinel' ||
-                expandedCallType.shared.fullName === 'typing_extensions.sentinel' ||
-                expandedCallType.shared.fullName === 'typing_extensions.Sentinel'
-            ) {
-                return {
-                    returnType: createSentinelType(evaluatorInterface, errorNode, argList, expandedCallType, nodeInfo),
-                };
+            if (isSentinelClass(expandedCallType)) {
+                const constructorResult = validateConstructorArgs(
+                    evaluatorInterface,
+                    errorNode,
+                    argList,
+                    expandedCallType,
+                    skipUnknownArgCheck,
+                    inferenceContext
+                );
+                if (!constructorResult.argumentErrors) {
+                    constructorResult.returnType =
+                        createSentinelType(errorNode, argList, expandedCallType, nodeInfo) ??
+                        constructorResult.returnType;
+                    if (
+                        constructorResult.returnType &&
+                        isClassInstance(constructorResult.returnType) &&
+                        isSentinelClass(constructorResult.returnType) &&
+                        !isSentinelLiteral(constructorResult.returnType) &&
+                        constructorResult.returnType.props?.typeAliasInfo
+                    ) {
+                        constructorResult.returnType = TypeBase.cloneType(constructorResult.returnType);
+                        TypeBase.setTypeAliasInfo(constructorResult.returnType, undefined);
+                    }
+                }
+                return constructorResult;
             }
 
             if (ClassType.isSpecialFormClass(expandedCallType)) {
