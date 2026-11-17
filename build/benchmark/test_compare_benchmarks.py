@@ -1839,7 +1839,9 @@ const execute = async (script, eventContext = context) =>
             history_render,
             {
                 "name": "Render comparison history charts",
+                "id": "render-history",
                 "if": "${{ steps.download.outputs.pr-number != '' }}",
+                "continue-on-error": True,
                 "run": "python build/benchmark/render_pyright_history.py \\\n  base.json \\\n  candidate.json \\\n  --existing-history docs/typecheck-benchmark/history/history.json \\\n  --candidate-label 'Base' \\\n  --candidate-label 'PR #${{ inputs.pr_number }}' \\\n  --candidate-statistic median \\\n  --output pr-history\n",
             },
         )
@@ -1856,7 +1858,7 @@ const execute = async (script, eventContext = context) =>
             {
                 "name": "Upload comparison history charts",
                 "id": "history",
-                "if": "${{ steps.download.outputs.pr-number != '' }}",
+                "if": "${{ steps.download.outputs.pr-number != '' && steps.render-history.outcome == 'success' }}",
                 "uses": "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
                 "with": {
                     "name": "typecheck-benchmark-history-pr-${{ inputs.pr_number }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}",
@@ -1918,13 +1920,21 @@ const execute = async (script, eventContext = context) =>
         )
         self.assertEqual(comment_job["needs"], "aggregate")
         self.assertEqual(
+            comment_job["outputs"],
+            {"history-rendered": "${{ steps.render-history.outcome == 'success' }}"},
+        )
+        self.assertIn(
+            "Release history charts were not rendered for this run.",
+            post_comment["with"]["script"],
+        )
+        self.assertEqual(
             {
                 key: publish_job[key]
                 for key in ("needs", "if", "permissions", "uses")
             },
             {
                 "needs": "comment",
-                "if": "${{ needs.comment.result == 'success' && github.repository == 'microsoft/pyright' }}",
+                "if": "${{ needs.comment.result == 'success' && needs.comment.outputs.history-rendered == 'true' && github.repository == 'microsoft/pyright' }}",
                 "permissions": {
                     "actions": "read",
                     "contents": "read",
