@@ -718,6 +718,7 @@ function assignToProtocolInternal(
     evaluator.inferVarianceForClass(destType);
 
     const sourceIsClassObject = isClass(srcType) && TypeBase.isInstantiable(srcType);
+    const isSourceTypedDict = isClass(srcType) && ClassType.isTypedDictClass(srcType);
     const protocolConstraints = createProtocolConstraints(evaluator, destType, constraints);
     const selfSolution = new ConstraintSolution();
 
@@ -752,10 +753,10 @@ function assignToProtocolInternal(
         addSolutionForSelfType(selfSolution, destType, selfType);
     }
 
-    // If the source is a TypedDict, use the _TypedDict placeholder class
-    // instead. We don't want to use the TypedDict members for protocol
+    // If the source is a TypedDict class object, use the _TypedDict placeholder
+    // class instead. We don't want to use the TypedDict members for protocol
     // comparison.
-    if (isClass(srcType) && ClassType.isTypedDictClass(srcType)) {
+    if (sourceIsClassObject && isSourceTypedDict) {
         const typedDictClassType = evaluator.getTypedDictClassType();
         if (typedDictClassType && isInstantiableClass(typedDictClassType)) {
             srcType = typedDictClassType;
@@ -860,7 +861,11 @@ function assignToProtocolInternal(
                 }
 
                 if (!srcMemberInfo) {
-                    srcMemberInfo = lookUpClassMember(srcType, name);
+                    srcMemberInfo = lookUpClassMember(
+                        srcType,
+                        name,
+                        isSourceTypedDict && !sourceIsClassObject ? MemberAccessFlags.SkipTypedDictEntries : undefined
+                    );
                 }
 
                 if (!srcMemberInfo) {
