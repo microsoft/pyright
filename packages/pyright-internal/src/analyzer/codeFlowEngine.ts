@@ -52,7 +52,7 @@ import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment, narrowForKeyDeletion } from './typedDicts';
 import { EvalFlags, Reachability, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
-import { getTypeNarrowingCallback } from './typeGuards';
+import { applyTypeNarrowingCallback, getTypeNarrowingCallback } from './typeGuards';
 import {
     ClassType,
     combineTypes,
@@ -183,6 +183,8 @@ interface CodeFlowTypeCache {
     cache: Map<number, CachedType | undefined>;
     pendingNodes: Set<number>;
     closedFinallyGateNodes: Set<number>;
+    // Monotonic per reference; avoids scanning ordinary flow results for this proof.
+    mayHaveExactStringFlow: boolean;
 }
 
 // This debugging option prints the control flow graph when getTypeFromCodeFlow is called.
@@ -239,6 +241,7 @@ export function getCodeFlowEngine(
                     cache: new Map<number, CachedType | undefined>(),
                     pendingNodes: new Set<number>(),
                     closedFinallyGateNodes: new Set<number>(),
+                    mayHaveExactStringFlow: false,
                 };
                 flowNodeTypeCacheSet.set(referenceKey, flowNodeTypeCache);
             }
@@ -303,7 +306,7 @@ export function getCodeFlowEngine(
                         if (
                             prevIncompleteType.isIncompleteType &&
                             prevIncompleteType.type &&
-                            !isTypeSame(prevIncompleteType.type, type)
+                            !isTypeSame(prevIncompleteType.type, type, { honorExactStringFlow: true })
                         ) {
                             flowIncompleteGeneration++;
                         }
@@ -355,7 +358,10 @@ export function getCodeFlowEngine(
                 const incompleteEntries = cachedEntry.incompleteSubtypes;
                 if (index < incompleteEntries.length) {
                     const oldEntry = incompleteEntries[index];
-                    if (oldEntry.isIncomplete !== isIncomplete || !isTypeSame(oldEntry.type, type)) {
+                    if (
+                        oldEntry.isIncomplete !== isIncomplete ||
+                        !isTypeSame(oldEntry.type, type, { honorExactStringFlow: true })
+                    ) {
                         incompleteEntries[index] = { type, isIncomplete, isPending, evaluationCount };
                         flowIncompleteGeneration++;
                     } else if (oldEntry.isPending !== isPending) {
@@ -791,10 +797,23 @@ export function getCodeFlowEngine(
                                     let isIncomplete = flowTypeResult.isIncomplete;
 
                                     if (flowType) {
-                                        const flowTypeResult = typeNarrowingCallback(flowType);
+                                        const flowTypeResult = applyTypeNarrowingCallback(
+                                            typeNarrowingCallback,
+                                            flowType
+                                        );
 
                                         if (flowTypeResult) {
                                             flowType = flowTypeResult.type;
+                                            if (!flowNodeTypeCache.mayHaveExactStringFlow) {
+                                                flowNodeTypeCache.mayHaveExactStringFlow = isClassInstance(flowType)
+                                                    ? !!flowType.priv.isExactStringFlow
+                                                    : isUnion(flowType) &&
+                                                      flowType.priv.subtypes.some(
+                                                          (subtype) =>
+                                                              isClassInstance(subtype) &&
+                                                              !!subtype.priv.isExactStringFlow
+                                                      );
+                                            }
                                             if (flowTypeResult.isIncomplete) {
                                                 isIncomplete = true;
                                             }
@@ -853,7 +872,10 @@ export function getCodeFlowEngine(
                                             let narrowedType = refTypeInfo.type;
                                             let isIncomplete = !!refTypeInfo.isIncomplete;
 
-                                            const narrowedTypeResult = typeNarrowingCallback(refTypeInfo.type);
+                                            const narrowedTypeResult = applyTypeNarrowingCallback(
+                                                typeNarrowingCallback,
+                                                refTypeInfo.type
+                                            );
                                             if (narrowedTypeResult) {
                                                 narrowedType = narrowedTypeResult.type;
                                                 if (narrowedTypeResult.isIncomplete) {
@@ -1312,7 +1334,31 @@ export function getCodeFlowEngine(
                 return FlowNodeTypeResult.create(options?.typeAtStart?.type, !!options?.typeAtStart?.isIncomplete);
             }
 
-            return getTypeFromFlowNode(flowNode);
+            const result = getTypeFromFlowNode(flowNode);
+            // The proof is local to this reference's flow; it must not escape into inferred types.
+            if (
+                flowNodeTypeCache.mayHaveExactStringFlow &&
+                result.type &&
+                isClassInstance(result.type) &&
+                result.type.priv.isExactStringFlow
+            ) {
+                result.type = ClassType.cloneExactStringFlow(result.type, false);
+            } else if (
+                flowNodeTypeCache.mayHaveExactStringFlow &&
+                result.type &&
+                isUnion(result.type) &&
+                result.type.priv.subtypes.some((subtype) => isClassInstance(subtype) && subtype.priv.isExactStringFlow)
+            ) {
+                result.type = mapSubtypes(
+                    result.type,
+                    (subtype) =>
+                        isClassInstance(subtype) && subtype.priv.isExactStringFlow
+                            ? ClassType.cloneExactStringFlow(subtype, false)
+                            : subtype,
+                    { retainTypeAlias: true }
+                );
+            }
+            return result;
         }
 
         return {
@@ -1629,7 +1675,10 @@ export function getCodeFlowEngine(
                             if (typeNarrowingCallback) {
                                 const refTypeInfo = evaluator.getTypeOfExpression(conditionalFlowNode.reference!);
 
-                                const narrowedTypeResult = typeNarrowingCallback(refTypeInfo.type);
+                                const narrowedTypeResult = applyTypeNarrowingCallback(
+                                    typeNarrowingCallback,
+                                    refTypeInfo.type
+                                );
                                 const narrowedType = narrowedTypeResult?.type ?? refTypeInfo.type;
 
                                 if (isNever(narrowedType) && !refTypeInfo.isIncomplete) {
