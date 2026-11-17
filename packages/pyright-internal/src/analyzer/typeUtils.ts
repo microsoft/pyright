@@ -3943,7 +3943,12 @@ export class TypeVarTransformer {
 
     transformGenericTypeAlias(type: Type, recursionCount: number) {
         const aliasInfo = type.props?.typeAliasInfo;
-        if (!aliasInfo || !aliasInfo.shared.typeParams || !aliasInfo.typeArgs) {
+        if (
+            !aliasInfo ||
+            !aliasInfo.shared.typeParams ||
+            !aliasInfo.typeArgs ||
+            (isTypeVar(type) && type.shared.recursiveAlias)
+        ) {
             return type;
         }
 
@@ -4776,7 +4781,8 @@ class UnificationTypeTransformer extends TypeVarTransformer {
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
-        if (!this._isTypeVarLive(typeVar)) {
+        // A borrowed caller variable remains bound even outside its lexical scope.
+        if (!TypeVarType.isBound(typeVar) && !this._isTypeVarLive(typeVar)) {
             return TypeVarType.cloneAsUnificationVar(typeVar, this._usageOffset);
         }
 
