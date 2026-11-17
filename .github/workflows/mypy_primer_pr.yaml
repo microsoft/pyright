@@ -45,14 +45,16 @@ jobs:
     concurrency:
       group: pr-follow-up-mypy_primer-${{ github.event.workflow_run.head_sha }}
       cancel-in-progress: false
+      queue: max
     permissions:
       contents: read
       pull-requests: read
-      checks: write
+      statuses: write
     outputs:
       pr-number: ${{ steps.resolve.outputs.pr-number }}
+      head-sha: ${{ steps.resolve.outputs.head-sha }}
       merge-sha: ${{ steps.resolve.outputs.merge-sha }}
-      check-id: ${{ steps.resolve.outputs.check-id }}
+      status-id: ${{ steps.resolve.outputs.status-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -68,11 +70,12 @@ jobs:
             if (!validated) return
             const { pullRequest } = validated
             const report = require('./build/reportPullRequestCheck.js')
-            const checkId = await report({
-              github, context, name: 'mypy_primer', headSha: pullRequest.head.sha,
+            core.setOutput('head-sha', pullRequest.head.sha)
+            const statusId = await report({
+              github, context, name: 'mypy_primer', headSha: pullRequest.head.sha, useCommitStatus: true,
               status: 'in_progress', summary: 'Running mypy_primer after successful Validation.',
             })
-            core.setOutput('check-id', checkId)
+            core.setOutput('status-id', statusId)
             if (!pullRequest.merge_commit_sha) {
               core.setFailed('The pull request does not have a merge commit to test')
               return
@@ -188,13 +191,17 @@ jobs:
           path: pr_number.txt
 
   report:
-    name: Report mypy_primer check
+    name: Report mypy_primer status
     needs: [resolve, mypy_primer]
-    if: ${{ always() && needs.resolve.outputs.check-id != '' }}
+    if: ${{ always() && needs.resolve.outputs.status-id != '' }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: pr-follow-up-mypy_primer-${{ needs.resolve.outputs.head-sha }}
+      cancel-in-progress: false
+      queue: max
     permissions:
       contents: read
-      checks: write
+      statuses: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -202,7 +209,8 @@ jobs:
           persist-credentials: false
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          CHECK_ID: ${{ needs.resolve.outputs.check-id }}
+          STATUS_ID: ${{ needs.resolve.outputs.status-id }}
+          HEAD_SHA: ${{ needs.resolve.outputs.head-sha }}
           RESOLVE_RESULT: ${{ needs.resolve.result }}
           PRIMER_RESULT: ${{ needs.mypy_primer.result }}
         with:
@@ -213,6 +221,7 @@ jobs:
               : results.includes('cancelled') ? 'cancelled'
               : process.env.PRIMER_RESULT
             await report({
-              github, context, name: 'mypy_primer', checkId: process.env.CHECK_ID,
+              github, context, name: 'mypy_primer', headSha: process.env.HEAD_SHA,
+              statusId: process.env.STATUS_ID, useCommitStatus: true,
               conclusion, summary: `mypy_primer: ${conclusion}. See the workflow run for shard results.`,
             })
