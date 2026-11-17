@@ -725,6 +725,9 @@ export const enum ClassTypeFlags {
 
     // An explicit metaclass expression could not be resolved to a class type.
     HasUnresolvedMetaclass = 1 << 27,
+
+    // Synthesized for a sentinel allocation, not its shared runtime class.
+    SentinelValueClass = 1 << 28,
 }
 
 export interface DataClassBehaviors {
@@ -738,6 +741,14 @@ export interface DataClassBehaviors {
     frozen?: boolean;
     frozenDefault?: boolean;
     fieldDescriptorNames: string[];
+}
+
+export interface SentinelIdentity {
+    readonly name: string;
+    readonly fullName: string;
+    readonly moduleName: string;
+    readonly typeSourceId: TypeSourceId;
+    readonly isSingleton: boolean;
 }
 
 export interface ClassDetailsShared {
@@ -759,6 +770,8 @@ export interface ClassDetailsShared {
     dataClassEntries?: DataClassEntry[] | undefined;
     dataClassBehaviors?: DataClassBehaviors | undefined;
     namedTupleEntries?: Set<string> | undefined;
+    // Retain the original allocation independently of TypeForm and generated stub locations.
+    sentinelIdentity?: SentinelIdentity | undefined;
     typedDictEntries?: TypedDictEntries | undefined;
     typedDictExtraItemsExpr?: ExpressionNode | undefined;
     localSlotsNames?: string[];

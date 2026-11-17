@@ -1383,6 +1383,7 @@ export interface TernaryNode extends ParseNodeBase<ParseNodeType.Ternary> {
         ifExpr: ExpressionNode;
         testExpr: ExpressionNode;
         elseExpr: ExpressionNode;
+        hasParens?: boolean;
     };
 }
 
@@ -1695,6 +1696,7 @@ export interface LambdaNode extends ParseNodeBase<ParseNodeType.Lambda> {
     d: {
         params: ParameterNode[];
         expr: ExpressionNode;
+        hasParens?: boolean;
     };
 }
 

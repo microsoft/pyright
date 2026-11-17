@@ -28,6 +28,7 @@ import * as AnalyzerNodeInfo from '../analyzerNodeInfo';
 import { ConstraintTracker } from '../constraintTracker';
 import { getFunctionInfoFromDecorators } from '../decorators';
 import * as ParseTreeUtils from '../parseTreeUtils';
+import { getSentinelClass } from '../sentinel';
 import { makeTupleObject } from '../tuples';
 import {
     ClassTypeResult,
@@ -91,6 +92,7 @@ import {
     isTypeAliasPlaceholder,
     isUnboundedTupleClass,
     isVarianceOfTypeArgCompatible,
+    mapSubtypes,
     requiresSpecialization,
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
@@ -1559,6 +1561,21 @@ export function createSpecialFormCreation(context: Context) {
         errorNode: ExpressionNode
     ): TypeResult {
         let isValidTypeForm = true;
+
+        if (
+            typeArgs &&
+            (flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !== 0 &&
+            (ClassType.isBuiltIn(classType, 'type') || ClassType.isSpecialBuiltIn(classType, 'Type'))
+        ) {
+            typeArgs = typeArgs.map((argument, index) =>
+                index === 0
+                    ? {
+                          ...argument,
+                          type: mapSubtypes(argument.type, (subtype) => getSentinelClass(subtype) ?? subtype),
+                      }
+                    : argument
+            );
+        }
 
         // Handle the special-case classes that are not defined
         // in the type stubs.
