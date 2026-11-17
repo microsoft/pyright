@@ -2,7 +2,7 @@
 # frozen nor non-frozen when used as base classes.
 
 from abc import ABC
-from typing_extensions import dataclass_transform
+from typing_extensions import dataclass_transform  # pyright: ignore[reportMissingModuleSource]
 
 
 @dataclass_transform(frozen_default=True)
