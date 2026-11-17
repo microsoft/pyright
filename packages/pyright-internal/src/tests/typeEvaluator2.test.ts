@@ -1102,6 +1102,11 @@ test('Sentinel5', () => {
     }
 });
 
+test('Sentinel6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel6.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Frozendict1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = pythonVersion3_15;

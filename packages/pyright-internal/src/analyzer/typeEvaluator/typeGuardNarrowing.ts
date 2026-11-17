@@ -1568,6 +1568,20 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
                 return undefined;
             }
 
+            // A sentinel literal can only ever compare equal to itself. If the
+            // element is a literal and either side is a sentinel literal that
+            // is not the same sentinel, the reference subtype cannot be in
+            // the container.
+            if (
+                isClassInstance(referenceSubtype) &&
+                isClassInstance(elementSubtype) &&
+                isLiteralType(elementSubtype) &&
+                (isSentinelLiteral(referenceSubtype) || isSentinelLiteral(elementSubtype)) &&
+                !ClassType.isLiteralValueSame(referenceSubtype, elementSubtype)
+            ) {
+                return undefined;
+            }
+
             if (
                 isClassInstance(referenceSubtype) &&
                 ClassType.isBuiltIn(referenceSubtype, ['str', 'LiteralString']) &&
@@ -2452,6 +2466,19 @@ export function narrowTypeForLiteralComparison(
         }
 
         if (isPositiveTest) {
+            // A sentinel literal can only ever compare equal to itself. If
+            // either side of the comparison is a sentinel literal and the two
+            // are not the same sentinel, the subtype can be eliminated. (The
+            // case where the two are the same sentinel is handled above by
+            // the same-class check.)
+            if (
+                isClassInstance(subtype) &&
+                (isSentinelLiteral(subtype) || isSentinelLiteral(literalType)) &&
+                !ClassType.isLiteralValueSame(subtype, literalType)
+            ) {
+                return undefined;
+            }
+
             if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'LiteralString')) {
                 return literalType;
             }
