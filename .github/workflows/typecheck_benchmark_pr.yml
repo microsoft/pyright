@@ -261,6 +261,8 @@ jobs:
       actions: read
       contents: read
       pull-requests: write
+    outputs:
+      history-rendered: ${{ steps.render-history.outcome == 'success' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -414,8 +416,12 @@ jobs:
               > report.md
           fi
 
+      # Release history is measured separately, so a runner image change can make
+      # it incomparable; still post the base/PR comparison in that case.
       - name: Render comparison history charts
+        id: render-history
         if: ${{ steps.download.outputs.pr-number != '' }}
+        continue-on-error: true
         run: |
           python build/benchmark/render_pyright_history.py \
             base.json \
@@ -428,7 +434,7 @@ jobs:
 
       - name: Upload comparison history charts
         id: history
-        if: ${{ steps.download.outputs.pr-number != '' }}
+        if: ${{ steps.download.outputs.pr-number != '' && steps.render-history.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typecheck-benchmark-history-pr-${{ inputs.pr_number }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}
@@ -454,8 +460,9 @@ jobs:
             const revisions =
               `Compared candidate \`${process.env.CANDIDATE_SHA}\` against its first parent ` +
               `\`${process.env.BASE_SHA}\`.\n\n`
-            const history =
-              `[View the full release history charts with the base and PR results](${process.env.HISTORY_URL}).\n\n` +
+            const history = !process.env.HISTORY_ARTIFACT_URL
+              ? 'Release history charts were not rendered for this run. See the workflow run for details.\n\n'
+              : `[View the full release history charts with the base and PR results](${process.env.HISTORY_URL}).\n\n` +
               `### Execution time history\n\n` +
               `[![Execution time history](${process.env.HISTORY_URL}execution-time.svg)]` +
               `(${process.env.HISTORY_URL})\n\n` +
@@ -474,7 +481,7 @@ jobs:
   publish:
     name: Publish comparison history charts
     needs: comment
-    if: ${{ needs.comment.result == 'success' && github.repository == 'microsoft/pyright' }}
+    if: ${{ needs.comment.result == 'success' && needs.comment.outputs.history-rendered == 'true' && github.repository == 'microsoft/pyright' }}
     permissions:
       actions: read
       contents: read
