@@ -54,6 +54,18 @@ test('OverloadCall1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Datetime1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['datetime1.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [62, DiagnosticRule.reportArgumentType],
+            [65, DiagnosticRule.reportArgumentType],
+        ]
+    );
+});
+
 test('OverloadCall2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall2.py']);
     TestUtils.validateResults(analysisResults, 0);
