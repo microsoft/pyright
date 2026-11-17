@@ -12,6 +12,8 @@ Both agents use `.github/skills/pyright-issue-analysis/SKILL.md` for the shared 
 For example: "Use pyright-issue-reviewer to analyze <issue URL> and draft a response" or
 "Use pyright-issue-fixer to fix <issue URL>; prepare a patch and PR description, but do not publish."
 Posting comments, committing/pushing, or creating a PR requires explicit authorization; reviewer mode never publishes.
+In fixer mode, complete the skill's pre-handoff self-review: compare focused baseline and fixed behavior where feasible,
+check nearby invalid and unchanged cases, and assess architecture, type precision, and performance before reporting.
 
 ## PR Reviews
 
@@ -127,6 +129,11 @@ Tests live in `packages/pyright-internal/src/tests/`. There are two main pattern
 ### Test Policy
 
 Tests are the specification for Pyright behavior. Never modify tests just to make CI pass. Any change that makes types less precise (e.g., `T → Unknown`, `list[int] → list[Any]`, `Literal["x"] → str`) is a regression by default and requires explicit justification. See `.github/agents/pyright-test-policy.md` for details.
+
+For repairs to shared inference or narrowing logic, apply the
+[bounded repair-completion checkpoint](skills/pyright-pr-typespec-review/references/probe-design.md#repair-completion-checkpoint)
+as part of the existing self-review, including ordinary fixes outside a PR review. Reuse compatible evidence; this does
+not require another reviewer panel.
 
 ## Code Style
 
