@@ -1,4 +1,4 @@
-version = "5.0.0"
+version = "5.1.0"
 # GitHub mirror of https://hg.reportlab.com/hg-public/reportlab/file
 upstream-repository = "https://github.com/MrBitBucket/reportlab-mirror"
 

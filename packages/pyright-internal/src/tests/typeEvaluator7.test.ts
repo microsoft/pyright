@@ -796,7 +796,11 @@ test.each([false, true])('Protocol36CacheReuse positiveFirst=%s', (positiveFirst
 
     const diagnostics = new DiagnosticAddendum();
     assert.strictEqual(assign(rejectedType, diagnostics), false);
-    expect(diagnostics.getString()).toContain('"int" is not assignable to "str"');
+    const diagnosticText = diagnostics.getString();
+    expect(diagnosticText).toContain('"__iter__" is an incompatible type');
+    expect(diagnosticText).toContain(
+        'Type "() -> Iterator[int]" is not assignable to type "() -> Iterator[str | NestedSequence[str]]"'
+    );
     assert.ok(constraints.isSame(originalConstraints));
     assert.strictEqual(assign(rejectedType), false);
     assert.strictEqual(assign(acceptedType), true);
@@ -809,6 +813,61 @@ test.each([false, true])('Protocol36CacheReuse positiveFirst=%s', (positiveFirst
             'int'
         );
     }
+});
+
+test('ProtocolMethodTypeParamBound', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Protocol
+////
+//// class Expected(Protocol):
+////     def f[U: str](self, value: U) -> U: ...
+////
+//// class Actual:
+////     def f[U: int](self, value: U) -> U: ...
+////
+//// def check(source: Actual):
+////     invalid: Expected = source
+    `;
+    const state = parseAndGetTestState(code).state;
+    const file = state.testData.files[0];
+    const results = TestUtils.getAnalysisResults(state.program, [file.fileUri], state.configOptions);
+    TestUtils.validateResults(results, 1);
+    const message = results[0].errors[0].message;
+    expect(message).toContain('"f" is an incompatible type');
+    expect(message).toContain('Type "U@f" is not assignable to type "int"');
+});
+
+test('ProtocolMethodParamNameAndKind', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Protocol
+////
+//// class NameProto[T](Protocol):
+////     def f(self, x: T) -> None: ...
+////
+//// class NameImpl:
+////     def f(self, y: int) -> None: ...
+////
+//// class KindProto[T](Protocol):
+////     def f(self, *, x: T) -> None: ...
+////
+//// class KindImpl:
+////     def f(self, x: int, /) -> None: ...
+////
+//// def check(a: NameImpl, b: KindImpl):
+////     v1: NameProto[int] = a
+////     v2: KindProto[int] = b
+    `;
+    const state = parseAndGetTestState(code).state;
+    const file = state.testData.files[0];
+    const results = TestUtils.getAnalysisResults(state.program, [file.fileUri], state.configOptions);
+    TestUtils.validateResults(results, 2);
+    const [nameError, kindError] = results[0].errors;
+    expect(nameError.message).toContain('Type "(y: int) -> None" is not assignable to type "(x: T@NameProto) -> None"');
+    expect(kindError.message).toContain(
+        'Type "(x: int, /) -> None" is not assignable to type "(*, x: T@KindProto) -> None"'
+    );
 });
 
 test.each([
@@ -1058,6 +1117,97 @@ test('Protocol55UntypedDecorators', () => {
     );
 });
 
+test('Protocol56', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol56.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+    const defaultTypeError = analysisResults[0].errors.find((error) => error.message.includes('"list[object]"'));
+    assert.strictEqual(defaultTypeError?.getRule(), DiagnosticRule.reportArgumentType);
+});
+
+test.each(
+    (['source', 'destination'] as const).flatMap((side) =>
+        ['Any', 'int'].flatMap((defaultType) =>
+            [false, true].flatMap((diagnostics) =>
+                [false, true].map((positiveFirst) => ({ side, defaultType, diagnostics, positiveFirst }))
+            )
+        )
+    )
+)(
+    'ProtocolDefaultCache $side default=$defaultType diagnostics=$diagnostics positiveFirst=$positiveFirst',
+    ({ side, defaultType, diagnostics, positiveFirst }) => {
+        const sourceIsGeneric = side === 'source';
+        const state = parseAndGetTestState(`
+// @filename: test.py
+//// from typing import Any, Protocol
+//// class Source${sourceIsGeneric ? `[T = ${defaultType}]` : ''}:
+////     ${sourceIsGeneric ? 'def put(self, value: T) -> None: ...' : 'def get(self) -> int: ...'}
+//// class Target${sourceIsGeneric ? '' : `[T = ${defaultType}]`}(Protocol):
+////     ${sourceIsGeneric ? 'def put(self, value: int) -> None: ...' : 'def get(self) -> T: ...'}
+//// def check(
+////     good_source: ${sourceIsGeneric ? 'Source[int]' : 'Source'},
+////     bad_source: ${sourceIsGeneric ? 'Source[str]' : 'Source'},
+////     good_target: ${sourceIsGeneric ? 'Target' : 'Target[int]'},
+////     bad_target: ${sourceIsGeneric ? 'Target' : 'Target[str]'},
+//// ):
+////     /*good_source*/good_source
+////     /*bad_source*/bad_source
+////     /*good_target*/good_target
+////     /*bad_target*/bad_target
+        `).state;
+        const evaluator = state.program.evaluator!;
+        const typeAt = (marker: string) => {
+            const node = getNodeAtMarker(state, marker);
+            assert.strictEqual(node.nodeType, ParseNodeType.Name);
+            const type = evaluator.getTypeOfExpression(node).type;
+            assert.ok(isClassInstance(type));
+            return type;
+        };
+        const goodSource = typeAt('good_source');
+        const badSource = typeAt('bad_source');
+        const goodTarget = ClassType.cloneAsInstantiable(typeAt('good_target'));
+        const badTarget = ClassType.cloneAsInstantiable(typeAt('bad_target'));
+        const assign = (target: ClassType, source: ClassType) =>
+            assignClassToProtocol(
+                evaluator,
+                target,
+                source,
+                diagnostics ? new DiagnosticAddendum() : undefined,
+                undefined,
+                AssignTypeFlags.Default,
+                0
+            );
+
+        if (positiveFirst) {
+            assert.strictEqual(assign(goodTarget, goodSource), true);
+        }
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+            assert.strictEqual(assign(badTarget, badSource), false);
+            assert.strictEqual(assign(goodTarget, goodSource), true);
+        }
+
+        if (!sourceIsGeneric) {
+            const typeParam = goodTarget.shared.typeParams[0];
+            const genericTarget = ClassType.specialize(goodTarget, [typeParam]);
+            const constraints = new ConstraintTracker();
+            assert.strictEqual(
+                assignClassToProtocol(
+                    evaluator,
+                    genericTarget,
+                    goodSource,
+                    undefined,
+                    constraints,
+                    AssignTypeFlags.Default,
+                    0
+                ),
+                true
+            );
+            assert.strictEqual(evaluator.printType(evaluator.solveAndApplyConstraints(typeParam, constraints)), 'int');
+        }
+    }
+);
+
 test('ProtocolExplicit1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit1.py']);
 
@@ -1160,10 +1310,38 @@ ${
         const marker = state.getMarkerByName('error');
         const line = file.content.slice(0, marker.position).split('\n').length - 1;
         assert.strictEqual(diagnostic.range.start.line, line);
-        expect(diagnostic.message).toContain(kind === 'positionalOnly' ? '(x: int' : '"x"');
-        if (path === 'cache') {
-            expect(diagnostic.message).toContain(first === 'required' ? '"first"' : '"second"');
-        }
+        const callable = (name: string) => `(${prefix}x: int${name === 'optional' ? ' = 0' : ''}${suffix}) -> None`;
+        const source = `${recursive ? 'B' : 'Source'}[${callable(first)}, ${callable(second)}]`;
+        const destination = recursive ? 'A[() -> None]' : 'Dest';
+        const header =
+            path === 'recursiveArgument'
+                ? `Argument of type "${source}" cannot be assigned to parameter "result" of type "${destination}" in function "consume"`
+                : `Type "${source}" is not assignable to return type "${destination}"`;
+        const indent = '\u00a0\u00a0';
+        const entry =
+            path === 'cache'
+                ? [`${indent}"${first === 'required' ? 'first' : 'second'}" is an incompatible type`]
+                : first === 'optional'
+                ? [`${indent}"next" is an incompatible type`]
+                : [];
+        const depth = entry.length + 1;
+        assert.strictEqual(
+            diagnostic.message,
+            [
+                header,
+                ...entry,
+                `${indent.repeat(depth)}"value" is an incompatible type`,
+                `${indent.repeat(depth + 1)}Type "${callable('required')}" is not assignable to type "() -> None"`,
+                ...(kind === 'positionalOnly'
+                    ? [
+                          `${indent.repeat(depth + 2)}Position-only parameter mismatch; expected 0 but received 1`,
+                          `${indent.repeat(
+                              depth + 2
+                          )}Function accepts too many positional parameters; expected 0 but received 1`,
+                      ]
+                    : [`${indent.repeat(depth + 2)}Extra parameter "x"`]),
+            ].join('\n')
+        );
     }
 });
 
@@ -1215,7 +1393,18 @@ test.each([
         const marker = state.getMarkerByName('error');
         const line = file.content.slice(0, marker.position).split('\n').length - 1;
         assert.strictEqual(diagnostic.range.start.line, line);
-        expect(diagnostic.message).toContain(first === 'required' ? '"first"' : '"second"');
+        const callable = (name: string) => `(x: int${name === 'optional' ? ' = 0' : ''}) -> int`;
+        const indent = '\u00a0\u00a0';
+        assert.strictEqual(
+            diagnostic.message,
+            [
+                `Type "Source[${callable(first)}, ${callable(second)}]" is not assignable to return type "Dest"`,
+                `${indent}"${first === 'required' ? 'first' : 'second'}" is an incompatible type`,
+                `${indent.repeat(2)}"value" is an incompatible type`,
+                `${indent.repeat(3)}Type "(x: int) -> int" is not assignable to type "() -> int"`,
+                `${indent.repeat(4)}Extra parameter "x"`,
+            ].join('\n')
+        );
     }
 });
 
@@ -1258,9 +1447,21 @@ ${classes}
     const diagnostics = new DiagnosticAddendum();
     assert.strictEqual(evaluator.assignType(aType, bType, diagnostics), false);
     const rendered = diagnostics.getString(undefined, 1000);
-    expect(rendered).toContain('"first"');
-    expect(rendered).toContain('"second"');
-    assert.strictEqual(rendered.split('"str" is not assignable to "int"').length - 1, 2);
+    const indent = '\u00a0\u00a0';
+    assert.strictEqual(
+        rendered,
+        [
+            '',
+            `${indent}"outer" is an incompatible type`,
+            `${indent.repeat(2)}"inside" is an incompatible type`,
+            `${indent.repeat(3)}"first" is an incompatible type`,
+            `${indent.repeat(4)}"value" is an incompatible type`,
+            `${indent.repeat(5)}"str" is not assignable to "int"`,
+            `${indent.repeat(3)}"second" is an incompatible type`,
+            `${indent.repeat(4)}"value" is an incompatible type`,
+            `${indent.repeat(5)}"str" is not assignable to "int"`,
+        ].join('\n')
+    );
 });
 
 test.each([64, 65].flatMap((width) => [false, true].map((hotFirst) => ({ width, hotFirst }))))(
@@ -1335,11 +1536,44 @@ test('TypedDictRecursive2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictRecursive2.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 5);
-    const wrapperDiagnostic = analysisResults[0].errors.find((diag) => diag.message.includes('"StrWrapper"'));
-    assert.ok(wrapperDiagnostic);
-    for (const name of ['parent', 'child', 'again']) {
-        expect(wrapperDiagnostic.message).toContain(`"${name}"`);
-    }
+    const indent = '\u00a0\u00a0';
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => diagnostic.message),
+        [
+            [
+                'Type "ReadOnlyStr" is not assignable to declared type "ReadOnlyInt"',
+                `${indent}"value" is an incompatible type`,
+                `${indent.repeat(2)}"str" is not assignable to "int"`,
+            ].join('\n'),
+            [
+                'Type "StrParent" is not assignable to declared type "IntParent"',
+                `${indent}"value" is an incompatible type`,
+                `${indent.repeat(2)}"str" is not assignable to "int"`,
+            ].join('\n'),
+            [
+                'Type "StrChild" is not assignable to declared type "IntChild"',
+                `${indent}"parent" is an incompatible type`,
+                `${indent.repeat(2)}"value" is an incompatible type`,
+                `${indent.repeat(3)}"str" is not assignable to "int"`,
+            ].join('\n'),
+            [
+                'Type "StrWrapper" is not assignable to declared type "IntWrapper"',
+                `${indent}"parent" is an incompatible type`,
+                `${indent.repeat(2)}"value" is an incompatible type`,
+                `${indent.repeat(3)}"str" is not assignable to "int"`,
+                `${indent}"child" is an incompatible type`,
+                `${indent.repeat(2)}"parent" is an incompatible type`,
+                `${indent.repeat(3)}"value" is an incompatible type`,
+                `${indent.repeat(4)}"str" is not assignable to "int"`,
+                `${indent}"again" is an incompatible type`,
+            ].join('\n'),
+            [
+                'Type "GenericB[str]" is not assignable to declared type "GenericA[int]"',
+                `${indent}"value" is an incompatible type`,
+                `${indent.repeat(2)}"str" is not assignable to "int"`,
+            ].join('\n'),
+        ]
+    );
 });
 
 test('TypedDictRecursive3', () => {
@@ -1398,7 +1632,16 @@ ${chains}
     assert.strictEqual(evaluator.assignType(aType, bType), false);
     const diagnostics = new DiagnosticAddendum();
     assert.strictEqual(evaluator.assignType(aType, bType, diagnostics), false);
-    expect(diagnostics.getString()).toContain('"shallow"');
+    const indent = '\u00a0\u00a0';
+    assert.strictEqual(
+        diagnostics.getString(),
+        [
+            '',
+            `${indent}"shallow" is an incompatible type`,
+            `${indent.repeat(2)}"value" is an incompatible type`,
+            `${indent.repeat(3)}"str" is not assignable to "int"`,
+        ].join('\n')
+    );
 });
 
 test.each([true, false])('TypedDictRecursiveSharedGraph compatible=%s', (compatible) => {
@@ -1454,7 +1697,19 @@ ${classes}
         if (!compatible) {
             const diagnostics = new DiagnosticAddendum();
             assert.strictEqual(evaluator.assignType(aType, bType, diagnostics), false);
-            expect(diagnostics.getString(undefined, 1000)).toContain('"str" is not assignable to "int"');
+            const indent = '\u00a0\u00a0';
+            // Assert the complete 1000-line rendering, including its line-budget boundary:
+            // 15 full outer fields (65 lines each) and a final field with 6 children (25 lines).
+            const expectedLines = Array.from({ length: 16 }, (_, outer) => [
+                `${indent}"field${outer}" is an incompatible type`,
+                ...Array.from({ length: outer === 15 ? 6 : 16 }, (_, inner) => [
+                    `${indent.repeat(2)}"field${inner}" is an incompatible type`,
+                    `${indent.repeat(3)}"field0" is an incompatible type`,
+                    `${indent.repeat(4)}"value" is an incompatible type`,
+                    `${indent.repeat(5)}"str" is not assignable to "int"`,
+                ]).flat(),
+            ]).flat();
+            assert.strictEqual(diagnostics.getString(undefined, 1000), ['', ...expectedLines].join('\n'));
         }
     } finally {
         spy.mockRestore();
@@ -1512,7 +1767,22 @@ ${fields('B')}
         const diagnostics = new DiagnosticAddendum();
         assert.strictEqual(evaluator.assignType(aType, bType, diagnostics, constraints), expectedCompatibility);
         if (!expectedCompatibility) {
-            expect(diagnostics.getString(undefined, 1000)).toContain('"value"');
+            const indent = '\u00a0\u00a0';
+            const expectedLines = Array.from({ length: 56 }, (_, index) => [
+                `${indent}"rel${index}" is an incompatible type`,
+                `${indent.repeat(2)}Type "bool | BArgs" is not assignable to type "bool | AArgs"`,
+                `${indent.repeat(3)}Type "BArgs" is not assignable to type "bool | AArgs"`,
+                `${indent.repeat(4)}"BArgs" is not assignable to "bool"`,
+            ]).flat();
+            assert.strictEqual(
+                diagnostics.getString(undefined, 1000),
+                [
+                    '',
+                    ...expectedLines,
+                    `${indent}"value" is an incompatible type`,
+                    `${indent.repeat(2)}"str" is not assignable to "int"`,
+                ].join('\n')
+            );
         }
     } finally {
         spy.mockRestore();
