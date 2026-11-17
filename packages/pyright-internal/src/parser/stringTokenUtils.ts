@@ -65,21 +65,19 @@ export function getUnescapedString(stringToken: StringToken | FStringMiddleToken
 
     const isBytes = (stringToken.flags & StringTokenFlags.Bytes) !== 0;
 
-    // Scan once for the characters that force the slow (unescaping) path. Building a
-    // number[] of every char code up front (one per character of every non-raw string
-    // literal in the file) is a significant source of GC pressure during parsing, and
-    // the common case (no escapes/newlines) only needs a cheap charCodeAt scan. The
-    // slow path below reads char codes directly from `escapedString` as well.
-    let hasEscapeOrNewLine = false;
+    // Newlines without escapes need only CRLF normalization, not a per-character
+    // output array. Keep scanning them so byte strings still detect non-ASCII text.
+    let hasEscape = false;
+    let hasCrlf = false;
     let nonAsciiInBytes = false;
     for (let index = 0; index < escapedString.length; index++) {
         const curChar = escapedString.charCodeAt(index);
-        if (curChar === Char.CarriageReturn || curChar === Char.LineFeed || curChar === Char.Backslash) {
-            hasEscapeOrNewLine = true;
-            // `nonAsciiInBytes` below is only consulted by the fast-path return, which
-            // we won't take once an escape/newline is found (the slow path recomputes
-            // it), so there's no need to keep scanning.
+        if (curChar === Char.Backslash) {
+            hasEscape = true;
             break;
+        }
+        if (elideCrlf && curChar === Char.CarriageReturn && escapedString.charCodeAt(index + 1) === Char.LineFeed) {
+            hasCrlf = true;
         }
         if (isBytes && curChar >= 128) {
             nonAsciiInBytes = true;
@@ -87,9 +85,9 @@ export function getUnescapedString(stringToken: StringToken | FStringMiddleToken
     }
 
     // Handle the common case in an expedited manner.
-    if (!hasEscapeOrNewLine) {
+    if (!hasEscape) {
         return {
-            value: escapedString,
+            value: hasCrlf ? escapedString.replace(/\r\n/g, '\n') : escapedString,
             unescapeErrors: [],
             nonAsciiInBytes,
         };
