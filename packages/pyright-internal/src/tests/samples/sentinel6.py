@@ -3,7 +3,7 @@
 # A sentinel literal can only ever compare equal to itself, so it
 # should be eliminated when the compared value is a different literal.
 
-from typing_extensions import sentinel
+from typing_extensions import sentinel  # pyright: ignore[reportMissingModuleSource]
 
 S = sentinel("S")
 
