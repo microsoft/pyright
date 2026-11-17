@@ -17,7 +17,7 @@ _ServerSequence: TypeAlias = (
     set[Server] | list[Server] | tuple[Server, ...] | Generator[Server, None, None] | dict_keys[Server, Incomplete]
 )
 # TODO: Construct full request and response types. This is non-trivial because there are many different request/response types and
-# the libary was written async (not thread-safe) design.
+# the library was written async (not thread-safe) design.
 _Request: TypeAlias = Incomplete
 _Response: TypeAlias = Incomplete
 _Result: TypeAlias = Incomplete

@@ -11,7 +11,7 @@ import { ArgCategory, ExpressionNode, NameNode, ParamCategory, ParseNodeType } f
 import { KeywordType, OperatorType } from '../../parser/tokenizerTypes';
 import { AnalyzerNodeInfoAccessor, getInfoReader } from '../analyzerNodeInfo';
 import { ConstraintTracker } from '../constraintTracker';
-import { transformTypeForEnumMember } from '../enums';
+import { hasStandardEnumConstruction, transformTypeForEnumMember } from '../enums';
 import { customMetaclassSupportsMethod } from '../operations';
 import { isScopeContainedWithin } from '../scopeUtils';
 import { getTypedDictMembersForClass } from '../typedDicts';
@@ -61,6 +61,7 @@ import {
     isLiteralTypeOrUnion,
     isMaybeDescriptorClass,
     isMaybeDescriptorInstance,
+    MemberAccessFlags,
     isNoneInstance,
     isNoneTypeClass,
     isProperty,
@@ -155,6 +156,7 @@ export interface TypeIsCallNarrowingInfo {
     classTypeVar?: TypeVarType;
     isOrIsNotOperator: boolean;
     allowLegacyEquality: boolean;
+    allowExactStringFlow: boolean;
     isIncomplete: boolean;
 }
 
@@ -384,6 +386,8 @@ export function getTypeIsCallNarrowingInfo(
         adjIsPositiveTest,
         isOrIsNotOperator,
         allowLegacyEquality,
+        // Attribute and index reads can invoke a different getter each time.
+        allowExactStringFlow: reference.nodeType === ParseNodeType.Name,
         isIncomplete: !!otherResult.isIncomplete,
     };
 }
@@ -1469,10 +1473,38 @@ export function narrowTypeForContainerType(
     });
 }
 
-export function getElementTypeForContainerNarrowing(containerType: Type) {
+export function getElementTypeForContainerNarrowing(containerType: Type): Type | undefined {
+    if (isUnion(containerType)) {
+        const elementTypes: Type[] = [];
+        for (const subtype of containerType.priv.subtypes) {
+            const elemType = getElementTypeForContainerNarrowing(subtype);
+            // Don't narrow if any subtype's element type is unknown or includes an
+            // unpacked TypeVarTuple (e.g. tuple[*Ts]), whose elements could be anything.
+            if (!elemType || someSubtypes(elemType, (t) => isAnyOrUnknown(t) || isUnpackedTypeVarTuple(t))) {
+                return undefined;
+            }
+            elementTypes.push(elemType);
+        }
+        return combineTypes(elementTypes);
+    }
+
+    if (!isClassInstance(containerType)) {
+        return undefined;
+    }
+
     // We support contains narrowing only for certain built-in types that have been specialized.
+    // Abstract collection types (e.g. Sequence, Container, KeysView) are intentionally excluded
+    // because their __contains__ implementations are not constrained to the element type.
     const supportedContainers = ['list', 'set', 'frozenset', 'deque', 'tuple', 'dict', 'defaultdict', 'OrderedDict'];
-    if (!isClassInstance(containerType) || !ClassType.isBuiltIn(containerType, supportedContainers)) {
+
+    // The concrete dict view types returned by dict.keys() and dict.values().
+    const supportedDictViews = ['_collections_abc.dict_keys', '_collections_abc.dict_values'];
+
+    const isSupported =
+        ClassType.isBuiltIn(containerType, supportedContainers) ||
+        supportedDictViews.includes(containerType.shared.fullName);
+
+    if (!isSupported) {
         return undefined;
     }
 
@@ -1480,12 +1512,48 @@ export function getElementTypeForContainerNarrowing(containerType: Type) {
         return undefined;
     }
 
-    let elementType = containerType.priv.typeArgs[0];
-    if (isTupleClass(containerType) && containerType.priv.tupleTypeArgs) {
-        elementType = combineTypes(containerType.priv.tupleTypeArgs.map((t) => t.type));
+    if (containerType.shared.fullName === '_collections_abc.dict_values') {
+        return containerType.priv.typeArgs.length > 1 ? containerType.priv.typeArgs[1] : undefined;
     }
 
-    return elementType;
+    if (isTupleClass(containerType) && containerType.priv.tupleTypeArgs) {
+        return combineTypes(containerType.priv.tupleTypeArgs.map((t) => t.type));
+    }
+
+    return containerType.priv.typeArgs[0];
+}
+
+function getStringLiteralForStrEnumMember(enumMember: ClassType): ClassType | undefined {
+    const literalValue = enumMember.priv.literalValue;
+    if (
+        !(literalValue instanceof EnumLiteral) ||
+        !ClassType.isEnumClass(enumMember) ||
+        !derivesFromStdlibClass(enumMember, 'str') ||
+        ClassType.isEnumMemberSetMayBeIncomplete(enumMember) ||
+        !hasStandardEnumConstruction(enumMember)
+    ) {
+        return undefined;
+    }
+
+    const equalityMember = lookUpObjectMember(
+        enumMember,
+        '__eq__',
+        MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
+    );
+    if (
+        !equalityMember ||
+        !isClass(equalityMember.classType) ||
+        !ClassType.isBuiltIn(equalityMember.classType, 'str')
+    ) {
+        return undefined;
+    }
+
+    const valueType = literalValue.itemType;
+    if (isClassInstance(valueType) && isLiteralType(valueType) && ClassType.isBuiltIn(valueType, 'str')) {
+        return valueType;
+    }
+
+    return undefined;
 }
 
 export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, referenceType: Type, elementType: Type) {
@@ -1500,12 +1568,38 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
                 return undefined;
             }
 
+            if (
+                isClassInstance(referenceSubtype) &&
+                ClassType.isBuiltIn(referenceSubtype, ['str', 'LiteralString']) &&
+                // A plain str type includes subclasses such as StrEnum; only an exact str can become a primitive literal.
+                (referenceSubtype.priv.isExactStringFlow || isLiteralType(referenceSubtype)) &&
+                isClassInstance(elementSubtype)
+            ) {
+                const stringLiteral = getStringLiteralForStrEnumMember(elementSubtype);
+                // A broad string type can admit the enum member or another equal string subtype,
+                // so convert to the primitive literal only when the reference is an exact str.
+                if (stringLiteral && evaluator.assignType(referenceSubtype, stringLiteral)) {
+                    return stripTypeForm(addConditionToType(stringLiteral, referenceSubtype.props?.condition));
+                }
+            }
+
             // If one of the two types is a literal, we can narrow to that type.
             if (
                 isClassInstance(elementSubtype) &&
                 (isLiteralLikeType(elementSubtype) || isNoneInstance(elementSubtype)) &&
                 evaluator.assignType(referenceSubtype, elementSubtype)
             ) {
+                // Cross-type equality does not give a primitive the literal's runtime type.
+                if (
+                    isClassInstance(referenceSubtype) &&
+                    ClassType.isBuiltIn(referenceSubtype) &&
+                    !ClassType.isBuiltIn(referenceSubtype, ['object', 'LiteralString']) &&
+                    isLiteralType(elementSubtype) &&
+                    !ClassType.isSameGenericClass(referenceSubtype, elementSubtype)
+                ) {
+                    return referenceSubtype;
+                }
+
                 return stripTypeForm(addConditionToType(elementSubtype, referenceSubtype.props?.condition));
             }
 
@@ -1825,7 +1919,8 @@ export function narrowTypeForTypeIs(
     isPositiveTest: boolean,
     isIsOperator: boolean,
     classTypeVar: TypeVarType | undefined,
-    allowLegacyEquality: boolean
+    allowLegacyEquality: boolean,
+    allowExactStringFlow: boolean
 ) {
     const metaclassEqualityResults = isIsOperator ? undefined : new Map<ClassDetailsShared, boolean>();
     const hasEqualitySemantics = allowLegacyEquality
@@ -1851,6 +1946,12 @@ export function narrowTypeForTypeIs(
 
     let gradualArgResults: Map<Type, Map<Type, Type>> | undefined;
     const typesToCombine = classTypes.map((classType) => {
+        const isExactStringClass =
+            isIsOperator &&
+            allowExactStringFlow &&
+            !classTypeVar &&
+            !classType.priv.includeSubclasses &&
+            ClassType.isBuiltIn(classType, 'str');
         return evaluator.mapSubtypesExpandTypeVars(
             type,
             /* options */ undefined,
@@ -1880,7 +1981,12 @@ export function narrowTypeForTypeIs(
                     if (isPositiveTest) {
                         if (matches) {
                             if (ClassType.isSameGenericClass(instantiableSubtype, classType)) {
-                                return addConditionToType(subtype, getTypeCondition(classType));
+                                // Keep exact-str information for a later string-literal membership check.
+                                const narrowedSubtype =
+                                    isExactStringClass && !isLiteral
+                                        ? ClassType.cloneExactStringFlow(subtype, true)
+                                        : subtype;
+                                return addConditionToType(narrowedSubtype, getTypeCondition(classType));
                             }
 
                             let narrowedClass = classType;
@@ -1939,10 +2045,11 @@ export function narrowTypeForTypeIs(
                                 }
                             }
 
-                            return addConditionToType(
-                                ClassType.cloneAsInstance(narrowedClass),
-                                subtype.props?.condition
-                            );
+                            let instance = ClassType.cloneAsInstance(narrowedClass);
+                            if (isExactStringClass) {
+                                instance = ClassType.cloneExactStringFlow(instance, true);
+                            }
+                            return addConditionToType(instance, subtype.props?.condition);
                         }
 
                         if (!classType.priv.includeSubclasses) {
