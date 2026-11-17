@@ -1,6 +1,6 @@
 # Pyright PR review agents
 
-`pyright-pr-review` assesses whether a PR is a good change for Pyright. It coordinates four independent perspectives,
+`pyright-pr-review` assesses whether a PR is a good change for Pyright. It coordinates five independent perspectives,
 then reconciles their evidence into one decision. Personalities encourage different questions, not role-play or a
 majority vote. The coordinator can also discuss remedies and, when explicitly asked, repair PRs that need localized fixes.
 
@@ -13,7 +13,7 @@ The profiles live in `.github/agents/`. Restart Copilot CLI after adding them so
 copilot --agent pyright-pr-review --prompt "Analyze microsoft/pyright#11571, including unresolved review feedback. Do not modify code or post a review."
 ```
 
-The coordinator is explicitly selected rather than automatically invoked for ordinary tasks. The four specialist
+The coordinator is explicitly selected rather than automatically invoked for ordinary tasks. The five specialist
 profiles are subagent-only. Models inherit the user's settings. This requires a host that supports custom-agent
 delegation; if it cannot load or invoke the specialists, the coordinator reports that limitation instead of pretending
 the panel ran. Shell/GitHub access and test execution still require the host's usual permissions.
@@ -22,13 +22,27 @@ the panel ran. Shell/GitHub access and test execution still require the host's u
 | --- | --- |
 | Skeptic | Challenge correctness, soundness, precision, and claimed benefit. |
 | Architect | Check ownership of behavior and compare less disruptive alternatives. |
-| Monkey | Design and run small counterexamples and discriminating regression probes. |
+| Monkey | Design and run adversarial examples that expose regressions and weak test coverage. |
 | Perf professor | Trace cost, identify hot-path risks, and run warranted measurements. |
+| Safety reviewer | Execute the PR safety review skill's independent investigation and return evidence-backed findings and feedback. |
 
 The coordinator gathers PR feedback once, supplies a common revision-pinned context, and coordinates validation ownership
 and shared resources. Specialists independently inspect their scoped paths, run focused tests and probes, and return
 evidence. They do not spawn more agents. The coordinator may request a bounded clarification or targeted validation from
 an existing specialist, not launch a second panel.
+
+The [safety reviewer](../.github/agents/pyright-pr-safety-reviewer.agent.md) uses the canonical
+[PR type-specification review skill](../.github/skills/pyright-pr-typespec-review/SKILL.md), including its discovery and probe-design
+references. It develops hypotheses independently of Monkey's ordinary adversarial review. Both investigations contribute;
+neither replaces the other. They may reuse compatible builds and completed checks under shared validation ownership,
+but passing checks do not replace independent discovery.
+
+The coordinator reconciles all five reports, resolves disagreements, and deduplicates findings by root cause while
+preserving distinct supported issues, consequences, and variants. The ordinary reviewers' feedback retains its
+semantic and code-review style. The safety reviewer's additional actionable findings receive a separate comment in the
+skill's example-led style. Already-covered issues are omitted from that supplement; useful verified new details
+strengthen the established finding without changing its style. If no additional findings remain, there is no supplemental
+comment. Full findings and evidence remain in the reports regardless of their feedback destination.
 
 ## Conversation and optional repair
 
@@ -40,7 +54,7 @@ is a one-shot review, not an ongoing conversation. In interactive use, continue 
 | "Why is finding 2 a regression?" | Explain the evidence and expected behavior; no source edits. |
 | "What is the smallest fix, and would it cost more at runtime?" | Compare localized remedies and their tradeoffs; no source edits. |
 | "Fix findings 1 and 2 using the minimal approach." | Implement the scoped repair, add regression coverage, and validate it. |
-| "Does the repaired version meet the four goals?" | Reassess the local patch using current evidence, without automatically rerunning the panel. |
+| "Does the repaired version meet the five goals?" | Reassess the local patch using current evidence, without automatically rerunning the panel. |
 | "Commit these changes." | Commit the reviewed, authorized changes locally; do not push. |
 | "Commit and push these fixes to the PR." | Commit and publish the authorized changes to the verified PR head. |
 
@@ -129,7 +143,7 @@ the PEPs for historical rationale rather than assuming their original wording re
   coordinator. Never invent a citation. An unresolved material semantic question leaves the typing gate `Unknown`,
   not `Pass`.
 
-### Four decision gates
+### Five decision gates
 
 Use `Pass`, `Concern`, or `Unknown` for each goal, with evidence and its limitations.
 Use `Concern` for evidence that a goal is not met, not for an optional improvement to an otherwise passing goal.
@@ -140,6 +154,15 @@ Use `Concern` for evidence that a goal is not met, not for an optional improveme
 | Architectural fit | A localized change consistent with existing ownership, contracts, caching, and analysis phases. | A new cross-layer dependency, duplicated semantics, or a fundamental pipeline/cache redesign. |
 | Type information preserved | Sound expected types and diagnostics are retained or improved on affected and neighboring cases. | Unjustified `Any`/`Unknown`, erased generics/literals, unsound narrowing, or lost diagnostics. |
 | Product improvement | Evidence of a supported user benefit: corrected behavior, useful capability, or concrete maintenance/performance improvement. | Only silencing tests, an unfixed motivating case, or no demonstrated benefit. |
+| Worthwhile tradeoff | The expected benefit is proportionate to the change's correctness, compatibility, performance, complexity, and maintenance risks, compared with no change and the simplest viable alternative. | The demonstrated benefit is small or avoidable while the change introduces a material regression risk, broad cost, or complexity; or a less disruptive alternative achieves the benefit. |
+
+Assess practical value in context rather than treating every correctness fix as automatically worthwhile or requiring a
+numerical score. Consider the bug's severity and reach, affected supported workflows, available workarounds, and the
+likelihood and impact of the change's costs. A rare but severe correctness failure can justify a targeted fix; an easy
+workaround or narrow benefit may not justify broad regressions or ongoing complexity. Do not treat speculative costs
+or unknown prevalence as established facts. Mark the gate `Unknown` when missing evidence could change the tradeoff;
+state what evidence or maintainer judgment would resolve it. Consider no change, the submitted change, and a simpler
+alternative when one exists.
 
 `Unknown` means evidence is missing, not that a bug has been found. A documentation-only change can pass the performance
 gate by establishing that no runtime path changes. A runtime change may pass on a sufficiently specific static argument;
@@ -176,15 +199,22 @@ Correctness and performance concerns must be causally tied to the change, not ju
 Lead with the recommendation and most important reason, followed by:
 
 1. **Reviewed scope:** PR and exact base, merge-base, and head SHAs; dirty-worktree or access limitations.
-2. **Goal assessment:** a four-row table with goal, status, supporting evidence, and residual uncertainty.
+2. **Goal assessment:** a five-row table with goal, status, supporting evidence, and residual uncertainty.
 3. **Actionable findings:** deduplicated, ordered by severity, with file/line, evidence, impact, and a minimal remedy.
 4. **Feedback disposition:** substantive concern, comment link/ID, current status, and code/test evidence.
 5. **Alternatives:** no change versus the PR versus a simpler viable option, with a recommended approach.
 6. **Validation and limits:** what actually ran and where, baseline/head results, unexecuted probes, and unresolved questions.
 
-Keep empty sections short. Do not include four verbose persona transcripts or a numeric average.
+Keep empty sections short. Do not include verbose persona transcripts or a numeric average.
 
-- **Good change:** all four gates pass, with no unresolved blocking feedback or material missing evidence.
+PR feedback is separate from this assessment report. Follow the coordinator's
+[feedback reconciliation rules](../.github/agents/pyright-pr-review.agent.md#prepare-pr-feedback) for the established review
+comment and any additional skill-style comment. Account for each actionable finding and its supporting evidence;
+do not replace the original feedback style or repeat shared issues in both comments. Full projects and raw output
+remain supporting evidence. Only the coordinator publishes either comment, on explicit request and after checking the
+head.
+
+- **Good change:** all five gates pass, with no unresolved blocking feedback or material missing evidence.
 - **Needs changes:** evidence establishes a blocking regression, unmet goal, unjustified precision loss, or unapproved
   fundamental architectural shift. State the minimum changes needed, not an unrelated rewrite.
 - **Inconclusive:** a material gate or feedback concern remains unknown, reviewers disagree without decisive evidence,
@@ -195,7 +225,7 @@ A non-blocking improvement suggestion does not by itself defeat an otherwise sup
 agreement among reviewers, green CI, or an existing approval label cannot compensate for a failed gate.
 
 After a repair, give a concise update rather than repeating the original report: findings addressed locally, actual
-changes, validation evidence and limitations, remaining concerns, and the four goals' updated statuses. Identify the
+changes, validation evidence and limitations, remaining concerns, and the five goals' updated statuses. Identify the
 reviewed head plus the uncommitted patch as the subject of the new assessment; do not imply that GitHub's PR or review
 threads were updated. If publication was explicitly requested afterward, report the actual commit/push/PR-update outcome
 separately and pin the assessment to the published revision only once verified.

@@ -27,6 +27,56 @@ interface TestCacheEntry extends ContextualTypeCacheEntry {
 }
 
 test.each(['complete', 'error', 'cancel'] as const)(
+    'Speculative result isolation preserves active contexts and restores nested caches: %s',
+    (outcome) => {
+        const module = parseText('value\n', new DiagnosticSink()).parserOutput.parseTree;
+        const statement = module.d.statements[0];
+        assert.ok(statement.nodeType === ParseNodeType.StatementList);
+        const node = statement.d.statements[0];
+        const tracker = new SpeculativeTypeTracker();
+        const first = TypeVarType.createInstance('First');
+        const second = TypeVarType.createInstance('Second');
+        const third = TypeVarType.createInstance('Third');
+        const regularCache = new Map<number, Type>();
+        tracker.enterSpeculativeContext(node, { dependentType: first });
+        tracker.addSpeculativeType(node, { type: first }, 0, undefined);
+        const original = tracker.getSpeculativeType(node, undefined);
+        assert.ok(original);
+        const error = outcome === 'cancel' ? new OperationCanceledException() : new Error('inference interrupted');
+        const isolated = () =>
+            tracker.useSpeculativeTypeCacheIsolation(() => {
+                assert.equal(tracker.isSpeculative(node), true);
+                assert.equal(tracker.getSpeculativeType(node, undefined), undefined);
+                regularCache.set(node.id, second);
+                tracker.trackEntry(regularCache, node.id);
+                tracker.addSpeculativeType(node, { type: second }, 0, undefined);
+                const outer = tracker.getSpeculativeType(node, undefined);
+                assert.strictEqual(outer?.typeResult.type, second);
+                tracker.useSpeculativeTypeCacheIsolation(() => {
+                    assert.equal(tracker.getSpeculativeType(node, undefined), undefined);
+                    tracker.addSpeculativeType(node, { type: third }, 0, undefined);
+                    assert.strictEqual(tracker.getSpeculativeType(node, undefined)?.typeResult.type, third);
+                });
+                assert.strictEqual(tracker.getSpeculativeType(node, undefined), outer);
+                if (outcome !== 'complete') {
+                    throw error;
+                }
+                return second;
+            });
+        if (outcome === 'complete') {
+            assert.strictEqual(isolated(), second);
+        } else {
+            assert.throws(isolated, (caught) => caught === error);
+        }
+        assert.strictEqual(tracker.getSpeculativeType(node, undefined), original);
+        assert.strictEqual(regularCache.get(node.id), second);
+        tracker.leaveSpeculativeContext();
+        assert.equal(regularCache.has(node.id), false);
+        assert.equal(tracker.isSpeculative(undefined), false);
+    }
+);
+
+test.each(['complete', 'error', 'cancel'] as const)(
     'Exact-node isolation preserves disjoint native speculative contexts: %s',
     (outcome) => {
         const module = parseText('first\nsecond\nthird\n', new DiagnosticSink()).parserOutput.parseTree;

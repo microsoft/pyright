@@ -3,6 +3,7 @@ from typing import Any
 
 from markdown.core import Markdown
 
+# The allowed value types depend on the respective keys.
 class Extension:
     config: Mapping[str, list[Any]]
     def __init__(self, **kwargs: Any) -> None: ...
