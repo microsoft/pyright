@@ -17,7 +17,7 @@ name: Run mypy_primer on PR
 run-name: 'Run mypy_primer after Validation #${{ github.event.workflow_run.id }}'
 
 env:
-  NODE_VERSION: '24.15.0' # Shipped with VS Code.
+  NODE_VERSION: '24.22.2' # Shipped with VS Code.
 
 on:
   workflow_run:
