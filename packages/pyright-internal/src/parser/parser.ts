@@ -4097,7 +4097,7 @@ export class Parser {
                     valueExpr = this._parsePossibleSlice();
 
                     if (nameExpr.nodeType === ParseNodeType.Name) {
-                        nameIdentifier = nameExpr.d.token;
+                        nameIdentifier = nameExpr.d;
                     } else {
                         this._addSyntaxError(LocMessage.expectedParamName(), nameExpr);
                     }
@@ -4307,7 +4307,7 @@ export class Parser {
                 valueExpr = this._parseTestExpression(/* allowAssignmentExpression */ false);
 
                 if (nameExpr.nodeType === ParseNodeType.Name) {
-                    nameIdentifier = nameExpr.d.token;
+                    nameIdentifier = nameExpr.d;
                 } else {
                     this._addSyntaxError(LocMessage.expectedParamName(), nameExpr);
                 }
