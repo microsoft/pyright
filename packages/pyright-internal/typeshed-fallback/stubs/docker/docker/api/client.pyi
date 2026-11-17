@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 
 import requests
 from docker.tls import TLSConfig
@@ -33,7 +33,7 @@ class APIClient(
     SwarmApiMixin,
     VolumeApiMixin,
 ):
-    __attrs__: Sequence[str]
+    __attrs__: list[str]
     base_url: str
     timeout: int
     credstore_env: Mapping[Incomplete, Incomplete] | None

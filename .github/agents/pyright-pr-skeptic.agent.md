@@ -30,7 +30,9 @@ reviewer report, not a merge decision.
 - Follow substantive review objections through to the current head. Identify which are actually fixed and which have
   merely received a reply.
 - Verify that the change benefits a real supported use case, rather than only arranging for the added sample to pass.
-  A small correctness fix is sufficient benefit; it need not introduce a feature.
+  Assess the bug's severity and reach, available workarounds, and whether that benefit justifies the change's likely
+  regression risk and complexity. A correctness fix is not automatically worthwhile; neither is a rare, severe failure
+  automatically insignificant. Distinguish demonstrated impact and costs from unknowns or speculation.
 
 For each concern, give the smallest counterexample or precise code path that could establish it, expected versus actual
 behavior if known, and what would falsify your concern. Run a discriminating check when it can resolve a material
