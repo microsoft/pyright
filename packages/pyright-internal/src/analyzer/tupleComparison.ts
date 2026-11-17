@@ -24,24 +24,22 @@ import {
     combineTypes,
     exceedsInferredTupleLiteralProduct,
     getInferredTupleLiteralBase,
-    getTupleLiteralTypeComplexity,
     getTypeAliasInfo,
     Type,
     TupleTypeArg,
+    TypeAliasSharedInfo,
     TypeBase,
     UnknownType,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
     isInstantiableClass,
-    isNever,
     isTypeSame,
     isUnion,
     isTypeVar,
     TypeVarType,
-    TypeAliasSharedInfo,
+    Variance,
     maxTypeRecursionCount,
-    maxSubtypesForInferredType,
 } from './types';
 
 const comparisonMethods: { [operator: number]: [string, string] } = {
@@ -156,9 +154,8 @@ function inferTupleComparison(
     const reflectionOrder = new Map<ClassType['shared'], Map<ClassType['shared'], boolean>>();
     const boolType = evaluator.getBuiltInObject(errorNode, 'bool');
     const comparedPairs = new Map<Type, Map<Type, boolean>>();
-    const pendingPairs: { left: Type; right: Type; depth: number; isConditional: boolean }[] = [];
-    let hasRecursiveAlias = false;
-    let recursiveBudgetExceeded = false;
+    const aliasReferences = new Map<TypeAliasSharedInfo, Type[]>();
+    const pendingPairs: { left: Type; right: Type; depth: number; isConditional: boolean; isTail: boolean }[] = [];
     const hasUnknownShape = [leftType, rightType].some((type) =>
         type.priv.tupleTypeArgs?.some((arg) => arg.isUnbounded && isAnyOrUnknown(arg.type))
     );
@@ -274,45 +271,6 @@ function inferTupleComparison(
         return values ? combineTypes(values) : undefined;
     };
 
-    const getRecursiveBudgetFallback = (): Type | undefined => {
-        const declared = getDeclaredContractResult();
-        if (!declared) return undefined;
-        const isClosedResult = (type: Type): boolean => {
-            let size = 0;
-            const visit = (type: Type, depth: number): boolean => {
-                if (
-                    ++size > maxSubtypesForInferredType ||
-                    depth > maxTypeRecursionCount ||
-                    type.props?.inferredTupleLiteral ||
-                    type.props?.typeForm ||
-                    getTypeCondition(type)?.length
-                )
-                    return false;
-                if (isAnyOrUnknown(type) || isNever(type)) return true;
-                if (isUnion(type)) return type.priv.subtypes.every((subtype) => visit(subtype, depth + 1));
-                if (!isClass(type) || type.priv.typedDictNarrowedEntries) return false;
-                const argsAreClosed = type.priv.tupleTypeArgs
-                    ? type.priv.tupleTypeArgs.every((arg) => visit(arg.type, depth + 1))
-                    : type.priv.typeArgs?.every((arg) => visit(arg, depth + 1)) ?? true;
-                return (
-                    argsAreClosed && (getTypeAliasInfo(type)?.typeArgs?.every((arg) => visit(arg, depth + 1)) ?? true)
-                );
-            };
-            return visit(type, 0);
-        };
-        // Keep cheap results already reached, but never combine growing generic graphs.
-        return combineTypes([
-            ...resultTypes.filter(
-                (type) =>
-                    isAnyOrUnknown(type) ||
-                    (isClassInstance(type) &&
-                        !ClassType.isBuiltIn(type, 'bool') &&
-                        ((!type.priv.typeArgs?.length && !type.priv.tupleTypeArgs?.length) || isClosedResult(type)))
-            ),
-            declared,
-        ]);
-    };
-
     // Earlier comparisons can mutate objects or rebind names after a middle operand is captured.
     const isChainedMiddleOperand =
         errorNode.nodeType === ParseNodeType.BinaryOperation &&
@@ -344,7 +302,6 @@ function inferTupleComparison(
     }
 
     let pureOperands: boolean | undefined;
-    let identityBudgetExceeded = false;
     const sameReferenceAt = (leftIndex: number, rightIndex: number, depth: number): boolean => {
         if (
             depth !== 0 ||
@@ -356,14 +313,8 @@ function inferTupleComparison(
         }
         if (pureOperands === undefined) {
             const pending: ExpressionNode[] = [leftExpression, rightExpression];
-            let remaining = maxSubtypesForInferredType;
             pureOperands = true;
             while (pending.length) {
-                if (--remaining < 0) {
-                    identityBudgetExceeded = true;
-                    pureOperands = false;
-                    break;
-                }
                 const node: ExpressionNode = pending.pop()!;
                 if (
                     node.nodeType === ParseNodeType.Name ||
@@ -377,11 +328,6 @@ function inferTupleComparison(
                         continue;
                     }
                 } else if (node.nodeType === ParseNodeType.Tuple || node.nodeType === ParseNodeType.List) {
-                    if (node.d.items.length > remaining) {
-                        identityBudgetExceeded = true;
-                        pureOperands = false;
-                        break;
-                    }
                     pending.push(...node.d.items);
                     continue;
                 }
@@ -418,13 +364,6 @@ function inferTupleComparison(
                 const leftElement = left.priv.typeArgs?.[0] ?? UnknownType.create();
                 const rightElement = right.priv.typeArgs?.[0] ?? UnknownType.create();
                 return canOrderElements(leftElement, rightElement, recursionCount + 1, isConditional);
-            }
-        }
-        if (hasRecursiveAlias) {
-            const args = [left, right].flatMap((type) => (isClassInstance(type) ? type.priv.typeArgs ?? [] : []));
-            if (!getTupleLiteralTypeComplexity(args)) {
-                recursiveBudgetExceeded = true;
-                return false;
             }
         }
         const values = getOrderingResult(left, right, leftUnexpanded, rightUnexpanded);
@@ -519,9 +458,6 @@ function inferTupleComparison(
                     if (!valid && !isConditional) {
                         return rightSubtype;
                     }
-                    hasRecursiveAlias ||=
-                        (isTypeVar(leftUnexpanded) && !!leftUnexpanded.shared.recursiveAlias) ||
-                        (isTypeVar(rightUnexpanded) && !!rightUnexpanded.shared.recursiveAlias);
                     valid =
                         canOrderResolvedPair(
                             leftSubtype,
@@ -539,11 +475,68 @@ function inferTupleComparison(
         return valid;
     };
 
-    // Recursive specialization can clone placeholders and expanded classes.
-    // Limit new obligations instead of equating different alias arguments.
-    const aliasSpecializations = new Map<TypeAliasSharedInfo, number>();
-
+    let isTailPair = false;
+    let hasIncompleteResult = false;
+    // Each reference to a type alias, and each expansion of a recursive
+    // type alias, creates new objects for the same type.
+    const getAliasReference = (type: Type): Type => {
+        const info = type.props?.typeAliasInfo;
+        if (!info || getTypeCondition(type)) return type;
+        const typeArgs = info.typeArgs ?? [];
+        let references = aliasReferences.get(info.shared);
+        if (!references) {
+            references = [];
+            aliasReferences.set(info.shared, references);
+        }
+        const existing = references.find((reference) => {
+            const referenceArgs = reference.props?.typeAliasInfo?.typeArgs ?? [];
+            return (
+                reference.category === type.category &&
+                reference.flags === type.flags &&
+                referenceArgs.length === typeArgs.length &&
+                typeArgs.every((arg, index) => isSameAliasArg(arg, referenceArgs[index]))
+            );
+        });
+        if (existing) return existing;
+        references.push(type);
+        return type;
+    };
+    // isTypeSame treats types that differ only past the recursion limit as the same.
+    const isSameAliasArg = (left: Type, right: Type): boolean =>
+        left.props?.typeAliasInfo || right.props?.typeAliasInfo
+            ? getAliasReference(left) === getAliasReference(right)
+            : isTypeSame(left, right);
     const canOrderElements = (left: Type, right: Type, depth: number, isConditional: boolean): boolean => {
+        if (
+            depth > maxTypeRecursionCount &&
+            isTypeVar(left) &&
+            left.shared.recursiveAlias &&
+            isTypeVar(right) &&
+            right.shared.recursiveAlias
+        ) {
+            const leftInfo = left.props?.typeAliasInfo;
+            const rightArgs = right.props?.typeAliasInfo?.typeArgs;
+            if (
+                !leftInfo?.typeArgs ||
+                !rightArgs ||
+                left.shared.recursiveAlias.typeVarScopeId !== right.shared.recursiveAlias.typeVarScopeId
+            ) {
+                hasIncompleteResult = true;
+                return true;
+            }
+            const variances = leftInfo.shared.computedVariance;
+            const wasTailPair = isTailPair;
+            isTailPair = true;
+            leftInfo.typeArgs.forEach((arg, index) => {
+                if (index < rightArgs.length && variances?.[index] !== Variance.Unknown) {
+                    canOrderElements(arg, rightArgs[index], depth, /* isConditional */ true);
+                }
+            });
+            isTailPair = wasTailPair;
+            return true;
+        }
+        left = getAliasReference(left);
+        right = getAliasReference(right);
         let rights = comparedPairs.get(left);
         if (!rights) {
             rights = new Map();
@@ -552,23 +545,7 @@ function inferTupleComparison(
         const previous = rights.get(right);
         if (previous === false || (previous === true && isConditional)) return true;
         rights.set(right, isConditional);
-
-        const leftAlias = getTypeAliasInfo(left);
-        const rightAlias = getTypeAliasInfo(right);
-        hasRecursiveAlias ||=
-            (isTypeVar(left) && !!left.shared.recursiveAlias) || (isTypeVar(right) && !!right.shared.recursiveAlias);
-        const aliases =
-            leftAlias?.shared === rightAlias?.shared ? [leftAlias?.shared] : [leftAlias?.shared, rightAlias?.shared];
-        for (const alias of aliases) {
-            if (!alias) continue;
-            const count = aliasSpecializations.get(alias) ?? 0;
-            if (count >= maxSubtypesForInferredType) {
-                recursiveBudgetExceeded = true;
-                return false;
-            }
-            aliasSpecializations.set(alias, count + 1);
-        }
-        pendingPairs.push({ left, right, depth, isConditional });
+        pendingPairs.push({ left, right, depth, isConditional, isTail: isTailPair });
         return true;
     };
 
@@ -602,7 +579,6 @@ function inferTupleComparison(
         if (isTypeVar(type) && type.shared.recursiveAlias) return undefined;
         const concrete = isTypeVar(type) ? evaluator.makeTopLevelTypeVarsConcrete(type) : type;
         const subtypes = isUnion(concrete) ? concrete.priv.subtypes : [concrete];
-        if (subtypes.length > maxSubtypesForInferredType) return undefined;
         let representation: 'literal' | 'unrepresented' = 'literal';
         for (const subtype of subtypes) {
             if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, ['int', 'bool', 'float', 'complex'])) {
@@ -695,7 +671,6 @@ function inferTupleComparison(
     ): ExpressionNode[] | undefined => {
         if (
             expression?.nodeType !== ParseNodeType.Tuple ||
-            args.length > maxSubtypesForInferredType ||
             expression.d.items.length !== args.length ||
             isChainedMiddleOperand ||
             expression.d.items.some(
@@ -898,20 +873,27 @@ function inferTupleComparison(
         0,
         /* isConditional */ false
     );
-    if (!ordered) return recursiveBudgetExceeded ? getRecursiveBudgetFallback() : undefined;
-    if (identityBudgetExceeded) {
-        return getDeclaredContractResult();
-    }
+    if (!ordered) return undefined;
     // Reach seed elements before expanding another recursive tail.
     for (let index = 0; index < pendingPairs.length; index++) {
         evaluator.checkForCancellation();
         const pair = pendingPairs[index];
+        const previousCount = resultTypes.length;
+        isTailPair = pair.isTail;
         const valid = canOrderElementsUncached(pair.left, pair.right, pair.depth, pair.isConditional);
-        if (recursiveBudgetExceeded) return getRecursiveBudgetFallback();
+        hasIncompleteResult ||=
+            pair.isTail &&
+            resultTypes
+                .slice(previousCount)
+                .some((type) => !resultTypes.slice(0, previousCount).some((other) => isTypeSame(type, other)));
         if (!valid) {
             if (!pair.isConditional) return undefined;
             requiresDeclaredContract = true;
         }
+    }
+    isTailPair = false;
+    if (hasIncompleteResult) {
+        resultTypes.push(UnknownType.create());
     }
     if (requiresDeclaredContract) {
         const declaredResult = getDeclaredContractResult();
