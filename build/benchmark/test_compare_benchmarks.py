@@ -1859,7 +1859,7 @@ const execute = async (script, eventContext = context) =>
                 "name": "Upload comparison history charts",
                 "id": "history",
                 "if": "${{ steps.download.outputs.pr-number != '' && steps.render-history.outcome == 'success' }}",
-                "uses": "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+                "uses": "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
                 "with": {
                     "name": "typecheck-benchmark-history-pr-${{ inputs.pr_number }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}",
                     "path": "pr-history/",
