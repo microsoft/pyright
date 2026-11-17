@@ -1,8 +1,12 @@
 from wtforms.fields.choices import (
+    Choice as Choice,
     RadioField as RadioField,
+    SelectChoice as SelectChoice,
     SelectField as SelectField,
     SelectFieldBase as SelectFieldBase,
     SelectMultipleField as SelectMultipleField,
+    enum_choices as enum_choices,
+    enum_coerce as enum_coerce,
 )
 from wtforms.fields.core import Field as Field, Flags as Flags, Label as Label
 from wtforms.fields.datetime import (
@@ -24,6 +28,7 @@ from wtforms.fields.numeric import (
 )
 from wtforms.fields.simple import (
     BooleanField as BooleanField,
+    ButtonField as ButtonField,
     ColorField as ColorField,
     EmailField as EmailField,
     FileField as FileField,
@@ -43,10 +48,14 @@ __all__ = [
     "Field",
     "Flags",
     "Label",
+    "Choice",
+    "SelectChoice",
     "SelectField",
-    "SelectFieldBase",
     "SelectMultipleField",
+    "SelectFieldBase",
     "RadioField",
+    "enum_choices",
+    "enum_coerce",
     "DateTimeField",
     "DateField",
     "TimeField",
@@ -59,6 +68,7 @@ __all__ = [
     "FloatField",
     "IntegerRangeField",
     "DecimalRangeField",
+    "ButtonField",
     "BooleanField",
     "TextAreaField",
     "PasswordField",
