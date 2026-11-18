@@ -54,6 +54,18 @@ test('OverloadCall1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Datetime1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['datetime1.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [62, DiagnosticRule.reportArgumentType],
+            [65, DiagnosticRule.reportArgumentType],
+        ]
+    );
+});
+
 test('OverloadCall2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall2.py']);
     TestUtils.validateResults(analysisResults, 0);
@@ -724,6 +736,14 @@ test('MatchSequence2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('MatchSequence3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequence3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('MatchSequenceVariadic', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -1286,6 +1306,11 @@ test('Constructor35', () => {
         DiagnosticRule.reportCallIssue,
         DiagnosticRule.reportGeneralTypeIssues,
     ]);
+});
+
+test('Constructor36', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor36.py']);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('ConstructorCallable1', () => {

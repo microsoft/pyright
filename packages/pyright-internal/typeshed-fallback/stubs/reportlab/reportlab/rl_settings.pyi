@@ -67,6 +67,7 @@ textPaths: Final[str]
 toColorCanUse: Final[str]
 defCWRF: Final[float]
 unShapedFontGlob: list[str] | None
+std14Embed: Final[bool]
 T1SearchPath: Final[tuple[str, ...]]
 TTFSearchPath: Final[tuple[str, ...]]
 CMapSearchPath: Final[tuple[str, ...]]
@@ -137,4 +138,5 @@ __all__ = (
     "toColorCanUse",
     "defCWRF",
     "unShapedFontGlob",
+    "std14Embed",
 )
