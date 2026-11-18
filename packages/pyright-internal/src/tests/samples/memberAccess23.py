@@ -3,7 +3,7 @@
 # a class constructed from the metaclass. The runtime has some surprising
 # behavior in this case. It favors the metaclass descriptor object
 # in this case even if the class has an instance attribute with the
-# same name.
+# same name. This also applies to descriptors declared on `type`.
 
 
 class MyMeta(type):
@@ -51,3 +51,12 @@ reveal_type(A.attr4, expected_text="property")
 reveal_type(A.attr5, expected_text="int")
 reveal_type(A.attr6, expected_text="int")
 reveal_type(A.attr7, expected_text="complex")
+
+
+class B:
+    __mro__ = "B"
+
+
+reveal_type(B.__mro__, expected_text="tuple[type, ...]")
+reveal_type(B().__mro__, expected_text="str")
+reveal_type(type.__mro__, expected_text="tuple[type, ...]")

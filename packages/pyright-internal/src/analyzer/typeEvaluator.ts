@@ -1797,17 +1797,8 @@ export function createTypeEvaluator(
 
         // Look up the attribute in the metaclass first. If the member is a descriptor
         // (an object with a __get__ and __set__ method) and the access is a 'get',
-        // the Python runtime uses this descriptor to satisfy the lookup. Skip this
-        // costly lookup in the common case where the metaclass is 'type' since we know
-        // that `type` doesn't have any attributes that are descriptors.
-        if (
-            usage.method === 'get' &&
-            objectTypeIsInstantiable &&
-            metaclass &&
-            isInstantiableClass(metaclass) &&
-            !ClassType.isBuiltIn(metaclass, 'type') &&
-            !ClassType.isSameGenericClass(metaclass, objectType)
-        ) {
+        // the Python runtime uses this descriptor to satisfy the lookup.
+        if (usage.method === 'get' && objectTypeIsInstantiable && metaclass && isInstantiableClass(metaclass)) {
             const descMemberInfo = getTypeOfClassMemberName(
                 errorNode,
                 metaclass,
