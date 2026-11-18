@@ -4,8 +4,7 @@
 # pyright: strict
 
 from enum import IntEnum
-from typing import Any, Callable, Generic, Protocol, TypeVar, reveal_type
-from typing_extensions import NewType
+from typing import Any, Callable, Generic, NewType, Protocol, TypeVar, reveal_type
 
 
 class A:
