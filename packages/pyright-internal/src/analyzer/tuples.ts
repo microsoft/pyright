@@ -58,7 +58,11 @@ import {
 // we default to tuple[Unknown, ...].
 const maxInferredTupleEntryCount = 256;
 
-export function makeTupleObject(evaluator: TypeEvaluator, typeArgs: TupleTypeArg[], isUnpacked = false) {
+export function makeTupleObject(
+    evaluator: Pick<TypeEvaluator, 'getTupleClassType'>,
+    typeArgs: TupleTypeArg[],
+    isUnpacked = false
+) {
     const tupleClass = evaluator.getTupleClassType();
     if (tupleClass && isInstantiableClass(tupleClass)) {
         return convertToInstance(specializeTupleClass(tupleClass, typeArgs, /* isTypeArgExplicit */ true, isUnpacked));
@@ -321,7 +325,21 @@ export function assignTupleTypeArgs(
     const srcTypeArgs = [...(srcType.priv.tupleTypeArgs ?? [])];
 
     if (adjustTupleTypeArgs(evaluator, destTypeArgs, srcTypeArgs, flags)) {
-        for (let argIndex = 0; argIndex < srcTypeArgs.length; argIndex++) {
+        // Establish the pack before matching callbacks that reference it. Otherwise,
+        // nested generic callbacks can introduce self-expanding pack constraints.
+        const variadicIndex = ((flags & AssignTypeFlags.Contravariant) !== 0 ? srcTypeArgs : destTypeArgs).findIndex(
+            (arg, index) =>
+                isUnpackedTypeVarTuple(arg.type) &&
+                !TypeVarType.isBound(arg.type) &&
+                !isTupleGradualForm(srcTypeArgs[index].type)
+        );
+
+        for (let index = -1; index < srcTypeArgs.length; index++) {
+            const argIndex = index < 0 ? variadicIndex : index;
+            if (argIndex < 0 || (index >= 0 && index === variadicIndex)) {
+                continue;
+            }
+
             const entryDiag = diag?.createAddendum();
             const destArgType = destTypeArgs[argIndex].type;
             const srcArgType = srcTypeArgs[argIndex].type;

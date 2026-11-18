@@ -203,7 +203,7 @@ script calls. `.github/aw/actions-lock.json` records its version-to-SHA resoluti
 the generated metadata, runtime pin, and compiler version must agree. A standalone
 runtime bump can remove scripts that the existing generated workflow still calls
 (for example, v0.86.2's `install_ripgrep.sh` is absent from v0.88.4). Dependabot
-therefore ignores only `github/gh-aw-actions`; unrelated action updates remain
+therefore ignores `github/gh-aw-actions/setup` by its full action name; unrelated action updates remain
 enabled. The existing primer workflow tests also check compiler/runtime consistency.
 
 To upgrade, deliberately select the compiler version, regenerate with its matching

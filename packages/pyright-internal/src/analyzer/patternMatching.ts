@@ -416,7 +416,20 @@ function narrowTypeBasedOnSequencePattern(
             // If this is a tuple, we can narrow it to a specific tuple type.
             // Other sequences cannot be narrowed because we don't know if they
             // are immutable (covariant).
-            if (canNarrowTuple) {
+            // Keep a tuple subclass such as a NamedTuple unchanged if the pattern
+            // didn't narrow any of its entries. Replacing it with a plain tuple
+            // would lose the class.
+            const isUnnarrowedTupleSubclass =
+                isClassInstance(entry.subtype) &&
+                !ClassType.isBuiltIn(entry.subtype, 'tuple') &&
+                !entry.isIndeterminateLength &&
+                !entry.isUnboundedTuple &&
+                narrowedEntryTypes.length === unnarrowedEntryTypes.length &&
+                narrowedEntryTypes.every((narrowedType, index) =>
+                    isTypeSame(narrowedType, unnarrowedEntryTypes[index])
+                );
+
+            if (canNarrowTuple && !isUnnarrowedTupleSubclass) {
                 const tupleClassType = evaluator.getBuiltInType(pattern, 'tuple');
                 if (tupleClassType && isInstantiableClass(tupleClassType)) {
                     entry.subtype = ClassType.cloneAsInstance(
@@ -855,7 +868,7 @@ function narrowTypeBasedOnLiteralPattern(
     });
 }
 
-function isIntLiteralPatternEqualToBool(patternType: ClassType, subjectType: ClassType): boolean {
+export function isIntLiteralPatternEqualToBool(patternType: ClassType, subjectType: ClassType): boolean {
     // Numeric literal patterns use equality, so 0 and 1 also match False and True.
     // The inverse isn't true because singleton bool patterns use identity.
     if (!ClassType.isBuiltIn(patternType, 'int') || !ClassType.isBuiltIn(subjectType, 'bool')) {
@@ -878,8 +891,8 @@ function isIntLiteralPatternEqualToBool(patternType: ClassType, subjectType: Cla
 // Rather than surfacing Unknown, fall back to each parameter's bound while
 // preserving any argument that was concretely solved. The subject's condition is
 // reapplied to the resulting instance.
-function specializeBoundedMatchTypeParams(
-    evaluator: TypeEvaluator,
+export function specializeBoundedMatchTypeParams(
+    evaluator: Pick<TypeEvaluator, 'getTupleClassType'>,
     matchType: ClassType,
     solvedTypeArgs: Type[] | undefined,
     condition: ReturnType<typeof getTypeCondition>
@@ -1551,7 +1564,7 @@ function narrowTypeBasedOnValuePattern(
 }
 
 // Determines whether implicit equality may use an implementation other than object.__eq__.
-function hasCustomEq(type: Type): boolean {
+export function hasCustomEq(type: Type): boolean {
     if (isInstantiableClass(type)) {
         const metaclass = type.shared.effectiveMetaclass;
         if (!metaclass || !isInstantiableClass(metaclass)) {
@@ -1712,7 +1725,8 @@ function getSequencePatternInfo(
                 ) as ClassType;
 
                 if (isTupleClass(specializedSequence)) {
-                    const typeArgs = specializedSequence.priv.tupleTypeArgs ?? [
+                    // Pattern expansion must not mutate the cached tuple specialization.
+                    const typeArgs = specializedSequence.priv.tupleTypeArgs?.slice() ?? [
                         { type: UnknownType.create(), isUnbounded: true },
                     ];
 
@@ -1743,7 +1757,6 @@ function getSequencePatternInfo(
                             typeArgs.splice(tupleIndeterminateIndex, 1);
                             removedIndeterminate = true;
                             tupleIndeterminateIndex = -1;
-                            removedIndeterminate = true;
                         }
                     }
 

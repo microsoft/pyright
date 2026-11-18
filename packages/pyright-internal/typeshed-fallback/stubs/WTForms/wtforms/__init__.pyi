@@ -1,8 +1,11 @@
 from typing import Final
 
 from wtforms import validators as validators, widgets as widgets
+from wtforms.datalist import DataList as DataList, DataListChoice as DataListChoice, enum_datalist as enum_datalist
 from wtforms.fields.choices import (
+    Choice as Choice,
     RadioField as RadioField,
+    SelectChoice as SelectChoice,
     SelectField as SelectField,
     SelectFieldBase as SelectFieldBase,
     SelectMultipleField as SelectMultipleField,
@@ -27,6 +30,7 @@ from wtforms.fields.numeric import (
 )
 from wtforms.fields.simple import (
     BooleanField as BooleanField,
+    ButtonField as ButtonField,
     ColorField as ColorField,
     EmailField as EmailField,
     FileField as FileField,
@@ -50,8 +54,8 @@ __all__ = [
     "Form",
     "ValidationError",
     "SelectField",
-    "SelectFieldBase",
     "SelectMultipleField",
+    "SelectFieldBase",
     "RadioField",
     "Field",
     "Flags",
@@ -69,7 +73,9 @@ __all__ = [
     "FloatField",
     "IntegerRangeField",
     "DecimalRangeField",
+    "ButtonField",
     "BooleanField",
+    "DataList",
     "TextAreaField",
     "PasswordField",
     "FileField",
@@ -82,4 +88,8 @@ __all__ = [
     "URLField",
     "EmailField",
     "ColorField",
+    "Choice",
+    "SelectChoice",
+    "DataListChoice",
+    "enum_datalist",
 ]
