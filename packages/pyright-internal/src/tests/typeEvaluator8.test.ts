@@ -332,7 +332,7 @@ test('Property10', () => {
 test('Property11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property11.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Property12', () => {
@@ -1066,6 +1066,12 @@ test('Descriptor7', () => {
             [134, DiagnosticRule.reportAttributeAccessIssue],
         ]
     );
+});
+
+test('Descriptor8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor8.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('MethodDescriptor1', () => {

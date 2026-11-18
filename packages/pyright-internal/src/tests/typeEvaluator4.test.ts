@@ -241,7 +241,7 @@ test('MemberAccess9', () => {
 
 test('MemberAccess10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess10.py']);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('MemberAccess11', () => {
@@ -306,7 +306,7 @@ test('MemberAccess22', () => {
 
 test('MemberAccess23', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess23.py']);
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('MemberAccess24', () => {

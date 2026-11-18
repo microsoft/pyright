@@ -1436,6 +1436,28 @@ export function isMaybeDescriptorInstance(type: Type, requireSetter = false): bo
     return true;
 }
 
+// A data descriptor defines __set__ or __delete__. It takes precedence over an attribute
+// of the same name for reads only if it also defines __get__.
+export function isDataDescriptorInstance(type: Type, requireGetter: boolean): boolean {
+    if (isUnion(type)) {
+        return type.priv.subtypes.every((subtype) => isDataDescriptorInstance(subtype, requireGetter));
+    }
+
+    if (!isClassInstance(type)) {
+        return false;
+    }
+
+    if (ClassType.isPropertyClass(type)) {
+        return true;
+    }
+
+    if (requireGetter && !lookUpObjectMember(type, '__get__')) {
+        return false;
+    }
+
+    return !!lookUpObjectMember(type, '__set__') || !!lookUpObjectMember(type, '__delete__');
+}
+
 // Checks whether an instantiable class type (i.e. the class itself, not an instance of it)
 // is a descriptor class — one that defines __get__. This is the counterpart to
 // isMaybeDescriptorInstance: that function handles declared types in instance form

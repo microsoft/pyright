@@ -309,7 +309,7 @@ import {
     getUnknownForTypeVar,
     InferenceContext,
     invertVariance,
-    isDescriptorInstance,
+    isDataDescriptorInstance,
     isEffectivelyInstantiable,
     isEllipsisType,
     isIncompleteUnknown,
@@ -1795,27 +1795,20 @@ export function createTypeEvaluator(
         // Consider only the metaclass class variables in this case.
         let skipObjectTypeLookup = objectTypeIsInstantiable && (flags & MemberAccessFlags.SkipInstanceMembers) !== 0;
 
-        // Look up the attribute in the metaclass first. If the member is a descriptor
-        // (an object with a __get__ and __set__ method) and the access is a 'get',
+        // Look up the attribute in the metaclass first. If the member is a data descriptor,
         // the Python runtime uses this descriptor to satisfy the lookup.
-        if (usage.method === 'get' && objectTypeIsInstantiable && metaclass && isInstantiableClass(metaclass)) {
-            const descMemberInfo = getTypeOfClassMemberName(
-                errorNode,
+        if (objectTypeIsInstantiable && metaclass && isInstantiableClass(metaclass)) {
+            const metaclassMember = lookUpClassMember(
                 metaclass,
                 memberName,
-                usage,
-                /* diag */ undefined,
-                flags | MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.SkipTypedDictEntries,
-                objectType,
-                recursionCount
+                flags | MemberAccessFlags.SkipInstanceMembers
             );
 
-            if (descMemberInfo) {
-                const isProperty =
-                    isClassInstance(descMemberInfo.type) && ClassType.isPropertyClass(descMemberInfo.type);
-                if (isDescriptorInstance(descMemberInfo.type, /* requireSetter */ true) || isProperty) {
-                    skipObjectTypeLookup = true;
-                }
+            if (
+                metaclassMember &&
+                isDataDescriptorInstance(getTypeOfMember(metaclassMember), /* requireGetter */ usage.method === 'get')
+            ) {
+                skipObjectTypeLookup = true;
             }
         }
 
@@ -4712,7 +4705,7 @@ export function createTypeEvaluator(
                         const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, selfClass, flags);
 
                         if (typeResult) {
-                            if (isDescriptorInstance(typeResult.type, /* requireSetter */ true)) {
+                            if (isDataDescriptorInstance(typeResult.type, /* requireGetter */ false)) {
                                 type = typeResult.type;
                                 flags &= MemberAccessFlags.DisallowClassVarWrites;
                             }
@@ -4793,7 +4786,11 @@ export function createTypeEvaluator(
                 const isClassMember = !memberInfo || (memberInfo.isClassMember && !memberInfo.isSlotsMember);
                 let resultType: Type;
 
-                if (isClass(concreteSubtype) && isClassMember && errorNode) {
+                // Assigning or deleting an attribute on a class object replaces or removes
+                // the class's own entry rather than invoking its descriptor.
+                const isDescriptorAccess = usage.method === 'get' || isAccessedThroughObject;
+
+                if (isClass(concreteSubtype) && isClassMember && errorNode && isDescriptorAccess) {
                     const descResult = applyDescriptorAccessMethod(
                         subtype,
                         concreteSubtype,
@@ -5001,6 +4998,20 @@ export function createTypeEvaluator(
                 const message =
                     usage.method === 'set' ? LocAddendum.propertyMissingSetter() : LocAddendum.propertyMissingDeleter();
                 diag?.addMessage(message.format({ name: memberName }));
+                return { type: AnyType.create(), typeErrors: true };
+            }
+
+            if (
+                !methodTypeResult &&
+                usage.method !== 'get' &&
+                isDataDescriptorInstance(concreteMemberType, /* requireGetter */ false)
+            ) {
+                diag?.addMessage(
+                    LocAddendum.descriptorAccessMethodMissing().format({
+                        name: accessMethodName,
+                        className: printType(convertToInstance(concreteMemberType)),
+                    })
+                );
                 return { type: AnyType.create(), typeErrors: true };
             }
 

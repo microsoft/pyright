@@ -1315,6 +1315,10 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; className: string }>(
                 getRawString('DiagnosticAddendum.descriptorAccessCallFailed')
             );
+        export const descriptorAccessMethodMissing = () =>
+            new ParameterizedString<{ name: string; className: string }>(
+                getRawString('DiagnosticAddendum.descriptorAccessMethodMissing')
+            );
         export const finalMethod = () => getRawString('DiagnosticAddendum.finalMethod');
         export const functionParamDefaultMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.functionParamDefaultMissing'));

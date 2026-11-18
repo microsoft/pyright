@@ -1865,6 +1865,7 @@
             "comment": "Binding is the process through which Pyright determines what object a name refers to"
         },
         "descriptorAccessCallFailed": "Failed to call method \"{name}\" for descriptor class \"{className}\"",
+        "descriptorAccessMethodMissing": "Method \"{name}\" is not defined for descriptor class \"{className}\"",
         "finalMethod": {
             "message": "Final method",
             "comment": "{Locked='Final'}"
