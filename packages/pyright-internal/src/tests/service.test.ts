@@ -20,7 +20,21 @@ import { Uri } from '../common/uri/uri';
 import { getFileSpec, UriEx } from '../common/uri/uriUtils';
 import { TestFileSystem } from './harness/vfs/filesystem';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
-import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
+import { parseAndGetTestState as parseTestState, TestState } from './harness/fourslash/testState';
+
+const testStates: TestState[] = [];
+
+afterEach(() => {
+    for (const state of testStates.splice(0)) {
+        state.dispose();
+    }
+});
+
+function parseAndGetTestState(...args: Parameters<typeof parseTestState>) {
+    const result = parseTestState(...args);
+    testStates.push(result.state);
+    return result;
+}
 
 test('random library file changed', () => {
     const state = parseAndGetTestState('', '/projectRoot').state;
@@ -1070,6 +1084,7 @@ function getRegisteredLibraryFileWatchers(root: string, extraPaths: string[], ex
 
     const data = parseTestData(root, '', '');
     const state = new TestState(root, data);
+    testStates.push(state);
 
     const options = new CommandLineOptions(state.workspace.rootUri, false);
     options.languageServerSettings.watchForLibraryChanges = true;
