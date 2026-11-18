@@ -53,7 +53,9 @@ Before opening a PR or asking for full review, select `pyright-pr-review` and as
 
 The [author preflight](../.github/skills/pyright-pr-typespec-review/SKILL.md#author-preflight) also accepts a draft PR.
 It runs directly without the five specialists and reports tested revisions, results, replay commands, and coverage
-gaps. It does not give a merge verdict or replace full review.
+gaps. It distinguishes a repro that demonstrates the fix from a control that passes on both revisions. For shared state
+or protocol changes, it checks what a later consumer or the end of the interaction observes. It does not give a merge
+verdict or replace full review.
 
 ## Conversation and optional repair
 

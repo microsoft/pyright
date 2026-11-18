@@ -40,6 +40,8 @@ For example, failure of containment in both directions does not prove that two s
 
 Trace where the new result goes next. A positional check followed by an aggregate check, or a precise result reduced to a boolean and then recomputed, can lose the fact that justified the earlier decision. Probe the boundary between those stages as well as the stages separately. Reuse of an existing helper is not sufficient evidence that it establishes the new caller's required property.
 
+For shared state, make the sequence part of the repro. For example, run a starred tuple match before an independent match that relies on the same cached tuple shape. Compare the second match with and without the first so that a passing standalone match cannot hide the state leak. For aliases, distinguish mutating the current object from mutating an old alias after rebinding.
+
 ## Coverage belongs to a hypothesis and a combination
 
 Derive dimensions from changed branches, callers, representations, and consumers. For each hypothesis, select the combinations that can exercise different semantics. Small relevant products can be generated; larger spaces need justified representatives and targeted interactions. Do not require an exhaustive product of unrelated language features.
