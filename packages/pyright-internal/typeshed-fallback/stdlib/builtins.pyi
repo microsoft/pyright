@@ -182,38 +182,45 @@ class classmethod(Generic[_T, _P, _R_co]):
 
 @disjoint_base
 class type:
+    # On CPython, `type.__dict__["__basicsize__"]` holds a member descriptor, while `int.__basicsize__` returns an integer.
+    # Annotating these attributes as `types.MemberDescriptorType` would give reads the type `Any` because its `__get__`
+    # stub returns `Any`. We use `@property` so type checkers infer each attribute's type from its getter.
+    #
     # object.__base__ is None. Otherwise, it would be a type.
     @final
-    @property
+    @property  # `types.MemberDescriptorType` on CPython
     def __base__(self) -> type | None: ...
     __bases__: tuple[type, ...]
     @final
-    @property
+    @property  # `types.MemberDescriptorType` on CPython
     def __basicsize__(self) -> int: ...
-    @final  # type: ignore[misc]
-    @property
-    def __dict__(self) -> types.MappingProxyType[str, Any]: ...  # type: ignore[override]
+    # type.__dict__ is read-only at runtime, but that can't be expressed currently.
+    # See https://github.com/python/typeshed/issues/11033 for a discussion.
+    __dict__: Final[types.MappingProxyType[str, Any]]  # type: ignore[assignment]
     @final
-    @property
+    @property  # `types.MemberDescriptorType` on CPython
     def __dictoffset__(self) -> int: ...
     @final
-    @property
+    @property  # `types.MemberDescriptorType` on CPython
     def __flags__(self) -> int: ...
     @final
-    @property
+    @property  # `types.MemberDescriptorType` on CPython
     def __itemsize__(self) -> int: ...
     __module__: str
+    # As with member descriptors, the stub for `types.GetSetDescriptorType.__get__` returns `Any`.
+    # Type checkers special-case `property` so they can infer each attribute's type from its getter.
     @final
-    @property
+    @property  # `types.GetSetDescriptorType` on CPython (`types.MemberDescriptorType` before 3.12)
     def __mro__(self) -> tuple[type, ...]: ...
-    __name__: str
-    __qualname__: str
     @final
-    @property
+    @property  # `types.GetSetDescriptorType` on CPython
     def __text_signature__(self) -> str | None: ...
     @final
-    @property
+    @property  # `types.MemberDescriptorType` on CPython
     def __weakrefoffset__(self) -> int: ...
+
+    __name__: str
+    __qualname__: str
 
     @overload
     def __init__(self, o: object, /) -> None: ...
