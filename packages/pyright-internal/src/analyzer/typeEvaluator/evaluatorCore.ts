@@ -1489,6 +1489,15 @@ export function createEvaluatorCore(contextDependencies: Context) {
                         return true;
                     }
 
+                    // Set and frozenset support cross-type equality, but not identity.
+                    if (
+                        !assumeIsOperator &&
+                        ClassType.isBuiltIn(leftType, ['set', 'frozenset']) &&
+                        ClassType.isBuiltIn(rightType, ['set', 'frozenset'])
+                    ) {
+                        return true;
+                    }
+
                     return false;
                 }
             }

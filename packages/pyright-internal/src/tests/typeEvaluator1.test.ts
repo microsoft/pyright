@@ -681,6 +681,49 @@ test('TypeNarrowingIn2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeNarrowingIn3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    configOptions.diagnosticRuleSet.reportUnnecessaryContains = 'error';
+    configOptions.diagnosticRuleSet.reportUnreachable = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn3.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 10);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [12, DiagnosticRule.reportAttributeAccessIssue],
+            [26, DiagnosticRule.reportAttributeAccessIssue],
+            [34, DiagnosticRule.reportAttributeAccessIssue],
+            [44, DiagnosticRule.reportAttributeAccessIssue],
+            [94, DiagnosticRule.reportArgumentType],
+            [102, DiagnosticRule.reportArgumentType],
+            [110, DiagnosticRule.reportArgumentType],
+            [120, DiagnosticRule.reportArgumentType],
+            [144, DiagnosticRule.reportUnnecessaryComparison],
+            [146, DiagnosticRule.reportUnnecessaryComparison],
+        ]
+    );
+});
+
+test('TypeNarrowingIn4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn4.py']);
+
+    TestUtils.validateResults(analysisResults, 7);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [72, DiagnosticRule.reportOptionalMemberAccess],
+            [78, DiagnosticRule.reportOptionalMemberAccess],
+            [84, DiagnosticRule.reportOptionalMemberAccess],
+            [90, DiagnosticRule.reportOptionalMemberAccess],
+            [97, DiagnosticRule.reportOptionalMemberAccess],
+            [103, DiagnosticRule.reportOptionalMemberAccess],
+            [109, DiagnosticRule.reportAttributeAccessIssue],
+        ]
+    );
+});
+
 test('TypeNarrowingLiteralMember1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingLiteralMember1.py']);
 
