@@ -59,6 +59,7 @@ export interface MatchArgsToParamsResult {
     argumentErrors: boolean;
     isTypeIncomplete: boolean;
     argParams: ValidateArgTypeParams[];
+    unexpandedArgList?: Arg[] | undefined;
     activeParam?: FunctionParam | undefined;
     paramSpecTarget?: ParamSpecType | undefined;
     paramSpecArgList?: Arg[] | undefined;

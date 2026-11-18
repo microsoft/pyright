@@ -76,7 +76,7 @@ _SqlalchemyConnectableLike: TypeAlias = _SqlalchemyConnectionLike | _SqlalchemyE
 # ---------------------
 # End SQLAlchemy hack
 
-_SQLConnection: TypeAlias = str | _SqlalchemyConnectableLike | sqlite3.Connection  # coppied from pandas.io.sql
+_SQLConnection: TypeAlias = str | _SqlalchemyConnectableLike | sqlite3.Connection  # copied from pandas.io.sql
 
 @overload
 def _read_postgis(

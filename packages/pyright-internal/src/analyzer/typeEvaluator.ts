@@ -135,12 +135,16 @@ import {
     getFunctionInfoFromDecorators,
 } from './decorators';
 import {
+    applyIntFlagTransform,
     createEnumType,
     getEnumAutoValueType,
     getTypeOfEnumMember,
+    getTypeOfIntFlagMember,
     isDeclInEnumClass,
     isEnumClassWithMembers,
     isEnumMetaclass,
+    isIntFlagBitwiseFunction,
+    synthesizeEnumBoundary,
 } from './enums';
 import { applyFunctionTransform } from './functionTransform';
 import { createNamedTupleType } from './namedTuples';
@@ -163,10 +167,10 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { getChildNodes } from './parseTreeWalker';
 import { assignTypeToPatternTargets, checkForUnusedPattern, narrowTypeBasedOnPattern } from './patternMatching';
 import { assignProperty, createProperty } from './properties';
-import { assignClassToProtocol, assignModuleToProtocol } from './protocols';
+import { assignClassToProtocol, assignModuleToProtocol, noteAssignTypeRecursionLimit } from './protocols';
 import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
-import { createSentinelType } from './sentinel';
+import { createSentinelType, getSentinelClass, isSentinelClass } from './sentinel';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags, SynthesizedTypeInfo } from './symbol';
 import { isConstantName, isMethodExemptFromLsp, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
@@ -202,6 +206,7 @@ import {
     EvaluatorUsage,
     ExpectedTypeOptions,
     ExpectedTypeResult,
+    FunctionResult,
     FunctionTypeResult,
     MapSubtypesOptions,
     MemberAccessDeprecationInfo,
@@ -504,7 +509,7 @@ import {
     TypeFormTypeCacheEntry,
     ValidateArgTypeOptions,
 } from './typeEvaluator/internals';
-export { EvaluatorOptions, MemberAccessTypeResult } from './typeEvaluator/internals';
+export type { EvaluatorOptions, MemberAccessTypeResult } from './typeEvaluator/internals';
 
 import { createBoundMethodSpecialization } from './typeEvaluator/boundMethodSpecialization';
 import { createClassConstruction } from './typeEvaluator/classConstruction';
@@ -1893,7 +1898,10 @@ export function createTypeEvaluator(
             }
 
             return {
-                type: memberInfo.type,
+                type:
+                    usage.method === 'get'
+                        ? getTypeOfIntFlagMember(evaluatorInterface, objectType, memberInfo.type, nodeInfo)
+                        : memberInfo.type,
                 classType: memberInfo.classType,
                 isIncomplete: !!memberInfo.isTypeIncomplete,
                 isAsymmetricAccessor: memberInfo.isAsymmetricAccessor,
@@ -2089,7 +2097,13 @@ export function createTypeEvaluator(
 
                 case TypeCategory.Class: {
                     if (TypeBase.isInstantiable(subtype)) {
-                        const constructorType = createFunctionFromConstructor(evaluatorInterface, subtype);
+                        const constructorType = createFunctionFromConstructor(
+                            evaluatorInterface,
+                            subtype,
+                            /* selfType */ undefined,
+                            /* recursionCount */ 0,
+                            /* retainUnboundNewOverloads */ true
+                        );
 
                         if (constructorType) {
                             doForEachSubtype(constructorType, (subtype) => {
@@ -2211,9 +2225,16 @@ export function createTypeEvaluator(
         typeResult: TypeResult,
         isAsync: boolean,
         errorNode: ExpressionNode,
-        emitNotIterableError = true
+        emitNotIterableError = true,
+        preserveInvalidSubtypes = false
     ): TypeResult | undefined {
-        return expressionEvaluation.getTypeOfIterator(typeResult, isAsync, errorNode, emitNotIterableError);
+        return expressionEvaluation.getTypeOfIterator(
+            typeResult,
+            isAsync,
+            errorNode,
+            emitNotIterableError,
+            preserveInvalidSubtypes
+        );
     }
 
     // Validates that the type is an iterable and returns the iterable type argument.
@@ -3559,9 +3580,9 @@ export function createTypeEvaluator(
         symbolWithScope: SymbolWithScope,
         effectiveType: Type
     ): FlowNodeTypeResult | undefined {
-        // This function applies only to captured variables, not those that
-        // are accessed via an explicit nonlocal or global binding.
-        if (symbolWithScope.usesGlobalBinding || symbolWithScope.usesNonlocalBinding) {
+        // Global bindings and cells that can be unbound in another scope
+        // cannot safely retain the type at capture.
+        if (symbolWithScope.usesGlobalBinding || symbolWithScope.symbol.isUnboundInOtherScope()) {
             return undefined;
         }
 
@@ -4061,6 +4082,14 @@ export function createTypeEvaluator(
             typeResult.isIncomplete = true;
         }
 
+        if (
+            (flags & EvalFlags.InstantiableType) !== 0 &&
+            isClassInstance(typeResult.type) &&
+            isSentinelLiteral(typeResult.type)
+        ) {
+            typeResult.type = ClassType.cloneAsInstantiable(typeResult.type);
+        }
+
         // See if we need to log an "unknown member access" diagnostic.
         let skipPartialUnknownCheck = typeResult.isIncomplete;
 
@@ -4220,6 +4249,13 @@ export function createTypeEvaluator(
 
             case TypeCategory.Class: {
                 let typeResult: TypeResult | undefined;
+
+                if (usage.method === 'get' && memberName === '__class__' && isClassInstance(baseType)) {
+                    const sentinelClass = getSentinelClass(baseType);
+                    if (sentinelClass) {
+                        typeResult = { type: ClassType.cloneIncludeSubclasses(sentinelClass) };
+                    }
+                }
 
                 // If this is a class-like function created via NewType, treat
                 // it like a function for purposes of member accesses.
@@ -8179,12 +8215,10 @@ export function createTypeEvaluator(
                                 }
                             }
 
-                            // stripLiteralValue retains sentinel literals, but type() of a
-                            // sentinel evaluates to its class, not the sentinel object.
-                            const classSubtype = isSentinelLiteral(subtype)
-                                ? ClassType.cloneWithLiteral(subtype, /* value */ undefined)
-                                : stripLiteralValue(subtype);
-                            return convertToInstantiable(classSubtype);
+                            const sentinelClass = isClassInstance(subtype) ? getSentinelClass(subtype) : undefined;
+                            return sentinelClass
+                                ? ClassType.cloneIncludeSubclasses(sentinelClass)
+                                : convertToInstantiable(stripLiteralValue(subtype));
                         }
 
                         if (TypeBase.isInstance(subtype)) {
@@ -8277,14 +8311,31 @@ export function createTypeEvaluator(
             }
 
             // Handle sentinel calls specially.
-            if (
-                expandedCallType.shared.fullName === 'builtins.sentinel' ||
-                expandedCallType.shared.fullName === 'typing_extensions.sentinel' ||
-                expandedCallType.shared.fullName === 'typing_extensions.Sentinel'
-            ) {
-                return {
-                    returnType: createSentinelType(evaluatorInterface, errorNode, argList, expandedCallType, nodeInfo),
-                };
+            if (isSentinelClass(expandedCallType)) {
+                const constructorResult = validateConstructorArgs(
+                    evaluatorInterface,
+                    errorNode,
+                    argList,
+                    expandedCallType,
+                    skipUnknownArgCheck,
+                    inferenceContext
+                );
+                if (!constructorResult.argumentErrors) {
+                    constructorResult.returnType =
+                        createSentinelType(errorNode, argList, expandedCallType, nodeInfo) ??
+                        constructorResult.returnType;
+                    if (
+                        constructorResult.returnType &&
+                        isClassInstance(constructorResult.returnType) &&
+                        isSentinelClass(constructorResult.returnType) &&
+                        !isSentinelLiteral(constructorResult.returnType) &&
+                        constructorResult.returnType.props?.typeAliasInfo
+                    ) {
+                        constructorResult.returnType = TypeBase.cloneType(constructorResult.returnType);
+                        TypeBase.setTypeAliasInfo(constructorResult.returnType, undefined);
+                    }
+                }
+                return constructorResult;
             }
 
             if (ClassType.isSpecialFormClass(expandedCallType)) {
@@ -8509,6 +8560,8 @@ export function createTypeEvaluator(
         overloadIndex: number
     ): MatchArgsToParamsResult {
         const overload = typeResult.type;
+        const unexpandedArgList =
+            isIntFlagBitwiseFunction(overload) && !overload.priv.strippedFirstParamType ? argList : undefined;
         const paramDetails = getParamListDetails(overload, { disallowExtraKwargsForTd: true });
         const paramSpec = FunctionType.getParamSpecFromArgsKwargs(overload);
 
@@ -9537,6 +9590,7 @@ export function createTypeEvaluator(
             argumentErrors: reportedArgError,
             isTypeIncomplete,
             argParams: validateArgTypeParams,
+            unexpandedArgList,
             paramSpecTarget,
             paramSpecArgList,
             activeParam,
@@ -9991,6 +10045,16 @@ export function createTypeEvaluator(
 
         matchResults.argumentMatchScore = argumentMatchScore;
 
+        if (!argumentErrors && isIntFlagBitwiseFunction(type)) {
+            const transformed = applyIntFlagCallTransform(errorNode, matchResults, argResults, {
+                argumentErrors,
+                returnType: specializedReturnType,
+                isTypeIncomplete,
+            });
+            specializedReturnType = transformed.returnType;
+            isTypeIncomplete = transformed.isTypeIncomplete;
+        }
+
         return {
             argumentErrors,
             argResults,
@@ -10001,6 +10065,88 @@ export function createTypeEvaluator(
             specializedInitSelfType,
             overloadsUsedForCall: argumentErrors ? [] : [type],
         };
+    }
+
+    function applyIntFlagCallTransform(
+        errorNode: ExpressionNode,
+        matchResults: MatchArgsToParamsResult,
+        argResults: ArgResult[],
+        result: FunctionResult
+    ): FunctionResult {
+        const argumentTypes = new Map<string, Type>();
+        matchResults.argParams.forEach((param, index) => {
+            if (param.paramName) {
+                argumentTypes.set(param.paramName, argResults[index].argType);
+            }
+        });
+        result = applyIntFlagTransform(evaluatorInterface, matchResults.overload, argumentTypes, result);
+
+        const argList = matchResults.unexpandedArgList;
+        if (!argList?.some((arg) => arg.argCategory !== ArgCategory.Simple)) {
+            return result;
+        }
+
+        // Keep correlated packed alternatives together rather than treating their
+        // independently combined parameter types as a Cartesian product.
+        const contextFreeArgTypes = argList.map((arg) =>
+            arg.argCategory === ArgCategory.Simple
+                ? UnknownType.create()
+                : getTypeOfArg(arg, /* inferenceContext */ undefined).type
+        );
+        let expandedArgTypes: (Type | undefined)[][] = [argList.map(() => undefined)];
+        while (true) {
+            const expanded = expressionEvaluation.expandArgTypes(contextFreeArgTypes, expandedArgTypes);
+            if (!expanded) {
+                break;
+            }
+            if (expanded.length > maxTotalOverloadArgTypeExpansionCount) {
+                return result;
+            }
+            expandedArgTypes = expanded;
+        }
+        if (expandedArgTypes.length === 1) {
+            return result;
+        }
+
+        const returnTypes: Type[] = [];
+        let isTypeIncomplete = result.isTypeIncomplete;
+        for (const expandedTypes of expandedArgTypes) {
+            const expandedArgs = argList.map((arg, index): Arg => {
+                const type = expandedTypes[index];
+                return type
+                    ? {
+                          ...arg,
+                          valueExpression: undefined,
+                          typeResult: { type, isIncomplete: result.isTypeIncomplete },
+                      }
+                    : arg;
+            });
+            const expandedMatch = useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () =>
+                matchArgsToParams(
+                    errorNode,
+                    expandedArgs,
+                    { type: matchResults.overload, isIncomplete: result.isTypeIncomplete },
+                    matchResults.overloadIndex
+                )
+            );
+            isTypeIncomplete ||= expandedMatch.isTypeIncomplete;
+            if (expandedMatch.argumentErrors) {
+                return { ...result, isTypeIncomplete };
+            }
+
+            const expandedArgumentTypes = new Map(argumentTypes);
+            expandedMatch.argParams.forEach((param) => {
+                const type = param.argType ?? param.argument.typeResult?.type;
+                if (param.paramName && type) {
+                    expandedArgumentTypes.set(param.paramName, type);
+                }
+            });
+            returnTypes.push(
+                applyIntFlagTransform(evaluatorInterface, matchResults.overload, expandedArgumentTypes, result)
+                    .returnType
+            );
+        }
+        return { ...result, returnType: combineTypes(returnTypes), isTypeIncomplete };
     }
 
     // In general, all in-scope type variables left in a return type should be
@@ -11503,7 +11649,9 @@ export function createTypeEvaluator(
         } else if (aliasMapEntry.module === 'internals') {
             // Handle TypedDict specially.
             assert(baseClassName === 'TypedDictFallback');
-            baseClass = prefetched?.typedDictPrivateClass;
+            baseClass = fileInfo.isTypingExtensionsStubFile
+                ? getTypeOfModule(node, '_TypedDict', ['typing_extensions']) ?? prefetched?.typedDictPrivateClass
+                : prefetched?.typedDictPrivateClass;
             if (baseClass) {
                 // The TypedDictFallback class is marked as abstract, but the
                 // methods that are abstract are overridden and shouldn't
@@ -12788,6 +12936,7 @@ export function createTypeEvaluator(
 
             // Clear the "partially constructed" flag.
             classType.shared.flags &= ~ClassTypeFlags.PartiallyEvaluated;
+            synthesizeEnumBoundary(evaluatorInterface, classType, initSubclassArgs);
 
             // Now determine the decorated type of the class.
             let decoratedType: Type = classType;
@@ -17412,6 +17561,7 @@ export function createTypeEvaluator(
         }
 
         if (recursionCount > maxTypeRecursionCount) {
+            noteAssignTypeRecursionLimit();
             return true;
         }
         recursionCount++;

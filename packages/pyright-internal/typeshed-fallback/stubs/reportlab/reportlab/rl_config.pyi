@@ -72,6 +72,7 @@ textPaths: str
 toColorCanUse: str
 defCWRF: float
 unShapedFontGlob: list[str] | None
+std14Embed: bool
 T1SearchPath: list[str]
 TTFSearchPath: list[str]
 CMapSearchPath: list[str]

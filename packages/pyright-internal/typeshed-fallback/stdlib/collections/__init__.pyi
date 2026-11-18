@@ -483,17 +483,30 @@ class defaultdict(dict[_KT, _VT]):
     def __copy__(self) -> Self: ...
     def copy(self) -> Self: ...
 
-    # defaultdict rejects frozendict in its direct __or__/__ror__ methods, even though dict accepts it.
-    # See https://github.com/python/cpython/issues/149534.
-    @overload  # type: ignore[override]
-    def __or__(self, value: dict[_KT, _VT], /) -> Self: ...
-    @overload
-    def __or__(self, value: dict[_T1, _T2], /) -> defaultdict[_KT | _T1, _VT | _T2]: ...
+    if sys.version_info >= (3, 15):
+        @overload  # type: ignore[override]
+        def __or__(self, value: dict[_KT, _VT] | frozendict[_KT, _VT], /) -> Self: ...
+        @overload
+        def __or__(
+            self, value: dict[_T1, _T2] | frozendict[_T1, _T2], /
+        ) -> defaultdict[_KT | _T1, _VT | _T2]: ...
 
-    @overload  # type: ignore[override]
-    def __ror__(self, value: dict[_KT, _VT], /) -> Self: ...
-    @overload
-    def __ror__(self, value: dict[_T1, _T2], /) -> defaultdict[_KT | _T1, _VT | _T2]: ...  # type: ignore[misc]
+        @overload  # type: ignore[override]
+        def __ror__(self, value: dict[_KT, _VT] | frozendict[_KT, _VT], /) -> Self: ...
+        @overload
+        def __ror__(  # type: ignore[misc]
+            self, value: dict[_T1, _T2] | frozendict[_T1, _T2], /
+        ) -> defaultdict[_KT | _T1, _VT | _T2]: ...
+    else:
+        @overload  # type: ignore[override]
+        def __or__(self, value: dict[_KT, _VT], /) -> Self: ...
+        @overload
+        def __or__(self, value: dict[_T1, _T2], /) -> defaultdict[_KT | _T1, _VT | _T2]: ...
+
+        @overload  # type: ignore[override]
+        def __ror__(self, value: dict[_KT, _VT], /) -> Self: ...
+        @overload
+        def __ror__(self, value: dict[_T1, _T2], /) -> defaultdict[_KT | _T1, _VT | _T2]: ...  # type: ignore[misc]
 
 class ChainMap(MutableMapping[_KT, _VT]):
     maps: list[MutableMapping[_KT, _VT]]

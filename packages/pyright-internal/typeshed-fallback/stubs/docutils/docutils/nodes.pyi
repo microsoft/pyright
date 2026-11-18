@@ -1,6 +1,6 @@
 import sys
 import xml.dom.minidom
-from _typeshed import Incomplete, StrPath
+from _typeshed import Incomplete, MaybeNone, StrPath
 from abc import abstractmethod
 from collections import Counter
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
@@ -32,7 +32,7 @@ class Node:
     # TODO: `parent` is actually `Element | None``, but `None`` only happens rarely,
     #       i.e. for synthetic nodes (or `document`, where it is overridden).
     #       See https://github.com/python/typeshed/blob/main/CONTRIBUTING.md#the-any-trick
-    parent: Element | Any
+    parent: Element | MaybeNone
     source: str | None
     line: int | None
 
