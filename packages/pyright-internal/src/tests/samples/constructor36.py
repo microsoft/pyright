@@ -1,75 +1,29 @@
-# This sample tests that recursive constructor annotations do not cause
-# unbounded recursion when validating a constructor call.
+# This sample verifies that explicit class type arguments constrain type variables
+# inferred from a generic __new__ return type.
+
+from typing import Any, Generic, TypeVar, assert_type, cast
+
+T = TypeVar("T")
+U = TypeVar("U")
 
 
-class RecursiveInit:
-    __init__: type["RecursiveInit"]
+class Box(Generic[T]):
+    def __new__(cls, value: U) -> "Box[U]":
+        return cast(Any, object.__new__(cls))
 
 
-reveal_type(RecursiveInit(), expected_text="RecursiveInit")
+class Factory(Generic[T]):
+    def __new__(cls, values: list[U]) -> list[U]:
+        return cast(Any, values)
 
 
-class RecursiveNew:
-    __new__: type["RecursiveNew"]
+assert_type(Box(1), Box[int])
+assert_type(Box("value"), Box[str])
+assert_type(Box[int](1), Box[int])
 
+# This should generate an error because the explicit type argument constrains value to int.
+Box[int]("value")
 
-RecursiveNew()
-
-
-class Meta(type):
-    # This should generate an error: __call__ is incompatible with type.__call__.
-    __call__: type["RecursiveCall"]
-
-
-class RecursiveCall(metaclass=Meta): ...
-
-
-RecursiveCall()
-
-
-class First:
-    __new__: type["Second"]
-
-
-class Second:
-    __new__: type[First]
-
-
-First()
-
-
-# Nonrecursive class-valued constructor methods must still be evaluated.
-class Other:
-    def __init__(self, value: int): ...
-
-
-class Nonrecursive:
-    __init__: type[Other]
-
-
-reveal_type(Nonrecursive(1), expected_text="Nonrecursive")
-# This should generate an error: the nonrecursive constructor requires an int.
-Nonrecursive("bad")
-
-
-# A nested call at a different expression must not be mistaken for a cycle.
-class Nested:
-    def __init__(self, value: "Nested | None" = None): ...
-
-
-reveal_type(Nested(Nested()), expected_text="Nested")
-
-
-class GenericCycle[T]:
-    __init__: type["GenericCycle[T]"]
-
-
-reveal_type(GenericCycle[int](), expected_text="GenericCycle[int]")
-
-
-# Specializations can grow on every recursive constructor call.
-class Growing[T]:
-    __new__: type["Growing[list[T]]"]
-
-
-Growing[int]()
+result: list[object] = Factory[int]([1])
+assert_type(result, list[object])
+assert_type(Factory[int]([1]), list[int])

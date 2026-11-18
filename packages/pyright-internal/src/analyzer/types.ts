@@ -134,7 +134,9 @@ export interface TypeSameOptions {
     honorIsTypeArgExplicit?: boolean;
     treatAnySameAsUnknown?: boolean;
     honorCallBehavior?: boolean;
+    honorTypedDictNarrowedValues?: boolean;
     ignoreOverloadOwner?: boolean;
+    honorExactStringFlow?: boolean;
 }
 
 export interface TypeAliasSharedInfo {
@@ -723,6 +725,9 @@ export const enum ClassTypeFlags {
 
     // An explicit metaclass expression could not be resolved to a class type.
     HasUnresolvedMetaclass = 1 << 27,
+
+    // Synthesized for a sentinel allocation, not its shared runtime class.
+    SentinelValueClass = 1 << 28,
 }
 
 export interface DataClassBehaviors {
@@ -736,6 +741,14 @@ export interface DataClassBehaviors {
     frozen?: boolean;
     frozenDefault?: boolean;
     fieldDescriptorNames: string[];
+}
+
+export interface SentinelIdentity {
+    readonly name: string;
+    readonly fullName: string;
+    readonly moduleName: string;
+    readonly typeSourceId: TypeSourceId;
+    readonly isSingleton: boolean;
 }
 
 export interface ClassDetailsShared {
@@ -757,6 +770,8 @@ export interface ClassDetailsShared {
     dataClassEntries?: DataClassEntry[] | undefined;
     dataClassBehaviors?: DataClassBehaviors | undefined;
     namedTupleEntries?: Set<string> | undefined;
+    // Retain the original allocation independently of TypeForm and generated stub locations.
+    sentinelIdentity?: SentinelIdentity | undefined;
     typedDictEntries?: TypedDictEntries | undefined;
     typedDictExtraItemsExpr?: ExpressionNode | undefined;
     localSlotsNames?: string[];
@@ -772,6 +787,11 @@ export interface ClassDetailsShared {
     // with this class. We use "object" here to avoid a circular dependency.
     // It's actually a map of ProtocolCompatibility objects.
     protocolCompatibility?: object;
+
+    // A cache of protocol specializations that every specialization of
+    // this class is compatible with, or undefined if the check failed.
+    // It's actually a map of ClassType objects.
+    universalProtocolCompatibility?: object;
 
     // Transforms to apply if this class is used as a metaclass
     // or a base class.
@@ -852,6 +872,9 @@ export interface ClassDetailsPriv {
     // distinction is important in certain scenarios like instantiation
     // of abstract or protocol classes.
     includeSubclasses?: boolean;
+
+    // An exact built-in str established by code flow. This must not escape flow analysis.
+    isExactStringFlow?: boolean;
 
     // This class type represents the class and any auto-promotion
     // types that PEP 484 indicates should be treated as subclasses
@@ -1080,6 +1103,16 @@ export namespace ClassType {
         return newClassType;
     }
 
+    export function cloneExactStringFlow(classType: ClassType, isExact: boolean) {
+        if (!!classType.priv.isExactStringFlow === isExact) {
+            return classType;
+        }
+
+        const newClassType = TypeBase.cloneType(classType);
+        newClassType.priv.isExactStringFlow = isExact || undefined;
+        return newClassType;
+    }
+
     export function cloneWithLiteral(classType: ClassType, value: LiteralValue | undefined): ClassType {
         const newClassType = TypeBase.cloneType(classType);
         newClassType.priv.literalValue = value;
@@ -1195,7 +1228,12 @@ export namespace ClassType {
     // Determines whether two typed dict classes are equivalent given
     // that one or both have narrowed entries (i.e. entries that are
     // guaranteed to be present).
-    export function isTypedDictNarrowedEntriesSame(type1: ClassType, type2: ClassType): boolean {
+    export function isTypedDictNarrowedEntriesSame(
+        type1: ClassType,
+        type2: ClassType,
+        options: TypeSameOptions = {},
+        recursionCount = 0
+    ): boolean {
         if (type1.priv.typedDictNarrowedEntries) {
             if (!type2.priv.typedDictNarrowedEntries) {
                 return false;
@@ -1216,6 +1254,14 @@ export namespace ClassType {
                     return false;
                 }
                 if (entry1.isProvided !== entry2.isProvided) {
+                    return false;
+                }
+                if (
+                    options.honorTypedDictNarrowedValues &&
+                    (entry1.isRequired !== entry2.isRequired ||
+                        entry1.isReadOnly !== entry2.isReadOnly ||
+                        !isTypeSame(entry1.valueType, entry2.valueType, options, recursionCount))
+                ) {
                     return false;
                 }
             }
@@ -3531,7 +3577,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
     }
 
     if (recursionCount > maxTypeRecursionCount) {
-        return !options.honorCallBehavior && !isOverloadResult(type1);
+        return !options.honorCallBehavior && !options.honorTypedDictNarrowedValues && !isOverloadResult(type1);
     }
     recursionCount++;
 
@@ -3621,6 +3667,13 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
+            if (
+                options.honorExactStringFlow &&
+                !!type1.priv.isExactStringFlow !== !!classType2.priv.isExactStringFlow
+            ) {
+                return false;
+            }
+
             if (!type1.priv.isUnpacked !== !classType2.priv.isUnpacked) {
                 return false;
             }
@@ -3635,7 +3688,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 }
             }
 
-            if (!options.ignoreTypedDictNarrowEntries && !ClassType.isTypedDictNarrowedEntriesSame(type1, classType2)) {
+            if (
+                !options.ignoreTypedDictNarrowEntries &&
+                !ClassType.isTypedDictNarrowedEntriesSame(type1, classType2, recursiveOptions, recursionCount)
+            ) {
                 return false;
             }
 
@@ -4398,7 +4454,17 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
 
         // Does this type already exist in the types array?
         if (isTypeSame(type, typeToAdd, { honorTypeForm: true })) {
-            unionType.priv.subtypes[i] = _mergeInferredTupleLiterals(type, typeToAdd);
+            let merged = _mergeInferredTupleLiterals(type, typeToAdd);
+            // An exact-string proof survives a join only if both paths carry it.
+            if (
+                isClass(merged) &&
+                isClass(typeToAdd) &&
+                merged.priv.isExactStringFlow &&
+                !typeToAdd.priv.isExactStringFlow
+            ) {
+                merged = ClassType.cloneExactStringFlow(merged, false);
+            }
+            unionType.priv.subtypes[i] = merged;
             return;
         }
 

@@ -8,17 +8,26 @@
 
 import * as assert from 'assert';
 
-import { containsLiteralType, mapSignatures, transformTypePair } from '../analyzer/typeUtils';
+import { ConstraintSolution } from '../analyzer/constraintSolution';
+import {
+    applySolvedTypeVars,
+    containsLiteralType,
+    mapSignatures,
+    transformExpectedType,
+    transformTypePair,
+} from '../analyzer/typeUtils';
 import {
     AnyType,
     ClassType,
     ClassTypeFlags,
+    combineTypes,
     FunctionParam,
     FunctionType,
     FunctionTypeFlags,
     isClass,
     isFunction,
     isOverloaded,
+    isTypeSame,
     isTypeVar,
     OverloadedType,
     OverloadResultType,
@@ -32,6 +41,48 @@ import {
 } from '../analyzer/types';
 import { Uri } from '../common/uri/uri';
 import { ParamCategory } from '../parser/parseNodes';
+
+test('Expected types preserve borrowed bound variables but unify out-of-scope free variables', () => {
+    const caller = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('K'),
+        'caller',
+        'caller',
+        TypeVarScopeType.Function
+    );
+    const boundCaller = TypeVarType.cloneAsBound(caller);
+    const local = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('V'),
+        'local',
+        'local',
+        TypeVarScopeType.Function
+    );
+
+    for (const liveScopes of [[], ['local']]) {
+        assert.strictEqual(transformExpectedType(boundCaller, liveScopes, 100), boundCaller);
+        assert.strictEqual(boundCaller.priv.scopeId, TypeVarType.makeBoundScopeId('caller'));
+        assert.strictEqual(boundCaller.priv.freeTypeVar, caller);
+        assert.ok(!TypeVarType.isUnification(boundCaller));
+    }
+
+    assert.strictEqual(transformExpectedType(caller, ['caller'], 100), caller);
+    assert.strictEqual(transformExpectedType(boundCaller, ['caller'], 100), boundCaller);
+    assert.strictEqual(transformExpectedType(local, ['local'], 100), local);
+    const unified = transformExpectedType(caller, ['local'], 100);
+    assert.ok(isTypeVar(unified));
+    assert.ok(TypeVarType.isUnification(unified));
+    assert.ok(!TypeVarType.isBound(unified));
+    assert.notStrictEqual(unified.priv.scopeId, caller.priv.scopeId);
+    assert.strictEqual(caller.priv.scopeId, 'caller');
+
+    const container = createClass('Container');
+    container.shared.typeParams.push(caller, local);
+    const nested = ClassType.specialize(ClassType.cloneAsInstance(container), [boundCaller, local]);
+    const transformed = transformExpectedType(nested, [], 200);
+    assert.ok(isClass(transformed));
+    assert.strictEqual(transformed.priv.typeArgs?.[0], boundCaller);
+    const nestedFree = transformed.priv.typeArgs?.[1];
+    assert.ok(nestedFree && isTypeVar(nestedFree) && TypeVarType.isUnification(nestedFree));
+});
 
 test('Literal detection keeps cancellation and type-argument options local to each walk', () => {
     const plain = ClassType.cloneAsInstance(createClass('Value'));
@@ -94,6 +145,113 @@ test('Map signatures preserves replaced overloads and their order', () => {
         mapSignatures(first, () => replacement),
         replacement
     );
+});
+
+test('Solved callable types preserve parameters and defaults before the first replacement', () => {
+    const typeVar = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('T'),
+        'callable-scope',
+        'callable',
+        TypeVarScopeType.Function
+    );
+    const plain = ClassType.cloneAsInstance(createClass('Plain'));
+    const replacement = ClassType.cloneAsInstance(createClass('Replacement'));
+    const source = createFunction(plain, plain, typeVar);
+    FunctionType.addParam(source, FunctionParam.create(ParamCategory.Simple, typeVar, undefined, 'second', typeVar));
+    FunctionType.addParam(source, FunctionParam.create(ParamCategory.Simple, plain, undefined, 'third'));
+    const solution = new ConstraintSolution();
+    solution.setType(typeVar, replacement);
+
+    const result = applySolvedTypeVars(source, solution);
+
+    assert.ok(isFunction(result));
+    assert.strictEqual(FunctionType.getParamType(result, 0), plain);
+    assert.strictEqual(FunctionType.getParamType(result, 1), replacement);
+    assert.strictEqual(FunctionType.getParamType(result, 2), plain);
+    assert.strictEqual(FunctionType.getParamDefaultType(result, 0), plain);
+    assert.strictEqual(FunctionType.getParamDefaultType(result, 1), replacement);
+    assert.strictEqual(FunctionType.getParamDefaultType(result, 2), undefined);
+    assert.strictEqual(FunctionType.getEffectiveReturnType(result), replacement);
+    assert.strictEqual(FunctionType.getParamType(source, 1), typeVar);
+    assert.strictEqual(FunctionType.getParamDefaultType(source, 1), typeVar);
+
+    const unrelated = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('U'),
+        'other-scope',
+        'other',
+        TypeVarScopeType.Function
+    );
+    const defaultOnly = createFunction(unrelated, typeVar, plain);
+    const defaultResult = applySolvedTypeVars(defaultOnly, solution);
+    assert.ok(isFunction(defaultResult));
+    assert.strictEqual(FunctionType.getParamType(defaultResult, 0), unrelated);
+    assert.strictEqual(FunctionType.getParamDefaultType(defaultResult, 0), replacement);
+    assert.strictEqual(FunctionType.getEffectiveReturnType(defaultResult), plain);
+});
+
+test('Solved callable returns retain existing specialized parameters and defaults', () => {
+    const typeVar = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('T'),
+        'return-scope',
+        'callable',
+        TypeVarScopeType.Function
+    );
+    const plain = ClassType.cloneAsInstance(createClass('Plain'));
+    const specialized = ClassType.cloneAsInstance(createClass('Specialized'));
+    const replacement = ClassType.cloneAsInstance(createClass('Replacement'));
+    const source = FunctionType.specialize(createFunction(plain, plain, typeVar), {
+        parameterTypes: [specialized],
+        parameterDefaultTypes: [specialized],
+        returnType: typeVar,
+    });
+    const solution = new ConstraintSolution();
+    solution.setType(typeVar, replacement);
+
+    const result = applySolvedTypeVars(source, solution);
+
+    assert.ok(isFunction(result));
+    assert.strictEqual(FunctionType.getParamType(result, 0), specialized);
+    assert.strictEqual(FunctionType.getParamDefaultType(result, 0), specialized);
+    assert.strictEqual(FunctionType.getEffectiveReturnType(result), replacement);
+    assert.strictEqual(FunctionType.getEffectiveReturnType(source), typeVar);
+});
+
+test('Solved tuple types recompute combined arguments only when elements change', () => {
+    const typeVar = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('T'),
+        'tuple-scope',
+        'Tuple',
+        TypeVarScopeType.Class
+    );
+    const unrelated = TypeVarType.cloneForScopeId(
+        TypeVarType.createInstance('U'),
+        'other-scope',
+        'Other',
+        TypeVarScopeType.Class
+    );
+    const plain = ClassType.cloneAsInstance(createClass('Plain'));
+    const replacement = ClassType.cloneAsInstance(createClass('Replacement'));
+    const source = ClassType.cloneAsInstance(createClass('Tuple'));
+    source.shared.flags |= ClassTypeFlags.TupleClass;
+    source.shared.typeParams = [typeVar];
+    source.priv.tupleTypeArgs = [
+        { type: typeVar, isUnbounded: false },
+        { type: plain, isUnbounded: false },
+    ];
+    source.priv.typeArgs = [combineTypes([typeVar, plain])];
+    const unrelatedSolution = new ConstraintSolution();
+    unrelatedSolution.setType(unrelated, replacement);
+    assert.strictEqual(applySolvedTypeVars(source, unrelatedSolution), source);
+
+    const solution = new ConstraintSolution();
+    solution.setType(typeVar, replacement);
+    const result = applySolvedTypeVars(source, solution);
+
+    assert.ok(isClass(result));
+    assert.strictEqual(result.priv.tupleTypeArgs?.[0].type, replacement);
+    assert.strictEqual(result.priv.tupleTypeArgs?.[1].type, plain);
+    assert.ok(result.priv.typeArgs && isTypeSame(result.priv.typeArgs[0], combineTypes([replacement, plain])));
+    assert.strictEqual(source.priv.tupleTypeArgs[0].type, typeVar);
 });
 
 test('Transform aligned function types', () => {

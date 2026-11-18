@@ -3,7 +3,8 @@
 # For example: `Pattern` and `Match` are not exported
 # and are redefined in `regex.regex module.
 
-from typing import Any, AnyStr, Generic, final
+from _typeshed import MaybeNone
+from typing import AnyStr, Generic, final
 from typing_extensions import Self
 
 from ._main import Match, Pattern
@@ -13,8 +14,8 @@ class Splitter(Generic[AnyStr]):
     @property
     def pattern(self) -> Pattern[AnyStr]: ...
     def __iter__(self) -> Self: ...
-    def __next__(self) -> AnyStr | Any: ...
-    def split(self) -> AnyStr | Any: ...
+    def __next__(self) -> AnyStr | MaybeNone: ...
+    def split(self) -> AnyStr | MaybeNone: ...
 
 @final
 class Scanner(Generic[AnyStr]):

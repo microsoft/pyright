@@ -7,13 +7,19 @@
  * Generates Python stub (.pyi) file content from Pyright function type information.
  */
 
+import { getSentinelClass, isSentinelClass } from '../analyzer/sentinel';
 import { printType, PrintTypeFlags } from '../analyzer/typePrinter';
 import * as PyrightTypes from '../analyzer/types';
+import { getTypeVarArgsRecursive, TypeVarTransformer } from '../analyzer/typeUtils';
+import { assert } from '../common/debug';
 import { PythonVersion, pythonVersion3_10, pythonVersion3_11 } from '../common/pythonVersion';
 import { ParamCategory } from '../parser/parseNodes';
 import { Tokenizer } from '../parser/tokenizer';
 
 import { ITypeServerEvaluator } from './typeServerEvaluator';
+
+const sentinelIdentityPrefix = '# Sentinel identity: ';
+const newTypeIdentityPrefix = '# NewType identity: ';
 
 /**
  * Represents collected import statements needed for a stub file.
@@ -36,6 +42,9 @@ interface StubGenerationContext {
     selfTypeVarName?: string; // If set, replace 'Self' with this TypeVar name
     classStubNames: Map<PyrightTypes.ClassType, string>;
     usedClassStubNames: Set<string>;
+    unknownTypeName?: string;
+    usesUnknownType?: boolean;
+    typeVarNames?: Map<string, string>;
 }
 
 /**
@@ -51,6 +60,12 @@ export interface StubGenerationOptions {
 export interface StubGenerationResult {
     stubContent: string; // The Python stub file content
     primaryDefinitionOffset: number; // Character offset to the primary definition in stubContent
+}
+
+export interface NewTypeStubIdentity {
+    fullName: string;
+    moduleName: string;
+    typeSourceId: PyrightTypes.TypeSourceId;
 }
 
 function getClassStubName(type: PyrightTypes.ClassType, context: StubGenerationContext): string {
@@ -167,6 +182,27 @@ export function generateStubFromFunctionType(
         usedClassStubNames: new Set(),
     };
 
+    // A direct partial.__call__ response is a standalone function, not the
+    // nominal partial stub. Preserve its Unknown annotations with the same
+    // ordinary unannotated binding used by the nominal producer.
+    let unknownFactoryName: string | undefined;
+    const boundType = type.priv.boundToType ?? type.priv.strippedFirstParamType;
+    if (boundType && PyrightTypes.isClassInstance(boundType) && boundType.priv.partialCallType) {
+        const typeNames = printType(
+            type,
+            PrintTypeFlags.UseFullyQualifiedNames,
+            (call) => PyrightTypes.FunctionType.getEffectiveReturnType(call) ?? PyrightTypes.UnknownType.create()
+        );
+        const freshName = (base: string) => {
+            while (typeNames.includes(base)) {
+                base += '_';
+            }
+            return base;
+        };
+        context.unknownTypeName = freshName('__partial_unknown');
+        unknownFactoryName = freshName('__partial_unknown_factory');
+    }
+
     const lines: string[] = [];
 
     // Generate header comment
@@ -215,6 +251,9 @@ export function generateStubFromFunctionType(
 
     // Generate the function stub with docstring and deprecated decorator
     const functionStub = generateFunctionStub(type, context, type.shared.docString, type.shared.deprecatedMessage);
+    if (context.usesUnknownType && unknownFactoryName) {
+        lines.unshift(`def ${unknownFactoryName}(): ...`, `${context.unknownTypeName} = ${unknownFactoryName}()`, '');
+    }
     lines.push(functionStub);
 
     // Generate imports (will be inserted at top after we know what's needed)
@@ -365,13 +404,20 @@ function getReturnTypeStringFromFunction(type: PyrightTypes.FunctionType, contex
  */
 function pyrightTypeToString(type: PyrightTypes.Type, context?: StubGenerationContext): string {
     const flags = PrintTypeFlags.PythonSyntax | PrintTypeFlags.UseFullyQualifiedNames;
+    // Unknown has no Python annotation spelling. For a partial value, use a
+    // generated stub's unannotated return instead of silently turning it into Any.
+    const typePrinter =
+        context && (context.unknownTypeName || context.typeVarNames) ? new StubTypePrinter(context) : undefined;
+    if (typePrinter) {
+        type = typePrinter.apply(type, 0);
+    }
     // Simple callback for getting return types - just use declared or inferred return type
     const returnTypeCallback = (funcType: PyrightTypes.FunctionType): PyrightTypes.Type => {
-        return (
+        const returnType =
             funcType.shared.declaredReturnType ??
             funcType.shared.inferredReturnType?.type ??
-            PyrightTypes.UnknownType.create()
-        );
+            PyrightTypes.UnknownType.create();
+        return typePrinter ? typePrinter.apply(returnType, 0) : returnType;
     };
     const typeString = printType(type, flags, returnTypeCallback);
     // Remove 'builtins.' prefix from builtin types
@@ -383,6 +429,31 @@ function pyrightTypeToString(type: PyrightTypes.Type, context?: StubGenerationCo
     }
 
     return cleanedTypeString;
+}
+
+// This transforms only the printer's input, never a program's semantic types.
+// The generated name is bound to an ordinary Unknown-valued stub expression.
+class StubTypePrinter extends TypeVarTransformer {
+    constructor(private _context: StubGenerationContext) {
+        super();
+    }
+
+    override canSkipTransform(): boolean {
+        return false;
+    }
+
+    override apply(type: PyrightTypes.Type, recursionCount: number): PyrightTypes.Type {
+        if (PyrightTypes.isUnknown(type) && this._context.unknownTypeName) {
+            this._context.usesUnknownType = true;
+            return PyrightTypes.TypeVarType.createInstance(this._context.unknownTypeName);
+        }
+        return super.apply(type, recursionCount);
+    }
+
+    override transformTypeVar(typeVar: PyrightTypes.TypeVarType): PyrightTypes.TypeVarType {
+        const name = this._context.typeVarNames?.get(PyrightTypes.TypeVarType.getNameWithScope(typeVar));
+        return name && name !== typeVar.shared.name ? PyrightTypes.TypeVarType.cloneForNewName(typeVar, name) : typeVar;
+    }
 }
 
 /**
@@ -539,6 +610,15 @@ export function generateStubFromClassType(
     options: StubGenerationOptions,
     targetMethodName?: string
 ): StubGenerationResult {
+    const partialCall = type.priv.partialCallType;
+    if (partialCall && (PyrightTypes.isFunction(partialCall) || PyrightTypes.isOverloaded(partialCall))) {
+        return generatePartialStub(type, partialCall, options);
+    }
+
+    if ((type.shared.flags & PyrightTypes.ClassTypeFlags.SentinelValueClass) !== 0) {
+        return generateSentinelStub(type);
+    }
+
     const context: StubGenerationContext = {
         imports: { imports: new Map() },
         pythonVersion: options.pythonVersion,
@@ -557,6 +637,97 @@ export function generateStubFromClassType(
     // Special handling for NewType classes - generate as NewType call instead of class definition
     if (PyrightTypes.ClassType.isNewTypeClass(type)) {
         return generateNewTypeStub(type, context, options);
+    }
+
+    function generatePartialStub(
+        type: PyrightTypes.ClassType,
+        partialCall: PyrightTypes.FunctionType | PyrightTypes.OverloadedType,
+        options: StubGenerationOptions
+    ): StubGenerationResult {
+        const calls = PyrightTypes.isOverloaded(partialCall)
+            ? PyrightTypes.OverloadedType.getOverloads(partialCall)
+            : [partialCall];
+        const typeNames = [type, ...calls]
+            .map((value) =>
+                printType(
+                    value,
+                    PrintTypeFlags.UseFullyQualifiedNames,
+                    (call) =>
+                        PyrightTypes.FunctionType.getEffectiveReturnType(call) ?? PyrightTypes.UnknownType.create()
+                )
+            )
+            .join('\n');
+        const freshName = (base: string) => {
+            while (typeNames.includes(base)) {
+                base += '_';
+            }
+            return base;
+        };
+        const functionName = freshName('__partial_callable');
+        const valueName = freshName('__partial_value');
+        const unknownFactoryName = freshName('__partial_unknown_factory');
+        const context: StubGenerationContext = {
+            imports: { imports: new Map() },
+            pythonVersion: options.pythonVersion,
+            moduleImports: new Map(),
+            classStubNames: new Map(),
+            usedClassStubNames: new Set(),
+            unknownTypeName: freshName('__partial_unknown'),
+            typeVarNames: new Map(),
+        };
+        const typeVars = new Map<string, PyrightTypes.TypeVarType>();
+        const usedTypeVarNames = new Set<string>();
+        const functions = calls.map((call) => {
+            const clone = PyrightTypes.FunctionType.clone(call);
+            clone.shared.name = functionName;
+            // partialCallType is an unbound __call__; the generated function is
+            // the remaining callable itself, without the nominal instance's self.
+            clone.shared.parameters = call.shared.parameters.slice(1);
+            for (const typeVar of getTypeVarArgsRecursive(clone)) {
+                const identity = PyrightTypes.TypeVarType.getNameWithScope(typeVar);
+                if (!typeVars.has(identity)) {
+                    // Distinct overload scopes can reuse a spelling with different
+                    // bounds or constraints. Give each identity its own stub name.
+                    let name = typeVar.shared.name;
+                    while (usedTypeVarNames.has(name)) {
+                        name = freshName(name + '_');
+                    }
+                    typeVars.set(identity, typeVar);
+                    context.typeVarNames!.set(identity, name);
+                    usedTypeVarNames.add(name);
+                }
+            }
+            return clone;
+        });
+        const lines = generateTypeVarDeclarations([...typeVars.values()], context);
+        if (functions.length > 1) {
+            addImport(context, 'typing', 'overload');
+        }
+        for (const call of functions) {
+            if (functions.length > 1) {
+                lines.push('@overload');
+            }
+            lines.push(generateFunctionStub(call, context));
+        }
+        // Generic return variables must be inferred from that same generated
+        // callable scope, rather than rebound in a separate module occurrence.
+        const hasGenericReturn = getTypeVarArgsRecursive(type).length > 0;
+        const nominal = hasGenericReturn
+            ? type.shared.fullName
+            : pyrightTypeToString(PyrightTypes.ClassType.cloneAsInstance(type), context);
+        if (hasGenericReturn) {
+            extractModuleImportsFromTypeString(nominal, type, context);
+        }
+        const assignment = `${valueName} = ${nominal}(${functionName})`;
+        lines.push(assignment);
+        if (context.usesUnknownType) {
+            // A .pyi function without a return annotation returns Unknown. Binding
+            // that value provides legal Python names for nested Unknown annotations
+            // without an undefined symbol, an Any substitution or decoder markers.
+            lines.unshift(`def ${unknownFactoryName}(): ...`, `${context.unknownTypeName} = ${unknownFactoryName}()`);
+        }
+        const stubContent = [...generateImportStatements(context), '', ...lines].join('\n') + '\n';
+        return { stubContent, primaryDefinitionOffset: stubContent.lastIndexOf(assignment) };
     }
 
     // Generate the class stub (will include marker for main class)
@@ -604,6 +775,100 @@ export function generateStubFromClassType(
     };
 }
 
+export function generateSentinelStub(type: PyrightTypes.ClassType): StubGenerationResult {
+    const sentinelClass = getSentinelClass(type);
+    if (!sentinelClass || !isSentinelClass(sentinelClass)) {
+        throw new Error(`Missing sentinel factory for '${type.shared.fullName}'`);
+    }
+    const identity = type.shared.sentinelIdentity;
+    assert(identity, `Missing sentinel identity for '${type.shared.fullName}'`);
+
+    // Direct assignment would rename the sentinel; list or nonconstant inference would erase TypeForm.
+    const call = `__sentinel_factory(${JSON.stringify(identity.name)})`;
+    const expression = type.props?.typeForm ? `(__sentinel_value := ${call})` : `[${call}][0]`;
+    const assignment = `__SENTINEL_VALUE = ${expression}`;
+    const stubContent =
+        [
+            '# This stub file was generated from Pyright type information',
+            `${sentinelIdentityPrefix}${JSON.stringify(identity)}`,
+            `from ${sentinelClass.shared.moduleName} import ${sentinelClass.shared.name} as __sentinel_factory`,
+            '',
+            identity.isSingleton ? assignment : `def __sentinel_allocation():\n    ${assignment}`,
+        ].join('\n') + '\n';
+    return { stubContent, primaryDefinitionOffset: stubContent.lastIndexOf(assignment) };
+}
+
+export function getSentinelStubIdentity(stubContent: string): PyrightTypes.SentinelIdentity | undefined {
+    const line = stubContent.split('\n', 2)[1];
+    if (!line?.startsWith(sentinelIdentityPrefix)) {
+        return undefined;
+    }
+
+    const identity: unknown = JSON.parse(line.slice(sentinelIdentityPrefix.length));
+    assert(
+        typeof identity === 'object' &&
+            identity !== null &&
+            'name' in identity &&
+            typeof identity.name === 'string' &&
+            'fullName' in identity &&
+            typeof identity.fullName === 'string' &&
+            'moduleName' in identity &&
+            typeof identity.moduleName === 'string' &&
+            'typeSourceId' in identity &&
+            typeof identity.typeSourceId === 'number' &&
+            Number.isSafeInteger(identity.typeSourceId) &&
+            identity.typeSourceId >= 0 &&
+            'isSingleton' in identity &&
+            typeof identity.isSingleton === 'boolean',
+        'Invalid sentinel identity in synthesized stub'
+    );
+    return {
+        name: identity.name,
+        fullName: identity.fullName,
+        moduleName: identity.moduleName,
+        typeSourceId: identity.typeSourceId,
+        isSingleton: identity.isSingleton,
+    };
+}
+
+export function getNewTypeStubHeader(type: PyrightTypes.ClassType): string {
+    return (
+        newTypeIdentityPrefix +
+        JSON.stringify({
+            fullName: type.shared.fullName,
+            moduleName: type.shared.moduleName,
+            typeSourceId: type.shared.typeSourceId,
+        } satisfies NewTypeStubIdentity)
+    );
+}
+
+export function getNewTypeStubIdentity(stubContent: string): NewTypeStubIdentity | undefined {
+    const line = stubContent.split('\n', 2)[1];
+    if (!line?.startsWith(newTypeIdentityPrefix)) {
+        return undefined;
+    }
+
+    const identity: unknown = JSON.parse(line.slice(newTypeIdentityPrefix.length));
+    assert(
+        typeof identity === 'object' &&
+            identity !== null &&
+            'fullName' in identity &&
+            typeof identity.fullName === 'string' &&
+            'moduleName' in identity &&
+            typeof identity.moduleName === 'string' &&
+            'typeSourceId' in identity &&
+            typeof identity.typeSourceId === 'number' &&
+            Number.isSafeInteger(identity.typeSourceId) &&
+            identity.typeSourceId >= 0,
+        'Invalid NewType identity in synthesized stub'
+    );
+    return {
+        fullName: identity.fullName,
+        moduleName: identity.moduleName,
+        typeSourceId: identity.typeSourceId,
+    };
+}
+
 /**
  * Generates a stub for a NewType class using NewType call syntax.
  */
@@ -634,6 +899,7 @@ function generateNewTypeStub(
     const importLines = generateImportStatements(context);
     const result: string[] = [];
     result.push('# This stub file was generated from Pyright type information');
+    result.push(getNewTypeStubHeader(type));
     result.push('');
     if (importLines.length > 0) {
         result.push(...importLines);
@@ -1043,7 +1309,9 @@ function generateTypeVarDeclarations(typeParams: PyrightTypes.TypeVarType[], con
 
     for (const typeParam of typeParams) {
         if (PyrightTypes.isTypeVar(typeParam)) {
-            const name = typeParam.shared.name;
+            const name =
+                context.typeVarNames?.get(PyrightTypes.TypeVarType.getNameWithScope(typeParam)) ??
+                typeParam.shared.name;
 
             // Check if it's a ParamSpec
             if (PyrightTypes.isParamSpec(typeParam)) {
