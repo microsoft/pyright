@@ -95,6 +95,10 @@ export type ScopeChainedModuleLevelLookup = (
 ) => SymbolWithScope | undefined;
 
 export class Scope {
+    // Class-local bindings in dead code affect name lookup but create no attributes.
+    // Undefined entries exclude names declared nonlocal in dead code.
+    private _unreachableSymbols: Map<string, Symbol | undefined> | undefined;
+
     // The scope type, as defined in the enumeration.
     readonly type: ScopeType;
 
@@ -175,10 +179,10 @@ export class Scope {
 
     lookUpSymbolRecursive(name: string, options?: LookupSymbolOptions): SymbolWithScope | undefined {
         let effectiveScope: Scope = this;
-        let symbol = this.symbolTable.get(name);
+        let symbol = this.symbolTable.get(name) ?? this._unreachableSymbols?.get(name);
 
         if (!symbol && options?.useProxyScope && this.proxy) {
-            symbol = this.proxy.symbolTable.get(name);
+            symbol = this.proxy.symbolTable.get(name) ?? this.proxy._unreachableSymbols?.get(name);
             effectiveScope = this.proxy;
         }
 
@@ -189,13 +193,27 @@ export class Scope {
                 return undefined;
             }
 
-            // If the symbol is a class variable that is defined only in terms of
-            // member accesses, it is not accessible directly by name, so hide it.
+            // Member-only declarations are not lexical class locals.
             const decls = symbol.getDeclarations();
             if (
-                decls.length === 0 ||
-                decls.some((decl) => decl.type !== DeclarationType.Variable || !decl.isDefinedByMemberAccess)
+                decls.length > 0 &&
+                decls.every((decl) => decl.type === DeclarationType.Variable && decl.isDefinedByMemberAccess)
             ) {
+                symbol = effectiveScope._unreachableSymbols?.get(name);
+            }
+
+            if (symbol) {
+                if (symbol === effectiveScope._unreachableSymbols?.get(name)) {
+                    // Resolve lexical-only class locals before annotation evaluation,
+                    // which can bypass the usual code-flow-based global fallback.
+                    const globalScopeResult = effectiveScope.getGlobalScope();
+                    return globalScopeResult.scope.lookUpSymbolRecursive(name, {
+                        ...options,
+                        isBeyondExecutionScope:
+                            !!options?.isBeyondExecutionScope || globalScopeResult.isBeyondExecutionScope,
+                    });
+                }
+
                 return {
                     symbol,
                     isOutsideCallerModule: !!options?.isOutsideCallerModule,
@@ -256,6 +274,19 @@ export class Scope {
         const symbol = new Symbol(flags);
         this.symbolTable.set(name, symbol);
         return symbol;
+    }
+
+    addUnreachableSymbol(name: string): Symbol | undefined {
+        this._unreachableSymbols ??= new Map<string, Symbol | undefined>();
+        if (!this._unreachableSymbols.has(name)) {
+            this._unreachableSymbols.set(name, new Symbol(SymbolFlags.InitiallyUnbound));
+        }
+        return this._unreachableSymbols.get(name);
+    }
+
+    excludeUnreachableSymbol(name: string) {
+        this._unreachableSymbols ??= new Map<string, Symbol | undefined>();
+        this._unreachableSymbols.set(name, undefined);
     }
 
     getBindingType(name: string) {

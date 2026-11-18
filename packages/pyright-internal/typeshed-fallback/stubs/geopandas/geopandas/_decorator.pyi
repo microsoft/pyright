@@ -7,7 +7,7 @@ _Func = TypeVar("_Func", bound=_AnyCallable)
 # We (ab)use this decorator to also copy the signature of the source function (overload 1)
 # The advantages are:
 # - avoid copying all parameters and types manually while conserving type safety
-# - signature properly handeled in IDEs (at least with Pylance)
+# - signature properly handled in IDEs (at least with Pylance)
 # - docstring from the original function properly displayed (at least with Pylance)
 # Using the other overloads returns the signature of the decorated function instead
 @overload

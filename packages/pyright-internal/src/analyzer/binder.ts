@@ -1871,26 +1871,8 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitAwait(node: AwaitNode) {
-        // Make sure this is within an async lambda or function.
-        const execScopeNode = ParseTreeUtils.getExecutionScopeNode(node, this._nodeInfo);
-        if (execScopeNode?.nodeType !== ParseNodeType.Function || !execScopeNode.d.isAsync) {
-            if (this._fileInfo.ipythonMode && execScopeNode?.nodeType === ParseNodeType.Module) {
-                // Top level await is allowed in ipython mode.
-                return true;
-            }
-
-            const isInGenerator =
-                node.parent?.nodeType === ParseNodeType.Comprehension &&
-                node.parent?.parent?.nodeType !== ParseNodeType.List &&
-                node.parent?.parent?.nodeType !== ParseNodeType.Set &&
-                node.parent?.parent?.nodeType !== ParseNodeType.Dictionary;
-
-            // Allow if it's within a generator expression. Execution of
-            // generator expressions is deferred and therefore can be
-            // run within the context of an async function later.
-            if (!isInGenerator) {
-                this._addSyntaxError(LocMessage.awaitNotInAsync(), node.d.awaitToken);
-            }
+        if (!this._isAwaitAllowed(node)) {
+            this._addSyntaxError(LocMessage.awaitNotInAsync(), node.d.awaitToken);
         }
 
         return true;
@@ -2666,6 +2648,55 @@ export class Binder extends ParseTreeWalker {
         return true;
     }
 
+    private _isAwaitAllowed(node: AwaitNode): boolean {
+        // Preserve the established Binder behavior for type forms; their legality is validated separately.
+        if (
+            ParseTreeUtils.isWithinTypeAnnotation(node, /* requireQuotedAnnotation */ false, this._nodeInfo) ||
+            ParseTreeUtils.isNodeContainedWithinNodeType(node, ParseNodeType.TypeParameter) ||
+            ParseTreeUtils.isNodeContainedWithinNodeType(node, ParseNodeType.TypeAlias)
+        ) {
+            const executionScope = ParseTreeUtils.getExecutionScopeNode(node, this._nodeInfo);
+            if (
+                (executionScope.nodeType === ParseNodeType.Function && executionScope.d.isAsync) ||
+                (executionScope.nodeType === ParseNodeType.Module && !!this._fileInfo.ipythonMode)
+            ) {
+                return true;
+            }
+
+            const parentNode = node.parent?.nodeType === ParseNodeType.Unpack ? node.parent.parent : node.parent;
+            return parentNode?.nodeType === ParseNodeType.Comprehension && parentNode.d.isGenerator;
+        }
+
+        let scopeNode = ParseTreeUtils.getEvaluationScopeNode(node, this._nodeInfo).node;
+
+        while (true) {
+            switch (scopeNode.nodeType) {
+                case ParseNodeType.Function:
+                    return scopeNode.d.isAsync;
+
+                case ParseNodeType.Module:
+                    return !!this._fileInfo.ipythonMode;
+
+                case ParseNodeType.Comprehension:
+                    if (scopeNode.d.isGenerator) {
+                        return true;
+                    }
+                    break;
+
+                case ParseNodeType.Lambda:
+                case ParseNodeType.Class:
+                case ParseNodeType.TypeParameterList:
+                    return false;
+            }
+
+            if (!scopeNode.parent) {
+                return false;
+            }
+
+            scopeNode = ParseTreeUtils.getEvaluationScopeNode(scopeNode.parent, this._nodeInfo).node;
+        }
+    }
+
     // Helper method to determine if an expression is a non-empty list or tuple literal.
     // This is a syntactic check, not a semantic one, so it's very fast.
     // Guards against starred expressions ([*empty_list]) and comprehensions ([v for v in []]).
@@ -3071,11 +3102,41 @@ export class Binder extends ParseTreeWalker {
                 if (!this._moduleSymbolOnly) {
                     const dummyScopeGenerator = new DummyScopeGenerator(this._currentScope, this._nodeInfo);
                     dummyScopeGenerator.walk(statement);
+
+                    // Assignments in unreachable code still make names local, matching
+                    // CPython. Bind those names without type-checking the dead code.
+                    if (this._currentScope.type === ScopeType.Function || this._currentScope.type === ScopeType.Class) {
+                        this._bindNamesInUnreachableCode(statement);
+                    }
                 }
             }
         }
 
         return false;
+    }
+
+    private _bindNamesInUnreachableCode(node: ParseNode) {
+        // Directives apply to the entire scope, so process global and
+        // nonlocal declarations before binding any names.
+        new UnreachableDirectiveFinder(
+            (globalNode) => this.visitGlobal(globalNode),
+            (nonlocalNode) => {
+                if (this._currentScope.type === ScopeType.Class) {
+                    nonlocalNode.d.targets.forEach((name) => this._currentScope.excludeUnreachableSymbol(name.d.value));
+                } else {
+                    this.visitNonlocal(nonlocalNode);
+                }
+            }
+        ).walk(node);
+
+        const bindTarget = (target: ExpressionNode) => {
+            this._bindPossibleTupleNamedTarget(target);
+        };
+        const bindName = (name: NameNode) => {
+            this._bindNameToScope(this._currentScope, name);
+        };
+
+        new UnreachableNameBinder(bindTarget, bindName).walk(node);
     }
 
     private _createStartFlowNode() {
@@ -3420,27 +3481,44 @@ export class Binder extends ParseTreeWalker {
                         });
                     }
 
-                    // Look for "type(X) is Y" or "type(X) is not Y".
+                    // Look for type(X) on either side without skipping references in the other operand.
+                    let isLeftNarrowing: boolean;
                     if (
-                        isOrIsNotOperator &&
                         expression.d.leftExpr.nodeType === ParseNodeType.Call &&
                         expression.d.leftExpr.d.leftExpr.nodeType === ParseNodeType.Name &&
                         expression.d.leftExpr.d.leftExpr.d.value === 'type' &&
                         expression.d.leftExpr.d.args.length === 1 &&
                         expression.d.leftExpr.d.args[0].d.argCategory === ArgCategory.Simple
                     ) {
-                        return this._isNarrowingExpression(
+                        isLeftNarrowing = this._isNarrowingExpression(
                             expression.d.leftExpr.d.args[0].d.valueExpr,
                             expressionList,
                             { ...options, isComplexExpression: true }
                         );
+                    } else {
+                        isLeftNarrowing = this._isNarrowingExpression(expression.d.leftExpr, expressionList, {
+                            ...options,
+                            isComplexExpression: true,
+                            allowDiscriminatedNarrowing: true,
+                        });
                     }
 
-                    const isLeftNarrowing = this._isNarrowingExpression(expression.d.leftExpr, expressionList, {
-                        ...options,
-                        isComplexExpression: true,
-                        allowDiscriminatedNarrowing: true,
-                    });
+                    // Look for "Y is type(X)", "Y is not type(X)", "Y == type(X)" or "Y != type(X)".
+                    if (
+                        expression.d.rightExpr.nodeType === ParseNodeType.Call &&
+                        expression.d.rightExpr.d.leftExpr.nodeType === ParseNodeType.Name &&
+                        expression.d.rightExpr.d.leftExpr.d.value === 'type' &&
+                        expression.d.rightExpr.d.args.length === 1 &&
+                        expression.d.rightExpr.d.args[0].d.argCategory === ArgCategory.Simple
+                    ) {
+                        const isRightNarrowing = this._isNarrowingExpression(
+                            expression.d.rightExpr.d.args[0].d.valueExpr,
+                            expressionList,
+                            { ...options, isComplexExpression: true }
+                        );
+
+                        return isLeftNarrowing || isRightNarrowing;
+                    }
 
                     // Look for "X is Y" or "X is not Y".
                     // Look for X == <literal> or X != <literal>
@@ -3617,6 +3695,11 @@ export class Binder extends ParseTreeWalker {
         if (!this._isCodeUnreachable()) {
             this._addExceptTargets(this._currentFlowNode!);
 
+            const deletionCall = ParseTreeUtils.getTypedDictKeyDeletionCall(node);
+            if (deletionCall && isCodeFlowSupportedForReference(deletionCall.d.leftExpr)) {
+                this._currentScopeCodeFlowExpressions!.add(createKeyForReference(deletionCall.d.leftExpr));
+            }
+
             const flowNode: FlowCall = {
                 flags: FlowFlags.Call,
                 id: this._getUniqueFlowNodeId(),
@@ -3646,6 +3729,9 @@ export class Binder extends ParseTreeWalker {
             const symbolWithScope = this._currentScope.lookUpSymbolRecursive(node.d.value);
             assert(symbolWithScope !== undefined);
             targetSymbolId = symbolWithScope!.symbol.id;
+            if (unbound && !this._isCodeUnreachable() && symbolWithScope!.isBeyondExecutionScope) {
+                symbolWithScope!.symbol.setIsUnboundInOtherScope();
+            }
         }
 
         const prevFlowNode = this._currentFlowNode!;
@@ -3670,6 +3756,11 @@ export class Binder extends ParseTreeWalker {
 
             if (isSupportedReference) {
                 this._currentScopeCodeFlowExpressions!.add(createKeyForReference(node));
+            }
+
+            // Key presence changes the containing TypedDict's narrowed type.
+            if (node.nodeType === ParseNodeType.Index && isCodeFlowSupportedForReference(node.d.leftExpr)) {
+                this._currentScopeCodeFlowExpressions!.add(createKeyForReference(node.d.leftExpr));
             }
 
             if (unbound) {
@@ -3804,6 +3895,10 @@ export class Binder extends ParseTreeWalker {
                 return symbolWithScope.symbol;
             }
         } else {
+            if (scope.type === ScopeType.Class && this._isCodeUnreachable()) {
+                return scope.addUnreachableSymbol(name);
+            }
+
             // Don't overwrite an existing symbol.
             let symbol = scope.lookUpSymbol(name);
             if (!symbol) {
@@ -3841,7 +3936,11 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _bindPossibleTupleNamedTarget(target: ExpressionNode, addedSymbols?: Map<string, Symbol>) {
-        if (this._currentScope.type === ScopeType.Class && !isStaticClassAssignmentTarget(target)) {
+        if (
+            this._currentScope.type === ScopeType.Class &&
+            !this._isCodeUnreachable() &&
+            !isStaticClassAssignmentTarget(target)
+        ) {
             this._currentScope.hasPotentiallyDynamicSymbolTable = true;
         }
 
@@ -4684,9 +4783,9 @@ export class Binder extends ParseTreeWalker {
     }
 
     // Handles some special-case assignment statements that are found
-    // within the typings.pyi file.
+    // within typing.pyi, and annotation modifiers in typing_extensions.pyi.
     private _handleTypingStubAssignmentOrAnnotation(node: AssignmentNode | TypeAnnotationNode) {
-        if (!this._fileInfo.isTypingStubFile) {
+        if (!this._fileInfo.isTypingStubFile && !this._fileInfo.isTypingExtensionsStubFile) {
             return false;
         }
 
@@ -4730,11 +4829,19 @@ export class Binder extends ParseTreeWalker {
             'LiteralString',
             'OrderedDict',
             'TypeIs',
+            'TypeForm',
+            'Required',
+            'NotRequired',
+            'ReadOnly',
         ]);
 
         const assignedName = assignedNameNode.d.value;
 
-        if (!specialTypes.has(assignedName)) {
+        if (
+            !specialTypes.has(assignedName) ||
+            (!this._fileInfo.isTypingStubFile &&
+                !['TypeForm', 'Required', 'NotRequired', 'ReadOnly'].includes(assignedName))
+        ) {
             return false;
         }
 
@@ -4872,6 +4979,212 @@ export class ReturnFinder extends ParseTreeWalker {
 
     override visitReturn(node: ReturnNode): boolean {
         this._containsReturn = true;
+        return false;
+    }
+}
+
+// Discovers and processes `global` and `nonlocal` directives in unreachable code.
+// Directives must be evaluated before binding names to ensure that later
+// assignments do not bind as locals in the current scope. Nested function,
+// class, and lambda bodies are skipped because their directives belong to
+// nested scopes.
+class UnreachableDirectiveFinder extends ParseTreeWalker {
+    constructor(
+        private readonly _bindGlobal: (node: GlobalNode) => void,
+        private readonly _bindNonlocal: (node: NonlocalNode) => void
+    ) {
+        super();
+    }
+
+    override visitGlobal(node: GlobalNode): boolean {
+        this._bindGlobal(node);
+        return false;
+    }
+
+    override visitNonlocal(node: NonlocalNode): boolean {
+        this._bindNonlocal(node);
+        return false;
+    }
+
+    override visitFunction(node: FunctionNode): boolean {
+        return false;
+    }
+
+    override visitClass(node: ClassNode): boolean {
+        return false;
+    }
+
+    override visitLambda(node: LambdaNode): boolean {
+        return false;
+    }
+}
+
+// Binds assignment targets in unreachable code so they still create local
+// symbols, matching CPython (an assignment after `return` makes the name
+// local for the entire function).
+// Header expressions for nested functions, classes, and lambdas (decorators,
+// parameter defaults/annotations, type parameters, and class bases/arguments)
+// are evaluated in the enclosing scope, so they are walked to catch assignment
+// expressions (:=). Nested bodies are skipped because DummyScopeGenerator
+// already created their scopes and they belong to nested scopes.
+class UnreachableNameBinder extends ParseTreeWalker {
+    constructor(
+        private readonly _bindTarget: (target: ExpressionNode) => void,
+        private readonly _bindName: (name: NameNode) => void
+    ) {
+        super();
+    }
+
+    override visitAssignment(node: AssignmentNode): boolean {
+        this._bindTarget(node.d.leftExpr);
+        return true;
+    }
+
+    override visitAugmentedAssignment(node: AugmentedAssignmentNode): boolean {
+        this._bindTarget(node.d.leftExpr);
+        return true;
+    }
+
+    override visitTypeAnnotation(node: TypeAnnotationNode): boolean {
+        this._bindTarget(node.d.valueExpr);
+        return true;
+    }
+
+    override visitAssignmentExpression(node: AssignmentExpressionNode): boolean {
+        this._bindName(node.d.name);
+        return true;
+    }
+
+    override visitFor(node: ForNode): boolean {
+        this._bindTarget(node.d.targetExpr);
+        return true;
+    }
+
+    override visitWith(node: WithNode): boolean {
+        node.d.withItems.forEach((item) => {
+            if (item.d.target) {
+                this._bindTarget(item.d.target);
+            }
+        });
+        return true;
+    }
+
+    override visitDel(node: DelNode): boolean {
+        node.d.targets.forEach((target) => {
+            this._bindTarget(target);
+        });
+        return true;
+    }
+
+    override visitExcept(node: ExceptNode): boolean {
+        if (node.d.name) {
+            this._bindName(node.d.name);
+        }
+        return true;
+    }
+
+    override visitImportAs(node: ImportAsNode): boolean {
+        if (node.d.alias) {
+            this._bindName(node.d.alias);
+        } else if (node.d.module.d.nameParts.length > 0) {
+            this._bindName(node.d.module.d.nameParts[0]);
+        }
+        return false;
+    }
+
+    override visitImportFrom(node: ImportFromNode): boolean {
+        node.d.imports.forEach((importSymbolNode) => {
+            this._bindName(importSymbolNode.d.alias || importSymbolNode.d.name);
+        });
+        return false;
+    }
+
+    override visitFunction(node: FunctionNode): boolean {
+        this._bindName(node.d.name);
+
+        this.walkMultiple(node.d.decorators);
+
+        node.d.params.forEach((param) => {
+            if (param.d.defaultValue) {
+                this.walk(param.d.defaultValue);
+            }
+            if (param.d.annotation) {
+                this.walk(param.d.annotation);
+            }
+            if (param.d.annotationComment) {
+                this.walk(param.d.annotationComment);
+            }
+        });
+
+        if (node.d.typeParams) {
+            this.walk(node.d.typeParams);
+        }
+
+        if (node.d.returnAnnotation) {
+            this.walk(node.d.returnAnnotation);
+        }
+
+        if (node.d.funcAnnotationComment) {
+            this.walk(node.d.funcAnnotationComment);
+        }
+
+        return false;
+    }
+
+    override visitClass(node: ClassNode): boolean {
+        this._bindName(node.d.name);
+
+        this.walkMultiple(node.d.decorators);
+
+        if (node.d.typeParams) {
+            this.walk(node.d.typeParams);
+        }
+
+        this.walkMultiple(node.d.arguments);
+
+        return false;
+    }
+
+    override visitLambda(node: LambdaNode): boolean {
+        node.d.params.forEach((param) => {
+            if (param.d.defaultValue) {
+                this.walk(param.d.defaultValue);
+            }
+        });
+
+        return false;
+    }
+
+    override visitTypeAlias(node: TypeAliasNode): boolean {
+        this._bindName(node.d.name);
+
+        if (node.d.typeParams) {
+            this.walk(node.d.typeParams);
+        }
+
+        this.walk(node.d.expr);
+
+        return false;
+    }
+
+    override visitPatternAs(node: PatternAsNode): boolean {
+        if (node.d.target) {
+            this._bindName(node.d.target);
+        }
+        return true;
+    }
+
+    override visitPatternCapture(node: PatternCaptureNode): boolean {
+        if (!node.d.isWildcard) {
+            this._bindName(node.d.target);
+        }
+        return false;
+    }
+
+    override visitPatternMappingExpandEntry(node: PatternMappingExpandEntryNode): boolean {
+        if (node.d.target.d.value !== '_') {
+            this._bindName(node.d.target);
+        }
         return false;
     }
 }

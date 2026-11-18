@@ -54,6 +54,7 @@ import {
     TypedDictEntry,
     UnknownType,
     combineTypes,
+    getInferredTupleLiteralBase,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -415,7 +416,20 @@ function narrowTypeBasedOnSequencePattern(
             // If this is a tuple, we can narrow it to a specific tuple type.
             // Other sequences cannot be narrowed because we don't know if they
             // are immutable (covariant).
-            if (canNarrowTuple) {
+            // Keep a tuple subclass such as a NamedTuple unchanged if the pattern
+            // didn't narrow any of its entries. Replacing it with a plain tuple
+            // would lose the class.
+            const isUnnarrowedTupleSubclass =
+                isClassInstance(entry.subtype) &&
+                !ClassType.isBuiltIn(entry.subtype, 'tuple') &&
+                !entry.isIndeterminateLength &&
+                !entry.isUnboundedTuple &&
+                narrowedEntryTypes.length === unnarrowedEntryTypes.length &&
+                narrowedEntryTypes.every((narrowedType, index) =>
+                    isTypeSame(narrowedType, unnarrowedEntryTypes[index])
+                );
+
+            if (canNarrowTuple && !isUnnarrowedTupleSubclass) {
                 const tupleClassType = evaluator.getBuiltInType(pattern, 'tuple');
                 if (tupleClassType && isInstantiableClass(tupleClassType)) {
                     entry.subtype = ClassType.cloneAsInstance(
@@ -460,7 +474,9 @@ function narrowTypeBasedOnAsPattern(
     isPositiveTest: boolean,
     nodeInfo: AnalyzerNodeInfoAccessor
 ): Type {
-    let remainingType = type;
+    // Alternatives use the previous inference view rather than evaluating
+    // another pattern tree to preserve optional literal provenance.
+    let remainingType = pattern.d.orPatterns.length > 1 ? getInferredTupleLiteralBase(type) : type;
 
     if (!isPositiveTest) {
         pattern.d.orPatterns.forEach((subpattern) => {
@@ -514,58 +530,105 @@ function narrowTypeBasedOnMappingPattern(
             return combineTypes(mappingInfo.filter((m) => !m.isDefinitelyMapping).map((m) => m.subtype));
         }
 
-        if (pattern.d.entries.length !== 1 || pattern.d.entries[0].nodeType !== ParseNodeType.PatternMappingKeyEntry) {
-            return type;
-        }
-
         // Handle the case where the type is a union that includes a TypedDict with
-        // a field discriminated by a literal.
-        const keyPattern = pattern.d.entries[0].d.keyPattern;
-        const valuePattern = pattern.d.entries[0].d.valuePattern;
-        if (
-            keyPattern.nodeType !== ParseNodeType.PatternLiteral ||
-            valuePattern.nodeType !== ParseNodeType.PatternAs ||
-            !valuePattern.d.orPatterns.every((orPattern) => orPattern.nodeType === ParseNodeType.PatternLiteral)
-        ) {
+        // fields discriminated by literals or match patterns.
+        const keyEntryInfos: { keyValue: string; valueTypes?: Type[] }[] = [];
+        let hasUnsupportedKeyPattern = false;
+
+        for (const entry of pattern.d.entries) {
+            if (entry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
+                continue;
+            }
+            if (entry.nodeType !== ParseNodeType.PatternMappingKeyEntry) {
+                hasUnsupportedKeyPattern = true;
+                break;
+            }
+
+            const keyPattern = entry.d.keyPattern;
+            if (keyPattern.nodeType !== ParseNodeType.PatternLiteral) {
+                hasUnsupportedKeyPattern = true;
+                break;
+            }
+
+            const keyType = evaluator.getTypeOfExpression(keyPattern.d.expr).type;
+            if (
+                !isClassInstance(keyType) ||
+                !ClassType.isBuiltIn(keyType, 'str') ||
+                keyType.priv.literalValue === undefined
+            ) {
+                hasUnsupportedKeyPattern = true;
+                break;
+            }
+            const keyValue = keyType.priv.literalValue as string;
+
+            const valuePattern = entry.d.valuePattern;
+            let valueTypes: Type[] | undefined;
+
+            if (
+                valuePattern.nodeType === ParseNodeType.PatternAs &&
+                valuePattern.d.orPatterns.every((orPattern) => orPattern.nodeType === ParseNodeType.PatternLiteral)
+            ) {
+                valueTypes = valuePattern.d.orPatterns.map(
+                    (orPattern) => evaluator.getTypeOfExpression((orPattern as PatternLiteralNode).d.expr).type
+                );
+            } else if (
+                valuePattern.nodeType === ParseNodeType.PatternAs &&
+                valuePattern.d.orPatterns.length === 1 &&
+                valuePattern.d.orPatterns[0].nodeType === ParseNodeType.PatternCapture
+            ) {
+                valueTypes = undefined;
+            } else {
+                hasUnsupportedKeyPattern = true;
+                break;
+            }
+
+            keyEntryInfos.push({ keyValue, valueTypes });
+        }
+
+        if (hasUnsupportedKeyPattern || keyEntryInfos.length === 0) {
             return type;
         }
 
-        const keyType = evaluator.getTypeOfExpression(keyPattern.d.expr).type;
-
-        // The key type must be a str literal.
-        if (
-            !isClassInstance(keyType) ||
-            !ClassType.isBuiltIn(keyType, 'str') ||
-            keyType.priv.literalValue === undefined
-        ) {
-            return type;
-        }
-        const keyValue = keyType.priv.literalValue as string;
-
-        const valueTypes = valuePattern.d.orPatterns.map(
-            (orPattern) => evaluator.getTypeOfExpression((orPattern as PatternLiteralNode).d.expr).type
-        );
-
+        const keyNames = keyEntryInfos.map((entry) => entry.keyValue);
         return mapSubtypes(type, (subtype) => {
             if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
-                const typedDictMembers = getTypedDictMembersForClass(evaluator, subtype, /* allowNarrowed */ true);
-                const member = typedDictMembers.knownItems.get(keyValue);
+                const typedDictMembers = getTypedDictMembersForClass(
+                    evaluator,
+                    subtype,
+                    /* allowNarrowed */ true,
+                    keyNames
+                );
 
-                if (member && (member.isRequired || member.isProvided) && isClassInstance(member.valueType)) {
-                    const memberValueType = member.valueType;
-
-                    // If there's at least one literal value pattern that matches
-                    // the literal type of the member, we can eliminate this type.
-                    if (
-                        valueTypes.some(
-                            (valueType) =>
-                                isClassInstance(valueType) &&
-                                ClassType.isSameGenericClass(valueType, memberValueType) &&
-                                valueType.priv.literalValue === memberValueType.priv.literalValue
-                        )
-                    ) {
-                        return undefined;
+                const matchesAllEntries = keyEntryInfos.every((entryInfo) => {
+                    const member = typedDictMembers.knownItems.get(entryInfo.keyValue);
+                    if (!member || (!member.isRequired && !member.isProvided)) {
+                        return false;
                     }
+
+                    // A capture pattern matches any value once the key is present.
+                    if (entryInfo.valueTypes === undefined) {
+                        return true;
+                    }
+
+                    const memberValueType = member.valueType;
+                    if (isNoneInstance(memberValueType)) {
+                        return entryInfo.valueTypes.some(isNoneInstance);
+                    }
+
+                    if (!isClassInstance(memberValueType) || memberValueType.priv.literalValue === undefined) {
+                        return false;
+                    }
+
+                    return entryInfo.valueTypes.some(
+                        (valueType) =>
+                            isClassInstance(valueType) &&
+                            ClassType.isSameGenericClass(valueType, memberValueType) &&
+                            valueType.priv.literalValue === memberValueType.priv.literalValue
+                    );
+                });
+
+                if (matchesAllEntries) {
+                    return undefined;
                 }
             }
 
@@ -805,7 +868,7 @@ function narrowTypeBasedOnLiteralPattern(
     });
 }
 
-function isIntLiteralPatternEqualToBool(patternType: ClassType, subjectType: ClassType): boolean {
+export function isIntLiteralPatternEqualToBool(patternType: ClassType, subjectType: ClassType): boolean {
     // Numeric literal patterns use equality, so 0 and 1 also match False and True.
     // The inverse isn't true because singleton bool patterns use identity.
     if (!ClassType.isBuiltIn(patternType, 'int') || !ClassType.isBuiltIn(subjectType, 'bool')) {
@@ -828,8 +891,8 @@ function isIntLiteralPatternEqualToBool(patternType: ClassType, subjectType: Cla
 // Rather than surfacing Unknown, fall back to each parameter's bound while
 // preserving any argument that was concretely solved. The subject's condition is
 // reapplied to the resulting instance.
-function specializeBoundedMatchTypeParams(
-    evaluator: TypeEvaluator,
+export function specializeBoundedMatchTypeParams(
+    evaluator: Pick<TypeEvaluator, 'getTupleClassType'>,
     matchType: ClassType,
     solvedTypeArgs: Type[] | undefined,
     condition: ReturnType<typeof getTypeCondition>
@@ -1501,7 +1564,7 @@ function narrowTypeBasedOnValuePattern(
 }
 
 // Determines whether implicit equality may use an implementation other than object.__eq__.
-function hasCustomEq(type: Type): boolean {
+export function hasCustomEq(type: Type): boolean {
     if (isInstantiableClass(type)) {
         const metaclass = type.shared.effectiveMetaclass;
         if (!metaclass || !isInstantiableClass(metaclass)) {
@@ -1662,7 +1725,8 @@ function getSequencePatternInfo(
                 ) as ClassType;
 
                 if (isTupleClass(specializedSequence)) {
-                    const typeArgs = specializedSequence.priv.tupleTypeArgs ?? [
+                    // Pattern expansion must not mutate the cached tuple specialization.
+                    const typeArgs = specializedSequence.priv.tupleTypeArgs?.slice() ?? [
                         { type: UnknownType.create(), isUnbounded: true },
                     ];
 
@@ -1693,7 +1757,6 @@ function getSequencePatternInfo(
                             typeArgs.splice(tupleIndeterminateIndex, 1);
                             removedIndeterminate = true;
                             tupleIndeterminateIndex = -1;
-                            removedIndeterminate = true;
                         }
                     }
 

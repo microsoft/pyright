@@ -1,6 +1,7 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain mapping patterns.
 
+from enum import Enum
 from typing import Literal, TypedDict
 
 from typing_extensions import NotRequired  # pyright: ignore[reportMissingModuleSource]
@@ -150,5 +151,95 @@ def test_not_required_narrowing(subj: TD1) -> None:
             # This should generate an error.
             print(subj["v1"])
 
+
             print(subj["v2"])
             print(subj["v3"])
+
+
+class MsgA(TypedDict):
+    v: Literal[1]
+    kind: Literal["a"]
+    data_a: int
+
+
+class MsgB(TypedDict):
+    v: Literal[1]
+    kind: Literal["b"]
+    data_b: str
+
+
+def test_negative_narrowing3(msg: MsgA | MsgB) -> None:
+    match msg:
+        case {"v": 1, "kind": "a"}:
+            reveal_type(msg, expected_text="MsgA")
+        case _:
+            reveal_type(msg, expected_text="MsgB")
+
+
+class Color(Enum):
+    RED = 1
+    BLUE = 2
+
+
+class RedMsg(TypedDict):
+    color: Literal[Color.RED]
+
+
+class BlueMsg(TypedDict):
+    color: Literal[Color.BLUE]
+
+
+def test_value_pattern_negative_narrowing(msg: RedMsg | BlueMsg) -> None:
+    match msg:
+        case {"color": Color.RED}:
+            reveal_type(msg, expected_text="RedMsg")
+        case _:
+            reveal_type(msg, expected_text="RedMsg | BlueMsg")
+
+
+def test_capture_pattern_negative_narrowing(msg: MsgA | MsgB) -> None:
+    match msg:
+        case {"v": 1, "kind": x}:
+            reveal_type(msg, expected_text="MsgA | MsgB")
+            reveal_type(x, expected_text="Literal['a', 'b']")
+        case _:
+            reveal_type(msg, expected_text="Never")
+
+
+class UnionFieldA(TypedDict):
+    kind: Literal["a"]
+    payload: str | int
+
+
+class UnionFieldB(TypedDict):
+    kind: Literal["b"]
+    payload: str | int
+
+
+def test_capture_union_field_negative_narrowing(msg: UnionFieldA | UnionFieldB) -> None:
+    match msg:
+        case {"kind": "a", "payload": p}:
+            reveal_type(msg, expected_text="UnionFieldA")
+        case _:
+            reveal_type(msg, expected_text="UnionFieldB")
+
+
+def test_expand_entry_negative_narrowing(msg: MsgA | MsgB) -> None:
+    match msg:
+        case {"v": 1, "kind": "a", **rest}:
+            reveal_type(msg, expected_text="MsgA")
+        case _:
+            reveal_type(msg, expected_text="MsgB")
+
+
+class Reading(TypedDict):
+    kind: Literal["reading"]
+    value: float
+
+
+def test_non_literal_field_negative_narrowing(msg: Reading | None) -> None:
+    match msg:
+        case {"kind": "reading", "value": 1.5}:
+            reveal_type(msg, expected_text="Reading")
+        case _:
+            reveal_type(msg, expected_text="Reading | None")

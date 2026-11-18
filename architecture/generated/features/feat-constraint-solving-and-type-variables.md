@@ -9,7 +9,7 @@ Do not edit directly — changes will be overwritten by the next refresh.
 ## Implementation summary
 
 - **Files:** 3
-- **Symbols:** 57
+- **Symbols:** 58
 
 ### Primary files
 
@@ -18,10 +18,10 @@ These are the main implementation files attached to this semantic node.
 | File | Summary |
 | ---- | ------- |
 | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolution.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolution.ts#L1-L90) | Holds mappings from type variables to resolved types and manages multiple constraint solution sets |
-| [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1-L1509) | Solves TypeVar, TypeVarTuple, and ParamSpec constraints to infer and assign concrete types |
+| [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1-L1522) | Solves TypeVar, TypeVarTuple, and ParamSpec constraints to determine concrete types for type inference |
 | [packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts#L1-L288) | Tracks and manages constraint sets and bounds for type variables used by the constraint solver |
 
-### Symbol preview (40 of 57)
+### Symbol preview (40 of 58)
 
 | Symbol | Kind | Source |
 | ------ | ---- | ------ |
@@ -38,23 +38,24 @@ These are the main implementation files attached to this semantic node.
 | `ConstraintSolution.getSolutionSets` | method | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolution.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolution.ts#L75-L77) |
 | `ConstraintSolution.doForEachSolutionSet` | method | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolution.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolution.ts#L79-L83) |
 | `ConstraintSolution.getSolutionSet` | method | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolution.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolution.ts#L85-L88) |
-| `assignTypeVar` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L90-L215) |
-| `solveConstraints` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L218-L231) |
-| `applySourceSolutionToConstraints` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L234-L249) |
-| `solveConstraintSet` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L251-L264) |
-| `solveTypeVarRecursive` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L266-L327) |
-| `addConstraintsForExpectedType` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L335-L512) |
-| `stripLiteralsForLowerBound` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L514-L518) |
-| `getTypeVarType` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L520-L574) |
-| `assignBoundTypeVar` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L579-L618) |
-| `assignUnconstrainedTypeVar` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L622-L1011) |
-| `assignConstrainedTypeVar` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1014-L1204) |
-| `assignParamSpec` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1207-L1315) |
-| `typeVarOccursIn` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1323-L1348) |
-| `widenTypeForTypeVarTuple` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1353-L1434) |
-| `stripLiteralValueForUnpackedTuple` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1438-L1463) |
-| `logConstraints` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1467-L1479) |
-| `logTypeVarConstraintSet` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1481-L1508) |
+| `assignTypeVar` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L91-L216) |
+| `solveConstraints` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L219-L232) |
+| `applySourceSolutionToConstraints` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L235-L250) |
+| `solveConstraintSet` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L252-L265) |
+| `solveTypeVarRecursive` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L267-L328) |
+| `addConstraintsForExpectedType` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L336-L513) |
+| `stripLiteralsForInference` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L516-L525) |
+| `stripLiteralsForLowerBound` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L527-L531) |
+| `getTypeVarType` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L533-L587) |
+| `assignBoundTypeVar` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L592-L631) |
+| `assignUnconstrainedTypeVar` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L635-L1024) |
+| `assignConstrainedTypeVar` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1027-L1217) |
+| `assignParamSpec` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1220-L1328) |
+| `typeVarOccursIn` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1336-L1361) |
+| `widenTypeForTypeVarTuple` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1366-L1447) |
+| `stripLiteralValueForUnpackedTuple` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1451-L1476) |
+| `logConstraints` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1480-L1492) |
+| `logTypeVarConstraintSet` | function | [packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintSolver.ts#L1494-L1521) |
 | `ConstraintSet` | class | [packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts#L40-L183) |
 | `ConstraintSet.clone` | method | [packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts#L57-L69) |
 | `ConstraintSet.isSame` | method | [packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts#L71-L97) |
@@ -64,8 +65,7 @@ These are the main implementation files attached to this semantic node.
 | `ConstraintSet.doForEachTypeVar` | method | [packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts#L135-L137) |
 | `ConstraintSet.getTypeVar` | method | [packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts#L139-L142) |
 | `ConstraintSet.getTypeVars` | method | [packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts#L144-L152) |
-| `ConstraintSet.addScopeId` | method | [packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts](https://github.com/microsoft/pyrx/blob/main/packages/pyright/packages/pyright-internal/src/analyzer/constraintTracker.ts#L154-L160) |
-| _17 additional symbols omitted_ |  |  |
+| _18 additional symbols omitted_ |  |  |
 
 ## Dependencies
 

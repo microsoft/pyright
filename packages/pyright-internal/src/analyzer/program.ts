@@ -30,6 +30,7 @@ import { Range, TextRange, doRangesIntersect } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import { tryRealpath } from '../common/uri/uriUtils';
+import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults, ParserOutput } from '../parser/parser';
 import { RequiringAnalysisCount } from './analysis';
 import { AbsoluteModuleDescriptor, ImportLookupResult, LookupImportOptions } from './analyzerFileInfo';
@@ -39,13 +40,14 @@ import { CacheManager } from './cacheManager';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
+import { MissingBindingMetadataError } from './missingBindingMetadata';
 import { ExperimentalOverloadResultController, ExperimentalOverloadResultOptions } from './overloadResultController';
 import { getDocString } from './parseTreeUtils';
 import { ISourceFileFactory } from './programTypes';
 import { Scope } from './scope';
 import { CheckOperationFactory, IPythonMode, SourceFile } from './sourceFile';
 import { SourceFileInfo } from './sourceFileInfo';
-import { isUserCode, verifyNoCyclesInChainedFiles } from './sourceFileInfoUtils';
+import { isUserCode, isUserCodeOrOpenByClient, verifyNoCyclesInChainedFiles } from './sourceFileInfoUtils';
 import { SourceMapper } from './sourceMapper';
 import { Symbol, SymbolTable } from './symbol';
 import { createTracePrinter } from './tracePrinter';
@@ -177,6 +179,7 @@ export class Program {
     private _evaluator: TypeEvaluator | undefined;
     private _experimentalOverloadResult?: ExperimentalOverloadResultController;
     private _evaluatorInvocationCount = 0;
+    private _evaluatorRecreationPending = false;
     private _cacheClearPending = false;
     private _disposed = false;
     private _parsedFileCount = 0;
@@ -268,6 +271,7 @@ export class Program {
     }
 
     dispose() {
+        this._evaluatorRecreationPending = false;
         this._cacheClearPending = false;
         if ((this._testOnlyChecking || this._experimentalOverloadResult) && !this._disposed) {
             this._evaluator?.disposeEvaluator();
@@ -584,7 +588,7 @@ export class Program {
             // stale type cache. This mirrors markFilesDirty's markDirtySet.size
             // check so the close path cannot silently diverge from it.
             if (markDirtySet.size > 0) {
-                this._createNewEvaluator();
+                this._recreateEvaluatorWhenIdle();
             }
         }
 
@@ -694,7 +698,7 @@ export class Program {
         this._sourceFileList.forEach((fileInfo) => {
             const sourceFile = fileInfo.sourceFile;
             if (sourceFile.isCheckingRequired()) {
-                if (this._shouldCheckFile(fileInfo)) {
+                if (this._shouldCheckFile(fileInfo) && isUserCodeOrOpenByClient(fileInfo)) {
                     sourceFile.getIPythonMode() === IPythonMode.CellDocs
                         ? cellsToAnalyzeCount++
                         : filesToAnalyzeCount++;
@@ -857,6 +861,22 @@ export class Program {
     // cancellation token and provide a read-only program.
     run<T>(callback: (p: ProgramView) => T, token: CancellationToken): T {
         return this._runEvaluatorWithCancellationToken(token, () => callback(this));
+    }
+
+    // Like run, but only for callbacks that are read-only and safe to replay. If the callback
+    // fails because a tracked file's binding metadata was never published, rebind that same
+    // current tree and run the callback once more. Never use this for callbacks that edit state.
+    runWithBindingRecovery<T>(callback: (p: ProgramView) => T, token: CancellationToken): T {
+        const attempt = () => this._runEvaluatorWithCancellationToken(token, () => callback(this));
+        try {
+            const result = attempt();
+            if (isThenable(result)) {
+                return result.then(undefined, (e) => this._recoverAndRetry(e, attempt)) as T;
+            }
+            return result;
+        } catch (e) {
+            return this._recoverAndRetry(e, attempt);
+        }
     }
 
     // This will allow the callback to execute a type evaluator with an associated
@@ -1181,12 +1201,8 @@ export class Program {
             this._cacheClearPending = true;
             return;
         }
-        this._cacheClearPending = false;
-        this._createNewEvaluator();
-        this._discardCachedParseResults();
-        this._parsedFileCount = 0;
 
-        this.serviceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => l.onClearCache?.());
+        this._emptyCacheNow();
     }
 
     bindShadowFile(stubFileUri: Uri, shadowFile: Uri): SourceFile | undefined {
@@ -1212,6 +1228,65 @@ export class Program {
 
     protected createNewEvaluatorInternal() {
         // Empty
+    }
+
+    // Only the outermost evaluator invocation may recover, after the failing evaluation has
+    // fully unwound. Exactly one retry is made; a second failure is reported as an error.
+    private _recoverAndRetry<T>(e: unknown, attempt: () => T): T {
+        if (!MissingBindingMetadataError.is(e) || this._disposed || this._evaluatorInvocationCount > 0) {
+            throw e;
+        }
+
+        if (!this._rebindCurrentTree(e.node)) {
+            throw new Error('Binding metadata could not be recovered.');
+        }
+
+        const failIfStillMissing = (e2: unknown): never => {
+            if (MissingBindingMetadataError.is(e2)) {
+                throw new Error('Binding metadata is still unavailable after recovery.');
+            }
+            throw e2;
+        };
+
+        try {
+            const result = attempt();
+            return isThenable(result) ? (result.then(undefined, failIfStillMissing) as T) : result;
+        } catch (e2) {
+            return failIfStillMissing(e2);
+        }
+    }
+
+    // Rebinds only when the node belongs to a tree this program currently owns and that tree
+    // really lacks published metadata. Stale or foreign trees are never given metadata.
+    private _rebindCurrentTree(node: ParseNode): boolean {
+        let root = node;
+        while (root.parent) {
+            root = root.parent;
+        }
+
+        if (root.nodeType !== ParseNodeType.Module) {
+            return false;
+        }
+
+        const sourceFileInfo = this._sourceFileList.find((f) => f.sourceFile.getParserOutput()?.parseTree === root);
+        if (!sourceFileInfo) {
+            return false;
+        }
+
+        const reader = this._analyzerNodeInfoContext;
+        if (AnalyzerNodeInfo.getFileInfoIfAvailable(root, reader)) {
+            return false;
+        }
+
+        sourceFileInfo.sourceFile.markReanalysisRequired(/* forceRebinding */ true, reader);
+        this._bindFile(sourceFileInfo, /* content */ undefined, /* skipFileNeededCheck */ true);
+        if (!AnalyzerNodeInfo.getFileInfoIfAvailable(root, reader)) {
+            sourceFileInfo.sourceFile.markReanalysisRequired(/* forceRebinding */ true, reader);
+            return false;
+        }
+
+        this._recreateEvaluatorWhenIdle();
+        return true;
     }
 
     private _addClonedOpenFile(originalFileInfo: SourceFileInfo) {
@@ -1289,6 +1364,15 @@ export class Program {
         }
     }
 
+    private _emptyCacheNow() {
+        this._cacheClearPending = false;
+        this._createNewEvaluator();
+        this._discardCachedParseResults();
+        this._parsedFileCount = 0;
+
+        this.serviceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => l.onClearCache?.());
+    }
+
     // Wrapper function that should be used when invoking this._evaluator
     // with a cancellation token. It handles cancellation exceptions and
     // any other unexpected exceptions.
@@ -1308,8 +1392,12 @@ export class Program {
         this._evaluatorInvocationCount++;
         const release = () => {
             this._evaluatorInvocationCount--;
-            if (!this._disposed && this._evaluatorInvocationCount === 0 && this._cacheClearPending) {
-                this.emptyCache();
+            if (!this._disposed && this._evaluatorInvocationCount === 0) {
+                if (this._cacheClearPending) {
+                    this.emptyCache();
+                } else if (this._evaluatorRecreationPending) {
+                    this._createNewEvaluator();
+                }
             }
         };
         try {
@@ -1356,6 +1444,7 @@ export class Program {
     // errors for files that have been deleted or closed.
     private _removeUnneededFiles(): FileDiagnostics[] {
         const fileDiagnostics: FileDiagnostics[] = [];
+        let filesRemoved = false;
 
         // If a file is no longer tracked, opened or shadowed, it can
         // be removed from the program.
@@ -1373,6 +1462,7 @@ export class Program {
 
                 fileInfo.sourceFile.prepareForClose();
                 this._removeSourceFileFromListAndMap(fileInfo.uri, i);
+                filesRemoved = true;
 
                 // Unlink any imports and remove them from the list if
                 // they are no longer referenced.
@@ -1425,6 +1515,11 @@ export class Program {
 
                 i++;
             }
+        }
+
+        // Cached types can retain declaration trees after their source files are removed.
+        if (filesRemoved) {
+            this._recreateEvaluatorWhenIdle();
         }
 
         return fileDiagnostics;
@@ -2024,7 +2119,16 @@ export class Program {
         return sourceFileInfo;
     }
 
+    private _recreateEvaluatorWhenIdle() {
+        if (this._evaluatorInvocationCount > 0) {
+            this._evaluatorRecreationPending = true;
+        } else {
+            this._createNewEvaluator();
+        }
+    }
+
     private _createNewEvaluator() {
+        this._evaluatorRecreationPending = false;
         this.createNewEvaluatorInternal();
 
         if (this._evaluator) {
@@ -2311,7 +2415,10 @@ export class Program {
 
         const parseResults = sourceFileInfo.sourceFile.getParserOutput();
         const moduleNode = parseResults!.parseTree;
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(moduleNode, this._analyzerNodeInfoContext);
+        const fileInfo = AnalyzerNodeInfo.getFileInfoIfAvailable(moduleNode, this._analyzerNodeInfoContext);
+        if (!fileInfo) {
+            throw new MissingBindingMetadataError(moduleNode);
+        }
 
         const dunderAllInfo = AnalyzerNodeInfo.getDunderAllInfo(parseResults!.parseTree, this._analyzerNodeInfoContext);
 
