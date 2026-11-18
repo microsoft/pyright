@@ -21,6 +21,8 @@ import {
     TupleNode,
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
+import { DeclarationType } from './declaration';
+import { Scope } from './scope';
 
 const _mirroredComparisonOperators: Map<OperatorType, OperatorType> = new Map([
     [OperatorType.GreaterThan, OperatorType.LessThan],
@@ -37,17 +39,9 @@ export function evaluateStaticBoolExpression(
     node: ExpressionNode,
     execEnv: ExecutionEnvironment,
     definedConstants: Map<string, boolean | string>,
-    typingImportAliases?: string[],
-    sysImportAliases?: string[]
+    scope: Scope | undefined
 ): boolean | undefined {
-    return _evaluateStaticBoolOrBoolLikeExpression(
-        node,
-        execEnv,
-        definedConstants,
-        typingImportAliases,
-        sysImportAliases,
-        _evaluateBoolConstant
-    );
+    return _evaluateStaticBoolOrBoolLikeExpression(node, execEnv, definedConstants, scope, _evaluateBoolConstant);
 }
 
 // Similar to evaluateStaticBoolExpression except that it handles other non-bool
@@ -57,17 +51,9 @@ export function evaluateStaticBoolLikeExpression(
     node: ExpressionNode,
     execEnv: ExecutionEnvironment,
     definedConstants: Map<string, boolean | string>,
-    typingImportAliases?: string[],
-    sysImportAliases?: string[]
+    scope: Scope | undefined
 ): boolean | undefined {
-    return _evaluateStaticBoolOrBoolLikeExpression(
-        node,
-        execEnv,
-        definedConstants,
-        typingImportAliases,
-        sysImportAliases,
-        _evaluateBoolLikeLiteral
-    );
+    return _evaluateStaticBoolOrBoolLikeExpression(node, execEnv, definedConstants, scope, _evaluateBoolLikeLiteral);
 }
 
 // Shared implementation of the two functions above.
@@ -76,8 +62,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
     node: ExpressionNode,
     execEnv: ExecutionEnvironment,
     definedConstants: Map<string, boolean | string>,
-    typingImportAliases: string[] | undefined,
-    sysImportAliases: string[] | undefined,
+    scope: Scope | undefined,
     evaluateLeafAsBool: (node: ExpressionNode) => boolean | undefined
 ): boolean | undefined {
     if (node.nodeType === ParseNodeType.AssignmentExpression) {
@@ -85,8 +70,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
             node.d.rightExpr,
             execEnv,
             definedConstants,
-            typingImportAliases,
-            sysImportAliases,
+            scope,
             evaluateLeafAsBool
         );
     }
@@ -97,8 +81,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
                 node.d.expr,
                 execEnv,
                 definedConstants,
-                typingImportAliases,
-                sysImportAliases,
+                scope,
                 // `not x` always forces a truthiness context on its operand and yields real `bool`.
                 // So the operand is folded with the bool-like leaf even for strict callers.
                 _evaluateBoolLikeLiteral
@@ -114,16 +97,14 @@ function _evaluateStaticBoolOrBoolLikeExpression(
                 node.d.leftExpr,
                 execEnv,
                 definedConstants,
-                typingImportAliases,
-                sysImportAliases,
+                scope,
                 evaluateLeafAsBool
             );
             const rightValue = _evaluateStaticBoolOrBoolLikeExpression(
                 node.d.rightExpr,
                 execEnv,
                 definedConstants,
-                typingImportAliases,
-                sysImportAliases,
+                scope,
                 evaluateLeafAsBool
             );
 
@@ -152,7 +133,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
             operator = mirroredOperator;
         }
 
-        if (_isSysVersionInfoExpression(leftExpr, sysImportAliases) && rightExpr.nodeType === ParseNodeType.Tuple) {
+        if (_isSysVersionInfoExpression(leftExpr, scope) && rightExpr.nodeType === ParseNodeType.Tuple) {
             // Handle the special case of "sys.version_info >= (3, x)"
             const comparisonVersion = _convertTupleToVersion(rightExpr);
             return _evaluateVersionBinaryOperation(operator, execEnv.pythonVersion, comparisonVersion);
@@ -160,7 +141,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
 
         if (
             leftExpr.nodeType === ParseNodeType.Index &&
-            _isSysVersionInfoExpression(leftExpr.d.leftExpr, sysImportAliases) &&
+            _isSysVersionInfoExpression(leftExpr.d.leftExpr, scope) &&
             leftExpr.d.items.length === 1 &&
             !leftExpr.d.trailingComma &&
             !leftExpr.d.items[0].d.name &&
@@ -180,10 +161,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
             );
         }
 
-        if (
-            _isSysPlatformInfoExpression(leftExpr, sysImportAliases) &&
-            rightExpr.nodeType === ParseNodeType.StringList
-        ) {
+        if (_isSysPlatformInfoExpression(leftExpr, scope) && rightExpr.nodeType === ParseNodeType.StringList) {
             // Handle the special case of "sys.platform != 'X'"
             return _evaluateStrComparisonToStringList(
                 operator,
@@ -192,7 +170,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
             );
         }
 
-        if (_isOsNameInfoExpression(leftExpr) && rightExpr.nodeType === ParseNodeType.StringList) {
+        if (_isOsNameInfoExpression(leftExpr, scope) && rightExpr.nodeType === ParseNodeType.StringList) {
             // Handle the special case of "os.name == 'X'"
             return _evaluateStrComparisonToStringList(operator, rightExpr, _getExpectedOsNameFromPlatform(execEnv));
         } else {
@@ -223,10 +201,10 @@ function _evaluateStaticBoolOrBoolLikeExpression(
         }
     } else if (node.nodeType === ParseNodeType.MemberAccess) {
         if (
-            typingImportAliases &&
             node.d.member.d.value === 'TYPE_CHECKING' &&
             node.d.leftExpr.nodeType === ParseNodeType.Name &&
-            typingImportAliases.some((alias) => alias === (node.d.leftExpr as NameNode).d.value)
+            (_isImportedModuleName(node.d.leftExpr, 'typing', scope) ||
+                _isImportedModuleName(node.d.leftExpr, 'typing_extensions', scope))
         ) {
             return true;
         }
@@ -471,42 +449,45 @@ function _isStaticComparisonLiteral(node: ExpressionNode): boolean {
     );
 }
 
-function _isSysVersionInfoExpression(node: ExpressionNode, sysImportAliases: string[] = ['sys']): boolean {
+function _isSysVersionInfoExpression(node: ExpressionNode, scope: Scope | undefined): boolean {
     if (node.nodeType === ParseNodeType.MemberAccess) {
         if (node.d.leftExpr.nodeType === ParseNodeType.Name && node.d.member.d.value === 'version_info') {
-            if (sysImportAliases.some((alias) => alias === (node.d.leftExpr as NameNode).d.value)) {
-                return true;
-            }
+            return _isImportedModuleName(node.d.leftExpr, 'sys', scope);
         }
     }
 
     return false;
 }
 
-function _isSysPlatformInfoExpression(node: ExpressionNode, sysImportAliases: string[] = ['sys']): boolean {
+function _isSysPlatformInfoExpression(node: ExpressionNode, scope: Scope | undefined): boolean {
     if (node.nodeType === ParseNodeType.MemberAccess) {
         if (node.d.leftExpr.nodeType === ParseNodeType.Name && node.d.member.d.value === 'platform') {
-            if (sysImportAliases.some((alias) => alias === (node.d.leftExpr as NameNode).d.value)) {
-                return true;
-            }
+            return _isImportedModuleName(node.d.leftExpr, 'sys', scope);
         }
     }
 
     return false;
 }
 
-function _isOsNameInfoExpression(node: ExpressionNode): boolean {
+function _isOsNameInfoExpression(node: ExpressionNode, scope: Scope | undefined): boolean {
     if (node.nodeType === ParseNodeType.MemberAccess) {
-        if (
-            node.d.leftExpr.nodeType === ParseNodeType.Name &&
-            node.d.leftExpr.d.value === 'os' &&
-            node.d.member.d.value === 'name'
-        ) {
-            return true;
+        if (node.d.leftExpr.nodeType === ParseNodeType.Name && node.d.member.d.value === 'name') {
+            return _isImportedModuleName(node.d.leftExpr, 'os', scope);
         }
     }
 
     return false;
+}
+
+function _isImportedModuleName(node: NameNode, moduleName: string, scope: Scope | undefined): boolean {
+    const declarations = scope?.lookUpSymbolRecursive(node.d.value)?.symbol.getDeclarations() ?? [];
+
+    return (
+        declarations.length > 0 &&
+        declarations.every(
+            (decl) => decl.type === DeclarationType.Alias && decl.moduleName === moduleName && !decl.symbolName
+        )
+    );
 }
 
 function _getExpectedPlatformNameFromPlatform(execEnv: ExecutionEnvironment): string | undefined {

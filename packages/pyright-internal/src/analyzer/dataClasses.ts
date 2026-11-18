@@ -38,6 +38,7 @@ import {
     getTypeSourceId,
     getTypeVarScopesForNode,
 } from './parseTreeUtils';
+import { getScopeForNode } from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
@@ -388,7 +389,8 @@ export function synthesizeDataClassMethods(
                                 evaluateStaticBoolExpression(
                                     initArg.d.valueExpr,
                                     fileInfo.executionEnvironment,
-                                    fileInfo.definedConstants
+                                    fileInfo.definedConstants,
+                                    getScopeForNode(initArg.d.valueExpr, nodeInfo)
                                 ) ?? includeInInit;
                         } else {
                             includeInInit =
@@ -407,7 +409,8 @@ export function synthesizeDataClassMethods(
                                 evaluateStaticBoolExpression(
                                     kwOnlyArg.d.valueExpr,
                                     fileInfo.executionEnvironment,
-                                    fileInfo.definedConstants
+                                    fileInfo.definedConstants,
+                                    getScopeForNode(kwOnlyArg.d.valueExpr, nodeInfo)
                                 ) ?? isKeywordOnly;
                         } else {
                             isKeywordOnly =
@@ -1391,7 +1394,8 @@ export function validateDataClassTransformDecorator(
                 const value = evaluateStaticBoolExpression(
                     arg.d.valueExpr,
                     fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
+                    fileInfo.definedConstants,
+                    getScopeForNode(arg.d.valueExpr, nodeInfo)
                 );
                 if (value === undefined) {
                     evaluator.addDiagnostic(
@@ -1410,7 +1414,8 @@ export function validateDataClassTransformDecorator(
                 const value = evaluateStaticBoolExpression(
                     arg.d.valueExpr,
                     fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
+                    fileInfo.definedConstants,
+                    getScopeForNode(arg.d.valueExpr, nodeInfo)
                 );
                 if (value === undefined) {
                     evaluator.addDiagnostic(
@@ -1429,7 +1434,8 @@ export function validateDataClassTransformDecorator(
                 const value = evaluateStaticBoolExpression(
                     arg.d.valueExpr,
                     fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
+                    fileInfo.definedConstants,
+                    getScopeForNode(arg.d.valueExpr, nodeInfo)
                 );
                 if (value === undefined) {
                     evaluator.addDiagnostic(
@@ -1448,7 +1454,8 @@ export function validateDataClassTransformDecorator(
                 const value = evaluateStaticBoolExpression(
                     arg.d.valueExpr,
                     fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
+                    fileInfo.definedConstants,
+                    getScopeForNode(arg.d.valueExpr, nodeInfo)
                 );
                 if (value === undefined) {
                     evaluator.addDiagnostic(
@@ -1569,7 +1576,12 @@ function applyDataClassBehaviorOverride(
     nodeInfo: AnalyzerNodeInfoAccessor
 ) {
     const fileInfo = nodeInfo.getFileInfo(errorNode);
-    const value = evaluateStaticBoolExpression(argValueExpr, fileInfo.executionEnvironment, fileInfo.definedConstants);
+    const value = evaluateStaticBoolExpression(
+        argValueExpr,
+        fileInfo.executionEnvironment,
+        fileInfo.definedConstants,
+        getScopeForNode(argValueExpr, nodeInfo)
+    );
 
     applyDataClassBehaviorOverrideValue(evaluator, errorNode, classType, argName, value, behaviors);
 }

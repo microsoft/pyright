@@ -12003,7 +12003,8 @@ export function createTypeEvaluator(
                 const constExprValue = evaluateStaticBoolExpression(
                     node.d.rightExpr,
                     fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
+                    fileInfo.definedConstants,
+                    getScopeForNode(node.d.rightExpr)
                 );
 
                 if (constExprValue !== undefined) {
@@ -12527,7 +12528,8 @@ export function createTypeEvaluator(
                         const constArgValue = evaluateStaticBoolExpression(
                             arg.d.valueExpr,
                             fileInfo.executionEnvironment,
-                            fileInfo.definedConstants
+                            fileInfo.definedConstants,
+                            getScopeForNode(arg.d.valueExpr)
                         );
 
                         if (constArgValue === undefined) {

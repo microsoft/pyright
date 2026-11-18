@@ -851,7 +851,8 @@ export function getTypeOfTernaryOperation(
     const constExprValue = evaluateStaticBoolExpression(
         node.d.testExpr,
         fileInfo.executionEnvironment,
-        fileInfo.definedConstants
+        fileInfo.definedConstants,
+        getScopeForNode(node.d.testExpr, getInfoReader(evaluator))
     );
 
     if (constExprValue !== false && evaluator.isNodeReachable(node.d.ifExpr)) {

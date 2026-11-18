@@ -2250,7 +2250,8 @@ export class Checker extends ParseTreeWalker {
                 evaluateStaticBoolExpression(
                     node,
                     this._fileInfo.executionEnvironment,
-                    this._fileInfo.definedConstants
+                    this._fileInfo.definedConstants,
+                    getScopeForNode(node, this._nodeInfo)
                 ) === undefined
             ) {
                 let isPossiblyTrue = false;

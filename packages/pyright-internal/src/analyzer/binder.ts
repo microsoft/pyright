@@ -299,9 +299,6 @@ export class Binder extends ParseTreeWalker {
     // Aliases of "typing" and "typing_extensions".
     private _typingImportAliases: string[] = [];
 
-    // Aliases of "sys".
-    private _sysImportAliases: string[] = [];
-
     // Aliases of "dataclasses".
     private _dataclassesImportAliases: string[] = [];
 
@@ -1583,8 +1580,7 @@ export class Binder extends ParseTreeWalker {
                 node.d.testExpr,
                 this._fileInfo.executionEnvironment,
                 this._fileInfo.definedConstants,
-                this._typingImportAliases,
-                this._sysImportAliases
+                this._currentScope
             );
             this._nodeInfo.setStaticConditionValue(node, constExprValue);
 
@@ -1626,8 +1622,7 @@ export class Binder extends ParseTreeWalker {
             node.d.testExpr,
             this._fileInfo.executionEnvironment,
             this._fileInfo.definedConstants,
-            this._typingImportAliases,
-            this._sysImportAliases
+            this._currentScope
         );
 
         const preLoopLabel = this._createLoopLabel();
@@ -2003,8 +1998,6 @@ export class Binder extends ParseTreeWalker {
             if (node.d.module.d.nameParts.length === 1) {
                 if (firstNamePartValue === 'typing' || firstNamePartValue === 'typing_extensions') {
                     this._typingImportAliases.push(node.d.alias?.d.value ?? firstNamePartValue);
-                } else if (firstNamePartValue === 'sys') {
-                    this._sysImportAliases.push(node.d.alias?.d.value ?? firstNamePartValue);
                 } else if (firstNamePartValue === 'dataclasses') {
                     this._dataclassesImportAliases.push(node.d.alias?.d.value ?? firstNamePartValue);
                 }
@@ -3301,8 +3294,7 @@ export class Binder extends ParseTreeWalker {
             expression,
             this._fileInfo.executionEnvironment,
             this._fileInfo.definedConstants,
-            this._typingImportAliases,
-            this._sysImportAliases
+            this._currentScope
         );
         if (
             (staticValue === true && flags & FlowFlags.FalseCondition) ||
