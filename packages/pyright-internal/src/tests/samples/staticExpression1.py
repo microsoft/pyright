@@ -27,6 +27,30 @@ if (3, 9) <= sys.version_info:
 else:
     x = "error!"
 
+if sys.version_info > (3, 8):
+    x = 1
+else:
+    x = "error!"
+
+if sys.version_info <= (3, 8):
+    x = "error!"
+else:
+    x = 1
+
+if sys.version_info != (3, 8):
+    x = 1
+else:
+    x = "error!"
+
+if sys.version_info == (3, 8):
+    x = "error!"
+else:
+    x = 1
+
+if sys.version_info > (3, 8, 1):
+    # This should generate an error.
+    x = "error!"
+
 if os.name == "posix":
     x = 1
 else:

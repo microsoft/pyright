@@ -9,7 +9,7 @@
  */
 
 import { ExecutionEnvironment, PythonPlatform } from '../common/configOptions';
-import { PythonReleaseLevel, PythonVersion } from '../common/pythonVersion';
+import { PythonVersion } from '../common/pythonVersion';
 import {
     ArgCategory,
     DictionaryEntryNode,
@@ -135,8 +135,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
 
         if (_isSysVersionInfoExpression(leftExpr, scope) && rightExpr.nodeType === ParseNodeType.Tuple) {
             // Handle the special case of "sys.version_info >= (3, x)"
-            const comparisonVersion = _convertTupleToVersion(rightExpr);
-            return _evaluateVersionBinaryOperation(operator, execEnv.pythonVersion, comparisonVersion);
+            return _evaluateComparisonResult(operator, _compareVersionInfoToTuple(execEnv.pythonVersion, rightExpr));
         }
 
         if (
@@ -313,59 +312,67 @@ function _evaluateDictTruthiness(items: DictionaryEntryNode[]): boolean | undefi
     return undefined;
 }
 
-function _convertTupleToVersion(node: TupleNode): PythonVersion | undefined {
-    if (node.d.items.length >= 2) {
-        if (
-            node.d.items[0].nodeType === ParseNodeType.Number &&
-            !node.d.items[0].d.isImaginary &&
-            node.d.items[1].nodeType === ParseNodeType.Number &&
-            !node.d.items[1].d.isImaginary
-        ) {
-            const majorNode = node.d.items[0];
-            const minorNode = node.d.items[1];
-            if (typeof majorNode.d.value !== 'number' || typeof minorNode.d.value !== 'number') {
+// Compares sys.version_info with the tuple as Python compares tuples. Returns undefined
+// if the result depends on a part of the version that isn't configured.
+function _compareVersionInfoToTuple(version: PythonVersion, node: TupleNode): number | undefined {
+    const versionInfo = [version.major, version.minor, version.micro, version.releaseLevel, version.serial];
+
+    for (let i = 0; i < node.d.items.length; i++) {
+        if (i >= versionInfo.length) {
+            return -1;
+        }
+
+        const value = versionInfo[i];
+        const item = node.d.items[i];
+
+        if (typeof value === 'number') {
+            if (item.nodeType !== ParseNodeType.Number || item.d.isImaginary || typeof item.d.value !== 'number') {
                 return undefined;
             }
 
-            const major = majorNode.d.value;
-            const minor = minorNode.d.value;
-            let micro: number | undefined;
+            if (value !== item.d.value) {
+                return value < item.d.value ? -1 : 1;
+            }
+        } else if (typeof value === 'string') {
             if (
-                node.d.items.length >= 3 &&
-                node.d.items[2].nodeType === ParseNodeType.Number &&
-                !node.d.items[2].d.isImaginary &&
-                typeof node.d.items[2].d.value === 'number'
+                item.nodeType !== ParseNodeType.StringList ||
+                item.d.strings.length !== 1 ||
+                item.d.strings[0].nodeType !== ParseNodeType.String ||
+                item.d.strings[0].d.token.flags & StringTokenFlags.Bytes
             ) {
-                micro = node.d.items[2].d.value;
+                return undefined;
             }
 
-            let releaseLevel: PythonReleaseLevel | undefined;
-            if (
-                node.d.items.length >= 4 &&
-                node.d.items[3].nodeType === ParseNodeType.StringList &&
-                node.d.items[3].d.strings.length === 1 &&
-                node.d.items[3].d.strings[0].nodeType === ParseNodeType.String
-            ) {
-                releaseLevel = node.d.items[3].d.strings[0].d.value as PythonReleaseLevel;
+            const itemValue = item.d.strings[0].d.value;
+            if (value !== itemValue) {
+                return value < itemValue ? -1 : 1;
             }
-
-            let serial: number | undefined;
-            if (
-                node.d.items.length >= 5 &&
-                node.d.items[4].nodeType === ParseNodeType.Number &&
-                !node.d.items[4].d.isImaginary &&
-                typeof node.d.items[4].d.value === 'number'
-            ) {
-                serial = node.d.items[4].d.value;
-            }
-
-            return PythonVersion.create(major, minor, micro, releaseLevel, serial);
+        } else {
+            return undefined;
         }
-    } else if (node.d.items.length === 1) {
-        const major = node.d.items[0] as NumberNode;
-        if (typeof major.d.value === 'number') {
-            return PythonVersion.create(major.d.value, 0);
-        }
+    }
+
+    return node.d.items.length < versionInfo.length ? 1 : 0;
+}
+
+function _evaluateComparisonResult(operatorType: OperatorType, comparison: number | undefined): boolean | undefined {
+    if (comparison === undefined) {
+        return undefined;
+    }
+
+    switch (operatorType) {
+        case OperatorType.LessThan:
+            return comparison < 0;
+        case OperatorType.LessThanOrEqual:
+            return comparison <= 0;
+        case OperatorType.GreaterThan:
+            return comparison > 0;
+        case OperatorType.GreaterThanOrEqual:
+            return comparison >= 0;
+        case OperatorType.Equals:
+            return comparison === 0;
+        case OperatorType.NotEquals:
+            return comparison !== 0;
     }
 
     return undefined;
