@@ -29,7 +29,8 @@ export function evaluateStaticBoolExpression(
     execEnv: ExecutionEnvironment,
     definedConstants: Map<string, boolean | string>,
     typingImportAliases?: string[],
-    sysImportAliases?: string[]
+    sysImportAliases?: string[],
+    osImportAliases?: string[]
 ): boolean | undefined {
     return _evaluateStaticBoolOrBoolLikeExpression(
         node,
@@ -37,6 +38,7 @@ export function evaluateStaticBoolExpression(
         definedConstants,
         typingImportAliases,
         sysImportAliases,
+        osImportAliases,
         _evaluateBoolConstant
     );
 }
@@ -49,7 +51,8 @@ export function evaluateStaticBoolLikeExpression(
     execEnv: ExecutionEnvironment,
     definedConstants: Map<string, boolean | string>,
     typingImportAliases?: string[],
-    sysImportAliases?: string[]
+    sysImportAliases?: string[],
+    osImportAliases?: string[]
 ): boolean | undefined {
     return _evaluateStaticBoolOrBoolLikeExpression(
         node,
@@ -57,6 +60,7 @@ export function evaluateStaticBoolLikeExpression(
         definedConstants,
         typingImportAliases,
         sysImportAliases,
+        osImportAliases,
         _evaluateBoolLikeLiteral
     );
 }
@@ -69,6 +73,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
     definedConstants: Map<string, boolean | string>,
     typingImportAliases: string[] | undefined,
     sysImportAliases: string[] | undefined,
+    osImportAliases: string[] | undefined,
     evaluateLeafAsBool: (node: ExpressionNode) => boolean | undefined
 ): boolean | undefined {
     if (node.nodeType === ParseNodeType.AssignmentExpression) {
@@ -78,6 +83,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
             definedConstants,
             typingImportAliases,
             sysImportAliases,
+            osImportAliases,
             evaluateLeafAsBool
         );
     }
@@ -90,6 +96,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
                 definedConstants,
                 typingImportAliases,
                 sysImportAliases,
+                osImportAliases,
                 // `not x` always forces a truthiness context on its operand and yields real `bool`.
                 // So the operand is folded with the bool-like leaf even for strict callers.
                 _evaluateBoolLikeLiteral
@@ -107,6 +114,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
                 definedConstants,
                 typingImportAliases,
                 sysImportAliases,
+                osImportAliases,
                 evaluateLeafAsBool
             );
             const rightValue = _evaluateStaticBoolOrBoolLikeExpression(
@@ -115,6 +123,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
                 definedConstants,
                 typingImportAliases,
                 sysImportAliases,
+                osImportAliases,
                 evaluateLeafAsBool
             );
 
@@ -170,7 +179,10 @@ function _evaluateStaticBoolOrBoolLikeExpression(
             return _evaluateStringBinaryOperation(node.d.operator, expectedPlatformName, comparisonPlatform);
         }
 
-        if (_isOsNameInfoExpression(node.d.leftExpr) && node.d.rightExpr.nodeType === ParseNodeType.StringList) {
+        if (
+            _isOsNameInfoExpression(node.d.leftExpr, osImportAliases) &&
+            node.d.rightExpr.nodeType === ParseNodeType.StringList
+        ) {
             // Handle the special case of "os.name == 'X'"
             const comparisonOsName = node.d.rightExpr.d.strings.map((s) => s.d.value).join('');
             const expectedOsName = _getExpectedOsNameFromPlatform(execEnv);
@@ -449,11 +461,11 @@ function _isSysPlatformInfoExpression(node: ExpressionNode, sysImportAliases: st
     return false;
 }
 
-function _isOsNameInfoExpression(node: ExpressionNode): boolean {
+function _isOsNameInfoExpression(node: ExpressionNode, osImportAliases: string[] = ['os']): boolean {
     if (node.nodeType === ParseNodeType.MemberAccess) {
         if (
             node.d.leftExpr.nodeType === ParseNodeType.Name &&
-            node.d.leftExpr.d.value === 'os' &&
+            osImportAliases.some((alias) => alias === (node.d.leftExpr as NameNode).d.value) &&
             node.d.member.d.value === 'name'
         ) {
             return true;

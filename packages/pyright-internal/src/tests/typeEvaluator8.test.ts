@@ -1368,6 +1368,18 @@ test('StaticExpression2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('StaticExpressionShadowedModules', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.defaultPythonPlatform = 'Linux';
+
+    const results1 = TestUtils.typeAnalyzeSampleFiles(['staticExpression3.py'], configOptions);
+    TestUtils.validateResults(results1, 0, 0, 8);
+
+    const results2 = TestUtils.typeAnalyzeSampleFiles(['staticExpression4.py'], configOptions);
+    TestUtils.validateResults(results2, 0, 0, 2);
+});
+
 test('StaticExpressionLiteral1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['staticExpressionLiteral1.py']);
 

@@ -302,6 +302,9 @@ export class Binder extends ParseTreeWalker {
     // Aliases of "sys".
     private _sysImportAliases: string[] = [];
 
+    // Aliases of "os".
+    private _osImportAliases: string[] = [];
+
     // Aliases of "dataclasses".
     private _dataclassesImportAliases: string[] = [];
 
@@ -1584,7 +1587,8 @@ export class Binder extends ParseTreeWalker {
                 this._fileInfo.executionEnvironment,
                 this._fileInfo.definedConstants,
                 this._typingImportAliases,
-                this._sysImportAliases
+                this._getStaticExpressionImportAliases('sys', this._sysImportAliases),
+                this._getStaticExpressionImportAliases('os', this._osImportAliases)
             );
             this._nodeInfo.setStaticConditionValue(node, constExprValue);
 
@@ -1627,7 +1631,8 @@ export class Binder extends ParseTreeWalker {
             this._fileInfo.executionEnvironment,
             this._fileInfo.definedConstants,
             this._typingImportAliases,
-            this._sysImportAliases
+            this._getStaticExpressionImportAliases('sys', this._sysImportAliases),
+            this._getStaticExpressionImportAliases('os', this._osImportAliases)
         );
 
         const preLoopLabel = this._createLoopLabel();
@@ -2005,6 +2010,8 @@ export class Binder extends ParseTreeWalker {
                     this._typingImportAliases.push(node.d.alias?.d.value ?? firstNamePartValue);
                 } else if (firstNamePartValue === 'sys') {
                     this._sysImportAliases.push(node.d.alias?.d.value ?? firstNamePartValue);
+                } else if (firstNamePartValue === 'os') {
+                    this._osImportAliases.push(node.d.alias?.d.value ?? firstNamePartValue);
                 } else if (firstNamePartValue === 'dataclasses') {
                     this._dataclassesImportAliases.push(node.d.alias?.d.value ?? firstNamePartValue);
                 }
@@ -3293,6 +3300,18 @@ export class Binder extends ParseTreeWalker {
         this._currentFalseTarget = savedFalseTarget;
     }
 
+    private _getStaticExpressionImportAliases(moduleName: string, importAliases: string[]): string[] {
+        return importAliases.filter((alias) => {
+            const declarations = this._currentScope.lookUpSymbolRecursive(alias)?.symbol.getDeclarations();
+            return (
+                !!declarations?.length &&
+                declarations.every(
+                    (declaration) => declaration.type === DeclarationType.Alias && declaration.moduleName === moduleName
+                )
+            );
+        });
+    }
+
     private _createFlowConditional(flags: FlowFlags, antecedent: FlowNode, expression: ExpressionNode): FlowNode {
         if (antecedent.flags & (FlowFlags.UnreachableStructural | FlowFlags.UnreachableStaticCondition)) {
             return antecedent;
@@ -3302,7 +3321,8 @@ export class Binder extends ParseTreeWalker {
             this._fileInfo.executionEnvironment,
             this._fileInfo.definedConstants,
             this._typingImportAliases,
-            this._sysImportAliases
+            this._getStaticExpressionImportAliases('sys', this._sysImportAliases),
+            this._getStaticExpressionImportAliases('os', this._osImportAliases)
         );
         if (
             (staticValue === true && flags & FlowFlags.FalseCondition) ||
