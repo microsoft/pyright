@@ -67,7 +67,8 @@ it back. This is a focused self-review, not a second multi-agent PR review:
 4. If a probe reveals a change, test other reachable forms of that same pattern and verify valid consumers still work.
    For recursion or termination fixes, include a finite deep case and, where relevant, a growing-type case; do not
    mistake a guard that stops recursion by returning `Unknown` for a complete fix.
-5. Reassess the four goals from `docs/pr-review-agents.md`: minimal performance impact, architectural fit, preserved
-   type information, and demonstrated user benefit. A bounded static cost argument is sufficient when appropriate;
-   measure material performance risks with `build/perfCompare.py` rather than claiming that tests establish speed.
-   State residual uncertainty and unrun checks in the handoff.
+5. Reassess the five goals from `docs/pr-review-agents.md`: minimal performance impact, architectural fit, preserved
+   type information, demonstrated user benefit, and whether that benefit justifies the change's costs and risks. A
+   bounded static cost argument is sufficient when appropriate; measure material performance risks with
+   `build/perfCompare.py` rather than claiming that tests establish speed. State residual uncertainty and unrun checks in
+   the handoff.
