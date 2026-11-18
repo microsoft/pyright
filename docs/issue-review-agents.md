@@ -608,7 +608,7 @@ Required top-level fields:
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `schema_version`                          | Integer `1`.                                                                                                               |
 | `repository`, `issue_number`, `issue_url` | Repository identity, positive integer issue number, and canonical issue URL.                                               |
-| `issue_updated_at`, `reviewed_at`         | Observed issue update timestamp and review timestamp, in ISO 8601.                                                         |
+| `issue_updated_at`, `reviewed_at`         | Observed issue update timestamp and controller-observed review start, as full ISO 8601 date-times with explicit timezones. |
 | `checkout_revision`                       | Full inspected Git SHA, or `null` if unavailable. Identify material worktree differences in `uncertainties`.               |
 | `summary`                                 | Concise account of the claim and conclusion.                                                                               |
 | `product_surface`                         | `cli`, `language_server`, `editor`, `packaging`, or `other`; identify the surface needed to reproduce this report.         |
@@ -618,6 +618,11 @@ Required top-level fields:
 | `historical_searches`                     | Array of `{query, outcome}` records; outcome distinguishes results, no matches, and failed/unavailable access.             |
 | `uncertainties`                           | Array of remaining limitations, including inaccessible sources and unperformed comparisons.                                |
 | `next_action`                             | Specific next evidence, workaround, enhancement consideration, or localized fix hypothesis; not a publication instruction. |
+
+The console supplies both audit timestamp values explicitly. Copy them verbatim, including the time and timezone;
+do not shorten them to dates or invent missing components. Invalid values still fail validation, with field-specific
+feedback identifying the observed source to copy during the existing single correction attempt. The controller does
+not repair returned records or rewrite historical evidence.
 
 Each `claims` entry contains:
 

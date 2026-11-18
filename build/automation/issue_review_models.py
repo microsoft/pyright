@@ -263,8 +263,14 @@ class Audit(ReviewEvidence):
     repository: Literal["microsoft/pyright"]
     issue_number: int = Field(gt=0)
     issue_url: Text
-    issue_updated_at: str | None
-    reviewed_at: Text
+    issue_updated_at: str | None = Field(description=(
+        "Copy the observed issue snapshot timestamp verbatim, including its time and explicit timezone; "
+        "null only when unavailable. Date-only values are invalid."
+    ))
+    reviewed_at: Text = Field(description=(
+        "Copy the controller-observed review start timestamp verbatim, including its time and explicit timezone. "
+        "Date-only values are invalid; do not invent a time or timezone."
+    ))
     checkout_revision: str | None
     summary: Text
     uncertainties: list[str]
@@ -274,9 +280,22 @@ class Audit(ReviewEvidence):
     def validate_metadata(self) -> Self:
         if self.issue_url != f"https://github.com/{REPOSITORY}/issues/{self.issue_number}":
             raise ValueError("Audit URL does not match the target repository and issue")
-        for timestamp in (self.reviewed_at, self.issue_updated_at):
-            if timestamp and datetime.fromisoformat(timestamp.replace("Z", "+00:00")).tzinfo is None:
-                raise ValueError("Audit timestamps must include a timezone")
+        for field, timestamp, source in (
+            ("reviewed_at", self.reviewed_at, "the controller-observed review start"),
+            ("issue_updated_at", self.issue_updated_at, "the observed issue snapshot"),
+        ):
+            if not timestamp:
+                continue
+            message = (
+                f"audit.{field} must be a full ISO 8601 date-time with an explicit timezone. "
+                f"Copy the timestamp from {source} verbatim; do not invent a time or timezone."
+            )
+            try:
+                parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            except ValueError as error:
+                raise ValueError(message) from error
+            if parsed.tzinfo is None:
+                raise ValueError(message)
         if self.checkout_revision is not None:
             if len(self.checkout_revision) != 40 or any(
                 character not in "0123456789abcdef" for character in self.checkout_revision

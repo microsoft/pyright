@@ -292,6 +292,24 @@ class ContextTests(unittest.TestCase):
 
 
 class ModelTests(unittest.TestCase):
+    def test_audit_timestamp_schema_and_errors_identify_the_authoritative_value(self):
+        properties = Audit.model_json_schema()["properties"]
+        for field in ("reviewed_at", "issue_updated_at"):
+            self.assertIn("timezone", properties[field]["description"])
+            for value in ("2026-11-18", "2026-11-18T09:30:00", "not-a-timestamp"):
+                data = audit().model_dump(mode="json")
+                data[field] = value
+                with self.subTest(field=field, value=value), self.assertRaises(ValidationError) as rejected:
+                    Audit.model_validate(data)
+                self.assertIn(f"audit.{field}", str(rejected.exception))
+                self.assertIn("copy", str(rejected.exception).lower())
+                self.assertIn("timezone", str(rejected.exception))
+                self.assertEqual(data[field], value)
+        for value in ("2026-11-18T17:30:00Z", "2026-11-18T09:30:00-08:00"):
+            data = audit().model_dump(mode="json")
+            data.update(reviewed_at=value, issue_updated_at=value)
+            self.assertEqual(Audit.model_validate(data).reviewed_at, value)
+
     def crash_evidence(self, directory: Path) -> tuple[Audit, dict[str, JsonValue]]:
         data = audit().model_dump(mode="json")
         data["claims"][0]["disposition"] = "inconclusive"
@@ -1416,6 +1434,42 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             client.create_session.assert_awaited_once()
             session.disconnect.assert_awaited_once()
 
+    async def test_date_only_review_correction_uses_supplied_time_without_rewriting_output(self):
+        findings = ReviewFindings(markdown="# Findings", audit=audit())
+        invalid = findings.model_copy(deep=True)
+        invalid.audit.reviewed_at = "2026-01-01"
+        raw = invalid.model_dump_json()
+        for second, succeeds in ((findings.model_dump_json(), True), (raw, False)):
+            with self.subTest(succeeds=succeeds):
+                session = AsyncMock()
+                session.session_id = "timestamp-correction"
+                session.rpc.agent.get_current.return_value = SimpleNamespace(agent=SimpleNamespace(name=self.profile.name))
+                session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(tools=[])
+                session.send_and_wait.side_effect = [
+                    SimpleNamespace(data=AssistantMessageData(content=content, message_id="result"))
+                    for content in (raw, second)
+                ]
+                client = AsyncMock()
+                client.create_session.return_value = session
+                prompt = "Controller-observed review start: 2026-01-01T01:00:00Z. Preserve all findings."
+                sdk = SDK(client, None, 30)
+                if succeeds:
+                    self.assertEqual(
+                        await sdk.run(self.profile, prompt, Path(self.temporary.name), schema=ReviewFindings), second,
+                    )
+                else:
+                    with self.assertRaises(ValidationError):
+                        await sdk.run(self.profile, prompt, Path(self.temporary.name), schema=ReviewFindings)
+                correction = session.send_and_wait.await_args_list[1].args[0]
+                self.assertIn("audit.reviewed_at", correction)
+                self.assertIn("controller-observed review start", correction)
+                self.assertIn("timezone", correction)
+                self.assertEqual(session.send_and_wait.await_count, 2)
+                saved = Path(self.temporary.name) / f"{self.profile.name}-response-1.txt"
+                self.assertEqual(saved.read_text(encoding="utf-8"), raw)
+                session.disconnect.assert_awaited_once()
+                self.assertEqual(self.github.mutations, [])
+
     async def test_review_correction_reports_schema_and_surface_errors_together(self):
         findings = lsp_findings()
         invalid = findings.model_copy(deep=True)
@@ -2064,6 +2118,11 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("arguments=[]", prompt)
                 self.assertIn("Omit ALL repo:", prompt)
                 self.assertIn("not semantic checks", prompt)
+                marker = "Controller-supplied audit timestamps (copy VERBATIM, including timezone):\n"
+                timestamps = json.loads(prompt.split(marker, 1)[1].splitlines()[0])
+                self.assertEqual(timestamps["issue_updated_at"], issue().updated_at)
+                self.assertIsNotNone(datetime.fromisoformat(timestamps["reviewed_at"]).tzinfo)
+                self.assertIn("Date-only values are invalid", prompt)
                 tools.log(product_record(audit()))
                 result = ReviewFindings(
                     markdown="# Product findings\n\nThe actual diagnostic follows the rule.", audit=audit(),
