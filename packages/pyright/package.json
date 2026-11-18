@@ -18,6 +18,8 @@
     },
     "scripts": {
         "build": "rspack build -c rspack.config.js --mode production",
+        "build:browser": "rspack build -c rspack.browser.config.js",
+        "test:browser": "pnpm run build:browser && playwright test --config playwright.browser.config.ts",
         "clean": "shx rm -rf ./dist ./out README.md LICENSE.txt",
         "prepack": "pnpm run clean && shx cp ../../README.md . && shx cp ../../LICENSE.txt . && pnpm run build",
         "webpack": "rspack build -c rspack.config.js --mode development"
@@ -26,14 +28,19 @@
         "fsevents": "~2.3.3"
     },
     "devDependencies": {
+        "@playwright/test": "^1.57.0",
         "@rspack/cli": "^2.2.2",
         "@rspack/core": "^2.2.2",
         "@types/node": "^25.9.2",
+        "buffer": "^6.0.3",
         "copy-webpack-plugin": "^14.0.0",
         "esbuild-loader": "^4.5.0",
+        "path-browserify": "^1.0.1",
+        "process": "^0.11.10",
         "shx": "^0.4.0",
         "ts-loader": "^9.5.4",
         "typescript": "~6.0.3",
+        "vscode-languageserver-protocol": "^3.17.6-next.13",
         "webpack": "^5.104.1"
     },
     "files": [
