@@ -348,6 +348,7 @@ export namespace Localizer {
                 getRawString('Diagnostic.comparisonAlwaysTrue')
             );
         export const comprehensionInDict = () => getRawString('Diagnostic.comprehensionInDict');
+        export const comprehensionInSequence = () => getRawString('Diagnostic.comprehensionInSequence');
         export const comprehensionInSet = () => getRawString('Diagnostic.comprehensionInSet');
         export const concatenateContext = () => getRawString('Diagnostic.concatenateContext');
         export const concatenateParamSpecMissing = () => getRawString('Diagnostic.concatenateParamSpecMissing');
@@ -437,6 +438,10 @@ export namespace Localizer {
         export const dictInAnnotation = () => getRawString('Diagnostic.dictInAnnotation');
         export const dictKeyValuePairs = () => getRawString('Diagnostic.dictKeyValuePairs');
         export const dictUnpackIsNotMapping = () => getRawString('Diagnostic.dictUnpackIsNotMapping');
+        export const dictUnpackInGenerator = () => getRawString('Diagnostic.dictUnpackInGenerator');
+        export const dictUnpackInKey = () => getRawString('Diagnostic.dictUnpackInKey');
+        export const dictUnpackInList = () => getRawString('Diagnostic.dictUnpackInList');
+        export const dictUnpackInValue = () => getRawString('Diagnostic.dictUnpackInValue');
         export const disjointBaseFunction = () => getRawString('Diagnostic.disjointBaseFunction');
         export const disjointBaseIncompatible = () =>
             new ParameterizedString<{ bases: string }>(getRawString('Diagnostic.disjointBaseIncompatible'));
@@ -653,6 +658,8 @@ export namespace Localizer {
                 getRawString('Diagnostic.lambdaReturnTypePartiallyUnknown')
             );
         export const lazyImportIllegal = () => getRawString('Diagnostic.lazyImportIllegal');
+        export const lazyImportFutureIllegal = () => getRawString('Diagnostic.lazyImportFutureIllegal');
+        export const lazyImportScopeIllegal = () => getRawString('Diagnostic.lazyImportScopeIllegal');
         export const lazyImportWildcardIllegal = () => getRawString('Diagnostic.lazyImportWildcardIllegal');
         export const listAssignmentMismatch = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.listAssignmentMismatch'));
@@ -1223,6 +1230,7 @@ export namespace Localizer {
         export const unpackInAnnotation = () => getRawString('Diagnostic.unpackInAnnotation');
         export const unpackInDict = () => getRawString('Diagnostic.unpackInDict');
         export const unpackInSet = () => getRawString('Diagnostic.unpackInSet');
+        export const unpackInValue = () => getRawString('Diagnostic.unpackInValue');
         export const unpackNotAllowed = () => getRawString('Diagnostic.unpackNotAllowed');
         export const unpackOperatorNotAllowed = () => getRawString('Diagnostic.unpackOperatorNotAllowed');
         export const unpackTuplesIllegal = () => getRawString('Diagnostic.unpackTuplesIllegal');

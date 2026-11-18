@@ -4,8 +4,13 @@ from dataclasses import dataclass
 from typing import Literal, TypeAlias, assert_type
 from typing_extensions import Sentinel, TypeForm  # pyright: ignore[reportMissingModuleSource]
 
-# This should generate an error because the names don't match.
-BAD_NAME1 = Sentinel("OTHER")
+DISPLAY_NAME = Sentinel("OTHER")
+EMPTY_NAME = Sentinel("")
+CUSTOM_REPR = Sentinel("display", repr="<missing>")
+
+assert_type(DISPLAY_NAME, DISPLAY_NAME)
+assert_type(EMPTY_NAME, EMPTY_NAME)
+assert_type(CUSTOM_REPR, CUSTOM_REPR)
 
 # This should generate an error because the arg count is wrong.
 BAD_CALL1 = Sentinel()
@@ -63,7 +68,12 @@ def func3(x: Literal[0, 3, "hi"] | MISSING) -> None:
 
 
 t1 = type(MISSING)
-reveal_type(t1, expected_text="type[MISSING]")
+reveal_type(t1, expected_text="type[sentinel]")
+assert_type(type(MISSING), type[MISSING])
+assert_type(MISSING.__class__, type[MISSING])
+common_class: type[MISSING] = type(MISSING)
+assert_type(common_class("MISSING", repr=None), Sentinel)
+assert_type(MISSING, MISSING)
 
 
 # Attribute access on a sentinel instance should resolve through the
