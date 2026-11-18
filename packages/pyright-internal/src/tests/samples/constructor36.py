@@ -58,3 +58,18 @@ class Nested:
 
 
 reveal_type(Nested(Nested()), expected_text="Nested")
+
+
+class GenericCycle[T]:
+    __init__: type["GenericCycle[T]"]
+
+
+reveal_type(GenericCycle[int](), expected_text="GenericCycle[int]")
+
+
+# Specializations can grow on every recursive constructor call.
+class Growing[T]:
+    __new__: type["Growing[list[T]]"]
+
+
+Growing[int]()

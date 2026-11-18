@@ -11640,7 +11640,8 @@ export function createTypeEvaluator(
 
                 if (TypeBase.isInstantiable(expandedCallType)) {
                     // A class-valued __new__, __init__, or metaclass __call__ can
-                    // lead back to the same constructor with the same arguments.
+                    // lead back to the same generic class with the same arguments,
+                    // potentially with an ever-growing type specialization.
                     // A fresh argument list indicates reentrant expression evaluation,
                     // which must be allowed to complete normally.
                     if (
@@ -11648,7 +11649,7 @@ export function createTypeEvaluator(
                             (entry) =>
                                 entry.node === errorNode &&
                                 entry.args === argList &&
-                                isTypeSame(entry.type, expandedCallType)
+                                ClassType.isSameGenericClass(entry.type, expandedCallType)
                         )
                     ) {
                         touchArgTypes();
