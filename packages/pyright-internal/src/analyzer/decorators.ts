@@ -138,7 +138,7 @@ export function applyFunctionDecorator(
     decoratorNode: DecoratorNode,
     functionNode: FunctionNode,
     nodeInfo: AnalyzerNodeInfoAccessor
-): Type {
+): TypeResult {
     const fileInfo = nodeInfo.getFileInfo(decoratorNode);
 
     // Some stub files (e.g. builtins.pyi) rely on forward declarations of decorators.
@@ -148,8 +148,30 @@ export function applyFunctionDecorator(
     }
 
     const decoratorTypeResult = evaluator.getTypeOfExpression(decoratorNode.d.expr, evaluatorFlags);
-    const decoratorType = decoratorTypeResult.type;
+    const type = applyFunctionDecoratorType(
+        evaluator,
+        inputFunctionType,
+        undecoratedType,
+        decoratorNode,
+        functionNode,
+        nodeInfo,
+        decoratorTypeResult.type,
+        evaluatorFlags
+    );
 
+    return { type, isIncomplete: decoratorTypeResult.isIncomplete };
+}
+
+function applyFunctionDecoratorType(
+    evaluator: TypeEvaluator,
+    inputFunctionType: Type,
+    undecoratedType: FunctionType,
+    decoratorNode: DecoratorNode,
+    functionNode: FunctionNode,
+    nodeInfo: AnalyzerNodeInfoAccessor,
+    decoratorType: Type,
+    evaluatorFlags: EvalFlags
+): Type {
     if (isFunction(decoratorType) && FunctionType.isBuiltIn(decoratorType, 'disjoint_base')) {
         evaluator.addDiagnostic(
             DiagnosticRule.reportGeneralTypeIssues,
