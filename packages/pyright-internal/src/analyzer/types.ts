@@ -2780,7 +2780,8 @@ export interface UnionDetailsPriv {
     literalInstances: LiteralTypes;
     literalClasses: LiteralTypes;
     typeAliasSources: Set<UnionType> | undefined;
-    // Set when a union special form (e.g. Union[A, B]) was combined into this union.
+    // Set when a union special form was combined into this union, or when this
+    // union specializes a type alias special form.
     includesSpecialForm: boolean;
     includesRecursiveTypeAlias: boolean;
     // This cached value relies on all union construction adding subtypes through UnionType.addType.

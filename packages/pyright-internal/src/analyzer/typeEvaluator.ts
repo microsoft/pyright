@@ -8569,6 +8569,10 @@ export function createTypeEvaluator(
             typeArgs: aliasTypeArgs,
         });
 
+        if (isUnion(type) && aliasBaseType.props?.specialForm) {
+            type.priv.includesSpecialForm = true;
+        }
+
         type = TypeBase.cloneWithTypeForm(type, reportedError ? undefined : convertToInstance(type));
 
         if (baseType.props?.typeAliasInfo) {

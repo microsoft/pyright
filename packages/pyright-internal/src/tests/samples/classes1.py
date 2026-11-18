@@ -130,6 +130,28 @@ def func8(flag: bool, t1: Any):
         pass
 
 
+type TA1[T] = T | list[T]
+TA2 = Union[T, list[T]]
+type TA3[T] = type[T] | Any
+
+
+# This should generate an error.
+class O3(TA1[Any]):
+    pass
+
+
+# This should generate an error.
+class O4(TA2[Any]):
+    pass
+
+
+def func9(t1: TA3[A]):
+    class N1(t1):
+        pass
+
+    reveal_type(N1().x, expected_text="Any")
+
+
 # This should generate an error because a TypeVar can't be used as a base class.
 class K(T):
     pass
