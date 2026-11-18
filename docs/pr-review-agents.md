@@ -14,7 +14,7 @@ copilot --agent pyright-pr-review --prompt "Analyze microsoft/pyright#11571, inc
 ```
 
 The coordinator is explicitly selected rather than automatically invoked for ordinary tasks. The five specialist
-profiles are subagent-only. Models inherit the user's settings. This requires a host that supports custom-agent
+profiles are subagent-only. Models inherit the user's settings. Full review requires a host that supports custom-agent
 delegation; if it cannot load or invoke the specialists, the coordinator reports that limitation instead of pretending
 the panel ran. Shell/GitHub access and test execution still require the host's usual permissions.
 
@@ -44,9 +44,20 @@ skill's example-led style. Already-covered issues are omitted from that suppleme
 strengthen the established finding without changing its style. If no additional findings remain, there is no supplemental
 comment. Full findings and evidence remain in the reports regardless of their feedback destination.
 
+## Preflight for authors
+
+Before opening a PR or asking for full review, select `pyright-pr-review` and ask:
+
+> Preflight my local analyzer changes against upstream main. Run the motivating case and nearby valid and invalid
+> controls. Show me how to replay any failures. Do not edit or publish anything.
+
+The [author preflight](../.github/skills/pyright-pr-typespec-review/SKILL.md#author-preflight) also accepts a draft PR.
+It runs directly without the five specialists and reports tested revisions, results, replay commands, and coverage
+gaps. It does not give a merge verdict or replace full review.
+
 ## Conversation and optional repair
 
-For an ongoing conversation, select the coordinator with `/agent` in an interactive session. The `--prompt` example above
+For an ongoing conversation, select the coordinator with `/agent` in an interactive session. The `--prompt` example in Usage
 is a one-shot review, not an ongoing conversation. In interactive use, continue with questions or a scoped repair request:
 
 | Request | Coordinator behavior |

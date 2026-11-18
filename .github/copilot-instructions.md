@@ -21,7 +21,9 @@ Select `pyright-pr-review` for the coordinated review workflow described in
 [PR review agents](../docs/pr-review-agents.md). Its five independent specialists include the ordinary
 `pyright-pr-monkey` adversarial reviewer and a dedicated `pyright-pr-safety-reviewer` using the
 [PR type-specification review skill](skills/pyright-pr-typespec-review/SKILL.md) for an additional investigation and example-led feedback.
-The skill also supports standalone assessments and QA callers with their own execution and result contracts.
+For a quick, read-only check of local changes or a draft PR, ask `pyright-pr-review` for an
+[author preflight](../docs/pr-review-agents.md#preflight-for-authors). It uses the same skill without launching the
+review panel. The skill also supports standalone assessments and QA callers with their own execution and result contracts.
 Specialists return evidence and drafts; the coordinator owns the final assessment and explicitly authorized publication.
 
 ## Build and Test

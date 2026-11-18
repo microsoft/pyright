@@ -1,6 +1,6 @@
 ---
 name: pyright-pr-typespec-review
-description: Investigate whether a Pyright PR changes typing behavior safely by tracing its diff, designing adversarial cases, comparing exact revisions, and checking relevant CPython behavior. Use for requests to find regressions, assess merge safety, or test effects beyond a PR's own examples.
+description: Investigate whether Pyright changes typing behavior safely by tracing the diff, designing adversarial cases, comparing exact revisions, and checking relevant CPython behavior. Use for author preflights, regression investigations, merge safety, or testing beyond a PR's own examples.
 ---
 
 # Pyright PR TypeSpec Review
@@ -13,7 +13,17 @@ Use this testing method without starting another review coordinator or delegatin
 
 - When a QA runner supplies built revisions, execution tools, test passes, and an output schema, add skill-derived hypotheses and cases to those existing passes. Preserve independent expectations, negative neighbors, unchanged controls, and the final coverage check through execution. Use the runner's prepared builds and replay mechanism rather than creating another review session or invoking a comparison script with incompatible execution limits. Return the runner's declared result format, not a second review report. The runner owns verification, verdicts, and its QA comment.
 - When the PR review coordinator assigns a specialist investigation, work in the assigned scope and scratch directory. Return the specialist report, executable evidence, coverage limits, and a concise feedback draft using [Draft PR feedback](#draft-pr-feedback). The coordinator reconciles duplicate findings and owns the final decision and authorized publication; the specialist never posts independently.
+- When an author asks for an early check on local changes or a draft, use [Author preflight](#author-preflight).
 - For a standalone assessment, follow the complete workflow below. Drafting feedback is not authorization to publish it.
+
+## Author preflight
+
+This is a focused, read-only check, not a full PR review. It does not need a GitHub PR or a second agent.
+
+1. **Identify what is under test.** Record the target branch and its merge base with the candidate. For local edits, record `HEAD` and the selected staged and unstaged diff, plus any selected untracked inputs; do not describe that working tree as a commit. Keep unrelated edits out of the comparison. If you cannot isolate the selected changes, report the limitation rather than attributing mixed results to the patch. Never reset, stash, or overwrite the author's files.
+2. **Check the riskiest changed behavior first.** Identify the [semantic contract of every new or changed shortcut](references/discovery-coverage.md#challenge-the-claimed-implication). Probe the riskiest contracts first and mark any remaining ones untested. For a typing change, start with the motivating case, a nearby valid case that must still work, and a nearby invalid case that must still produce a specific diagnostic. Derive their expectations independently. Compare the same probes on the base and candidate with matching settings. Assert exact inferred types and diagnostic rules and locations. If a changed helper serves multiple paths, include the most relevant alternate caller or syntax; an operator and a direct method call may exercise different paths. Check the downstream use if a type or reachability fact could be lost.
+3. **Run the smallest relevant integration checks.** For TypeScript changes, run the covering build/type check and focused tests. If the branch needs an update or resolves a conflict, check the merge result in an isolated checkout and report it separately from base-to-candidate behavior. For workflow changes, run the existing YAML-reading guards; if generated files change, also regenerate them with the pinned compiler in an isolated checkout and compare the results. Passing a YAML guard does not show the generated change will survive regeneration.
+4. **Give the author a replay, not an approval.** For each finding, provide the base and candidate identity, a minimal repro, expected vs. actual behavior, the command to replay it, and the smallest useful test to add. Separate new regressions from baseline failures and missing evidence. Stop after the focused checks and call out the highest-risk untested path. If you cannot run a comparison, describe the result as unverified, not passing.
 
 ## Establish the comparison
 
@@ -32,7 +42,7 @@ Trace changed functions through callers, downstream consumers and early exits. B
 - New flags or cached metadata: initialization, every mutation path, cloning, specialization and synthesized types.
 - The point where an inferred type is combined with later arguments, expected return types, union members or narrowing state.
 
-For each changed decision that accepts, rejects, widens, or skips analysis, distinguish what its predicate actually establishes from the conclusion the caller draws. Look for a counterexample where the predicate holds but that conclusion does not. Inspect the helper's contract and returned information rather than inferring semantics from its name or a truthy result.
+Identify and challenge the semantic contract of every new or changed shortcut, including early exits, fast paths, cache reuse, and fallbacks that skip work. For each, distinguish what enables it, what that condition actually guarantees, and what the skipped path would have produced or done. Look for a counterexample where the shortcut still triggers but fails to preserve a required result, diagnostic, or state change. Inspect the helper's contract and returned information rather than inferring semantics from its name or a truthy result.
 
 Use [references/discovery-coverage.md](references/discovery-coverage.md) to turn that inventory into concrete witnesses, relevant input combinations, and consumer tests, and later to audit missing hypotheses and classify individual findings. Choose feature-specific dimensions from [references/probe-design.md](references/probe-design.md); do not generate an arbitrary quota of cases or test every feature for every PR.
 

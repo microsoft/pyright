@@ -34,6 +34,8 @@ For a consequential changed branch, write down:
 - The stronger conclusion used to accept, reject, transform, or skip something.
 - A concrete witness that could separate those two claims, and a control where the implication is valid.
 
+For a shortcut, also name the work it replaces and the behavior that must stay equivalent. Keep its guard true while varying a condition it does not check, such as binding identity, specialization, or evaluation state. Verify what downstream consumers observe, not just whether the fast path returns a value. For example, an identifier spelled `issubclass` does not prove it binds to the builtin; a shadowed callable can leave a branch reachable that builtin-specific narrowing would incorrectly skip. Check the diagnostic inside that branch.
+
 For example, failure of containment in both directions does not prove that two sets are disjoint. Construct a shared member instead of treating failed containment checks as an overlap oracle. Similarly, finding an applicable operation does not by itself establish its result type, runtime completion, or permission to discard later alternatives. Read and exercise the actual contracts; these are reasoning prompts, not presumed bugs in every use of such helpers.
 
 Trace where the new result goes next. A positional check followed by an aggregate check, or a precise result reduced to a boolean and then recomputed, can lose the fact that justified the earlier decision. Probe the boundary between those stages as well as the stages separately. Reuse of an existing helper is not sufficient evidence that it establishes the new caller's required property.
