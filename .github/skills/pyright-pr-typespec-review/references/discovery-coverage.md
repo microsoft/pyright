@@ -11,6 +11,9 @@ Do this before starting from familiar examples. For each semantic change, identi
 | Acceptance predicate, fallback, or early exit | What input domain is newly admitted or skipped? What must remain rejected? What alternatives stop being examined? | A concrete input in the changed region, then a nearby input for which the required conclusion is false |
 | Type construction, narrowing, or widening | Which properties disappear, appear, or stop being correlated? Which consumers depend on each? | Both a type observation and an ordinary consumer whose legality depends on the affected property |
 | Binding, specialization, or representation | Do equivalent inputs take different paths? Does a summary describe all instantiations or just the example? | Equivalent forms, boundary instantiations, and a form that deliberately changes the contract |
+| Memoization or active-recursion identity | Does the equality helper preserve every property needed to skip the downstream check? Which options erase callable defaults, parameter kinds, overloads, or specialization metadata? | Types considered equal by the proposed key but accepting different concrete calls; exercise completed-cache reuse and active-pair detection independently, in both input orders, with a compatible control |
+| Cached failure or diagnostic shortcut | Does a cached boolean preserve the explanation requested by this caller? Does raw diagnostic nesting measure the renderer's actual depth budget? | Repeated incompatible siblings beneath empty intermediate addenda; assert both leaf explanations at the normal rendered depth and bound work on incompatible shared/wide graphs |
+| Bounded cache admission or eviction | What happens when the working set crosses capacity? Can early cold entries exclude later hot entries, or unrelated nominal classes compete for one specialization budget? | Capacity and capacity-plus-one graphs with repeated hot destinations before and after cold entries; measure actual comparisons separately from elapsed time and state the memory-bound tradeoff |
 
 The PR's motivating example is one entry, not the entire inventory. Trace callers and consumers far enough to locate a meaningful operation. If an output type changes but the plan contains no consumer of the changed information, resolve that omission or state why no such consumer is affected. Before finishing, revisit the inventory against the diff without using the existing probe list as the sole checklist.
 
@@ -31,9 +34,13 @@ For a consequential changed branch, write down:
 - The stronger conclusion used to accept, reject, transform, or skip something.
 - A concrete witness that could separate those two claims, and a control where the implication is valid.
 
+For a shortcut, also name the work it replaces and the behavior that must stay equivalent. Keep its guard true while varying a condition it does not check, such as binding identity, specialization, or evaluation state. Verify what downstream consumers observe, not just whether the fast path returns a value. For example, an identifier spelled `issubclass` does not prove it binds to the builtin; a shadowed callable can leave a branch reachable that builtin-specific narrowing would incorrectly skip. Check the diagnostic inside that branch.
+
 For example, failure of containment in both directions does not prove that two sets are disjoint. Construct a shared member instead of treating failed containment checks as an overlap oracle. Similarly, finding an applicable operation does not by itself establish its result type, runtime completion, or permission to discard later alternatives. Read and exercise the actual contracts; these are reasoning prompts, not presumed bugs in every use of such helpers.
 
 Trace where the new result goes next. A positional check followed by an aggregate check, or a precise result reduced to a boolean and then recomputed, can lose the fact that justified the earlier decision. Probe the boundary between those stages as well as the stages separately. Reuse of an existing helper is not sufficient evidence that it establishes the new caller's required property.
+
+For shared state, make the sequence part of the repro. For example, run a starred tuple match before an independent match that relies on the same cached tuple shape. Compare the second match with and without the first so that a passing standalone match cannot hide the state leak. For aliases, distinguish mutating the current object from mutating an old alias after rebinding.
 
 ## Coverage belongs to a hypothesis and a combination
 

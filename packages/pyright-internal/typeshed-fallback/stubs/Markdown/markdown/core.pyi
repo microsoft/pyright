@@ -13,6 +13,7 @@ from . import (
     treeprocessors as _treeprocessors,
 )
 from .extensions import Extension
+from .inlinepatterns import DelimiterProcessor
 from .util import HtmlStash, Registry
 
 __all__ = ["Markdown", "markdown", "markdownFromFile"]
@@ -20,21 +21,31 @@ __all__ = ["Markdown", "markdown", "markdownFromFile"]
 logger: Logger
 
 class Markdown:
+    doc_tag: ClassVar[str]
+    output_formats: ClassVar[dict[Literal["xhtml", "html"], Callable[[Element], str]]]
+
+    last_run: float
+    tab_length: int
+    ESCAPED_CHARS: list[str]
+    block_level_elements: list[str]
+    registeredExtensions: list[Extension]
+    stripTopLevelTags: bool
+    delimiters: DelimiterProcessor | None
+
+    # Set by build_parser().
     preprocessors: Registry[_preprocessors.Preprocessor]
+    parser: blockparser.BlockParser
     inlinePatterns: Registry[inlinepatterns.Pattern]
     treeprocessors: Registry[_treeprocessors.Treeprocessor]
     postprocessors: Registry[_postprocessors.Postprocessor]
-    parser: blockparser.BlockParser
+
+    references: dict[str, tuple[str, str]]
     htmlStash: HtmlStash
-    output_formats: ClassVar[dict[Literal["xhtml", "html"], Callable[[Element], str]]]
+
+    # Set by set_output_format().
     output_format: Literal["xhtml", "html"]
     serializer: Callable[[Element], str]
-    tab_length: int
-    block_level_elements: list[str]
-    registeredExtensions: list[Extension]
-    ESCAPED_CHARS: list[str]
-    doc_tag: ClassVar[str]
-    stripTopLevelTags: bool
+
     def __init__(
         self,
         *,

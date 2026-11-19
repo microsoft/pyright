@@ -3,8 +3,13 @@
 from dataclasses import dataclass
 from typing import Literal, TypeAlias, assert_type
 
-# This should generate an error because the names don't match.
-BAD_NAME1 = sentinel("OTHER")
+DISPLAY_NAME = sentinel("OTHER")
+EMPTY_NAME = sentinel("")
+CUSTOM_REPR = sentinel("display", repr="<missing>")
+
+assert_type(DISPLAY_NAME, DISPLAY_NAME)
+assert_type(EMPTY_NAME, EMPTY_NAME)
+assert_type(CUSTOM_REPR, CUSTOM_REPR)
 
 # This should generate an error because the arg count is wrong.
 BAD_CALL1 = sentinel()
@@ -24,6 +29,13 @@ def accept_sentinel(value: sentinel) -> None:
 
 
 accept_sentinel(MISSING)
+
+common_class: type[MISSING] = type(MISSING)
+reveal_type(common_class, expected_text="type[sentinel]")
+assert_type(type(MISSING), type[MISSING])
+assert_type(MISSING.__class__, type[MISSING])
+assert_type(common_class("MISSING", repr=None), sentinel)
+assert_type(MISSING, MISSING)
 
 type TA1 = int | MISSING
 

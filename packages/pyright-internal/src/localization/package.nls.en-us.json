@@ -192,6 +192,7 @@
             "message": "Comprehension cannot be used with other dictionary entries",
             "comment": "A comprehension is a 'set of looping and filtering instructions' applied to a collection to generate a new collection; the word may not be translatable"
         },
+        "comprehensionInSequence": "Comprehension cannot be used with other entries",
         "comprehensionInSet": {
             "message": "Comprehension cannot be used with other set entries",
             "comment": ["{Locked='set'}", "A comprehension is a 'set of looping and filtering instructions' applied to a collection to generate a new collection; the word may not be translatable"]
@@ -307,6 +308,10 @@
         "dictInAnnotation": "Dictionary expression not allowed in type expression",
         "dictKeyValuePairs": "Dictionary entries must contain key/value pairs",
         "dictUnpackIsNotMapping": "Expected mapping for dictionary unpack operator",
+        "dictUnpackInGenerator": "Dictionary unpacking cannot be used in a generator expression",
+        "dictUnpackInKey": "Dictionary unpacking cannot be used in a dictionary key",
+        "dictUnpackInList": "Dictionary unpacking cannot be used in a list",
+        "dictUnpackInValue": "Dictionary unpacking cannot be used in a dictionary value",
         "disjointBaseFunction": {
             "message": "@disjoint_base cannot be applied to a function",
             "comment": "{Locked='@disjoint_base'}"
@@ -724,6 +729,8 @@
         "lambdaReturnTypePartiallyUnknown": "Return type of lambda, \"{returnType}\", is partially unknown",
         "lambdaReturnTypeUnknown": "Return type of lambda is unknown",
         "lazyImportIllegal": "Lazy import statement requires Python 3.15 or newer",
+        "lazyImportFutureIllegal": "Future imports cannot be used with 'lazy'",
+        "lazyImportScopeIllegal": "Lazy imports are only allowed at module scope and outside try statements",
         "lazyImportWildcardIllegal": "Wildcard imports cannot be used with 'lazy'",
         "listAssignmentMismatch": "Expression with type \"{type}\" cannot be assigned to target list",
         "listInAnnotation": {
@@ -1723,6 +1730,7 @@
             "message": "Unpack operator not allowed within a set",
             "comment": "{Locked='set'}"
         },
+        "unpackInValue": "Unpacking cannot be used in a dictionary value",
         "unpackNotAllowed": {
             "message": "Unpack is not allowed in this context",
             "comment": "{Locked='Unpack'}"

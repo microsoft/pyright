@@ -417,7 +417,14 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Unpack: {
-            return '*' + printExpression(node.d.expr, flags);
+            const operand = printExpression(node.d.expr, flags);
+            if (
+                (node.d.expr.nodeType === ParseNodeType.Ternary || node.d.expr.nodeType === ParseNodeType.Lambda) &&
+                node.d.expr.d.hasParens
+            ) {
+                return `*(${operand})`;
+            }
+            return '*' + operand;
         }
 
         case ParseNodeType.Tuple: {
@@ -455,6 +462,8 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 const keyStr = printExpression(node.d.expr.d.keyExpr, flags);
                 const valueStr = printExpression(node.d.expr.d.valueExpr, flags);
                 listStr = `${keyStr}: ${valueStr}`;
+            } else if (node.d.expr.nodeType === ParseNodeType.DictionaryExpandEntry) {
+                listStr = `**${printExpression(node.d.expr.d.expr, flags)}`;
             }
 
             listStr =

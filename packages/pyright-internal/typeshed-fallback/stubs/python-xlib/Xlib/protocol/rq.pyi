@@ -4,13 +4,12 @@ from array import array
 # Avoid name collision with List.type
 from builtins import type as Type
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, Final, Literal, SupportsIndex, TypeAlias, TypeVar, overload, type_check_only
+from typing import Any, Final, Literal, Protocol, SupportsIndex, TypeAlias, TypeVar, overload, type_check_only
 from typing_extensions import LiteralString
 
 from Xlib._typing import ErrorHandler
 from Xlib.display import _BaseDisplay, _ResourceBaseClass
 from Xlib.error import XError
-from Xlib.ext.xinput import ClassInfoClass
 from Xlib.protocol import display
 
 _T = TypeVar("_T")
@@ -27,7 +26,7 @@ array_unsigned_codes: Final[dict[int, LiteralString]]
 struct_to_array_codes: Final[dict[str, LiteralString]]
 
 class Field:
-    name: str
+    name: str | None
     default: int | None
     pack_value: Callable[[Any], tuple[Any, int | None, int | None]] | None
     structcode: str | None
@@ -82,7 +81,7 @@ class FormatField(Field):
 Format = FormatField
 
 class ValueField(Field):
-    def __init__(self, name: str, default: int | None = None) -> None: ...
+    def __init__(self, name: str | None, default: int | None = None) -> None: ...
 
 class Int8(ValueField):
     structcode: str
@@ -203,13 +202,19 @@ class String16(ValueField):
         self, data: SliceableBuffer, display: Unused, length: int | Literal["odd", "even"], format: Unused
     ) -> tuple[tuple[Any, ...], SliceableBuffer]: ...
 
+# Protocol for List types without a struct code that only parse, like Xlib.ext.xinput.ClassInfo
+@type_check_only
+class _ParsesBinary(Protocol):
+    structcode: None
+    def parse_binary(self, data: SliceableBuffer, display: display.Display | None, /) -> tuple[Any, SliceableBuffer]: ...
+
+_ListType: TypeAlias = Struct | ScalarObj | ResourceObj | StrClass | _ParsesBinary | ValueField | Type[ValueField]
+
 class List(ValueField):
     structcode: None
-    type: Struct | ScalarObj | ResourceObj | ClassInfoClass | Type[ValueField]
+    type: _ListType
     pad: int
-    def __init__(
-        self, name: str, type: Struct | ScalarObj | ResourceObj | ClassInfoClass | Type[ValueField], pad: int = 1
-    ) -> None: ...
+    def __init__(self, name: str, type: _ListType, pad: int = 1) -> None: ...
     def parse_binary_value(
         self, data: SliceableBuffer, display: display.Display | None, length: SupportsIndex | None, format: Unused
     ) -> tuple[list[DictWrapper | None], SliceableBuffer]: ...
@@ -219,7 +224,7 @@ class List(ValueField):
 
 class FixedList(List):
     size: int
-    def __init__(self, name: str, size: int, type: Struct | ScalarObj, pad: int = 1) -> None: ...
+    def __init__(self, name: str, size: int, type: _ListType, pad: int = 1) -> None: ...
     def parse_binary_value(
         self, data: SliceableBuffer, display: display.Display | None, length: Unused, format: Unused
     ) -> tuple[list[DictWrapper | None], SliceableBuffer]: ...
@@ -227,7 +232,10 @@ class FixedList(List):
 class Object(ValueField):
     type: Struct
     structcode: str | None
-    def __init__(self, name: str, type: Struct, default: int | None = None) -> None: ...
+    default: tuple[object, ...] | dict[str, Any] | DictWrapper | None  # type: ignore[assignment]  # Actually different from base class
+    def __init__(
+        self, name: str, type: Struct, default: tuple[object, ...] | dict[str, Any] | DictWrapper | None = None
+    ) -> None: ...
     def parse_binary_value(
         self, data: SliceableBuffer, display: display.Display | None, length: Unused, format: Unused
     ) -> tuple[DictWrapper, SliceableBuffer]: ...
@@ -314,7 +322,7 @@ ColormapObj: ResourceObj
 
 class StrClass:
     structcode: None
-    def pack_value(self, val: str) -> bytes: ...
+    def pack_value(self, val: str | bytes) -> bytes: ...
     def parse_binary(self, data: bytes | bytearray, display: Unused) -> tuple[str, bytes | bytearray]: ...
 
 Str: StrClass
@@ -323,7 +331,7 @@ class Struct:
     name: str
     check_value: Callable[[Any], Any] | None
     keyword_args: bool
-    fields: tuple[Field]
+    fields: tuple[Field, ...]
     static_codes: str
     static_values: int
     static_fields: list[Field]
