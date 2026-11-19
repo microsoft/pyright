@@ -133,11 +133,14 @@ function _selectMemberDocInfo(
         }
     }
 
-    // Tier 3: the remaining overloads, in declaration order.
-    for (const overload of overloads) {
-        const info = _functionDocInfo(overload, sourceMapper);
-        if (info) {
-            return info;
+    // Tier 3: the remaining overloads, in declaration order. Only consider other
+    // overloads when no specific overload was matched (e.g. uncalled function hover).
+    if (!matchedOverloads || matchedOverloads.length === 0) {
+        for (const overload of overloads) {
+            const info = _functionDocInfo(overload, sourceMapper);
+            if (info) {
+                return info;
+            }
         }
     }
 
