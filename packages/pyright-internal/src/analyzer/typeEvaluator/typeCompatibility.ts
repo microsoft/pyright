@@ -580,17 +580,30 @@ export function createTypeCompatibility(context: Context) {
             let remainingSrcSubtypes: Type[] = sortedSrcTypes;
             let canUseFastPath = true;
 
-            const srcStrings = srcType.priv.literalInstances.literalStrMap;
-            const destStrings = destType.priv.literalInstances.literalStrMap;
-            // These maps have one entry per subtype only for unique, unconditional string literals.
+            function getStringLiteralIndex(union: UnionType) {
+                const index = union.priv.literalInstances.literalStrMap;
+                // Some type transforms replace subtypes on a clone without rebuilding its literal maps.
+                if (
+                    index?.size === union.priv.subtypes.length &&
+                    union.priv.subtypes.every(
+                        (subtype) =>
+                            isClassInstance(subtype) &&
+                            typeof subtype.priv.literalValue === 'string' &&
+                            !subtype.props?.condition &&
+                            index.get(subtype.priv.literalValue) === subtype
+                    )
+                ) {
+                    return index;
+                }
+                return undefined;
+            }
+
             // Above the equality recursion limit, even different literal values can compare equal.
-            const matchedStrings =
-                recursionCount <= maxTypeRecursionCount &&
-                sortedSrcTypes.length >= 32 &&
-                srcStrings?.size === sortedSrcTypes.length &&
-                destStrings?.size === destType.priv.subtypes.length
-                    ? new Set<Type>()
+            const srcStrings =
+                recursionCount <= maxTypeRecursionCount && sortedSrcTypes.length >= 32
+                    ? getStringLiteralIndex(srcType)
                     : undefined;
+            const matchedStrings = srcStrings && getStringLiteralIndex(destType) ? new Set<Type>() : undefined;
 
             // First attempt to match all of the non-generic types in the dest
             // to non-generic types in the source.
