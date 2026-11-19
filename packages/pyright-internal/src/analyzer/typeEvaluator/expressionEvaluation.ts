@@ -1486,7 +1486,11 @@ export function createExpressionEvaluation(context: Context) {
         let typeResult: TypeResultWithNode;
 
         let adjustedFlags =
-            flags | EvalFlags.InstantiableType | EvalFlags.ConvertEllipsisToAny | EvalFlags.StrLiteralAsType;
+            flags |
+            EvalFlags.InstantiableType |
+            EvalFlags.ConvertEllipsisToAny |
+            EvalFlags.StrLiteralAsType |
+            EvalFlags.TypeExpression;
 
         const fileInfo = nodeInfo.getFileInfo(node);
         if (fileInfo.isStubFile) {
@@ -1530,6 +1534,13 @@ export function createExpressionEvaluation(context: Context) {
                 // "ClassVar" is not allowed as a type argument.
                 if (isClass(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'ClassVar')) {
                     addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.classVarNotAllowed(), node);
+                }
+            }
+
+            if ((flags & EvalFlags.NoFinal) !== 0) {
+                // "Final" is not allowed as a type argument.
+                if (isClass(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'Final')) {
+                    addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.finalContext(), node);
                 }
             }
         }

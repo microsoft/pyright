@@ -60,6 +60,11 @@ test('Final8', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('Final9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final9.py']);
+    TestUtils.validateResults(analysisResults, 8);
+});
+
 test('InferredTypes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['inferredTypes1.py']);
     TestUtils.validateResults(analysisResults, 0);
