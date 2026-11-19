@@ -12,22 +12,29 @@ import {
     CallHierarchyOutgoingCallsRequest,
     CallHierarchyPrepareRequest,
     CancellationToken,
+    CancellationTokenSource,
     CompletionItem,
     CompletionRequest,
     ConfigurationItem,
+    DidChangeConfigurationNotification,
     DidChangeWorkspaceFoldersNotification,
     DidCloseTextDocumentNotification,
     DidOpenTextDocumentNotification,
     DiagnosticSeverity,
     DocumentDiagnosticRequest,
+    Emitter,
     InitializedNotification,
     InitializeRequest,
+    LSPErrorCodes,
     MarkupContent,
+    ProgressType,
     ReferencesRequest,
     RenameRequest,
+    SymbolInformation,
     SymbolKind,
     TextDocumentEdit,
     UnregistrationRequest,
+    WorkspaceSymbol,
     WorkspaceSymbolRequest,
 } from 'vscode-languageserver';
 
@@ -35,8 +42,10 @@ import { convertOffsetToPosition } from '../common/positionUtils';
 import { PythonVersion, pythonVersion3_10 } from '../common/pythonVersion';
 
 import { isArray } from '../common/core';
-import { normalizeSlashes } from '../common/pathUtils';
+import { createDeferred } from '../common/deferred';
+import { combinePaths, normalizeSlashes } from '../common/pathUtils';
 import { distlibFolder } from './harness/vfs/factory';
+import { CustomLSP } from './lsp/customLsp';
 import {
     cleanupAfterAll,
     DEFAULT_WORKSPACE_ROOT,
@@ -47,6 +56,9 @@ import {
     runPyrightServer,
     sleep,
     waitForDiagnostics,
+    waitForEvent,
+    waitForPromise,
+    waitForTestSignal,
 } from './lsp/languageServerTestUtils';
 
 describe(`Basic language server tests`, () => {
@@ -304,10 +316,7 @@ describe(`Basic language server tests`, () => {
         }
     });
 
-    test.each(['references', 'rename', 'incomingCalls', 'workspaceSymbol'])(
-        'Workspace-wide request sent right after initialization covers unopened files: %s',
-        async (request) => {
-            const code = `
+    const leafCode = `
 // @filename: lib.py
 //// def /*leaf*/leaf/*leafEnd*/():
 ////     pass
@@ -318,32 +327,114 @@ describe(`Basic language server tests`, () => {
 //// def caller():
 ////     /*call*/leaf()
         `;
-            const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code, /* callInitialize */ false);
-            const marker = info.testData.markerPositions.get('leaf')!;
-            const uri = marker.fileUri.toString();
-            const userUri = info.testData.markerPositions.get('call')!.fileUri.toString();
-            const text = info.testData.files.find((file) => file.fileName === marker.fileName)!.content;
-            const lines = getParseResults(text).tokenizerOutput.lines;
-            const position = (name: string) =>
-                convertOffsetToPosition(info.testData.markerPositions.get(name)!.position, lines);
 
-            await info.connection.sendRequest(
-                InitializeRequest.type,
-                info.getInitializeParams(),
-                CancellationToken.None
+    function getDocument(info: PyrightServerInfo, markerName: string) {
+        const marker = info.testData.markerPositions.get(markerName)!;
+        const text = info.testData.files.find((file) => file.fileName === marker.fileName)!.content;
+        const lines = getParseResults(text).tokenizerOutput.lines;
+        return {
+            uri: marker.fileUri.toString(),
+            text,
+            position: (name: string) =>
+                convertOffsetToPosition(info.testData.markerPositions.get(name)!.position, lines),
+        };
+    }
+
+    async function initialize(info: PyrightServerInfo) {
+        await info.connection.sendRequest(InitializeRequest.type, info.getInitializeParams(), CancellationToken.None);
+        info.connection.sendNotification(InitializedNotification.type, {});
+    }
+
+    function openDocument(info: PyrightServerInfo, uri: string, text: string) {
+        info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
+            textDocument: { uri, languageId: 'python', version: 1, text },
+        });
+    }
+
+    function holdWorkspaceSettings(info: PyrightServerInfo, scopeUris?: string[]) {
+        const held: { scopeUri: string | undefined; release: () => void }[] = [];
+        const heldEmitter = new Emitter<void>();
+        info.delayConfigurationResponse = (params) => {
+            const [{ section, scopeUri }] = params.items;
+            if (section !== 'python' || (scopeUris && !scopeUris.includes(scopeUri!))) {
+                return Promise.resolve();
+            }
+
+            const released = createDeferred<void>();
+            held.push({ scopeUri, release: () => released.resolve() });
+            heldEmitter.fire();
+            return released.promise;
+        };
+
+        return async (scopeUri: string) => {
+            for (;;) {
+                const index = held.findIndex((request) => request.scopeUri === scopeUri);
+                if (index >= 0) {
+                    return held.splice(index, 1)[0].release;
+                }
+
+                await waitForEvent(heldEmitter.event, `settings request for ${scopeUri}`, () => true);
+            }
+        };
+    }
+
+    async function renameLeaf(info: PyrightServerInfo, token = CancellationToken.None) {
+        const lib = getDocument(info, 'leaf');
+        const edit = await info.connection.sendRequest(
+            RenameRequest.type,
+            { textDocument: { uri: lib.uri }, position: lib.position('leaf'), newName: 'renamed' },
+            token
+        );
+        return [
+            ...Object.keys(edit?.changes ?? {}),
+            ...(edit?.documentChanges ?? []).filter(TextDocumentEdit.is).map((e) => e.textDocument.uri),
+        ];
+    }
+
+    async function getWorkspaceSymbols(
+        info: PyrightServerInfo,
+        query: string,
+        partialResults = false,
+        token = CancellationToken.None
+    ) {
+        const partialResultToken = partialResults ? `workspaceSymbol:${query}` : undefined;
+        const symbols: (SymbolInformation | WorkspaceSymbol)[] = [];
+        const progress = partialResultToken
+            ? info.connection.onProgress(new ProgressType<SymbolInformation[]>(), partialResultToken, (part) => {
+                  symbols.push(...part);
+              })
+            : undefined;
+        try {
+            const result = await info.connection.sendRequest(
+                WorkspaceSymbolRequest.type,
+                { query, partialResultToken },
+                token
             );
-            info.connection.sendNotification(InitializedNotification.type, {});
-            info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
-                textDocument: { uri, languageId: 'python', version: 1, text },
-            });
+            symbols.push(...(result ?? []));
+        } finally {
+            progress?.dispose();
+        }
+
+        return symbols.map((symbol) => ({ name: symbol.name, uri: symbol.location.uri }));
+    }
+
+    test.each(['references', 'rename', 'incomingCalls', 'workspaceSymbol'])(
+        'Workspace-wide request sent right after initialization covers unopened files: %s',
+        async (request) => {
+            const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, leafCode, /* callInitialize */ false);
+            const lib = getDocument(info, 'leaf');
+            const userUri = info.testData.markerPositions.get('call')!.fileUri.toString();
+
+            await initialize(info);
+            openDocument(info, lib.uri, lib.text);
 
             let uris: string[] = [];
             if (request === 'references') {
                 const locations = await info.connection.sendRequest(
                     ReferencesRequest.type,
                     {
-                        textDocument: { uri },
-                        position: position('leaf'),
+                        textDocument: { uri: lib.uri },
+                        position: lib.position('leaf'),
                         context: { includeDeclaration: true },
                         workDoneToken: 'references',
                     },
@@ -351,35 +442,167 @@ describe(`Basic language server tests`, () => {
                 );
                 uris = locations?.map((location) => location.uri) ?? [];
             } else if (request === 'rename') {
-                const edit = await info.connection.sendRequest(
-                    RenameRequest.type,
-                    { textDocument: { uri }, position: position('leaf'), newName: 'renamed' },
-                    CancellationToken.None
-                );
-                uris = [
-                    ...Object.keys(edit?.changes ?? {}),
-                    ...(edit?.documentChanges ?? []).filter(TextDocumentEdit.is).map((e) => e.textDocument.uri),
-                ];
+                uris = await renameLeaf(info);
             } else if (request === 'incomingCalls') {
-                const range = { start: position('leaf'), end: position('leafEnd') };
+                const range = { start: lib.position('leaf'), end: lib.position('leafEnd') };
                 const calls = await info.connection.sendRequest(
                     CallHierarchyIncomingCallsRequest.type,
-                    { item: { name: 'leaf', kind: SymbolKind.Function, uri, range, selectionRange: range } },
+                    { item: { name: 'leaf', kind: SymbolKind.Function, uri: lib.uri, range, selectionRange: range } },
                     CancellationToken.None
                 );
                 uris = calls?.map((call) => call.from.uri) ?? [];
             } else {
-                const symbols = await info.connection.sendRequest(
-                    WorkspaceSymbolRequest.type,
-                    { query: 'caller' },
-                    CancellationToken.None
-                );
-                uris = symbols?.map((symbol) => symbol.location.uri) ?? [];
+                uris = (await getWorkspaceSymbols(info, 'caller')).map((symbol) => symbol.uri);
             }
 
             expect(uris).toContain(userUri);
         }
     );
+
+    test.each([
+        { request: 'rename', scratchFile: 'scratch.py', tracked: true },
+        { request: 'rename', scratchFile: 'excluded/scratch.py', tracked: false },
+        { request: 'workspaceSymbol', scratchFile: 'scratch.py', tracked: true },
+        { request: 'workspaceSymbol', scratchFile: 'excluded/scratch.py', tracked: false },
+    ])(
+        'Workspace-wide request sent right after initialization keeps open unsaved buffers: $request, $scratchFile',
+        async ({ request, scratchFile, tracked }) => {
+            const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "exclude": ["excluded"]
+//// }
+${leafCode}`;
+            const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code, /* callInitialize */ false);
+            const lib = getDocument(info, 'leaf');
+            const userUri = info.testData.markerPositions.get('call')!.fileUri.toString();
+            const scratchUri = info.convertPathToUri(combinePaths(DEFAULT_WORKSPACE_ROOT, scratchFile)).toString();
+
+            await initialize(info);
+            openDocument(info, lib.uri, lib.text);
+            openDocument(info, scratchUri, 'from lib import leaf\n\ndef scratch_caller():\n    leaf()\n');
+
+            const uris =
+                request === 'rename'
+                    ? await renameLeaf(info)
+                    : (await getWorkspaceSymbols(info, 'caller')).map((symbol) => symbol.uri);
+
+            expect(uris).toContain(userUri);
+            expect(uris.includes(scratchUri)).toBe(tracked);
+        }
+    );
+
+    test.each([false, true])(
+        'Workspace symbols requested before settings arrive reflect a pending open: partial results %s',
+        async (partialResults) => {
+            const code = `
+// @filename: one.py
+//// /*one*/gone = 1
+        `;
+            const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code, /* callInitialize */ false);
+            const uri = getDocument(info, 'one').uri;
+            const nextSettingsRequest = holdWorkspaceSettings(info);
+
+            await initialize(info);
+            openDocument(info, uri, 'live = 1');
+            const gone = getWorkspaceSymbols(info, 'gone', partialResults);
+            (await nextSettingsRequest(info.projectRoots[0].toString()))();
+
+            expect(await gone).toEqual([]);
+            expect(await getWorkspaceSymbols(info, 'gone', partialResults)).toEqual([]);
+            expect(await getWorkspaceSymbols(info, 'live', partialResults)).toEqual([{ name: 'live', uri }]);
+        }
+    );
+
+    test.each([1, 2])('Workspace symbols cancelled while settings of a root are pending: %i roots', async (roots) => {
+        const info = await runLanguageServer(
+            ['a', 'b'].slice(0, roots).map((root) => combinePaths(DEFAULT_WORKSPACE_ROOT, root)),
+            `
+// @filename: a/needle.py
+//// needle = 1
+        `,
+            /* callInitialize */ false
+        );
+        const pendingRoot = info.projectRoots[roots - 1].toString();
+        const nextSettingsRequest = holdWorkspaceSettings(info, [pendingRoot]);
+
+        await initialize(info);
+        const releaseSettings = await nextSettingsRequest(pendingRoot);
+        if (roots > 1) {
+            await waitForTestSignal(info, CustomLSP.TestSignalKinds.Initialization);
+        }
+
+        const source = new CancellationTokenSource();
+        const symbols = getWorkspaceSymbols(info, 'needle', /* partialResults */ false, source.token);
+        source.cancel();
+
+        await expect(waitForPromise(symbols)).rejects.toHaveProperty('code', LSPErrorCodes.RequestCancelled);
+        releaseSettings();
+    });
+
+    test('Workspace symbols requested before a settings refresh wait for the refreshed settings', async () => {
+        const code = `
+// @filename: a/needle.py
+//// /*needle*/needle = 1
+
+// @filename: b/other.py
+//// other = 1
+        `;
+        const info = await runLanguageServer(
+            ['a', 'b'].map((root) => combinePaths(DEFAULT_WORKSPACE_ROOT, root)),
+            code,
+            /* callInitialize */ false
+        );
+        const [rootA, rootB] = info.projectRoots.map((root) => root.toString());
+        const needle = { name: 'needle', uri: getDocument(info, 'needle').uri };
+        const nextSettingsRequest = holdWorkspaceSettings(info);
+
+        await initialize(info);
+        (await nextSettingsRequest(rootA))();
+        await waitForTestSignal(info, CustomLSP.TestSignalKinds.Initialization);
+        const releaseOriginalB = await nextSettingsRequest(rootB);
+
+        const symbols = getWorkspaceSymbols(info, 'needle');
+        info.connection.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
+        const releaseRefreshA = await nextSettingsRequest(rootA);
+        const releaseRefreshB = await nextSettingsRequest(rootB);
+
+        const originalBApplied = waitForEvent(
+            info.signalEvent,
+            'original settings of root b',
+            (signal) => signal.kind === CustomLSP.TestSignalKinds.Initialization && signal.uri === rootB
+        );
+        releaseOriginalB();
+        await originalBApplied;
+        releaseRefreshA();
+        releaseRefreshB();
+
+        expect(await symbols).toEqual([needle]);
+        expect(await getWorkspaceSymbols(info, 'needle')).toEqual([needle]);
+    });
+
+    test('Workspace-wide request cancelled while settings are pending skips the source scan', async () => {
+        const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, leafCode, /* callInitialize */ false);
+        const lib = getDocument(info, 'leaf');
+        const nextSettingsRequest = holdWorkspaceSettings(info);
+        const scanLogs = () =>
+            info.logs.filter((log) => /Found \d+ source file|No source files found/.test(log.message));
+
+        await initialize(info);
+        openDocument(info, lib.uri, lib.text);
+        const releaseSettings = await nextSettingsRequest(info.projectRoots[0].toString());
+
+        const source = new CancellationTokenSource();
+        const uris = renameLeaf(info, source.token);
+        source.cancel();
+        releaseSettings();
+
+        await expect(uris).rejects.toHaveProperty('code', LSPErrorCodes.RequestCancelled);
+        expect(scanLogs()).toEqual([]);
+
+        await renameLeaf(info);
+        expect(scanLogs()).not.toEqual([]);
+    });
 
     [false, true].forEach((supportsPullDiagnostics) => {
         describe(`Diagnostics ${supportsPullDiagnostics ? 'pull' : 'push'}`, () => {
