@@ -1786,6 +1786,7 @@ export interface NumberNode extends ParseNodeBase<ParseNodeType.Number> {
         value: number | bigint;
         isInteger: boolean;
         isImaginary: boolean;
+        hasParens: boolean;
     };
 }
 
@@ -1802,6 +1803,7 @@ export namespace NumberNode {
                 value: token.value,
                 isInteger: token.isInteger,
                 isImaginary: token.isImaginary,
+                hasParens: false,
             },
         };
 
@@ -1842,6 +1844,7 @@ export interface FormatStringNode extends ParseNodeBase<ParseNodeType.FormatStri
         middleTokens: FStringMiddleToken[];
         fieldExprs: ExpressionNode[];
         formatExprs: ExpressionNode[];
+        sourceContents?: string;
 
         // Include a dummy "value" to simplify other code.
         value: '';
@@ -1855,7 +1858,8 @@ export namespace FormatStringNode {
         endToken: FStringEndToken | undefined,
         middleTokens: FStringMiddleToken[],
         fieldExprs: ExpressionNode[],
-        formatExprs: ExpressionNode[]
+        formatExprs: ExpressionNode[],
+        sourceContents?: string
     ) {
         const node: FormatStringNode = {
             start: startToken.start,
@@ -1869,6 +1873,7 @@ export namespace FormatStringNode {
                 middleTokens,
                 fieldExprs,
                 formatExprs,
+                sourceContents,
                 value: '',
             },
         };

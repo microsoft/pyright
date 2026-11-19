@@ -1481,6 +1481,22 @@ test('DisjointBase2', () => {
     TestUtils.validateResults(analysisResults, 11);
 });
 
+test('Comprehension12', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_15;
+    const results = TestUtils.typeAnalyzeSampleFiles(['comprehension12.py'], configOptions);
+    TestUtils.validateResults(results, 2);
+    assert.deepStrictEqual(
+        results[0].errors
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+            .sort(([left], [right]) => Number(left) - Number(right)),
+        [
+            [24, DiagnosticRule.reportArgumentType],
+            [38, DiagnosticRule.reportGeneralTypeIssues],
+        ]
+    );
+});
+
 test('DisjointBase3', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = pythonVersion3_15;

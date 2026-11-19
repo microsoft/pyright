@@ -354,7 +354,8 @@ export function createCollectionInference(context: Context) {
         typeResults: TypeResultWithNode[],
         flags: EvalFlags,
         hasExpectedType: boolean,
-        preserveLiterals = false
+        preserveLiterals = false,
+        forceStrictInference = false
     ): Type {
         const fallbackType = hasExpectedType ? AnyType.create() : UnknownType.create();
         const types = typeResults.map((result) =>
@@ -369,7 +370,11 @@ export function createCollectionInference(context: Context) {
         if (types.length === 0) {
             return fallbackType;
         }
-        if (nodeInfo.getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || hasExpectedType) {
+        if (
+            forceStrictInference ||
+            hasExpectedType ||
+            nodeInfo.getFileInfo(node).diagnosticRuleSet.strictDictionaryInference
+        ) {
             return combineTypes(types);
         }
         return areTypesSame(types, { ignorePseudoGeneric: true }) ? types[0] : fallbackType;
@@ -1122,7 +1127,8 @@ export function createCollectionInference(context: Context) {
                             keys,
                             flags,
                             !!expectedMappingType,
-                            !!expectedKeyType && containsLiteralType(expectedKeyType)
+                            !!expectedKeyType && containsLiteralType(expectedKeyType),
+                            /* forceStrictInference */ true
                         )
                     );
                     valueTypes.push(
@@ -1131,7 +1137,8 @@ export function createCollectionInference(context: Context) {
                             values,
                             flags,
                             !!expectedMappingType,
-                            !!expectedValueOrElementType && containsLiteralType(expectedValueOrElementType)
+                            !!expectedValueOrElementType && containsLiteralType(expectedValueOrElementType),
+                            /* forceStrictInference */ true
                         )
                     );
                 }
