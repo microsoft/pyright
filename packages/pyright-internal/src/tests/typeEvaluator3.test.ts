@@ -594,6 +594,11 @@ test('Comprehension11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('LiteralsWideUnion1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literalsWideUnion1.py']);
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('Literals1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals1.py']);
 
