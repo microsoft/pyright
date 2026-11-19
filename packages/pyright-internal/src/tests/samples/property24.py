@@ -2,7 +2,7 @@
 # typed as a Callable (issue 11833).
 
 from collections.abc import Callable
-from typing import Self
+from typing import Self, TypeVar
 
 
 class C:
@@ -61,6 +61,42 @@ def test_self(obj: SelfCallbackChild) -> None:
     # Self in the setter's value type should be solved to the type of
     # the object being assigned to, not the class that declares it.
     obj.callback = lambda other: other.child_only()
+
+
+class SelfIdentityBase:
+    @property
+    def callback(self) -> Callable[[Self], Self]:
+        ...
+
+    @callback.setter
+    def callback(self, value: Callable[[Self], Self]) -> None:
+        ...
+
+
+class SelfIdentityA(SelfIdentityBase):
+    pass
+
+
+class SelfIdentityB(SelfIdentityBase):
+    pass
+
+
+TConstrained = TypeVar("TConstrained", SelfIdentityA, SelfIdentityB)
+TBound = TypeVar("TBound", bound=SelfIdentityBase)
+
+
+def test_self_constrained(obj: TConstrained) -> TConstrained:
+    obj.callback = lambda value: value
+    return obj
+
+
+def test_self_bound(obj: TBound) -> TBound:
+    obj.callback = lambda value: reveal_type(value, expected_text="TBound@test_self_bound")
+    return obj
+
+
+def test_self_concrete(obj: SelfIdentityA) -> None:
+    obj.callback = lambda value: reveal_type(value, expected_text="SelfIdentityA")
 
 def test_errors(c: C) -> None:
     # This should generate an error because lambda takes too many parameters.
