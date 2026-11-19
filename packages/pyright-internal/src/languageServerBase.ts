@@ -86,7 +86,7 @@ import { AnalyzerService, LibraryReanalysisTimeProvider, getNextServiceId } from
 import { IPythonMode } from './analyzer/sourceFile';
 import type { IBackgroundAnalysis } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
-import { CancelAfter } from './common/cancellationUtils';
+import { CancelAfter, raceCancellation } from './common/cancellationUtils';
 import { CaseSensitivityDetector } from './common/caseSensitivityDetector';
 import { getNestedProperty } from './common/collectionUtils';
 import { DiagnosticSeverityOverrides, getDiagnosticSeverityOverrides } from './common/commandLineOptions';
@@ -216,6 +216,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected readonly workspaceFactory: IWorkspaceFactory;
     protected readonly openFileMap = new Map<string, TextDocument>();
+    private readonly _pendingDocumentUpdates = new Set<Promise<void>>();
     protected readonly fs: FileSystem;
     protected readonly caseSensitiveDetector: CaseSensitivityDetector;
 
@@ -335,13 +336,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         return service;
     }
 
-    async getWorkspaces(): Promise<Workspace[]> {
-        const workspaces = this.workspaceFactory.items();
-        for (const workspace of workspaces) {
-            await workspace.isInitialized.promise;
-        }
+    async getWorkspaces(token?: CancellationToken): Promise<Workspace[]> {
+        for (;;) {
+            const pending = this.workspaceFactory.items().filter((workspace) => !workspace.isInitialized.resolved());
+            if (pending.length === 0) {
+                return this.workspaceFactory.items();
+            }
 
-        return workspaces;
+            await raceCancellation(token, Promise.all(pending.map((workspace) => workspace.isInitialized.promise)));
+        }
     }
 
     async getWorkspaceForFile(fileUri: Uri, pythonPath?: Uri): Promise<Workspace> {
@@ -553,9 +556,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         callHierarchy.onIncomingCalls(async (params, token) => this.onCallHierarchyIncomingCalls(params, token));
         callHierarchy.onOutgoingCalls(async (params, token) => this.onCallHierarchyOutgoingCalls(params, token));
 
-        this.connection.onDidOpenTextDocument(async (params) => this.onDidOpenTextDocument(params));
-        this.connection.onDidChangeTextDocument(async (params) => this.onDidChangeTextDocument(params));
-        this.connection.onDidCloseTextDocument(async (params) => this.onDidCloseTextDocument(params));
+        this.connection.onDidOpenTextDocument(async (params) =>
+            this._trackDocumentUpdate(this.onDidOpenTextDocument(params))
+        );
+        this.connection.onDidChangeTextDocument(async (params) =>
+            this._trackDocumentUpdate(this.onDidChangeTextDocument(params))
+        );
+        this.connection.onDidCloseTextDocument(async (params) =>
+            this._trackDocumentUpdate(this.onDidCloseTextDocument(params))
+        );
         this.connection.onDidChangeWatchedFiles((params) => this.onDidChangeWatchedFiles(params));
 
         this.connection.languages.diagnostics.on(async (params, token) => this.onDiagnostics(params, token));
@@ -797,6 +806,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             .map((loc) => Location.create(convertUriToLspUriString(workspace.service.fs, loc.uri), loc.range));
     }
 
+    protected async enumerateAllSourceFiles(workspaces: Workspace[], token: CancellationToken): Promise<void> {
+        await raceCancellation(token, Promise.allSettled(this._pendingDocumentUpdates));
+
+        for (const workspace of workspaces) {
+            await workspace.service.enumerateAllSourceFiles(token);
+        }
+    }
+
     protected async onReferences(
         params: ReferenceParams,
         token: CancellationToken,
@@ -830,7 +847,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 return;
             }
 
-            workspace.service.enumerateSourceFiles(0);
+            await this.enumerateAllSourceFiles([workspace], source.token);
             return workspace.service.run((program) => {
                 return new ReferencesProvider(
                     program,
@@ -873,8 +890,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         token: CancellationToken,
         resultReporter: ResultProgressReporter<SymbolInformation[]> | undefined
     ): Promise<SymbolInformation[] | WorkspaceSymbol[] | null | undefined> {
-        const workspaces = await this.getWorkspaces();
-        workspaces.forEach((workspace) => workspace.service.enumerateSourceFiles(0));
+        let workspaces: Workspace[];
+        do {
+            workspaces = await this.getWorkspaces(token);
+            await this.enumerateAllSourceFiles(workspaces, token);
+        } while (this.workspaceFactory.items().some((workspace) => !workspace.isInitialized.resolved()));
 
         return new WorkspaceSymbolProvider(workspaces, resultReporter, params.query, token).reportSymbols();
     }
@@ -1036,7 +1056,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             return;
         }
 
-        workspace.service.enumerateSourceFiles(0);
+        await this.enumerateAllSourceFiles([workspace], token);
         return workspace.service.run((program) => {
             return new RenameProvider(program, uri, params.position, token).renameSymbol(
                 params.newName,
@@ -1070,7 +1090,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             return null;
         }
 
-        workspace.service.enumerateSourceFiles(0);
+        await this.enumerateAllSourceFiles([workspace], token);
         return workspace.service.run((program) => {
             return new CallHierarchyProvider(program, uri, params.item.selectionRange.start, token).getIncomingCalls();
         }, token);
@@ -1565,6 +1585,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this._workspaceDiagnosticsProgressReporter?.end();
         this._workspaceDiagnosticsProgressReporter = undefined;
         expectedResolve({ items: [] });
+    }
+
+    private _trackDocumentUpdate(update: Promise<void>): Promise<void> {
+        this._pendingDocumentUpdates.add(update);
+        return update.finally(() => this._pendingDocumentUpdates.delete(update));
     }
 
     private _getCompatibleMarkupKind(clientSupportedFormats: MarkupKind[] | undefined) {
