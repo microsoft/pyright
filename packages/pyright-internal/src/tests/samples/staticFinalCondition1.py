@@ -16,3 +16,31 @@ def function_scope() -> None:
     local_value: Final[bool] = True
     if local_value:
         local_result: int = "error"
+
+
+# A function parameter shadows a module-level Final and must not be folded.
+FLAG: Final[bool] = True
+
+
+def shadowed(FLAG: bool) -> None:
+    if not FLAG:
+        shadowed_result: int = "error"
+
+
+# Final does not make a mutable container a static constant.
+ITEMS: Final[list[int]] = []
+ITEMS.append(1)
+if ITEMS:
+    mutable_result: int = "error"
+
+
+# A conditional declaration may not be assumed to have executed.
+def choose() -> bool:
+    return False
+
+
+if choose():
+    conditional_input: Final[bool] = False
+
+if conditional_input:
+    conditional_result: int = "error"

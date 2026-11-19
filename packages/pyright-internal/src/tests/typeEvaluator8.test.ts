@@ -1293,12 +1293,12 @@ test('StaticFinalCondition1', () => {
     configOptions.defaultPythonPlatform = 'Linux';
 
     const analysisResultsLinux = TestUtils.typeAnalyzeSampleFiles(['staticFinalCondition1.py'], configOptions);
-    TestUtils.validateResults(analysisResultsLinux, 2);
+    TestUtils.validateResults(analysisResultsLinux, 5);
 
     const windowsConfigOptions = new ConfigOptions(Uri.empty());
     windowsConfigOptions.defaultPythonPlatform = 'Windows';
     const analysisResultsWindows = TestUtils.typeAnalyzeSampleFiles(['staticFinalCondition1.py'], windowsConfigOptions);
-    TestUtils.validateResults(analysisResultsWindows, 2);
+    TestUtils.validateResults(analysisResultsWindows, 5);
 });
 
 test('StaticExpressionLiteral1', () => {

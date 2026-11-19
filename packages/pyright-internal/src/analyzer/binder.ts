@@ -1052,6 +1052,15 @@ export class Binder extends ParseTreeWalker {
 
         this._bindPossibleTupleNamedTarget(node.d.leftExpr);
 
+        // An import alias is only a valid static-expression source while it
+        // still refers to the imported module. Once the name is assigned, do
+        // not use it for later Final initializers.
+        if (node.d.leftExpr.nodeType === ParseNodeType.Name) {
+            this._sysImportAliases = this._sysImportAliases.filter(
+                (alias) => alias !== (node.d.leftExpr as NameNode).d.value
+            );
+        }
+
         if (node.d.leftExpr.nodeType === ParseNodeType.TypeAnnotation) {
             this._addStaticFinalConstant(node.d.leftExpr.d.valueExpr, node.d.leftExpr.d.annotation, node.d.rightExpr);
         }
@@ -1592,7 +1601,7 @@ export class Binder extends ParseTreeWalker {
             const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(
                 node.d.testExpr,
                 this._fileInfo.executionEnvironment,
-                this._definedConstants,
+                this._getDefinedConstantsForStaticEvaluation(node),
                 this._typingImportAliases,
                 this._sysImportAliases
             );
@@ -1635,7 +1644,7 @@ export class Binder extends ParseTreeWalker {
         const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             node.d.testExpr,
             this._fileInfo.executionEnvironment,
-            this._definedConstants,
+            this._getDefinedConstantsForStaticEvaluation(node),
             this._typingImportAliases,
             this._sysImportAliases
         );
@@ -3280,7 +3289,7 @@ export class Binder extends ParseTreeWalker {
         const staticValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             expression,
             this._fileInfo.executionEnvironment,
-            this._definedConstants,
+            this._getDefinedConstantsForStaticEvaluation(expression),
             this._typingImportAliases,
             this._sysImportAliases
         );
@@ -4048,7 +4057,11 @@ export class Binder extends ParseTreeWalker {
     private _addStaticFinalConstant(target: ExpressionNode, typeAnnotation: ExpressionNode, valueExpr: ExpressionNode) {
         // A module-level Final initialized with a statically known boolean can be
         // used as a static condition, just like an inline platform or version check.
-        if (this._currentScope.type !== ScopeType.Module || target.nodeType !== ParseNodeType.Name) {
+        if (
+            this._currentScope.type !== ScopeType.Module ||
+            target.nodeType !== ParseNodeType.Name ||
+            this._isInConditionallyExecutedModuleCode(target)
+        ) {
             return;
         }
 
@@ -4057,7 +4070,10 @@ export class Binder extends ParseTreeWalker {
             return;
         }
 
-        const staticValue = StaticExpressions.evaluateStaticBoolLikeExpression(
+        // Only a statically known bool is safe here. Bool-like literals such
+        // as [] and ... are not stable constants: Final prevents rebinding but
+        // does not prevent mutation, and an ellipsis in a stub is unknown.
+        const staticValue = StaticExpressions.evaluateStaticBoolExpression(
             valueExpr,
             this._fileInfo.executionEnvironment,
             this._definedConstants,
@@ -4067,6 +4083,32 @@ export class Binder extends ParseTreeWalker {
         if (staticValue !== undefined) {
             this._definedConstants.set(target.d.value, staticValue);
         }
+    }
+
+    private _getDefinedConstantsForStaticEvaluation(node: ParseNode): Map<string, boolean | string> {
+        // A module-level Final name can be shadowed by a function parameter or
+        // local assignment. Keep the conservative, configuration-only map in
+        // function scopes until static-expression evaluation is symbol-aware.
+        return ParseTreeUtils.getEnclosingFunction(node) ? this._fileInfo.definedConstants : this._definedConstants;
+    }
+
+    private _isInConditionallyExecutedModuleCode(node: ParseNode): boolean {
+        let current: ParseNode | undefined = node.parent;
+        while (current) {
+            switch (current.nodeType) {
+                case ParseNodeType.If:
+                case ParseNodeType.For:
+                case ParseNodeType.While:
+                case ParseNodeType.Try:
+                case ParseNodeType.With:
+                case ParseNodeType.Match:
+                    return true;
+                case ParseNodeType.Module:
+                    return false;
+            }
+            current = current.parent;
+        }
+        return false;
     }
 
     private _addInferredTypeAssignmentForVariable(
