@@ -449,6 +449,8 @@ test('printExpression parentheses', () => {
 //// [|/*marker7*/x if (1 if c else 2) else 3|]
 //// [|/*marker8*/-(1 if c else 2)|]
 //// [|/*marker9*/a if b else 2|]
+//// ([|/*marker10*/*(a if b else 2)|],)
+//// ([|/*marker11*/*(lambda: 1)|],)
     `;
     const state = parseAndGetTestState(code).state;
     checkExpression('marker1', '(a if b else 2) + 1');
@@ -460,6 +462,8 @@ test('printExpression parentheses', () => {
     checkExpression('marker7', 'x if (1 if c else 2) else 3');
     checkExpression('marker8', '-(1 if c else 2)');
     checkExpression('marker9', 'a if b else 2');
+    checkExpression('marker10', '*(a if b else 2)');
+    checkExpression('marker11', '*(lambda : 1)');
 
     function checkExpression(marker: string, expected: string) {
         const node = getNodeForRange(state, marker);

@@ -1,6 +1,6 @@
 ---
 name: pyright-pr-review
-description: Coordinates Pyright PR reviews, discusses remedies, and repairs or publishes changes when explicitly requested.
+description: Runs author preflights, coordinates Pyright PR reviews, and repairs or publishes changes when explicitly requested.
 tools: ['read', 'search', 'execute', 'edit', 'agent', 'web', 'create_pull_request', 'update_pull_request', 'reply_and_resolve_review_thread']
 disable-model-invocation: true
 include-custom-instructions: true
@@ -15,10 +15,19 @@ evidence, not votes.
 Read `docs/pr-review-agents.md`, `.github/copilot-instructions.md`, and `.github/agents/pyright-test-policy.md` before
 reviewing. Follow the shared review protocol in the guide. A request to review is not permission to fix or publish.
 
-Review is the default. Continue the conversation after a report: explain findings, compare remedies, and help the user
-decide whether a nearly correct PR is worth repairing. Discussion does not authorize source edits. Enter the repair phase
-below only when the user explicitly requests implementation. Commits and PR updates require their own explicit
-authorization, as described in the publishing phase; neither a review nor a repair request implicitly authorizes them.
+Full review is the default unless the user asks for an author preflight. Continue the conversation after a report:
+explain findings, compare remedies, and help the user decide whether a nearly correct PR is worth repairing. Discussion
+does not authorize source edits. Enter the repair phase below only when the user explicitly requests implementation.
+Commits and PR updates require their own explicit authorization, as described in the publishing phase; neither a review
+nor a repair request implicitly authorizes them.
+
+## Author preflight
+
+When asked for a preflight, check the selected local changes or draft PR head directly using the
+[TypeSpec skill's author preflight](../skills/pyright-pr-typespec-review/SKILL.md#author-preflight).
+This is a separate path: do not launch the five specialists, require a PR or feedback ledger, or issue a merge verdict.
+Use the local diff and available builds first. Return replayable findings, the checks run, and the most important gap.
+Do not edit tracked files or publish anything in this mode.
 
 ## Establish the review boundary
 

@@ -7,14 +7,19 @@
  * Generates Python stub (.pyi) file content from Pyright function type information.
  */
 
+import { getSentinelClass, isSentinelClass } from '../analyzer/sentinel';
 import { printType, PrintTypeFlags } from '../analyzer/typePrinter';
 import * as PyrightTypes from '../analyzer/types';
 import { getTypeVarArgsRecursive, TypeVarTransformer } from '../analyzer/typeUtils';
+import { assert } from '../common/debug';
 import { PythonVersion, pythonVersion3_10, pythonVersion3_11 } from '../common/pythonVersion';
 import { ParamCategory } from '../parser/parseNodes';
 import { Tokenizer } from '../parser/tokenizer';
 
 import { ITypeServerEvaluator } from './typeServerEvaluator';
+
+const sentinelIdentityPrefix = '# Sentinel identity: ';
+const newTypeIdentityPrefix = '# NewType identity: ';
 
 /**
  * Represents collected import statements needed for a stub file.
@@ -55,6 +60,12 @@ export interface StubGenerationOptions {
 export interface StubGenerationResult {
     stubContent: string; // The Python stub file content
     primaryDefinitionOffset: number; // Character offset to the primary definition in stubContent
+}
+
+export interface NewTypeStubIdentity {
+    fullName: string;
+    moduleName: string;
+    typeSourceId: PyrightTypes.TypeSourceId;
 }
 
 function getClassStubName(type: PyrightTypes.ClassType, context: StubGenerationContext): string {
@@ -604,6 +615,10 @@ export function generateStubFromClassType(
         return generatePartialStub(type, partialCall, options);
     }
 
+    if ((type.shared.flags & PyrightTypes.ClassTypeFlags.SentinelValueClass) !== 0) {
+        return generateSentinelStub(type);
+    }
+
     const context: StubGenerationContext = {
         imports: { imports: new Map() },
         pythonVersion: options.pythonVersion,
@@ -760,6 +775,100 @@ export function generateStubFromClassType(
     };
 }
 
+export function generateSentinelStub(type: PyrightTypes.ClassType): StubGenerationResult {
+    const sentinelClass = getSentinelClass(type);
+    if (!sentinelClass || !isSentinelClass(sentinelClass)) {
+        throw new Error(`Missing sentinel factory for '${type.shared.fullName}'`);
+    }
+    const identity = type.shared.sentinelIdentity;
+    assert(identity, `Missing sentinel identity for '${type.shared.fullName}'`);
+
+    // Direct assignment would rename the sentinel; list or nonconstant inference would erase TypeForm.
+    const call = `__sentinel_factory(${JSON.stringify(identity.name)})`;
+    const expression = type.props?.typeForm ? `(__sentinel_value := ${call})` : `[${call}][0]`;
+    const assignment = `__SENTINEL_VALUE = ${expression}`;
+    const stubContent =
+        [
+            '# This stub file was generated from Pyright type information',
+            `${sentinelIdentityPrefix}${JSON.stringify(identity)}`,
+            `from ${sentinelClass.shared.moduleName} import ${sentinelClass.shared.name} as __sentinel_factory`,
+            '',
+            identity.isSingleton ? assignment : `def __sentinel_allocation():\n    ${assignment}`,
+        ].join('\n') + '\n';
+    return { stubContent, primaryDefinitionOffset: stubContent.lastIndexOf(assignment) };
+}
+
+export function getSentinelStubIdentity(stubContent: string): PyrightTypes.SentinelIdentity | undefined {
+    const line = stubContent.split('\n', 2)[1];
+    if (!line?.startsWith(sentinelIdentityPrefix)) {
+        return undefined;
+    }
+
+    const identity: unknown = JSON.parse(line.slice(sentinelIdentityPrefix.length));
+    assert(
+        typeof identity === 'object' &&
+            identity !== null &&
+            'name' in identity &&
+            typeof identity.name === 'string' &&
+            'fullName' in identity &&
+            typeof identity.fullName === 'string' &&
+            'moduleName' in identity &&
+            typeof identity.moduleName === 'string' &&
+            'typeSourceId' in identity &&
+            typeof identity.typeSourceId === 'number' &&
+            Number.isSafeInteger(identity.typeSourceId) &&
+            identity.typeSourceId >= 0 &&
+            'isSingleton' in identity &&
+            typeof identity.isSingleton === 'boolean',
+        'Invalid sentinel identity in synthesized stub'
+    );
+    return {
+        name: identity.name,
+        fullName: identity.fullName,
+        moduleName: identity.moduleName,
+        typeSourceId: identity.typeSourceId,
+        isSingleton: identity.isSingleton,
+    };
+}
+
+export function getNewTypeStubHeader(type: PyrightTypes.ClassType): string {
+    return (
+        newTypeIdentityPrefix +
+        JSON.stringify({
+            fullName: type.shared.fullName,
+            moduleName: type.shared.moduleName,
+            typeSourceId: type.shared.typeSourceId,
+        } satisfies NewTypeStubIdentity)
+    );
+}
+
+export function getNewTypeStubIdentity(stubContent: string): NewTypeStubIdentity | undefined {
+    const line = stubContent.split('\n', 2)[1];
+    if (!line?.startsWith(newTypeIdentityPrefix)) {
+        return undefined;
+    }
+
+    const identity: unknown = JSON.parse(line.slice(newTypeIdentityPrefix.length));
+    assert(
+        typeof identity === 'object' &&
+            identity !== null &&
+            'fullName' in identity &&
+            typeof identity.fullName === 'string' &&
+            'moduleName' in identity &&
+            typeof identity.moduleName === 'string' &&
+            'typeSourceId' in identity &&
+            typeof identity.typeSourceId === 'number' &&
+            Number.isSafeInteger(identity.typeSourceId) &&
+            identity.typeSourceId >= 0,
+        'Invalid NewType identity in synthesized stub'
+    );
+    return {
+        fullName: identity.fullName,
+        moduleName: identity.moduleName,
+        typeSourceId: identity.typeSourceId,
+    };
+}
+
 /**
  * Generates a stub for a NewType class using NewType call syntax.
  */
@@ -790,6 +899,7 @@ function generateNewTypeStub(
     const importLines = generateImportStatements(context);
     const result: string[] = [];
     result.push('# This stub file was generated from Pyright type information');
+    result.push(getNewTypeStubHeader(type));
     result.push('');
     if (importLines.length > 0) {
         result.push(...importLines);
