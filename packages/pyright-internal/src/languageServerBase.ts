@@ -839,6 +839,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 ).reportReferences(uri, params.position, params.context.includeDeclaration, resultReporter);
             }, token);
         } finally {
+            if (this._pendingFindAllRefsCancellationSource === source) {
+                this._pendingFindAllRefsCancellationSource = undefined;
+            }
             progress.reporter.done();
             source.dispose();
         }
