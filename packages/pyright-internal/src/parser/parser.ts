@@ -5452,13 +5452,10 @@ export class Parser {
 
         this._reportStringTokenErrors(startToken);
 
-        const lastToken = endToken ?? this._tokenizerOutput!.tokens.getItemAt(this._tokenIndex - 1);
-        const escapedValue = cloneStr(
-            this._fileContents!.slice(
-                TextRange.getEnd(startToken),
-                lastToken.type === TokenType.FStringEnd ? lastToken.start : TextRange.getEnd(lastToken)
-            )
-        );
+        const escapedValue =
+            endToken && (endToken.flags & StringTokenFlags.Unterminated) === 0
+                ? cloneStr(this._fileContents!.slice(TextRange.getEnd(startToken), endToken.start))
+                : undefined;
 
         return FormatStringNode.create(
             this._getOwnerKey(),

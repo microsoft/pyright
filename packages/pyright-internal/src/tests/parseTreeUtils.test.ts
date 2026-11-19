@@ -420,6 +420,10 @@ test('printExpression format string', () => {
 //// [|/*marker6*/f"{x:{x}}"|]
 //// [|/*marker7*/f"{{x}} {x}"|]
 //// [|/*marker8*/f'''{x:>{x}d}'''|]
+//// [|/*marker9*/f"{x +
+//// 1}"|]
+//// [|/*marker10*/f"{x(|]
+//// def unrelated() -> int: return 123
     `;
     const state = parseAndGetTestState(code).state;
     checkExpression('marker1', 'f"{x}"');
@@ -430,6 +434,8 @@ test('printExpression format string', () => {
     checkExpression('marker6', 'f"{x:{x}}"');
     checkExpression('marker7', 'f"{{x}} {x}"');
     checkExpression('marker8', "f'''{x:>{x}d}'''");
+    checkExpression('marker9', 'f"{x +\n1}"');
+    checkExpression('marker10', 'f"{x(<Parse Error>)}"');
 
     function checkExpression(marker: string, expected: string) {
         const node = getNodeForRange(state, marker);
@@ -451,6 +457,8 @@ test('printExpression parentheses', () => {
 //// [|/*marker9*/a if b else 2|]
 //// ([|/*marker10*/*(a if b else 2)|],)
 //// ([|/*marker11*/*(lambda: 1)|],)
+//// [|/*marker12*/(lambda: (1))()|]
+//// [|/*marker13*/(a if b else 2)()|]
     `;
     const state = parseAndGetTestState(code).state;
     checkExpression('marker1', '(a if b else 2) + 1');
@@ -464,6 +472,8 @@ test('printExpression parentheses', () => {
     checkExpression('marker9', 'a if b else 2');
     checkExpression('marker10', '*(a if b else 2)');
     checkExpression('marker11', '*(lambda : 1)');
+    checkExpression('marker12', '(lambda : (1))()');
+    checkExpression('marker13', '(a if b else 2)()');
 
     function checkExpression(marker: string, expected: string) {
         const node = getNodeForRange(state, marker);

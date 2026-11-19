@@ -1847,8 +1847,8 @@ export interface FormatStringNode extends ParseNodeBase<ParseNodeType.FormatStri
         fieldExprs: ExpressionNode[];
         formatExprs: ExpressionNode[];
 
-        // Source text between the quotes.
-        escapedValue: string;
+        // Source text between the quotes, if the string is terminated.
+        escapedValue: string | undefined;
 
         // Include a dummy "value" to simplify other code.
         value: '';
@@ -1863,7 +1863,7 @@ export namespace FormatStringNode {
         middleTokens: FStringMiddleToken[],
         fieldExprs: ExpressionNode[],
         formatExprs: ExpressionNode[],
-        escapedValue: string
+        escapedValue: string | undefined
     ) {
         const node: FormatStringNode = {
             start: startToken.start,

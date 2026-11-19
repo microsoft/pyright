@@ -226,14 +226,16 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Call: {
-            let lhs = printExpression(node.d.leftExpr, flags);
+            const leftExpr = node.d.leftExpr;
+            let lhs = printExpression(leftExpr, flags);
 
             // Some left-hand expressions must be parenthesized.
             if (
-                node.d.leftExpr.nodeType !== ParseNodeType.MemberAccess &&
-                node.d.leftExpr.nodeType !== ParseNodeType.Name &&
-                node.d.leftExpr.nodeType !== ParseNodeType.Index &&
-                node.d.leftExpr.nodeType !== ParseNodeType.Call
+                leftExpr.nodeType !== ParseNodeType.MemberAccess &&
+                leftExpr.nodeType !== ParseNodeType.Name &&
+                leftExpr.nodeType !== ParseNodeType.Index &&
+                leftExpr.nodeType !== ParseNodeType.Call &&
+                !('hasParens' in leftExpr.d && leftExpr.d.hasParens)
             ) {
                 lhs = `(${lhs})`;
             }
@@ -365,7 +367,14 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 exprString += 't';
             }
 
-            const escapedString = node.d.escapedValue;
+            let escapedString = node.d.escapedValue;
+            if (escapedString === undefined) {
+                // The source of an unterminated string can run into the code that follows it.
+                escapedString = [...node.d.middleTokens, ...node.d.fieldExprs]
+                    .sort((a, b) => a.start - b.start)
+                    .map((item) => ('nodeType' in item ? `{${printExpression(item)}}` : item.escapedValue))
+                    .join('');
+            }
 
             if (node.d.token.flags & StringTokenFlags.Triplicate) {
                 if (node.d.token.flags & StringTokenFlags.SingleQuote) {
