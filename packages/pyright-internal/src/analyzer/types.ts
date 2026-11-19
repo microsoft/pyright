@@ -4343,17 +4343,46 @@ function _combineTypes(subtypes: Type[], options?: CombineTypesOptions): Type {
         newUnionType.priv.typeAliasSources = typeAliasSources;
     }
 
+    const first = expandedTypes[0];
+    // Specialized TypedDicts use exact deduplication rather than presence-subset merging.
+    const typedDictPresenceIndex =
+        expandedTypes.length >= 32 &&
+        isClassInstance(first) &&
+        ClassType.isTypedDictClass(first) &&
+        !ClassType.isBuiltIn(first) &&
+        !ClassType.isPseudoGenericClass(first) &&
+        expandedTypes.every(
+            (type) =>
+                isClassInstance(type) &&
+                type.shared === first.shared &&
+                type.priv.typeArgs !== undefined &&
+                type.priv.literalValue === undefined &&
+                !type.priv.isEmptyContainer &&
+                !type.priv.isExactStringFlow &&
+                !type.props?.inferredTupleLiteral
+        ) &&
+        expandedTypes.some((type) => isClassInstance(type) && !!type.priv.typedDictNarrowedEntries?.size)
+            ? new Map<string, ClassType[]>()
+            : undefined;
+
+    const elideRedundantLiterals = !options?.skipElideRedundantLiterals;
     let hitMaxSubtypeCount = false;
 
     expandedTypes.forEach((subtype, index) => {
-        if (index === 0) {
-            UnionType.addType(newUnionType, subtype as UnionableType);
-        } else {
-            if (options?.maxSubtypeCount === undefined || newUnionType.priv.subtypes.length < options.maxSubtypeCount) {
-                _addTypeIfUnique(newUnionType, subtype as UnionableType, !options?.skipElideRedundantLiterals);
+        if (
+            index === 0 ||
+            options?.maxSubtypeCount === undefined ||
+            newUnionType.priv.subtypes.length < options.maxSubtypeCount
+        ) {
+            if (typedDictPresenceIndex && isClassInstance(subtype)) {
+                _addSpecializedTypedDictIfUnique(newUnionType, subtype, typedDictPresenceIndex, elideRedundantLiterals);
+            } else if (index === 0) {
+                UnionType.addType(newUnionType, subtype as UnionableType);
             } else {
-                hitMaxSubtypeCount = true;
+                _addTypeIfUnique(newUnionType, subtype as UnionableType, elideRedundantLiterals);
             }
+        } else {
+            hitMaxSubtypeCount = true;
         }
     });
 
@@ -4367,6 +4396,37 @@ function _combineTypes(subtypes: Type[], options?: CombineTypesOptions): Type {
     }
 
     return newUnionType;
+}
+
+function _addSpecializedTypedDictIfUnique(
+    unionType: UnionType,
+    subtype: ClassType,
+    presenceIndex: Map<string, ClassType[]>,
+    elideRedundantLiterals: boolean
+) {
+    const entries = subtype.priv.typedDictNarrowedEntries;
+    // Equal variants have identical key-presence facts regardless of insertion order.
+    const key = entries
+        ? JSON.stringify([...entries.keys()].sort().map((name) => [name, entries.get(name)!.isProvided]))
+        : '';
+    const candidates = presenceIndex.get(key);
+    if (candidates) {
+        // The general elision check ignores type forms even for non-literals.
+        if (
+            candidates.some(
+                (candidate) =>
+                    isTypeSame(candidate, subtype, { honorTypeForm: true }) ||
+                    (elideRedundantLiterals && isSameWithoutLiteralValue(candidate, subtype))
+            )
+        ) {
+            return;
+        }
+        candidates.push(subtype);
+    } else {
+        presenceIndex.set(key, [subtype]);
+    }
+
+    UnionType.addType(unionType, subtype);
 }
 
 // Determines whether the dest type is the same as the source type with
