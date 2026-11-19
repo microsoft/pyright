@@ -63,6 +63,7 @@ import {
     TypedDictEntry,
     TypeVarScopeType,
     TypeVarType,
+    UnionType,
     UnknownType,
 } from './types';
 import {
@@ -644,7 +645,7 @@ export function synthesizeTypedDictClassMethods(
             updateMethod2.shared.declaredReturnType = evaluator.getNoneType();
             updateMethod3.shared.declaredReturnType = evaluator.getNoneType();
 
-            const tuplesToCombine: Type[] = [];
+            const tuplesToCombine: ClassType[] = [];
             const tupleClass = evaluator.getBuiltInType(node, 'tuple');
 
             entries.knownItems.forEach((entry, name) => {
@@ -679,12 +680,31 @@ export function synthesizeTypedDictClassMethods(
             const iterableClass = evaluator.getTypingType(node, 'Iterable');
             if (iterableClass && isInstantiableClass(iterableClass)) {
                 const iterableType = ClassType.cloneAsInstance(iterableClass);
+                const firstTuple = tuplesToCombine[0];
+                let elementType: Type;
+                if (
+                    tuplesToCombine.length > 1 &&
+                    ClassType.isBuiltIn(firstTuple, 'tuple') &&
+                    !ClassType.isPseudoGenericClass(firstTuple) &&
+                    !ClassType.isTypedDictClass(firstTuple) &&
+                    firstTuple.priv.literalValue === undefined &&
+                    !firstTuple.priv.isEmptyContainer &&
+                    tuplesToCombine.every((tuple) => !tuple.props?.inferredTupleLiteral)
+                ) {
+                    // Each synthesized tuple has a different literal key from knownItems.
+                    // Plain tuples cannot merge, so build the union in order without pairwise comparisons.
+                    const union = UnionType.create();
+                    tuplesToCombine.forEach((tuple) => UnionType.addType(union, tuple));
+                    elementType = union;
+                } else {
+                    elementType = combineTypes(tuplesToCombine);
+                }
 
                 FunctionType.addParam(
                     updateMethod2,
                     FunctionParam.create(
                         ParamCategory.Simple,
-                        ClassType.specialize(iterableType, [combineTypes(tuplesToCombine)]),
+                        ClassType.specialize(iterableType, [elementType]),
                         FunctionParamFlags.TypeDeclared,
                         '__m'
                     )

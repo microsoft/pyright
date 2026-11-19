@@ -13,7 +13,7 @@ import * as assert from 'assert';
 import { ConstraintTracker } from '../analyzer/constraintTracker';
 import { assignClassToProtocol, tryFastRejectSequenceProtocol } from '../analyzer/protocols';
 import { AssignTypeFlags } from '../analyzer/typeEvaluatorTypes';
-import { AnyType, ClassType, isClassInstance, TypeVarType, UnknownType } from '../analyzer/types';
+import { AnyType, ClassType, isClass, isClassInstance, TypeVarType, UnknownType } from '../analyzer/types';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -1925,6 +1925,54 @@ test('TypedDict23', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict23.py']);
 
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('TypedDictUpdatePairs', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const results = TestUtils.typeAnalyzeSampleFiles(['typedDictUpdatePairs.py'], configOptions);
+
+    TestUtils.validateResults(results, 4);
+    assert.deepStrictEqual(
+        results[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [32, DiagnosticRule.reportCallIssue],
+            [32, DiagnosticRule.reportArgumentType],
+            [33, DiagnosticRule.reportCallIssue],
+            [33, DiagnosticRule.reportArgumentType],
+        ]
+    );
+});
+
+test('TypedDictUpdatePairsAvoidsPairwiseKeyComparisons', () => {
+    const fieldCount = 64;
+    const fields = Array.from({ length: fieldCount }, (_, index) => `////     perf_key_${index}: int`).join('\n');
+    const { state } = parseAndGetTestState(`
+// @filename: test.py
+//// from typing import TypedDict
+//// class Payload(TypedDict):
+${fields}
+//// /*payload*/Payload
+    `);
+    const node = getNodeAtMarker(state, 'payload');
+    assert.strictEqual(node.nodeType, ParseNodeType.Name);
+    const original = ClassType.isLiteralValueSame;
+    let comparisons = 0;
+    const spy = jest.spyOn(ClassType, 'isLiteralValueSame').mockImplementation((left, right) => {
+        const a = left.priv.literalValue;
+        const b = right.priv.literalValue;
+        if (typeof a === 'string' && typeof b === 'string' && a.startsWith('perf_key_') && b.startsWith('perf_key_')) {
+            comparisons++;
+        }
+        return original(left, right);
+    });
+    try {
+        const type = state.program.evaluator!.getTypeOfExpression(node).type;
+        assert.ok(isClass(type) && ClassType.getSymbolTable(type).has('update'));
+        assert.ok(comparisons <= 2 * fieldCount, `Observed ${comparisons} key comparisons for ${fieldCount} fields`);
+    } finally {
+        spy.mockRestore();
+    }
 });
 
 test('TypedDict24', () => {
