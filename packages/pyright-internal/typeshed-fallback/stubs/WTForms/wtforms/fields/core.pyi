@@ -4,6 +4,7 @@ from typing import Any, Generic, Protocol, TypeAlias, TypeVar, overload, type_ch
 from typing_extensions import Self
 
 from markupsafe import Markup
+from wtforms.datalist import DataList
 from wtforms.form import BaseForm
 from wtforms.meta import DefaultMeta, _MultiDictLikeWithGetlist, _SupportsGettextAndNgettext
 
@@ -24,6 +25,16 @@ class _Validator(Protocol[_FormT_contra, _FieldT_contra]):
 class _Widget(Protocol[_FieldT_contra]):
     def __call__(self, field: _FieldT_contra, **kwargs: Any) -> Markup: ...
 
+# A deferred translation such as flask_babel's LazyString: labels and
+# descriptions render it through markupsafe.escape(), and some validators
+# %-format their message before raising.
+@type_check_only
+class _LazyString(Protocol):
+    def __html__(self) -> str: ...
+    def __mod__(self, value: Any, /) -> str: ...
+
+_Text: TypeAlias = str | _LazyString
+
 class Field:
     errors: Sequence[str]
     process_errors: Sequence[str]
@@ -37,7 +48,7 @@ class Field:
     do_not_call_in_templates: bool
     meta: DefaultMeta
     default: Any | None
-    description: str
+    description: _Text
     render_kw: dict[str, Any]
     filters: Sequence[_Filter]
     flags: Flags
@@ -46,13 +57,14 @@ class Field:
     id: str
     type: str
     label: Label
+    invalid_value_message: _Text | None
     # technically this can return UnboundField, but that is not allowed
     # by type checkers, so we use a descriptor hack to get around this
     # limitation instead
     def __new__(cls, *args: Any, **kwargs: Any) -> Self: ...
     def __init__(
         self,
-        label: str | None = None,
+        label: _Text | None = None,
         # for tuple we can be a bit more type safe and only accept validators
         # that would work on this or a less specific field, but in general it
         # would be too annoying to restrict to Sequence[_Validator], since mypy
@@ -60,19 +72,29 @@ class Field:
         # the common base class between all validators
         validators: tuple[_Validator[_FormT, Self], ...] | list[Any] | None = None,
         filters: Sequence[_Filter] = (),
-        description: str = "",
+        description: _Text = "",
         id: str | None = None,
         default: object | None = None,
+        invalid_value_message: _Text | None = None,
         widget: _Widget[Self] | None = None,
         render_kw: dict[str, Any] | None = None,
         name: str | None = None,
+        datalist: DataList | str | None = None,
         _form: BaseForm | None = None,
         _prefix: str = "",
         _translations: _SupportsGettextAndNgettext | None = None,
         _meta: DefaultMeta | None = None,
     ) -> None: ...
-    def __html__(self) -> str: ...
-    def __call__(self, **kwargs: object) -> Markup: ...
+    def __html__(self) -> Markup: ...
+    # these kwargs get passed to `DefaultMeta.render_field`, which by default invokes
+    # `Widget.__call__` with the same kwargs. Although different meta classes could
+    # choose to special-case some parameters.
+    # see the comment on `wtforms.widgets.core._RenderArg` for a thorough explanation
+    # of the `render_kw` use-case
+    def __call__(self, **kwargs: Any) -> Markup: ...
+    # these kwargs get passed to the `DataListWidget` tied to the bound `DataList`
+    # see the comment on `wtforms.widgets.core._RenderArg` for a thorough explanation
+    def datalist(self, **kwargs: Any) -> Markup: ...
     @classmethod
     def check_validators(cls, validators: Iterable[_Validator[_FormT, Self]] | None) -> None: ...
     def gettext(self, string: str) -> str: ...
@@ -83,6 +105,7 @@ class Field:
     def process(
         self, formdata: _MultiDictLikeWithGetlist | None, data: Any = ..., extra_filters: Sequence[_Filter] | None = None
     ) -> None: ...
+    def post_process(self, formdata: _MultiDictLikeWithGetlist | None = None) -> None: ...
     def process_data(self, value: Any) -> None: ...
     def process_formdata(self, valuelist: list[Any]) -> None: ...
     def populate_obj(self, obj: object, name: str) -> None: ...
@@ -128,7 +151,7 @@ class Flags:
 
 class Label:
     field_id: str
-    text: str
-    def __init__(self, field_id: str, text: str) -> None: ...
+    text: _Text
+    def __init__(self, field_id: str, text: _Text) -> None: ...
     def __html__(self) -> str: ...
-    def __call__(self, text: str | None = None, **kwargs: Any) -> Markup: ...
+    def __call__(self, text: _Text | None = None, **kwargs: Any) -> Markup: ...

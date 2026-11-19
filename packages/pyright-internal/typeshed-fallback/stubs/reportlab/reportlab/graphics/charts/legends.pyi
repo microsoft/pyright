@@ -71,7 +71,7 @@ class TotalAnnotator(LegendColEndCallout):
         self,
         lText: str = "Total",
         rText: str = "0.0",
-        fontName="Times-Roman",
+        fontName: str | None = None,
         fontSize: int = 10,
         fillColor=...,
         strokeWidth: float = 0.5,

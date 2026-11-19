@@ -115,7 +115,7 @@ class _InfoDict(TypedDict, total=False):
     album_artist: Incomplete
     creator: str | None
 
-_StrNoDefaultOrNone: TypeAlias = str | None | type[NO_DEFAULT]
+_StrNoDefaultOrNone: TypeAlias = str | type[NO_DEFAULT] | None
 _T = TypeVar("_T")
 
 class InfoExtractor:

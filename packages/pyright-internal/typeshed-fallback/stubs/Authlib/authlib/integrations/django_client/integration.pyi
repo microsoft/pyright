@@ -1,9 +1,8 @@
-from _typeshed import Incomplete
+from django.dispatch import Signal
 
 from ..base_client import FrameworkIntegration
 
-# actual type is django.dispatch.Signal
-token_update: Incomplete
+token_update: Signal
 
 class DjangoIntegration(FrameworkIntegration):
     def update_token(self, token, refresh_token=None, access_token=None) -> None: ...

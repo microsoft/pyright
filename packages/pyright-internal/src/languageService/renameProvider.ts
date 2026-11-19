@@ -61,7 +61,7 @@ export function assertRenameTargetsAreUserCode(
 // Shared by the sync `RenameProvider` and the async aggregated rename provider to keep both paths
 // identical.
 export function getRenameSymbolRange(nodeAtOffset: ParseNode, lines: TextRangeCollection<TextRange>): Range {
-    const rangeSource = nodeAtOffset.nodeType === ParseNodeType.Name ? nodeAtOffset.d.token : nodeAtOffset;
+    const rangeSource = nodeAtOffset.nodeType === ParseNodeType.Name ? nodeAtOffset.d : nodeAtOffset;
     return convertTextRangeToRange(rangeSource, lines);
 }
 
@@ -100,7 +100,7 @@ export class RenameProvider {
         }
 
         // Return the range of the symbol.
-        return getRenameSymbolRange(referencesResult.nodeAtOffset, this._parseResults.tokenizerOutput.lines);
+        return getRenameSymbolRange(referencesResult.nodeAtOffset, this._parseResults.parserOutput.lines);
     }
 
     renameSymbol(newName: string, isDefaultWorkspace: boolean, isUntitled: boolean): WorkspaceEdit | null {

@@ -529,6 +529,11 @@
         "pattern": "^(.*)$"
       }
     },
+    "useDefaultExcludes": {
+      "type": "boolean",
+      "title": "Apply built-in excludes and automatically exclude virtual environment directories",
+      "default": true
+    },
     "ignore": {
       "type": "array",
       "title": "Files and directories whose diagnostics are suppressed",

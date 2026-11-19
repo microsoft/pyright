@@ -199,7 +199,8 @@ class KeepTogetherSplitAtTop(KeepTogether):
 
 class Macro(Flowable):
     command: str
-    def __init__(self, command: str) -> None: ...
+    g: dict[str, Any] | None
+    def __init__(self, command: str, g: dict[str, Any] | None = None) -> None: ...
     def draw(self) -> None: ...
 
 class CallerMacro(Flowable):

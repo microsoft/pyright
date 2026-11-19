@@ -33,7 +33,7 @@ class _dispatchable(Generic[_P, _R]):
         func: Callable[_P, _R] | None = None,
         *,
         name: str | None = None,
-        graphs: str | None | Mapping[str, int] = "G",
+        graphs: str | Mapping[str, int] | None = "G",
         edge_attrs: str | dict[str, Any] | None = None,
         node_attrs: str | dict[str, Any] | None = None,
         preserve_edge_attrs: bool = False,

@@ -117,18 +117,21 @@ result contract, and the comparator rejects mismatched environments.
 
 ## Maintainer workflow
 
-Pull requests that change `packages/pyright-internal/src/analyzer/` automatically run the hosted
-benchmark only after `Validation` succeeds, including all test platforms, type checking, style, and
+Pull requests that change `packages/pyright-internal/src/analyzer/` or
+`packages/pyright-internal/typeshed-fallback/` automatically run the hosted benchmark only after
+`Validation` succeeds, including all test platforms, type checking, style, and
 the build. `mypy_primer` also waits for successful Validation and runs on every pull request. For
 external contributors, both wait for a maintainer to approve workflows to run before Validation can
 start. Subsequent commits require successful Validation for the new head before either check runs.
 The trusted triggers run from the base repository and reject outdated PR heads.
 
-Both follow-up checks appear on the PR head as queued while Validation runs, then report their
-execution results with links to the workflow runs. If Validation does not pass, both are skipped;
-the benchmark is also skipped for PRs without analyzer changes. Check reporting does not change
-branch protection. Only trusted reporting jobs receive permission to write checks; jobs executing
-the candidate code keep read-only repository access.
+Both follow-ups appear as commit statuses on the PR head. Their links open Validation while it is
+pending and the corresponding workflow run once execution starts. If Validation does not pass, both
+are reported as successful with a description explaining they were skipped; the benchmark is also
+skipped for PRs without analyzer or bundled typeshed changes. Cancelled runs report an error.
+Reporting does not change branch protection. Only trusted reporting jobs can write commit statuses;
+jobs executing the candidate code keep read-only repository access. Check runs created before this
+change are not rewritten and can remain on existing PR heads.
 
 To run the benchmark again, or to run it for another pull request, a maintainer can comment exactly
 `/benchmark` on an open or merged pull request. The command must be the entire comment. The trusted
@@ -147,6 +150,15 @@ base and candidate sequentially on the same runner. When the run completes, a se
 validates the result's head, candidate, and first-parent commits, then renders the exact measured
 comparison using default-branch code. It creates or updates one benchmark comment. The trusted job runs on a separate runner with
 pull-request write permission. The Actions job summary and benchmark artifact contain both results.
+
+Each PR benchmark shard retries pnpm setup once if the initial bootstrap fails, allowing recovery
+from transient download failures. The setup action cleans its installation directory before each
+attempt. A second failure still fails the shard; missing package results remain an error.
+
+Shards must use matching benchmark settings and runner profiles. The descriptive `platform_details`
+field may differ when hosted runners use different kernel versions; merged results retain all distinct
+descriptions in sorted order. Platform, architecture, runner class and image, CPU count, and Python
+version must still match.
 
 The benchmark measures the exact first-parent and candidate commits on the same hosted runner. The
 trusted job appends both measurements to the checked-in Pyright release history and uploads an HTML

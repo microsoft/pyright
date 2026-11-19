@@ -15,29 +15,57 @@ permissions:
   pull-requests: write
 
 jobs:
-  trigger:
-    name: Authorize benchmark
+  head:
+    name: Resolve benchmark head
     if: >-
       ${{ github.repository == 'microsoft/pyright' &&
       ((github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/benchmark'))) }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      head-sha: ${{ steps.head.outputs.head-sha }}
+    steps:
+      - id: head
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            if (context.eventName === 'workflow_run') {
+              core.setOutput('head-sha', context.payload.workflow_run.head_sha)
+              return
+            }
+            if (context.payload.comment.body.trim() !== '/benchmark') {
+              core.notice('The benchmark command must be the entire comment')
+              return
+            }
+            const pullRequest = await github.rest.pulls.get({
+              ...context.repo, pull_number: context.issue.number,
+            })
+            core.setOutput('head-sha', pullRequest.data.head.sha)
+
+  trigger:
+    name: Authorize benchmark
+    needs: head
+    if: ${{ needs.head.outputs.head-sha != '' }}
     permissions:
       actions: read
       contents: read
       pull-requests: read
-      checks: write
+      statuses: write
     runs-on: ubuntu-latest
     concurrency:
-      group: pr-follow-up-Type checker benchmark-${{ github.event.workflow_run.head_sha || github.event.issue.number }}
+      group: pr-follow-up-Type checker benchmark-${{ needs.head.outputs.head-sha }}
       cancel-in-progress: false
+      queue: max
     outputs:
       pr-number: ${{ steps.resolve.outputs.pr-number }}
       head-sha: ${{ steps.resolve.outputs.head-sha }}
       base-sha: ${{ steps.resolve.outputs.base-sha }}
       merge-sha: ${{ steps.resolve.outputs.merge-sha }}
-      check-id: ${{ steps.resolve.outputs.check-id }}
+      status-id: ${{ steps.resolve.outputs.status-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,6 +75,8 @@ jobs:
       - name: Resolve benchmark revisions
         id: resolve
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          EXPECTED_HEAD_SHA: ${{ needs.head.outputs.head-sha }}
         with:
           script: |
             let issueNumber
@@ -56,22 +86,20 @@ jobs:
               if (!validated) return
               const { pullRequest, files } = validated
               issueNumber = pullRequest.number
-              if (!files.some((file) => file.filename.startsWith('packages/pyright-internal/src/analyzer/'))) {
+              if (!files.some((file) =>
+                file.filename.startsWith('packages/pyright-internal/src/analyzer/') ||
+                file.filename.startsWith('packages/pyright-internal/typeshed-fallback/')
+              )) {
                 const report = require('./build/reportPullRequestCheck.js')
                 await report({
-                  github, context, name: 'Type checker benchmark', headSha: pullRequest.head.sha,
+                  github, context, name: 'Type checker benchmark', headSha: pullRequest.head.sha, useCommitStatus: true,
                   status: 'completed', conclusion: 'skipped',
-                  summary: 'Not run because the pull request does not change analyzer sources.',
+                  summary: 'Not run because the pull request does not change analyzer sources or bundled typeshed.',
                 })
-                core.notice('The pull request does not change analyzer sources')
+                core.notice('The pull request does not change analyzer sources or bundled typeshed')
                 return
               }
             } else {
-              if (context.payload.comment.body.trim() !== '/benchmark') {
-                core.notice('The benchmark command must be the entire comment')
-                return
-              }
-
               const permission = await github.rest.repos.getCollaboratorPermissionLevel({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -90,11 +118,8 @@ jobs:
               repo: context.repo.repo,
               pull_number: issueNumber,
             })
-            if (
-              context.eventName === 'workflow_run' &&
-              pullRequest.data.head.sha !== context.payload.workflow_run.head_sha
-            ) {
-              core.notice('The pull request changed after Validation')
+            if (pullRequest.data.head.sha !== process.env.EXPECTED_HEAD_SHA) {
+              core.notice('The pull request changed while authorizing the benchmark')
               return
             }
             if (pullRequest.data.state !== 'open' && !pullRequest.data.merged) {
@@ -117,11 +142,12 @@ jobs:
               }
             }
             const report = require('./build/reportPullRequestCheck.js')
-            const checkId = await report({
-              github, context, name: 'Type checker benchmark', headSha: pullRequest.data.head.sha,
-              status: 'in_progress', summary: 'Running analyzer benchmarks after successful Validation.',
+            core.setOutput('head-sha', pullRequest.data.head.sha)
+            const statusId = await report({
+              github, context, name: 'Type checker benchmark', headSha: pullRequest.data.head.sha, useCommitStatus: true,
+              status: 'in_progress', summary: 'Running type checker benchmarks after successful Validation.',
             })
-            core.setOutput('check-id', checkId)
+            core.setOutput('status-id', statusId)
             let candidateRef
             if (pullRequest.data.merged) {
               candidateRef = pullRequest.data.merge_commit_sha
@@ -162,7 +188,6 @@ jobs:
               return
             }
             core.setOutput('pr-number', issueNumber)
-            core.setOutput('head-sha', pullRequest.data.head.sha)
             core.setOutput('base-sha', baseSha)
             core.setOutput('merge-sha', candidateSha)
 
@@ -184,13 +209,17 @@ jobs:
       merge_sha: ${{ needs.trigger.outputs.merge-sha }}
 
   report:
-    name: Report benchmark check
+    name: Report benchmark status
     needs: [trigger, benchmark]
-    if: ${{ always() && needs.trigger.outputs.check-id != '' }}
+    if: ${{ always() && needs.trigger.outputs.status-id != '' }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: pr-follow-up-Type checker benchmark-${{ needs.trigger.outputs.head-sha }}
+      cancel-in-progress: false
+      queue: max
     permissions:
       contents: read
-      checks: write
+      statuses: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -198,7 +227,8 @@ jobs:
           persist-credentials: false
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          CHECK_ID: ${{ needs.trigger.outputs.check-id }}
+          STATUS_ID: ${{ needs.trigger.outputs.status-id }}
+          HEAD_SHA: ${{ needs.trigger.outputs.head-sha }}
           TRIGGER_RESULT: ${{ needs.trigger.result }}
           BENCHMARK_RESULT: ${{ needs.benchmark.result }}
         with:
@@ -209,6 +239,7 @@ jobs:
               : results.includes('cancelled') ? 'cancelled'
               : process.env.BENCHMARK_RESULT
             await report({
-              github, context, name: 'Type checker benchmark', checkId: process.env.CHECK_ID,
+              github, context, name: 'Type checker benchmark', headSha: process.env.HEAD_SHA,
+              statusId: process.env.STATUS_ID, useCommitStatus: true,
               conclusion, summary: `Type checker benchmark: ${conclusion}. See the workflow run for results.`,
             })
