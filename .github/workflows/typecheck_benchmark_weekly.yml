@@ -27,6 +27,15 @@ jobs:
           - ty
           - mypy
           - zuban
+        include:
+          - checker: pyrefly
+            version: '1.5.0'
+          - checker: ty
+            version: '0.0.107'
+          - checker: mypy
+            version: '2.4.1'
+          - checker: zuban
+            version: '0.10.2'
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -47,7 +56,7 @@ jobs:
 
       - name: Install ${{ matrix.checker }}
         if: ${{ matrix.checker != 'pyright' }}
-        run: python -m pip install --upgrade '${{ matrix.checker }}'
+        run: python -m pip install '${{ matrix.checker }}==${{ matrix.version }}'
 
       - uses: pnpm/action-setup@5eea8caf49c844361c1e9ddc1324e179c54b58e9 # v6
         if: ${{ matrix.checker == 'pyright' }}

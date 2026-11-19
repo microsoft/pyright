@@ -244,6 +244,8 @@ peak-memory charts. Reports and artifacts are published before a failed comparis
 unsuccessful.
 
 The weekly workflow runs Pyright, Pyrefly, ty, mypy, and Zuban in independent hosted-runner jobs.
+It installs the exact versions of the four non-Pyright checkers pinned in the
+[workflow matrix](../../.github/workflows/typecheck_benchmark_weekly.yml).
 The Pyright job measures single-threaded mode and `--threads` mode sequentially on the same runner and
 prepared package corpus. Each mode performs three measured runs after one warmup. The report includes
 a per-package Pyright threading chart with wall time, peak RSS, and speedup. The aggregate job stores
