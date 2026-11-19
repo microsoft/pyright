@@ -111,6 +111,9 @@ export interface MatchedOverloadInfo {
     constraints: ConstraintTracker;
     argResults: ArgResult[];
     returnType: Type;
+
+    // The instance type inferred by a matched __init__ overload.
+    specializedInitSelfType?: Type;
 }
 
 export interface ValidateArgTypeOptions {
