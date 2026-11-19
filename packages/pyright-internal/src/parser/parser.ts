@@ -13,7 +13,6 @@
 
 import { Char } from '../common/charCodes';
 import { appendArray } from '../common/collectionUtils';
-import { cloneStr } from '../common/core';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
@@ -4393,8 +4392,7 @@ export class Parser {
                 possibleTupleNode.nodeType === ParseNodeType.Comprehension ||
                 possibleTupleNode.nodeType === ParseNodeType.AssignmentExpression ||
                 possibleTupleNode.nodeType === ParseNodeType.Ternary ||
-                possibleTupleNode.nodeType === ParseNodeType.Lambda ||
-                possibleTupleNode.nodeType === ParseNodeType.Number
+                possibleTupleNode.nodeType === ParseNodeType.Lambda
             ) {
                 possibleTupleNode.d.hasParens = true;
             }
@@ -5452,21 +5450,13 @@ export class Parser {
 
         this._reportStringTokenErrors(startToken);
 
-        // Recovery can consume tokens from later statements. Only keep source text when
-        // normal parsing reached the closing quote of this string.
-        const sourceContents =
-            endToken && (endToken.flags & StringTokenFlags.Unterminated) === 0
-                ? cloneStr(this._fileContents!.slice(TextRange.getEnd(startToken), endToken.start))
-                : undefined;
-
         return FormatStringNode.create(
             this._getOwnerKey(),
             startToken,
             endToken,
             middleTokens,
             fieldExpressions,
-            formatExpressions,
-            sourceContents
+            formatExpressions
         );
     }
 

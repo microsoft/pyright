@@ -409,68 +409,6 @@ test('printExpression set', () => {
     }
 });
 
-test('printExpression preserves grouping without doubling parentheses', () => {
-    const code = `
-//// [|/*ternary*/(a if b else c) + 1|]
-//// ([|/*starred*/*(a if b else c)|],)
-//// ([|/*starredLambda*/*(lambda: a)|],)
-//// [|/*call*/(lambda: (1))()|]
-//// [|/*index*/(a if b else c)[0]|]
-//// [|/*attribute*/(1).real|]
-//// [|/*attributeString*/("a" "b").upper|]
-//// [|/*walrus*/(a := b) + 1|]
-//// [|/*float*/1.0|]
-//// [|/*infinite*/1e999|]
-    `;
-    const state = parseAndGetTestState(code).state;
-    for (const [marker, expected] of [
-        ['ternary', '(a if b else c) + 1'],
-        ['starred', '*(a if b else c)'],
-        ['starredLambda', '*(lambda : a)'],
-        ['call', '(lambda : (1))()'],
-        ['index', '(a if b else c)[0]'],
-        ['attribute', '(1).real'],
-        ['attributeString', '("a" "b").upper'],
-        ['walrus', '(a := b) + 1'],
-        ['float', '1.0'],
-        ['infinite', '1e999'],
-    ]) {
-        const node = getNodeForRange(state, marker);
-        assert(isExpressionNode(node));
-        assert.strictEqual(printExpression(node), expected, marker);
-    }
-});
-
-test('printExpression preserves valid format string source', () => {
-    const code = `
-//// [|/*debug*/f"{x+1 = !r:>10}"|]
-//// [|/*template*/rt"{x:{width}}"|]
-//// [|/*multiline*/f"""{x
-////     !r}"""|]
-    `;
-    const state = parseAndGetTestState(code).state;
-    for (const [marker, expected] of [
-        ['debug', 'f"{x+1 = !r:>10}"'],
-        ['template', 'rt"{x:{width}}"'],
-        ['multiline', 'f"""{x\n    !r}"""'],
-    ]) {
-        const node = getNodeForRange(state, marker);
-        assert(isExpressionNode(node));
-        assert.strictEqual(printExpression(node), expected, marker);
-    }
-});
-
-test('printExpression excludes trailing source during format string error recovery', () => {
-    const code = `
-//// x = 1
-//// reveal_type(f"{/*broken*/x(
-//// def unrelated() -> int: return 123
-    `;
-    const broken = getFirstAncestorOrSelfOfKind(getNodeAtMarker(code, 'broken'), ParseNodeType.FormatString);
-    assert.ok(broken);
-    assert.strictEqual(printExpression(broken), 'f"{x(<Parse Error>)}"');
-});
-
 test('printExpression forward declarations use parser annotations but not owner annotations', () => {
     const code = `
 //// from typing import cast

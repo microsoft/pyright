@@ -226,24 +226,14 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Call: {
-            const callee = node.d.leftExpr;
-            let lhs = printExpression(callee, flags);
-            const hasPrintedParens =
-                (callee.nodeType === ParseNodeType.Ternary ||
-                    callee.nodeType === ParseNodeType.Lambda ||
-                    callee.nodeType === ParseNodeType.Number ||
-                    callee.nodeType === ParseNodeType.AssignmentExpression ||
-                    (callee.nodeType === ParseNodeType.StringList &&
-                        !(flags & PrintExpressionFlags.ForwardDeclarations && getParserStringAnnotation(callee)))) &&
-                callee.d.hasParens;
+            let lhs = printExpression(node.d.leftExpr, flags);
 
             // Some left-hand expressions must be parenthesized.
             if (
-                !hasPrintedParens &&
-                callee.nodeType !== ParseNodeType.MemberAccess &&
-                callee.nodeType !== ParseNodeType.Name &&
-                callee.nodeType !== ParseNodeType.Index &&
-                callee.nodeType !== ParseNodeType.Call
+                node.d.leftExpr.nodeType !== ParseNodeType.MemberAccess &&
+                node.d.leftExpr.nodeType !== ParseNodeType.Name &&
+                node.d.leftExpr.nodeType !== ParseNodeType.Index &&
+                node.d.leftExpr.nodeType !== ParseNodeType.Call
             ) {
                 lhs = `(${lhs})`;
             }
@@ -285,18 +275,10 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 value = value.substring(0, value.length - 1);
             }
 
-            if (!node.d.isInteger) {
-                if (!Number.isFinite(node.d.value)) {
-                    value = '1e999';
-                } else if (/^\d+$/.test(value)) {
-                    value += '.0';
-                }
-            }
-
             if (node.d.isImaginary) {
                 value += 'j';
             }
-            return node.d.hasParens ? `(${value})` : value;
+            return value;
         }
 
         case ParseNodeType.StringList: {
@@ -304,8 +286,11 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             if (flags & PrintExpressionFlags.ForwardDeclarations && annotation) {
                 return printExpression(annotation, flags);
             } else {
-                const exprStr = node.d.strings.map((str) => printExpression(str, flags)).join(' ');
-                return node.d.hasParens ? `(${exprStr})` : exprStr;
+                return node.d.strings
+                    .map((str) => {
+                        return printExpression(str, flags);
+                    })
+                    .join(' ');
             }
         }
 
@@ -355,16 +340,20 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.FormatString: {
-            const tokenFlags = node.d.token.flags;
-            let exprString = (tokenFlags & StringTokenFlags.Raw) !== 0 ? 'r' : '';
-            exprString += (tokenFlags & StringTokenFlags.Template) !== 0 ? 't' : 'f';
+            let exprString = 'f';
 
-            const escapedString =
-                node.d.sourceContents ??
-                [...node.d.middleTokens, ...node.d.fieldExprs]
-                    .sort((a, b) => a.start - b.start)
-                    .map((item) => ('nodeType' in item ? `{${printExpression(item)}}` : item.escapedValue))
-                    .join('');
+            let escapedString = '';
+            const itemsToPrint = [...node.d.middleTokens, ...node.d.fieldExprs].sort((a, b) => a.start - b.start);
+
+            while (itemsToPrint.length > 0) {
+                const itemToPrint = itemsToPrint.shift()!;
+
+                if ('nodeType' in itemToPrint) {
+                    escapedString += `{${printExpression(itemToPrint)}}`;
+                } else {
+                    escapedString += itemToPrint.escapedValue;
+                }
+            }
 
             if (node.d.token.flags & StringTokenFlags.Triplicate) {
                 if (node.d.token.flags & StringTokenFlags.SingleQuote) {
@@ -388,8 +377,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.AssignmentExpression: {
-            const exprStr = printExpression(node.d.name, flags) + ' := ' + printExpression(node.d.rightExpr, flags);
-            return node.d.hasParens ? `(${exprStr})` : exprStr;
+            return printExpression(node.d.name, flags) + ' := ' + printExpression(node.d.rightExpr, flags);
         }
 
         case ParseNodeType.TypeAnnotation: {
@@ -412,13 +400,13 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Ternary: {
-            const exprStr =
+            return (
                 printExpression(node.d.ifExpr, flags) +
                 ' if ' +
                 printExpression(node.d.testExpr, flags) +
                 ' else ' +
-                printExpression(node.d.elseExpr, flags);
-            return node.d.hasParens ? `(${exprStr})` : exprStr;
+                printExpression(node.d.elseExpr, flags)
+            );
         }
 
         case ParseNodeType.List: {
@@ -429,7 +417,14 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Unpack: {
-            return '*' + printExpression(node.d.expr, flags);
+            const operand = printExpression(node.d.expr, flags);
+            if (
+                (node.d.expr.nodeType === ParseNodeType.Ternary || node.d.expr.nodeType === ParseNodeType.Lambda) &&
+                node.d.expr.d.hasParens
+            ) {
+                return `*(${operand})`;
+            }
+            return '*' + operand;
         }
 
         case ParseNodeType.Tuple: {
@@ -515,7 +510,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Lambda: {
-            const exprStr =
+            return (
                 'lambda ' +
                 node.d.params
                     .map((param) => {
@@ -540,8 +535,8 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                     })
                     .join(', ') +
                 ': ' +
-                printExpression(node.d.expr, flags);
-            return node.d.hasParens ? `(${exprStr})` : exprStr;
+                printExpression(node.d.expr, flags)
+            );
         }
 
         case ParseNodeType.Constant: {
