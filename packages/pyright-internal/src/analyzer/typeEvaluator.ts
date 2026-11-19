@@ -1795,8 +1795,11 @@ export function createTypeEvaluator(
         // Consider only the metaclass class variables in this case.
         let skipObjectTypeLookup = objectTypeIsInstantiable && (flags & MemberAccessFlags.SkipInstanceMembers) !== 0;
 
-        // Look up the attribute in the metaclass first. If the member is a data descriptor,
-        // the Python runtime uses this descriptor to satisfy the lookup.
+        // Look up the attribute in the metaclass first. A metaclass data descriptor intercepts
+        // mutations of the class, so the class's own attribute can't override it. Both lookups
+        // apply if only some of the subtypes are data descriptors.
+        let partiallyInterceptingMetaclass: ClassType | undefined;
+
         if (objectTypeIsInstantiable && metaclass && isInstantiableClass(metaclass)) {
             const metaclassMember = lookUpClassMember(
                 metaclass,
@@ -1804,11 +1807,20 @@ export function createTypeEvaluator(
                 flags | MemberAccessFlags.SkipInstanceMembers
             );
 
-            if (
-                metaclassMember &&
-                isDataDescriptorInstance(getTypeOfMember(metaclassMember), /* requireGetter */ usage.method === 'get')
-            ) {
-                skipObjectTypeLookup = true;
+            if (metaclassMember) {
+                const metaclassMemberType = getTypeOfMember(metaclassMember);
+                const requireGetter = usage.method === 'get';
+
+                if (isDataDescriptorInstance(metaclassMemberType, requireGetter)) {
+                    skipObjectTypeLookup = true;
+                } else if (
+                    isUnion(metaclassMemberType) &&
+                    metaclassMemberType.priv.subtypes.some((subtype) =>
+                        isDataDescriptorInstance(subtype, requireGetter)
+                    )
+                ) {
+                    partiallyInterceptingMetaclass = metaclass;
+                }
             }
         }
 
@@ -1840,6 +1852,35 @@ export function createTypeEvaluator(
                 selfType,
                 recursionCount
             );
+
+            if (memberInfo && partiallyInterceptingMetaclass) {
+                const metaclassDiag = diag ? new DiagnosticAddendum() : undefined;
+                const metaclassMemberInfo = getTypeOfClassMemberName(
+                    errorNode,
+                    ClassType.cloneAsInstance(partiallyInterceptingMetaclass),
+                    memberName,
+                    usage,
+                    metaclassDiag,
+                    flags | MemberAccessFlags.DataDescriptorsOnly,
+                    objectType,
+                    recursionCount
+                );
+
+                if (metaclassMemberInfo) {
+                    if (metaclassMemberInfo.isDescriptorError && !memberInfo.isDescriptorError) {
+                        subDiag = metaclassDiag;
+                    }
+
+                    memberInfo = {
+                        ...memberInfo,
+                        type: combineTypes([memberInfo.type, metaclassMemberInfo.type]),
+                        isTypeIncomplete: memberInfo.isTypeIncomplete || metaclassMemberInfo.isTypeIncomplete,
+                        isDescriptorError: memberInfo.isDescriptorError || metaclassMemberInfo.isDescriptorError,
+                        isAsymmetricAccessor:
+                            memberInfo.isAsymmetricAccessor || metaclassMemberInfo.isAsymmetricAccessor,
+                    };
+                }
+            }
         }
 
         // If it wasn't found on the object, see if it's part of the metaclass.
@@ -4802,6 +4843,14 @@ export function createTypeEvaluator(
             type,
             (subtype) => {
                 const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+
+                if (
+                    (flags & MemberAccessFlags.DataDescriptorsOnly) !== 0 &&
+                    !isDataDescriptorInstance(concreteSubtype, /* requireGetter */ usage.method === 'get')
+                ) {
+                    return undefined;
+                }
+
                 const isClassMember = !memberInfo || (memberInfo.isClassMember && !memberInfo.isSlotsMember);
                 let resultType: Type;
 

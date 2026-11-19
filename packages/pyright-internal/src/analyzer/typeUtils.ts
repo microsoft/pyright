@@ -169,6 +169,9 @@ export const enum MemberAccessFlags {
     // TypedDict entries. These are not considered attributes of
     // the class and cannot be accessed using a member access expression.
     SkipTypedDictEntries = 1 << 12,
+
+    // Omit subtypes of the member's type that are not data descriptors.
+    DataDescriptorsOnly = 1 << 13,
 }
 
 export const enum ClassIteratorFlags {
