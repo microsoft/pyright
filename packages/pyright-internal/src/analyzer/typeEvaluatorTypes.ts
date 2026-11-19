@@ -928,6 +928,7 @@ export interface TypeEvaluator {
     ) => T;
     isSpeculativeModeInUse: (node: ParseNode | undefined) => boolean;
     setTypeResultForNode: (node: ParseNode, typeResult: TypeResult, flags?: EvalFlags) => void;
+    setSymbolResolutionPartialType: (symbol: Symbol, declaration: Declaration, type: Type) => void;
 
     getMaxCodeComplexity: () => number;
 

@@ -141,6 +141,19 @@ export function createNamedTupleType(
                 : assignmentNode.d.leftExpr;
         if (assignmentTarget.nodeType === ParseNodeType.Name) {
             evaluator.setTypeResultForNode(assignmentTarget, { type: classType });
+
+            // If the assignment is being evaluated to resolve an earlier reference
+            // to the symbol, register the class as a partial type so a recursive
+            // field type does not see the symbol as an unresolved variable.
+            const symbolWithScope = evaluator.lookUpSymbolRecursive(
+                assignmentTarget,
+                assignmentTarget.d.value,
+                /* honorCodeFlow */ false
+            );
+            const targetDecl = symbolWithScope?.symbol.getDeclarations().find((decl) => decl.node === assignmentTarget);
+            if (symbolWithScope && targetDecl) {
+                evaluator.setSymbolResolutionPartialType(symbolWithScope.symbol, targetDecl, classType);
+            }
         }
     }
 
@@ -268,9 +281,22 @@ export function createNamedTupleType(
                         if (entry.nodeType === ParseNodeType.Tuple && entry.d.items.length === 2) {
                             entryNameNode = entry.d.items[0];
                             entryTypeNode = entry.d.items[1];
-                            // The typing spec treats functional NamedTuple field types as
-                            // type expressions, same as class-based annotations.
-                            entryType = evaluator.getTypeOfAnnotation(entryTypeNode);
+                            if (entryTypeNode.nodeType === ParseNodeType.Ellipsis) {
+                                // A bare "..." is not a valid type expression. Report it, but
+                                // keep the value type so uses of the field are still checked.
+                                evaluator.addDiagnostic(
+                                    DiagnosticRule.reportInvalidTypeForm,
+                                    LocMessage.ellipsisContext(),
+                                    entryTypeNode
+                                );
+                                entryType = convertToInstance(
+                                    evaluator.getTypeOfExpressionExpectingType(entryTypeNode).type
+                                );
+                            } else {
+                                // The typing spec treats functional NamedTuple field types as
+                                // type expressions, same as class-based annotations.
+                                entryType = evaluator.getTypeOfAnnotation(entryTypeNode);
+                            }
                         } else {
                             evaluator.addDiagnostic(
                                 DiagnosticRule.reportArgumentType,
