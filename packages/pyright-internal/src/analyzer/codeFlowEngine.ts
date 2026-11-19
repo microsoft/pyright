@@ -214,6 +214,18 @@ const maxConvergenceAttemptLimit = 256;
 // default.
 const enablePrintConvergenceLimitHit = false;
 
+const assignmentRunThreshold = 32;
+
+interface NameAssignmentRun {
+    readonly nodes: FlowAssignment[];
+    readonly offsetsBySymbol: Map<number, number[]>;
+    readonly antecedent: FlowNode;
+}
+
+function isPlainNameAssignment(node: FlowNode): node is FlowAssignment {
+    return node.flags === FlowFlags.Assignment && (node as FlowAssignment).node.nodeType === ParseNodeType.Name;
+}
+
 export function getCodeFlowEngine(
     evaluator: TypeEvaluator,
     speculativeTypeTracker: SpeculativeTypeTracker,
@@ -223,10 +235,53 @@ export function getCodeFlowEngine(
     const reachabilityCache = new Map<number, ReachabilityCacheEntry>();
     const callIsNoReturnCache = new Map<number, boolean>();
     const isExceptionContextManagerCache = new Map<number, boolean>();
+    const nameAssignmentRuns = new WeakMap<FlowAssignment, { run: NameAssignmentRun; offset: number }>();
     let flowIncompleteGeneration = 1;
     let noReturnAnalysisDepth = 0;
     let contextManagerAnalysisDepth = 0;
     let maxConvergenceLimitHit = false;
+
+    function findInNameAssignmentRun(start: FlowAssignment, symbolId: number): FlowNode {
+        let entry = nameAssignmentRuns.get(start);
+        if (!entry) {
+            const nodes: FlowAssignment[] = [];
+            const offsetsBySymbol = new Map<number, number[]>();
+            let antecedent: FlowNode = start;
+            while (isPlainNameAssignment(antecedent) && !nameAssignmentRuns.has(antecedent)) {
+                let offsets = offsetsBySymbol.get(antecedent.targetSymbolId);
+                if (!offsets) {
+                    offsets = [];
+                    offsetsBySymbol.set(antecedent.targetSymbolId, offsets);
+                }
+                offsets.push(nodes.length);
+                nodes.push(antecedent);
+                antecedent = antecedent.antecedent;
+            }
+
+            const run: NameAssignmentRun = { nodes, offsetsBySymbol, antecedent };
+            nodes.forEach((node, offset) => nameAssignmentRuns.set(node, { run, offset }));
+            entry = { run, offset: 0 };
+        }
+
+        const { run, offset } = entry;
+        const offsets = run.offsetsBySymbol.get(symbolId);
+        if (offsets) {
+            let low = 0;
+            let high = offsets.length;
+            while (low < high) {
+                const mid = low + ((high - low) >> 1);
+                if (offsets[mid] < offset) {
+                    low = mid + 1;
+                } else {
+                    high = mid;
+                }
+            }
+            if (low < offsets.length) {
+                return run.nodes[offsets[low]];
+            }
+        }
+        return run.antecedent;
+    }
 
     // Creates a new code flow analyzer that can be used to narrow the types
     // of the expressions within an execution context. Each code flow analyzer
@@ -289,6 +344,7 @@ export function getCodeFlowEngine(
                     ? referenceKey + `.${options?.targetSymbolId.toString()}`
                     : '.';
             const flowNodeTypeCache = getFlowNodeTypeCacheForReference(referenceKeyWithSymbolId);
+            const nameSymbolId = reference?.nodeType === ParseNodeType.Name ? options?.targetSymbolId : undefined;
 
             // Caches the type of the flow node in our local cache, keyed by the flow node ID.
             function setCacheEntry(
@@ -488,7 +544,20 @@ export function getCodeFlowEngine(
                 // will be thrown at this point.
                 evaluator.checkForCancellation();
 
+                let unrelatedAssignments = 0;
                 while (true) {
+                    if (
+                        nameSymbolId !== undefined &&
+                        unrelatedAssignments >= assignmentRunThreshold &&
+                        isPlainNameAssignment(curFlowNode)
+                    ) {
+                        // Plain assignments to other symbols cannot cache a result or be pending for this name.
+                        curFlowNode = findInNameAssignmentRun(curFlowNode, nameSymbolId);
+                    }
+                    if (unrelatedAssignments && !isPlainNameAssignment(curFlowNode)) {
+                        unrelatedAssignments = 0;
+                    }
+
                     // Have we already been here? If so, use the cached value.
                     const cachedEntry = getCacheEntry(curFlowNode);
                     if (cachedEntry) {
@@ -712,6 +781,15 @@ export function getCodeFlowEngine(
                             }
                         }
 
+                        if (
+                            nameSymbolId !== undefined &&
+                            curFlowNode.flags === FlowFlags.Assignment &&
+                            targetNode.nodeType === ParseNodeType.Name
+                        ) {
+                            unrelatedAssignments++;
+                        } else {
+                            unrelatedAssignments = 0;
+                        }
                         curFlowNode = assignmentFlowNode.antecedent;
                         continue;
                     }
