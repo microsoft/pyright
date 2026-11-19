@@ -787,6 +787,7 @@ export interface TypeEvaluator {
     ) => Type;
     isTypeSubsumedByOtherType: (type: Type, otherType: Type, allowAnyToSubsume: boolean) => boolean;
     lookUpSymbolRecursive: (node: ParseNode, name: string, honorCodeFlow: boolean) => SymbolWithScope | undefined;
+    lookUpModuleMemberSymbol: (baseNameNode: NameNode, memberName: string) => Symbol | undefined;
     getDeclaredTypeOfSymbol: (symbol: Symbol) => DeclaredSymbolTypeInfo;
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getEffectiveTypeOfSymbolForUsage: (
