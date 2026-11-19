@@ -2157,15 +2157,34 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        // If it's a descriptor, we need to get the setter type.
-        if (useDescriptorSetterType && isClassInstance(declaredType)) {
-            const setter = getBoundMagicMethod(declaredType, '__set__');
-            if (setter && isFunction(setter) && setter.shared.parameters.length >= 2) {
-                declaredType = FunctionType.getParamType(setter, 1);
+        // If it's a descriptor, we need to get the setter type. A data descriptor
+        // without a setter provides no declared type for the assigned value.
+        if (useDescriptorSetterType) {
+            let isSetterTypeUnavailable = false;
 
-                if (isAnyOrUnknown(declaredType)) {
-                    return undefined;
+            declaredType = mapSubtypes(declaredType, (subtype) => {
+                if (!isClassInstance(subtype)) {
+                    return subtype;
                 }
+
+                const setter = getBoundMagicMethod(subtype, '__set__');
+                if (setter && isFunction(setter) && setter.shared.parameters.length >= 2) {
+                    const valueType = FunctionType.getParamType(setter, 1);
+                    if (isAnyOrUnknown(valueType)) {
+                        isSetterTypeUnavailable = true;
+                    }
+                    return valueType;
+                }
+
+                if (!setter && isDataDescriptorInstance(subtype, /* requireGetter */ false)) {
+                    isSetterTypeUnavailable = true;
+                }
+
+                return subtype;
+            });
+
+            if (isSetterTypeUnavailable) {
+                return undefined;
             }
         }
 

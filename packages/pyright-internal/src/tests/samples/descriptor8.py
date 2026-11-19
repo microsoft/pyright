@@ -52,3 +52,21 @@ def func6():
 def func7():
     # This should generate an error.
     ClassA.getset = 1
+
+
+class ClassB:
+    getdelete: GetDelete = GetDelete()
+
+
+class ClassC:
+    getdelete: GetSet | GetDelete = GetDelete()
+
+
+def func8(b: ClassB):
+    # This should generate an error.
+    b.getdelete = 1
+
+
+def func9(c: ClassC):
+    # This should generate an error.
+    c.getdelete = 1
