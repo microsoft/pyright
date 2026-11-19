@@ -2,6 +2,7 @@
 # a conditional statement. The operand must be of type bool or a type
 # that has a __bool__ method that returns a bool.
 
+from dataclasses import dataclass, field
 from typing import NoReturn, TypeVar
 
 
@@ -100,4 +101,29 @@ def func3(val: type[MetaDerived]):
 def func4(val: BoolIsNone):
     # This should generate an error.
     if val:
+        pass
+
+
+class AnnotationOnly:
+    __bool__: None
+
+
+class InstanceOnly:
+    __bool__: None
+
+    def __init__(self) -> None:
+        self.__bool__ = None
+
+
+@dataclass
+class DataClassField:
+    __bool__: None = field(default_factory=lambda: None)
+
+
+def func5(annotation_only: AnnotationOnly, instance_only: InstanceOnly, dataclass_field: DataClassField):
+    if annotation_only:
+        pass
+    if instance_only:
+        pass
+    if dataclass_field:
         pass

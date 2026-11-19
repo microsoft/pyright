@@ -89,7 +89,7 @@ import {
 } from '../parser/parseNodes';
 import { ParserOutput } from '../parser/parser';
 import { UnescapeError, UnescapeErrorType, getUnescapedString } from '../parser/stringTokenUtils';
-import { OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ConstraintSolution } from './constraintSolution';
@@ -1903,7 +1903,7 @@ export class Checker extends ParseTreeWalker {
             // A __bool__ attribute explicitly set to None disables truth-value
             // testing at runtime. Treat it as an invalid conditional operand
             // rather than as a class without a __bool__ method.
-            if (isClassInstance(expandedSubtype)) {
+            if (isClassInstance(expandedSubtype) && this._hasExplicitClassLevelNoneBool(expandedSubtype)) {
                 const boolMember = this._evaluator.getTypeOfBoundMember(
                     node,
                     expandedSubtype,
@@ -1964,6 +1964,31 @@ export class Checker extends ParseTreeWalker {
                 node
             );
         }
+    }
+
+    private _hasExplicitClassLevelNoneBool(classType: ClassType): boolean {
+        // Only a class-level assignment of the literal None changes the
+        // truth-value protocol. An annotation-only declaration, an instance
+        // assignment in __init__, and dataclass field(default_factory=...)
+        // remain valid instance attributes and must not trigger this error.
+        return classType.shared.mro.some((mroClass) => {
+            if (!isClass(mroClass)) {
+                return false;
+            }
+            const symbol = ClassType.getSymbolTable(mroClass).get('__bool__');
+            return symbol?.getDeclarations().some((decl) => {
+                if (!isVariableDeclaration(decl) || !decl.inferredTypeSource) {
+                    return false;
+                }
+                if (ParseTreeUtils.getEnclosingFunction(decl.node)) {
+                    return false;
+                }
+                return (
+                    decl.inferredTypeSource.nodeType === ParseNodeType.Constant &&
+                    decl.inferredTypeSource.d.constType === KeywordType.None
+                );
+            });
+        });
     }
 
     private _reportUnnecessaryConditionExpression(expression: ExpressionNode) {
