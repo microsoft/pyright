@@ -165,10 +165,14 @@ class GeoPandasBase:
     def frechet_distance(
         self, other: GeoSeries | Geometry, align: bool | None = None, densify: float | ArrayLike | None = None
     ) -> pd.Series[float]: ...
-    def difference(self, other: GeoSeries | Geometry, align: bool | None = None) -> GeoSeries: ...
-    def symmetric_difference(self, other: GeoSeries | Geometry, align: bool | None = None) -> GeoSeries: ...
-    def union(self, other: GeoSeries | Geometry, align: bool | None = None) -> GeoSeries: ...
-    def intersection(self, other: GeoSeries | Geometry, align: bool | None = None) -> GeoSeries: ...
+    def difference(self, other: GeoSeries | Geometry, align: bool | None = None, grid_size: float | None = None) -> GeoSeries: ...
+    def symmetric_difference(
+        self, other: GeoSeries | Geometry, align: bool | None = None, grid_size: float | None = None
+    ) -> GeoSeries: ...
+    def union(self, other: GeoSeries | Geometry, align: bool | None = None, grid_size: float | None = None) -> GeoSeries: ...
+    def intersection(
+        self, other: GeoSeries | Geometry, align: bool | None = None, grid_size: float | None = None
+    ) -> GeoSeries: ...
     def clip_by_rect(self, xmin: float, ymin: float, xmax: float, ymax: float) -> GeoSeries: ...
     def shortest_line(self, other: GeoSeries | Geometry, align: bool | None = None) -> GeoSeries: ...
     def snap(self, other: GeoSeries | Geometry, tolerance: float | ArrayLike, align: bool | None = None) -> GeoSeries: ...
@@ -181,16 +185,32 @@ class GeoPandasBase:
     def sindex(self) -> SpatialIndex: ...
     @property
     def has_sindex(self) -> bool: ...
+
+    @overload
     def buffer(
         self,
         distance: float | ArrayLike,
-        resolution: int = 16,
+        quad_segs: int | None = None,
         cap_style: Literal["round", "square", "flat"] = "round",
         join_style: Literal["round", "mitre", "bevel"] = "round",
         mitre_limit: float = 5.0,
         single_sided: bool = False,
         **kwargs,
     ) -> GeoSeries: ...
+    @overload
+    @deprecated("The `resolution` argument to `buffer` is deprecated, use `quad_segs` instead.")
+    def buffer(
+        self,
+        distance: float | ArrayLike,
+        *,
+        resolution: int,
+        cap_style: Literal["round", "square", "flat"] = "round",
+        join_style: Literal["round", "mitre", "bevel"] = "round",
+        mitre_limit: float = 5.0,
+        single_sided: bool = False,
+        **kwargs,
+    ) -> GeoSeries: ...
+
     def simplify(self, tolerance: float | ArrayLike, preserve_topology: bool = True) -> GeoSeries: ...
     def simplify_coverage(self, tolerance: float | ArrayLike, *, simplify_boundary: bool = True) -> GeoSeries: ...
     def relate(self, other: GeoSeries | Geometry, align: bool | None = None) -> pd.Series[str]: ...
@@ -214,28 +234,22 @@ class GeoPandasBase:
     def hilbert_distance(
         self, total_bounds: tuple[float, float, float, float] | Iterable[float] | None = None, level: int = 16
     ) -> pd.Series[int]: ...
-
-    @overload
     def sample_points(
         self,
         size: int | ArrayLike,
         method: str = "uniform",
-        seed: None = None,
         rng: int | ArrayLike | SeedSequence | BitGenerator | RandomGenerator | None = None,
         **kwargs,
     ) -> GeoSeries: ...
-    @overload
-    @deprecated("Parameter `seed` is deprecated. Use `rng` instead.")
-    def sample_points(
+    def make_grid(
         self,
-        size: int | ArrayLike,
-        method: str = "uniform",
-        *,
-        seed: int | ArrayLike | SeedSequence | BitGenerator | RandomGenerator,
-        rng: int | ArrayLike | SeedSequence | BitGenerator | RandomGenerator | None = None,
-        **kwargs,
+        cell_size: float,
+        grid_type: Literal["square", "hexagon"] = "square",
+        feature_type: Literal["centers", "corners", "polygons"] = "polygons",
+        offset: tuple[float, float] | None = None,
+        intersect: bool = True,
+        flat_topped: bool = False,
     ) -> GeoSeries: ...
-
     def build_area(self, node: bool = True) -> GeoSeries: ...
 
     @overload

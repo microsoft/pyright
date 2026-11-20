@@ -22,7 +22,7 @@ class AbbrTreeprocessor(Treeprocessor):
     def create_element(self, title: str, text: str, tail: str) -> Element: ...
     def iter_element(self, el: Element, parent: Element | None = None) -> None: ...
 
-# Techinically it is the same type as `AbbrPreprocessor` just not deprecated.
+# Technically it is the same type as `AbbrPreprocessor` just not deprecated.
 class AbbrBlockprocessor(BlockProcessor):
     RE: ClassVar[Pattern[str]]
     abbrs: dict[str, str]

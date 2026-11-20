@@ -3,7 +3,7 @@ run-name: 'Type checker benchmark for PR #${{ inputs.pr_number }}'
 
 env:
   BENCHMARK_RUNNER_CLASS: 'github-ubuntu-latest'
-  NODE_VERSION: '24.15.0'
+  NODE_VERSION: '24.22.2'
   PYTHON_VERSION: '3.14.6'
 
 on:
@@ -91,20 +91,20 @@ jobs:
           path: benchmark-base
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Set up pnpm
         id: pnpm-setup
         continue-on-error: true
-        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        uses: pnpm/action-setup@5eea8caf49c844361c1e9ddc1324e179c54b58e9 # v6
 
       - name: Retry pnpm setup
         if: ${{ !cancelled() && steps.pnpm-setup.outcome == 'failure' }}
-        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        uses: pnpm/action-setup@5eea8caf49c844361c1e9ddc1324e179c54b58e9 # v6
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -173,7 +173,7 @@ jobs:
 
       - name: Upload package results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typecheck-benchmark-shard-pr-${{ inputs.pr_number }}-${{ matrix.package }}
           path: build/benchmark/results/
@@ -194,12 +194,12 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Download package results
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: typecheck-benchmark-shard-pr-${{ inputs.pr_number }}-*
           path: benchmark-shards
@@ -243,7 +243,7 @@ jobs:
 
       - name: Upload combined benchmark results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typecheck-benchmark-linux-x64-pr-${{ inputs.pr_number }}-head-${{ inputs.head_sha }}-base-${{ inputs.base_sha }}-merge-${{ inputs.merge_sha }}
           path: build/benchmark/results/
@@ -261,13 +261,15 @@ jobs:
       actions: read
       contents: read
       pull-requests: write
+    outputs:
+      history-rendered: ${{ steps.render-history.outcome == 'success' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -414,8 +416,12 @@ jobs:
               > report.md
           fi
 
+      # Release history is measured separately, so a runner image change can make
+      # it incomparable; still post the base/PR comparison in that case.
       - name: Render comparison history charts
+        id: render-history
         if: ${{ steps.download.outputs.pr-number != '' }}
+        continue-on-error: true
         run: |
           python build/benchmark/render_pyright_history.py \
             base.json \
@@ -428,8 +434,8 @@ jobs:
 
       - name: Upload comparison history charts
         id: history
-        if: ${{ steps.download.outputs.pr-number != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ steps.download.outputs.pr-number != '' && steps.render-history.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typecheck-benchmark-history-pr-${{ inputs.pr_number }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}
           path: pr-history/
@@ -454,8 +460,9 @@ jobs:
             const revisions =
               `Compared candidate \`${process.env.CANDIDATE_SHA}\` against its first parent ` +
               `\`${process.env.BASE_SHA}\`.\n\n`
-            const history =
-              `[View the full release history charts with the base and PR results](${process.env.HISTORY_URL}).\n\n` +
+            const history = !process.env.HISTORY_ARTIFACT_URL
+              ? 'Release history charts were not rendered for this run. See the workflow run for details.\n\n'
+              : `[View the full release history charts with the base and PR results](${process.env.HISTORY_URL}).\n\n` +
               `### Execution time history\n\n` +
               `[![Execution time history](${process.env.HISTORY_URL}execution-time.svg)]` +
               `(${process.env.HISTORY_URL})\n\n` +
@@ -474,7 +481,7 @@ jobs:
   publish:
     name: Publish comparison history charts
     needs: comment
-    if: ${{ needs.comment.result == 'success' && github.repository == 'microsoft/pyright' }}
+    if: ${{ needs.comment.result == 'success' && needs.comment.outputs.history-rendered == 'true' && github.repository == 'microsoft/pyright' }}
     permissions:
       actions: read
       contents: read
