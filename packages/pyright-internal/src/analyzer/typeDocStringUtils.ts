@@ -93,6 +93,7 @@ function _selectMemberDocInfo(
 
     const overloads = OverloadedType.getOverloads(memberType);
     const impl = OverloadedType.getImplementation(memberType);
+    const memberName = overloads.length > 0 ? overloads[0].shared.name : undefined;
 
     // Tier 1: the call-matched overload(s). First read the matched overload's OWN docstring
     // directly; this is robust to declaration-cleared specializations (e.g. a ParamSpec/Callable
@@ -105,7 +106,6 @@ function _selectMemberDocInfo(
         // actually belongs to this member; otherwise another member's matched overload could
         // short-circuit Rule B here. Name is preserved across binding/specialization, so filtering
         // by name is a safe scope check.
-        const memberName = overloads.length > 0 ? overloads[0].shared.name : undefined;
         for (const matched of matchedOverloads) {
             if (memberName !== undefined && matched.shared.name !== memberName) {
                 continue;
@@ -134,8 +134,13 @@ function _selectMemberDocInfo(
     }
 
     // Tier 3: the remaining overloads, in declaration order. Only consider other
-    // overloads when no specific overload was matched (e.g. uncalled function hover).
-    if (!matchedOverloads || matchedOverloads.length === 0) {
+    // overloads when no specific overload was matched for this member (e.g. uncalled
+    // function hover, or hints forwarded from a different constructor member).
+    const hasMatchedOverloadForMember =
+        matchedOverloads &&
+        matchedOverloads.some((matched) => memberName === undefined || matched.shared.name === memberName);
+
+    if (!hasMatchedOverloadForMember) {
         for (const overload of overloads) {
             const info = _functionDocInfo(overload, sourceMapper);
             if (info) {
@@ -255,7 +260,11 @@ export function resolveMethodDocInfo(
                 continue;
             }
 
-            const info = _selectMemberDocInfo(evaluator.getEffectiveTypeOfSymbol(symbol), undefined, sourceMapper);
+            const info = _selectMemberDocInfo(
+                evaluator.getEffectiveTypeOfSymbol(symbol),
+                matchedOverloads,
+                sourceMapper
+            );
             if (info?.docString) {
                 return info;
             }
