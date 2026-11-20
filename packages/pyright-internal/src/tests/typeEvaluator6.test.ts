@@ -1052,6 +1052,41 @@ test('Constructor1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('ConstructorPerformance1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.diagnosticRuleSet.reportDeprecated = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorPerformance1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 9);
+});
+
+test('ConstructorGenericLoop1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorGenericLoop1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 1, 0, 1);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [[22, DiagnosticRule.reportArgumentType]]
+    );
+});
+
+test('ConstructorVariadicNew1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorVariadicNew1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 12);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+            .sort((a, b) => Number(a[0]) - Number(b[0])),
+        [19, 20, 22, 23, 27, 28, 37, 38, 40, 41, 49, 50].map((line) => [line, DiagnosticRule.reportArgumentType])
+    );
+});
+
 test('Constructor2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor2.py']);
 
