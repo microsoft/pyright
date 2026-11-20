@@ -199,6 +199,7 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     selfSpecializeClass,
+    someSubtypes,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 
@@ -1887,6 +1888,33 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _validateConditionalIsBool(node: ExpressionNode) {
+        // Left operands are checked by visitBinaryOperation; only the
+        // reachable right operand needs another truth check here.
+        if (
+            node.nodeType === ParseNodeType.BinaryOperation &&
+            (node.d.operator === OperatorType.And || node.d.operator === OperatorType.Or)
+        ) {
+            if (this._evaluator.isNodeReachable(node.d.rightExpr)) {
+                this._validateConditionalIsBool(node.d.rightExpr);
+            }
+            return;
+        }
+
+        if (node.nodeType === ParseNodeType.AssignmentExpression) {
+            this._validateConditionalIsBool(node.d.rightExpr);
+            return;
+        }
+
+        if (node.nodeType === ParseNodeType.Ternary) {
+            if (this._evaluator.isNodeReachable(node.d.ifExpr)) {
+                this._validateConditionalIsBool(node.d.ifExpr);
+            }
+            if (this._evaluator.isNodeReachable(node.d.elseExpr)) {
+                this._validateConditionalIsBool(node.d.elseExpr);
+            }
+            return;
+        }
+
         const operandType = this._evaluator.getType(node);
         if (!operandType) {
             return;
@@ -1919,6 +1947,20 @@ export class Checker extends ParseTreeWalker {
 
             if (isClassInstance(boolReturnType) && ClassType.isBuiltIn(boolReturnType, 'bool')) {
                 return undefined;
+            }
+
+            if (isTypeVar(boolReturnType) || isUnion(boolReturnType)) {
+                const concreteReturnType = this._evaluator.makeTopLevelTypeVarsConcrete(boolReturnType);
+                if (
+                    !someSubtypes(
+                        concreteReturnType,
+                        (subtype) =>
+                            !isAnyOrUnknown(subtype) &&
+                            (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, 'bool'))
+                    )
+                ) {
+                    return undefined;
+                }
             }
 
             // All other types are problematic.
