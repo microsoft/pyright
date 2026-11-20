@@ -2320,7 +2320,7 @@ function isPrimitiveBackedEnumAndPrimitive(enumType: ClassType, primitiveType: C
     return false;
 }
 
-function unwrapPrimitiveBackedEnumLiteral(classType: ClassType): ClassType {
+function unwrapPrimitiveBackedEnumLiteral(classType: ClassType): ClassType | undefined {
     const literalValue = classType.priv.literalValue;
     if (!(literalValue instanceof EnumLiteral) || !isPrimitiveBackedEnumClass(classType)) {
         return classType;
@@ -2328,17 +2328,36 @@ function unwrapPrimitiveBackedEnumLiteral(classType: ClassType): ClassType {
 
     const itemType = literalValue.itemType;
     if (isClassInstance(itemType) && itemType.priv.literalValue !== undefined) {
+        // A nested enum literal can still have an unknown underlying value.
+        let nestedType = itemType;
+        let recursionCount = 0;
+        while (nestedType.priv.literalValue instanceof EnumLiteral) {
+            if (recursionCount++ >= maxTypeRecursionCount) {
+                return undefined;
+            }
+
+            const nestedValueType = nestedType.priv.literalValue.itemType;
+            if (!isClassInstance(nestedValueType) || nestedValueType.priv.literalValue === undefined) {
+                return undefined;
+            }
+            nestedType = nestedValueType;
+        }
+
         return itemType;
     }
 
-    return classType;
+    return undefined;
 }
 
-function isLiteralValueEqualAtRuntime(type1: ClassType, type2: ClassType): boolean {
-    return ClassType.isLiteralValueSame(
-        unwrapPrimitiveBackedEnumLiteral(type1),
-        unwrapPrimitiveBackedEnumLiteral(type2)
-    );
+function isLiteralValueEqualAtRuntime(type1: ClassType, type2: ClassType): boolean | undefined {
+    const unwrappedType1 = unwrapPrimitiveBackedEnumLiteral(type1);
+    const unwrappedType2 = unwrapPrimitiveBackedEnumLiteral(type2);
+
+    if (!unwrappedType1 || !unwrappedType2) {
+        return undefined;
+    }
+
+    return ClassType.isLiteralValueSame(unwrappedType1, unwrappedType2);
 }
 
 function getInnermostNewTypeBaseInstance(subtype: Type): Type | undefined {
@@ -2399,6 +2418,12 @@ export function narrowTypeForLiteralComparison(
                 const literalValueMatches = isPrimitiveBackedEnumComparison
                     ? isLiteralValueEqualAtRuntime(subtype, literalType)
                     : ClassType.isLiteralValueSame(subtype, literalType);
+
+                if (literalValueMatches === undefined) {
+                    // The outcome is unknown, so retain the subtype in both branches.
+                    return subtype;
+                }
+
                 if (isPositiveTest) {
                     return literalValueMatches ? subtype : undefined;
                 }
@@ -2422,8 +2447,139 @@ export function narrowTypeForLiteralComparison(
                     // to the primitive literal type.
                     if (ClassType.isEnumClass(subtype)) {
                         const allLiteralTypes = enumerateLiteralsForType(evaluator, subtype);
-                        const match = allLiteralTypes?.find((type) => isLiteralValueEqualAtRuntime(type, literalType));
-                        return match ?? subtype;
+
+                        if (allLiteralTypes) {
+                            let match: ClassType | undefined;
+                            let isIndeterminate = false;
+                            const possibleMatches: ClassType[] = [];
+                            const primitiveClass = ClassType.isBuiltIn(literalType, 'int') ? 'int' : 'str';
+
+                            for (const type of allLiteralTypes) {
+                                const isEqual = isLiteralValueEqualAtRuntime(type, literalType);
+                                const valueType =
+                                    type.priv.literalValue instanceof EnumLiteral
+                                        ? type.priv.literalValue.itemType
+                                        : undefined;
+                                const value =
+                                    valueType && isClassInstance(valueType) ? valueType.priv.literalValue : undefined;
+                                // Nested or converted values cannot prove a nonmatch.
+                                const isDefiniteNonmatch =
+                                    isEqual === false &&
+                                    valueType !== undefined &&
+                                    isClassInstance(valueType) &&
+                                    ClassType.isBuiltIn(valueType, primitiveClass) &&
+                                    (primitiveClass === 'int'
+                                        ? typeof value === 'number' || typeof value === 'bigint'
+                                        : typeof value === 'string');
+                                if (!isDefiniteNonmatch) {
+                                    possibleMatches.push(type);
+                                }
+                                if (isEqual === undefined) {
+                                    isIndeterminate = true;
+                                } else if (isEqual && !match) {
+                                    match = type;
+                                }
+                            }
+
+                            if (isIndeterminate && possibleMatches.length < allLiteralTypes.length) {
+                                if (ClassType.isEnumMemberSetMayBeIncomplete(subtype)) {
+                                    // Older typeshed versions mark IntEnum with @disjoint_base,
+                                    // which cannot add members to a direct subclass.
+                                    const baseClass =
+                                        subtype.shared.baseClasses.length === 1
+                                            ? subtype.shared.baseClasses[0]
+                                            : undefined;
+                                    const declaration = subtype.shared.declaration;
+                                    const metaclass = subtype.shared.effectiveMetaclass;
+                                    if (
+                                        !baseClass ||
+                                        !isClass(baseClass) ||
+                                        !ClassType.isBuiltIn(baseClass, 'enum.IntEnum') ||
+                                        !ClassType.isEnumMemberSetMayBeIncomplete(baseClass) ||
+                                        declaration?.node.nodeType !== ParseNodeType.Class ||
+                                        declaration.node.d.decorators.length > 0 ||
+                                        !metaclass ||
+                                        !isInstantiableClass(metaclass) ||
+                                        !ClassType.isBuiltIn(metaclass, ['EnumMeta', 'EnumType'])
+                                    ) {
+                                        return subtype;
+                                    }
+                                }
+
+                                if (!hasStandardEnumConstruction(subtype)) {
+                                    return subtype;
+                                }
+
+                                // Class creation hooks can add members after static enumeration.
+                                const subclassHook = lookUpClassMember(
+                                    subtype,
+                                    '__init_subclass__',
+                                    MemberAccessFlags.SkipObjectBaseClass
+                                );
+                                if (
+                                    subclassHook &&
+                                    (!isClass(subclassHook.classType) || !ClassType.isBuiltIn(subclassHook.classType))
+                                ) {
+                                    return subtype;
+                                }
+
+                                for (const methodName of ['__eq__', '__ne__']) {
+                                    const member = lookUpObjectMember(
+                                        subtype,
+                                        methodName,
+                                        MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
+                                    );
+                                    if (
+                                        !member ||
+                                        !isClass(member.classType) ||
+                                        !ClassType.isBuiltIn(member.classType, primitiveClass)
+                                    ) {
+                                        return subtype;
+                                    }
+                                }
+
+                                for (const symbol of ClassType.getSymbolTable(subtype).values()) {
+                                    const memberType = evaluator.getEffectiveTypeOfSymbol(symbol);
+                                    if (
+                                        someSubtypes(memberType, (type) => {
+                                            if (isAnyOrUnknown(type)) {
+                                                return true;
+                                            }
+                                            if (isClass(type)) {
+                                                if (TypeBase.isInstance(type)) {
+                                                    if (
+                                                        ClassType.isBuiltIn(type, primitiveClass) ||
+                                                        ClassType.isBuiltIn(type, 'bool') ||
+                                                        (type.priv.literalValue instanceof EnumLiteral &&
+                                                            ClassType.isSameGenericClass(type, subtype))
+                                                    ) {
+                                                        return false;
+                                                    }
+                                                    return !!lookUpObjectMember(type, '__set_name__');
+                                                }
+                                                const metaclass = type.shared.effectiveMetaclass;
+                                                return (
+                                                    !metaclass ||
+                                                    !isClass(metaclass) ||
+                                                    !!lookUpClassMember(metaclass, '__set_name__')
+                                                );
+                                            }
+                                            return false;
+                                        })
+                                    ) {
+                                        return subtype;
+                                    }
+                                }
+
+                                return addConditionToType(combineTypes(possibleMatches), getTypeCondition(subtype));
+                            }
+
+                            if (!isIndeterminate && match) {
+                                return match;
+                            }
+                        }
+
+                        return subtype;
                     }
 
                     // The reference type is the primitive type, so narrowing it to the
@@ -2442,7 +2598,7 @@ export function narrowTypeForLiteralComparison(
                 return combineTypes(
                     allLiteralTypes.filter((type) =>
                         isPrimitiveBackedEnumComparison
-                            ? !isLiteralValueEqualAtRuntime(type, literalType)
+                            ? isLiteralValueEqualAtRuntime(type, literalType) !== true
                             : !ClassType.isLiteralValueSame(type, literalType)
                     )
                 );

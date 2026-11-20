@@ -1214,6 +1214,34 @@ test('EnumNarrowing1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test.each([
+    { name: 'default', pythonVersion: undefined },
+    { name: 'Python 3.11', pythonVersion: pythonVersion3_11 },
+])('EnumNarrowingSafety1 $name', ({ pythonVersion }) => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    if (pythonVersion) {
+        configOptions.defaultPythonVersion = pythonVersion;
+    }
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumNarrowingSafety1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 7);
+    expect(
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+    ).toEqual([
+        [115, DiagnosticRule.reportArgumentType],
+        [144, DiagnosticRule.reportReturnType],
+        [152, DiagnosticRule.reportReturnType],
+        [161, DiagnosticRule.reportReturnType],
+        [232, DiagnosticRule.reportReturnType],
+        [293, DiagnosticRule.reportArgumentType],
+        [299, DiagnosticRule.reportArgumentType],
+    ]);
+});
+
 test('EnumNarrowing2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumNarrowing2.py']);
 
