@@ -85,6 +85,16 @@ class CompareBenchmarksTest(unittest.TestCase):
         self.assertIn("example/pyright: candidate result failed or is missing", failures)
         self.assertEqual(rows[0]["status"], "Missing")
 
+    def test_missing_candidate_checker_is_reported_instead_of_crashing(self) -> None:
+        baseline = _result(10.0, 100.0)
+        candidate = _result(5.0, 100.0)
+        candidate["results"][0]["metrics"] = {
+            "mypy": dict(candidate["results"][0]["metrics"]["pyright"])
+        }
+        failures, rows = compare_benchmarks._analyze(baseline, candidate, 10.0)
+        self.assertIn("example/pyright: candidate result failed or is missing", failures)
+        self.assertEqual(rows[0]["status"], "Missing")
+
     def test_rejects_a_speedup_with_a_smaller_native_file_count(self) -> None:
         baseline = _result(10.0, 100.0)
         candidate = _result(5.0, 100.0)
