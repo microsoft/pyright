@@ -551,6 +551,7 @@ export function createTypeEvaluator(
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: SuppressedNodeStackEntry[] = [];
     const assignClassToSelfStack: AssignClassToSelfInfo[] = [];
+    const constructorCallStack: { node: ExpressionNode; args: Arg[]; type: ClassType }[] = [];
 
     let functionRecursionMap = new Map<number, FunctionRecursionInfo[]>();
     let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
@@ -7954,14 +7955,36 @@ export function createTypeEvaluator(
                 }
 
                 if (TypeBase.isInstantiable(expandedCallType)) {
-                    return validateCallForInstantiableClass(
-                        errorNode,
-                        argList,
-                        expandedCallType,
-                        unexpandedCallType,
-                        skipUnknownArgCheck,
-                        inferenceContext
-                    );
+                    // A class-valued __new__, __init__, or metaclass __call__ can
+                    // lead back to the same generic class with the same arguments,
+                    // potentially with an ever-growing type specialization.
+                    // A fresh argument list indicates reentrant expression evaluation,
+                    // which must be allowed to complete normally.
+                    if (
+                        constructorCallStack.some(
+                            (entry) =>
+                                entry.node === errorNode &&
+                                entry.args === argList &&
+                                ClassType.isSameGenericClass(entry.type, expandedCallType)
+                        )
+                    ) {
+                        touchArgTypes();
+                        return { returnType: UnknownType.create(), argumentErrors: true };
+                    }
+
+                    constructorCallStack.push({ node: errorNode, args: argList, type: expandedCallType });
+                    try {
+                        return validateCallForInstantiableClass(
+                            errorNode,
+                            argList,
+                            expandedCallType,
+                            unexpandedCallType,
+                            skipUnknownArgCheck,
+                            inferenceContext
+                        );
+                    } finally {
+                        constructorCallStack.pop();
+                    }
                 }
 
                 return validateCallForClassInstance(

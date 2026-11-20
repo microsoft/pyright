@@ -1314,6 +1314,16 @@ test('Constructor36', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Constructor37', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor37.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()),
+        [DiagnosticRule.reportIncompatibleMethodOverride, DiagnosticRule.reportArgumentType]
+    );
+});
+
 test('ConstructorCallable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable1.py']);
 
