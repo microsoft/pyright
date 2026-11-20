@@ -173,13 +173,7 @@ import * as ScopeUtils from './scopeUtils';
 import { createSentinelType, getSentinelClass, isSentinelClass } from './sentinel';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags, SynthesizedTypeInfo } from './symbol';
-import {
-    isConstantName,
-    isDunderName,
-    isMethodExemptFromLsp,
-    isPrivateName,
-    isPrivateOrProtectedName,
-} from './symbolNameUtils';
+import { isConstantName, isMethodExemptFromLsp, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { isEffectivelyClassVar } from './symbolUtils';
 import { getTypeOfTuple, makeTupleObject } from './tuples';
 import {
@@ -404,6 +398,17 @@ const typePromotions: Map<string, string[]> = new Map([
     ['builtins.float', ['builtins.int']],
     ['builtins.complex', ['builtins.float', 'builtins.int']],
     ['builtins.bytes', ['builtins.bytearray', 'builtins.memoryview']],
+]);
+
+// Non-dunder names owned by CPython's Annotated wrapper rather than its origin.
+const annotatedAliasOwnMembers = new Set([
+    'copy_with',
+    '_determine_new_args',
+    '_make_substitution',
+    '_inst',
+    '_name',
+    '_paramspec_tvars',
+    '_typevar_types',
 ]);
 
 // How many levels deep should we attempt to infer return
@@ -4131,52 +4136,116 @@ export function createTypeEvaluator(
         return typeResult;
     }
 
-    // Determines whether the expression refers to an implicit type alias of the
-    // form "Annotated[C, ...]" whose runtime origin is the class C itself. This
-    // excludes origins that are forward references, literals, or TypeAliasType
-    // objects, which don't expose the attributes of the class.
-    function isAnnotatedAliasOfClass(node: ExpressionNode, aliasType: Type): boolean {
-        if (node.nodeType !== ParseNodeType.Name) {
-            return false;
+    function getSingleValueDeclaration(node: ParseNode): Declaration | undefined {
+        let decls: readonly Declaration[] | undefined;
+        if (node.nodeType === ParseNodeType.Name) {
+            decls = getDeclInfoForNameNode(node)?.decls;
+        } else if (node.nodeType === ParseNodeType.MemberAccess) {
+            const receiver = readTypeCache(node.d.leftExpr, /* flags */ undefined);
+            if (receiver && isModule(receiver)) {
+                decls = ModuleType.getField(receiver, node.d.member.d.value)?.getDeclarations();
+            } else if (
+                receiver &&
+                isInstantiableClass(receiver) &&
+                !receiver.priv.includeSubclasses &&
+                hasDefaultMetaclass(receiver)
+            ) {
+                decls = lookUpClassMember(
+                    receiver,
+                    node.d.member.d.value,
+                    MemberAccessFlags.SkipInstanceMembers
+                )?.symbol.getDeclarations();
+            }
         }
 
+        return decls?.length === 1 ? resolveAliasDeclaration(decls[0], /* resolveLocalNames */ true) : undefined;
+    }
+
+    function hasDefaultMetaclass(classType: ClassType): boolean {
+        const metaclass = classType.shared.effectiveMetaclass;
+        return !!metaclass && isInstantiableClass(metaclass) && ClassType.isBuiltIn(metaclass, 'type');
+    }
+
+    function getAnnotatedOriginExpression(node: ParseNode | undefined): ExpressionNode | undefined {
+        if (node?.nodeType === ParseNodeType.Index) {
+            const base = readTypeCache(node.d.leftExpr, /* flags */ undefined);
+            const arg = node.d.items[0];
+            if (
+                base &&
+                isInstantiableClass(base) &&
+                ClassType.isBuiltIn(base, 'Annotated') &&
+                arg?.d.argCategory === ArgCategory.Simple &&
+                !arg.d.name
+            ) {
+                return arg.d.valueExpr;
+            }
+        }
+
+        return undefined;
+    }
+
+    // The erased annotation can describe a class even when the runtime origin
+    // is a ForwardRef, NewType, or another typing object. Follow only expressions
+    // whose runtime lookup is known to reach the class that the annotation describes.
+    function isAnnotatedAliasOfClass(node: ExpressionNode, aliasType: Type, classType: ClassType): boolean {
         const aliasInfo = aliasType.props?.typeAliasInfo;
-        if (!aliasInfo || aliasInfo.shared.isTypeAliasType) {
+        if (!aliasInfo || aliasInfo.shared.isTypeAliasType || ClassType.isPartiallyEvaluated(classType)) {
             return false;
         }
 
-        const decls = getDeclInfoForNameNode(node)?.decls;
-        if (!decls || decls.length !== 1) {
-            return false;
-        }
-
-        const decl = resolveAliasDeclaration(decls[0], /* resolveLocalNames */ true);
-        if (
-            !decl ||
-            decl.type !== DeclarationType.Variable ||
-            !decl.typeAliasName ||
-            decl.inferredTypeSource?.nodeType !== ParseNodeType.Index
-        ) {
-            return false;
-        }
-
-        const originArg = decl.inferredTypeSource.d.items[0];
-        if (
-            !originArg ||
-            originArg.d.argCategory !== ArgCategory.Simple ||
-            originArg.d.name ||
-            originArg.d.valueExpr.nodeType === ParseNodeType.StringList
-        ) {
-            return false;
-        }
-
-        const originType = readTypeCache(originArg.d.valueExpr, /* flags */ undefined);
-        return (
-            !!originType &&
-            isInstantiableClass(originType) &&
-            originType.priv.literalValue === undefined &&
-            !originType.props?.typeAliasInfo?.shared.isTypeAliasType
+        const decl = getSingleValueDeclaration(node);
+        let origin: ParseNode | undefined = getAnnotatedOriginExpression(
+            decl?.type === DeclarationType.Variable && decl.typeAliasName ? decl.inferredTypeSource : undefined
         );
+        for (let depth = 0; origin && depth < maxRecursiveTypeAliasRecursionCount; depth++) {
+            if (origin.nodeType === ParseNodeType.Index) {
+                const nestedOrigin = getAnnotatedOriginExpression(origin);
+                if (nestedOrigin) {
+                    // Annotated flattens nested wrappers at runtime.
+                    origin = nestedOrigin;
+                    continue;
+                }
+
+                // Only standard generic subscription forwards to the same class. A
+                // metaclass or a user-defined __class_getitem__ can return another object.
+                const genericDecl = getSingleValueDeclaration(origin.d.leftExpr);
+                if (
+                    genericDecl?.type !== DeclarationType.Class ||
+                    genericDecl !== classType.shared.declaration ||
+                    !classType.priv.typeArgs ||
+                    !hasDefaultMetaclass(classType) ||
+                    ClassType.isBuiltIn(classType, 'type')
+                ) {
+                    return false;
+                }
+
+                const getItem = lookUpClassMember(
+                    classType,
+                    '__class_getitem__',
+                    MemberAccessFlags.SkipInstanceMembers
+                );
+                return getItem
+                    ? isClass(getItem.classType) &&
+                          (getItem.classType.shared.moduleName === 'builtins' ||
+                              getItem.classType.shared.fullName === 'typing.Generic')
+                    : !!genericDecl.node.d.typeParams ||
+                          classType.shared.mro.some(
+                              (base) => isClass(base) && base.shared.fullName === 'typing.Generic'
+                          );
+            }
+
+            const originDecl = getSingleValueDeclaration(origin);
+            if (originDecl?.type === DeclarationType.Class) {
+                return originDecl === classType.shared.declaration;
+            }
+
+            origin =
+                originDecl?.type === DeclarationType.Variable && originDecl.typeAliasName
+                    ? originDecl.inferredTypeSource
+                    : undefined;
+        }
+
+        return false;
     }
 
     function getTypeOfMemberAccessWithBaseType(
@@ -4192,6 +4261,7 @@ export function createTypeEvaluator(
         const fileInfo = nodeInfo.getFileInfo(node);
         let type: Type | undefined;
         let narrowedTypeForSet: Type | undefined;
+        let memberAccessDiagType: Type | undefined;
         let typeErrors = false;
         let isIncomplete = !!baseTypeResult.isIncomplete;
         let isAsymmetricAccessor: boolean | undefined;
@@ -4356,39 +4426,53 @@ export function createTypeEvaluator(
                 }
 
                 if (!typeResult) {
+                    const memberFlags =
+                        (flags & EvalFlags.TypeExpression) === 0
+                            ? MemberAccessFlags.Default
+                            : MemberAccessFlags.TypeExpression;
                     typeResult = getTypeOfBoundMember(
                         node.d.member,
                         baseType,
                         memberName,
                         usage,
                         diag,
-                        (flags & EvalFlags.TypeExpression) === 0 ? undefined : MemberAccessFlags.TypeExpression,
+                        memberFlags,
                         baseTypeResult.bindToSelfType
                     );
 
                     if (
-                        (!typeResult || typeResult.typeErrors) &&
+                        !typeResult &&
                         usage.method === 'get' &&
-                        !isDunderName(memberName) &&
-                        ClassType.isBuiltIn(baseType, 'Annotated') &&
+                        (flags & EvalFlags.TypeExpression) === 0 &&
                         baseTypeForm &&
                         isClassInstance(baseTypeForm) &&
-                        isAnnotatedAliasOfClass(node.d.leftExpr, baseTypeResult.type)
+                        ClassType.isBuiltIn(baseType, 'Annotated') &&
+                        !(memberName.startsWith('__') && memberName.endsWith('__')) &&
+                        !annotatedAliasOwnMembers.has(memberName) &&
+                        isAnnotatedAliasOfClass(node.d.leftExpr, baseTypeResult.type, baseTypeForm)
                     ) {
-                        // At runtime, the Annotated alias delegates attribute reads
-                        // (other than dunder names) to its origin class object, so
-                        // evaluate the access against the instantiable form of the
-                        // annotated class.
+                        const originClass = ClassType.cloneAsInstantiable(baseTypeForm);
                         const fallbackDiag = new DiagnosticAddendum();
-                        const fallbackResult = getTypeOfMemberAccessWithBaseType(
-                            node,
-                            { type: ClassType.cloneAsInstantiable(baseTypeForm) },
-                            usage,
-                            flags
-                        );
-                        if (fallbackResult && !fallbackResult.typeErrors) {
-                            typeResult = fallbackResult;
+                        typeResult =
+                            getTypeOfEnumMember(
+                                evaluatorInterface,
+                                node,
+                                originClass,
+                                memberName,
+                                isIncomplete,
+                                nodeInfo
+                            ) ??
+                            getTypeOfBoundMember(
+                                node.d.member,
+                                originClass,
+                                memberName,
+                                usage,
+                                fallbackDiag,
+                                memberFlags
+                            );
+                        if (typeResult?.typeErrors) {
                             diag = fallbackDiag;
+                            memberAccessDiagType = originClass;
                         }
                     }
                 }
@@ -4687,7 +4771,8 @@ export function createTypeEvaluator(
 
                 addDiagnostic(
                     rule,
-                    diagMessage.format({ name: memberName, type: printType(baseType) }) + diag.getString(),
+                    diagMessage.format({ name: memberName, type: printType(memberAccessDiagType ?? baseType) }) +
+                        diag.getString(),
                     node.d.member,
                     diag.getEffectiveTextRange() ?? node.d.member
                 );
