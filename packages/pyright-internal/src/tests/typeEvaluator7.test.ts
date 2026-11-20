@@ -2059,6 +2059,27 @@ test('TypedDict34', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('TypedDictCallableJoin1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictCallableJoin1.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+    expect(
+        analysisResults[0].errors
+            .slice()
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()])
+    ).toEqual([
+        [49, DiagnosticRule.reportGeneralTypeIssues],
+        [61, DiagnosticRule.reportGeneralTypeIssues],
+        [73, DiagnosticRule.reportGeneralTypeIssues],
+        [85, DiagnosticRule.reportGeneralTypeIssues],
+        [110, DiagnosticRule.reportGeneralTypeIssues],
+        [122, DiagnosticRule.reportGeneralTypeIssues],
+        [135, DiagnosticRule.reportGeneralTypeIssues],
+        [174, DiagnosticRule.reportGeneralTypeIssues],
+    ]);
+});
+
 test('ClassVar1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classVar1.py']);
 

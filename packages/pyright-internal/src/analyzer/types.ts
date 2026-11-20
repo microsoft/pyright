@@ -4546,7 +4546,14 @@ function _isTypedDictTypeArgsSame(type1: ClassType, type2: ClassType): boolean {
         return false;
     }
 
-    return typeArgs1.every((typeArg, index) => isTypeSame(typeArg, typeArgs2[index]));
+    return typeArgs1.every((typeArg, index) =>
+        isTypeSame(typeArg, typeArgs2[index], {
+            honorIsTypeArgExplicit: true,
+            honorTypeForm: true,
+            honorCallBehavior: true,
+            honorTypedDictNarrowedValues: true,
+        })
+    );
 }
 
 function _addLiteralTypeIfUnique<T extends string | number | bigint>(
