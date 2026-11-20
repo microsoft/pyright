@@ -1500,8 +1500,11 @@ export class AnalyzerService {
             path: Uri,
             wasSymlinkedDirectory: boolean
         ): { event: FileWatcherEventType; isFile: boolean } | undefined {
-            // Due to the way we implemented file watcher, we will only get 2 events; 'add' and 'change'.
-            // Here, we will convert those 2 to 3 events. 'add', 'change' and 'unlink';
+            // Normalize native deletion events to the change events used by the
+            // language server. Missing paths are classified as unlinks below.
+            if (event === 'unlink' || event === 'unlinkDir') {
+                event = 'change';
+            }
             const stats = tryStat(fs, path);
             if (event === 'add') {
                 if (!stats) {
