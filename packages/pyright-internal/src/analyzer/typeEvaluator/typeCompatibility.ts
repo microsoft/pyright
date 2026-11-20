@@ -49,6 +49,7 @@ import {
     isUnpacked,
     isUnpackedClass,
     isUnpackedTypeVarTuple,
+    maxTypeRecursionCount,
     TupleTypeArg,
     Type,
     TypeAliasInfo,
@@ -579,11 +580,45 @@ export function createTypeCompatibility(context: Context) {
             let remainingSrcSubtypes: Type[] = sortedSrcTypes;
             let canUseFastPath = true;
 
+            function getStringLiteralIndex(union: UnionType) {
+                const index = union.priv.literalInstances.literalStrMap;
+                // Some type transforms replace subtypes on a clone without rebuilding its literal maps.
+                if (
+                    index?.size === union.priv.subtypes.length &&
+                    union.priv.subtypes.every(
+                        (subtype) =>
+                            isClassInstance(subtype) &&
+                            typeof subtype.priv.literalValue === 'string' &&
+                            !subtype.props?.condition &&
+                            index.get(subtype.priv.literalValue) === subtype
+                    )
+                ) {
+                    return index;
+                }
+                return undefined;
+            }
+
+            // Above the equality recursion limit, even different literal values can compare equal.
+            const srcStrings =
+                recursionCount <= maxTypeRecursionCount && sortedSrcTypes.length >= 32
+                    ? getStringLiteralIndex(srcType)
+                    : undefined;
+            const matchedStrings = srcStrings && getStringLiteralIndex(destType) ? new Set<Type>() : undefined;
+
             // First attempt to match all of the non-generic types in the dest
             // to non-generic types in the source.
             sortTypes(destType.priv.subtypes).forEach((destSubtype) => {
                 if (requiresSpecialization(destSubtype)) {
                     remainingDestSubtypes.push(destSubtype);
+                } else if (matchedStrings && isClassInstance(destSubtype)) {
+                    const value = destSubtype.priv.literalValue;
+                    const srcSubtype = typeof value === 'string' ? srcStrings?.get(value) : undefined;
+                    if (srcSubtype && isTypeSame(srcSubtype, destSubtype, {}, recursionCount)) {
+                        matchedStrings.add(srcSubtype);
+                        matchedSomeSubtypes = true;
+                    } else {
+                        remainingDestSubtypes.push(destSubtype);
+                    }
                 } else {
                     const srcTypeIndex = remainingSrcSubtypes.findIndex((srcSubtype) =>
                         isTypeSame(srcSubtype, destSubtype, {}, recursionCount)
@@ -597,6 +632,9 @@ export function createTypeCompatibility(context: Context) {
                     }
                 }
             });
+            if (matchedStrings?.size) {
+                remainingSrcSubtypes = sortedSrcTypes.filter((subtype) => !matchedStrings.has(subtype));
+            }
 
             // For all remaining source subtypes, attempt to find a dest subtype
             // whose primary type matches.
