@@ -1130,7 +1130,7 @@ function getTypedDictMembersForClassRecursive(
         );
 
         entries.extraItems = {
-            valueType: convertToInstance(extraItemsTypeResult.type),
+            valueType: applySolvedTypeVars(convertToInstance(extraItemsTypeResult.type), solution),
             isReadOnly: !!extraItemsTypeResult.isReadOnly,
             isRequired: false,
             isProvided: true,
@@ -1222,11 +1222,13 @@ export function assignTypedDictToTypedDict(
             honorIsTypeArgExplicit: true,
             honorTypeForm: true,
             honorCallBehavior: true,
+            honorTypedDictNarrowedValues: true,
         }) &&
         isTypeSame(entry.srcType, srcType, {
             honorIsTypeArgExplicit: true,
             honorTypeForm: true,
             honorCallBehavior: true,
+            honorTypedDictNarrowedValues: true,
         });
 
     // Recursive TypedDicts are compatible if all nonrecursive members are
@@ -1328,7 +1330,18 @@ function isTypedDictConstraintTrackerSame(
         return false;
     }
 
-    // isSame compares bounds but not signature scopes or literal retention.
+    // The tracker comparison omits callable defaults and narrowed value types.
+    const boundsMatch = (type: Type | undefined, cachedType: Type | undefined) =>
+        type && cachedType
+            ? isTypeSame(type, cachedType, {
+                  honorIsTypeArgExplicit: true,
+                  honorTypeForm: true,
+                  honorCallBehavior: true,
+                  honorTypedDictNarrowedValues: true,
+              })
+            : type === cachedType;
+
+    // Preserve signature scopes, literal retention and TypeVar metadata as well.
     return constraints.getConstraintSets().every((set, index) => {
         const cachedSet = cachedConstraints.getConstraintSet(index);
         const scopeIds = set.getScopeIds();
@@ -1342,6 +1355,8 @@ function isTypedDictConstraintTrackerSame(
             return (
                 cachedEntry !== undefined &&
                 entry.retainLiterals === cachedEntry.retainLiterals &&
+                boundsMatch(entry.lowerBound, cachedEntry.lowerBound) &&
+                boundsMatch(entry.upperBound, cachedEntry.upperBound) &&
                 isTypeSame(entry.typeVar, cachedEntry.typeVar, { honorIsTypeArgExplicit: true, honorTypeForm: true })
             );
         });

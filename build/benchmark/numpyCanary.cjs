@@ -15,7 +15,7 @@ const { values } = parseArgs({
     },
 });
 assert.ok(values.python, '--python must identify a dedicated Python 3.12 environment with numpy==2.4.6');
-assert.equal(process.version, 'v24.15.0', 'Use the pinned Node version');
+assert.equal(process.version, 'v24.22.2', 'Use the pinned Node version');
 const maxSeconds = Number(values['max-seconds']);
 const timeoutSeconds = Number(values['timeout-seconds']);
 assert.ok(Number.isFinite(maxSeconds) && maxSeconds > 0);

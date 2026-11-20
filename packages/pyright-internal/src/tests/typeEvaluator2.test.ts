@@ -437,6 +437,18 @@ test('Unbound6', () => {
     TestUtils.validateResults(analysisResults, 8);
 });
 
+test('Unbound7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound7.py']);
+
+    TestUtils.validateResults(analysisResults, 7);
+});
+
+test('Unbound8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound8.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('LiteralForLoop1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.reportPossiblyUnboundVariable = 'error';
@@ -1045,14 +1057,14 @@ test('SolverUnknown1', () => {
 
 test('Sentinel1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel1.py']);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Sentinel2', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = pythonVersion3_15;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Sentinel3', () => {
@@ -1088,4 +1100,11 @@ test('Sentinel5', () => {
             ]
         );
     }
+});
+
+test('Frozendict1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_15;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['frozendict1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4);
 });

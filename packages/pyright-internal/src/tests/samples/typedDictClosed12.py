@@ -1,41 +1,26 @@
-# This sample tests that a LiteralString key on a TypedDict is treated
-# like a str key whose value is not known statically.
+# This sample verifies the runtime attributes exposed by the PEP 728
+# implementation in typing_extensions on Python 3.14.
 
-from typing import Literal, LiteralString, TypedDict, reveal_type
-
-
-class TD1(TypedDict, extra_items=str):
-    known: int
+from typing import assert_type
+from typing_extensions import NoExtraItems, TypedDict  # pyright: ignore[reportMissingModuleSource]
 
 
-class TD2(TypedDict):
-    known: int
+class OpenRecord(TypedDict):
+    name: str
 
 
-class TD3(TypedDict, closed=True):
-    known: int
+class ClosedRecord(TypedDict, closed=True):
+    name: str
 
 
-def func1(
-    td1: TD1,
-    td2: TD2,
-    td3: TD3,
-    k: LiteralString,
-    s: str,
-    lit: Literal["known"],
-) -> None:
-    reveal_type(td1[k], expected_text="Unknown")
-    reveal_type(td1[s], expected_text="Unknown")
-    reveal_type(td2[k], expected_text="Unknown")
-    reveal_type(td3[k], expected_text="Unknown")
-    reveal_type(td1[lit], expected_text="int")
+class ExtraRecord(TypedDict, extra_items=int):
+    name: str
 
-    td1[k] = "a"
-    td2[k] = 1
-    td3[k] = 1
 
-    del td1[k]
-    del td2[k]
+FunctionalRecord = TypedDict("FunctionalRecord", {"name": str}, closed=True)
 
-    # This should generate an error because "other" is not a defined key.
-    td3["other"]
+assert_type(OpenRecord.__closed__, bool | None)
+assert OpenRecord.__extra_items__ is NoExtraItems
+assert ClosedRecord.__closed__ is True
+assert ExtraRecord.__extra_items__ is int
+assert FunctionalRecord.__closed__ is True

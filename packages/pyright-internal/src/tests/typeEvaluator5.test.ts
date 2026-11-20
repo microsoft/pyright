@@ -436,7 +436,7 @@ test('TypedDictClosed9', () => {
 
 test('TypedDictClosed10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed10.py']);
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('TypedDictClosed11', () => {
@@ -445,7 +445,15 @@ test('TypedDictClosed11', () => {
 });
 
 test('TypedDictClosed12', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed12.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_14;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed12.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypedDictLiteralString1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictLiteralString1.py']);
     TestUtils.validateResults(analysisResults, 1);
 });
 
