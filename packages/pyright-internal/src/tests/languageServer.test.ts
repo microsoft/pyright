@@ -12,6 +12,7 @@ import {
     CallHierarchyOutgoingCallsRequest,
     CallHierarchyPrepareRequest,
     CancellationToken,
+    CancellationTokenSource,
     CompletionItem,
     CompletionRequest,
     ConfigurationItem,
@@ -21,9 +22,12 @@ import {
     DocumentDiagnosticRequest,
     InitializedNotification,
     InitializeRequest,
+    LSPErrorCodes,
     MarkupContent,
+    ReferencesRequest,
     SymbolKind,
     UnregistrationRequest,
+    WorkDoneProgressCreateRequest,
 } from 'vscode-languageserver';
 
 import { convertOffsetToPosition } from '../common/positionUtils';
@@ -205,6 +209,38 @@ describe(`Basic language server tests`, () => {
         await info.dispose();
         serverInfo = undefined;
         expect(unregistered).toBe(true);
+    });
+
+    test('Find references recovers after a cancelled request', async () => {
+        const info = await runLanguageServer(
+            DEFAULT_WORKSPACE_ROOT,
+            `
+// @filename: test.py
+//// def /*symbol*/target(): pass
+//// target()
+`
+        );
+        await openFile(info, 'symbol');
+        const uri = info.testData.markerPositions.get('symbol')!.fileUri.toString();
+        const references = (token: CancellationToken) =>
+            info.connection.sendRequest(
+                ReferencesRequest.type,
+                { textDocument: { uri }, position: { line: 0, character: 4 }, context: { includeDeclaration: true } },
+                token
+            );
+        const before = await references(CancellationToken.None);
+        expect(before?.map((location) => location.range.start.line).sort()).toEqual([0, 1]);
+
+        const source = new CancellationTokenSource();
+        // Cancel while the server is waiting for the client to acknowledge its progress request.
+        const progress = info.connection.onRequest(WorkDoneProgressCreateRequest.type, () => source.cancel());
+        try {
+            await expect(references(source.token)).rejects.toMatchObject({ code: LSPErrorCodes.RequestCancelled });
+            await expect(references(CancellationToken.None)).resolves.toEqual(before);
+        } finally {
+            progress.dispose();
+            source.dispose();
+        }
     });
 
     test.each([
