@@ -184,8 +184,7 @@ function _evaluateStaticBoolOrBoolLikeExpression(
                 }
 
                 if (constantValue !== undefined && typeof constantValue === 'string') {
-                    const comparisonStringName = rightExpr.d.strings.map((s) => s.d.value).join('');
-                    return _evaluateStringBinaryOperation(operator, constantValue, comparisonStringName);
+                    return _evaluateStrComparisonToStringList(operator, rightExpr, constantValue);
                 }
             }
         }

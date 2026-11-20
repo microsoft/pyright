@@ -1362,6 +1362,25 @@ test('StaticExpression1', () => {
     TestUtils.validateResults(analysisResults3, 8);
 });
 
+test('StaticExpressionDefinedConstants1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.defaultPythonPlatform = 'Linux';
+    configOptions.defineConstant.set('MODE', 'hi!');
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['staticExpressionDefinedConstants1.py'], configOptions);
+    const expectedLines = [14, 20, 25, 31, 37, 43, 44, 49, 50, 55, 56, 61, 62, 67, 73, 74, 79, 80];
+    const expectedDiagnostics = expectedLines.map((line) => [line, DiagnosticRule.reportReturnType]);
+    expectedDiagnostics.push([110, DiagnosticRule.reportArgumentType]);
+    TestUtils.validateResults(analysisResults, expectedDiagnostics.length);
+    assert.deepStrictEqual(
+        [...analysisResults[0].errors]
+            .sort((a, b) => a.range.start.line - b.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        expectedDiagnostics
+    );
+});
+
 test('StaticExpression2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['staticExpression2.py']);
 
