@@ -4,7 +4,7 @@
 # pyright: strict
 
 from abc import abstractmethod
-from typing import Callable, Generic, TypeVar
+from typing import Any, Callable, Generic, Protocol, Self, TypeVar, overload
 
 _TSource = TypeVar("_TSource")
 _TResult = TypeVar("_TResult")
@@ -177,3 +177,49 @@ class SubclassM2[T](BaseM[T]):
 # This should generate an error because the base classes define
 # method1 in an incompatible way.
 class SubclassM3[T](BaseM[int], BaseN[T]): ...
+
+
+class BaseO[T]:
+    @overload
+    def method1(self: "BaseO[int]", x: int) -> int: ...
+    @overload
+    def method1(self, x: str) -> str: ...
+    @overload
+    def method1(self, x: bytes) -> bytes: ...
+    def method1(self, x: Any) -> Any: ...
+
+
+class BaseP:
+    @overload
+    def method1(self, x: str) -> str: ...
+    @overload
+    def method1(self, x: bytes) -> bytes: ...
+    def method1(self, x: str | bytes) -> str | bytes: ...
+
+
+class SubclassO1(BaseP, BaseO[str]): ...
+
+
+# This should generate an error because the base classes define
+# method1 in an incompatible way.
+class SubclassO2(BaseP, BaseO[int]): ...
+
+
+class BaseQ(Protocol):
+    def method1[T: BaseQ](self: T) -> T: ...
+
+
+class BaseR:
+    def method1(self) -> Self: ...
+
+
+class BaseS:
+    def method1(self) -> "BaseS": ...
+
+
+class SubclassQ1(BaseR, BaseQ): ...
+
+
+# This should generate an error because the base classes define
+# method1 in an incompatible way.
+class SubclassQ2(BaseS, BaseQ): ...

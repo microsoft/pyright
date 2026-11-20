@@ -6119,6 +6119,20 @@ export class Checker extends ParseTreeWalker {
                           selfSpecializeClass(overriddenClassAndSymbol.classType, { useBoundTypeVars: true })
                       );
 
+                overriddenType = partiallySpecializeType(
+                    overriddenType,
+                    overriddenClassAndSymbol.classType,
+                    this._evaluator.getTypeClassType(),
+                    baseClassSelf
+                );
+
+                overrideType = partiallySpecializeType(
+                    overrideType,
+                    overrideClassAndSymbol.classType,
+                    this._evaluator.getTypeClassType(),
+                    childClassSelf
+                ) as FunctionType | OverloadedType;
+
                 if (childClassType.shared.typeVarScopeId) {
                     overriddenType = makeTypeVarsBound(overriddenType, [childClassType.shared.typeVarScopeId]);
                     overrideType = makeTypeVarsBound(overrideType, [childClassType.shared.typeVarScopeId]);
@@ -6139,7 +6153,7 @@ export class Checker extends ParseTreeWalker {
                     !this._evaluator.validateOverrideMethod(
                         overriddenTypeForComparison,
                         overrideTypeForComparison,
-                        /* baseClass */ undefined,
+                        childClassType,
                         diagAddendum,
                         /* enforceParamNameMatch */ true,
                         baseClassSelf,
