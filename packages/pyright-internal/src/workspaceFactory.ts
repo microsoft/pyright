@@ -60,7 +60,9 @@ export function createInitStatus(): InitStatus {
                 return self;
             }
 
-            return createInitStatus();
+            const next = createInitStatus();
+            next.promise.then(() => self.resolve());
+            return next;
         },
         resolved: () => {
             return deferred.resolved;

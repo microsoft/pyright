@@ -13,6 +13,7 @@ import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-langu
 import { parse } from '../common/tomlUtils';
 
 import { IBackgroundAnalysis, RefreshOptions } from '../backgroundAnalysisBase';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import {
     CommandLineConfigOptions,
     CommandLineLanguageServerOptions,
@@ -557,7 +558,12 @@ export class AnalyzerService {
                 this._backgroundAnalysisProgram.setConfigOptions(this._configOptions);
             }
 
-            fileMap = enumResults.matches;
+            fileMap = new Map(enumResults.matches);
+            this._program.getOpened().forEach((openFile) => {
+                if (matchFileSpecs(this._configOptions, openFile.uri)) {
+                    fileMap.set(openFile.uri.key, openFile.uri);
+                }
+            });
 
             this._backgroundAnalysisProgram.setTrackedFiles(Array.from(fileMap.values()));
 
@@ -577,6 +583,24 @@ export class AnalyzerService {
         }
 
         return true;
+    }
+
+    async enumerateAllSourceFiles(token: CancellationToken): Promise<void> {
+        const maxSourceEnumeratorTime = this.options.maxAnalysisTime?.noOpenFilesTimeInMs ?? 0;
+
+        for (;;) {
+            throwIfCancellationRequested(token);
+
+            if (this._requireTrackedFileUpdate) {
+                this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
+            }
+
+            if (this.enumerateSourceFiles(maxSourceEnumeratorTime)) {
+                return;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve));
+        }
     }
 
     protected runAnalysis(token: CancellationToken) {

@@ -16,6 +16,7 @@ import {
     ApplyWorkspaceEditRequest,
     CancellationToken,
     ConfigurationItem,
+    ConfigurationParams,
     ConfigurationRequest,
     DiagnosticRefreshRequest,
     DidChangeWorkspaceFoldersNotification,
@@ -100,6 +101,7 @@ export interface PyrightServerInfo {
     logs: LogMessageParams[];
     connection: Connection;
     signals: Map<CustomLSP.TestSignalKinds, Deferred<boolean>>;
+    signalEvent: Event<CustomLSP.TestSignal>;
     testName: string; // Used for debugging
     testData: FourSlashData;
     projectRoots: Uri[];
@@ -118,6 +120,7 @@ export interface PyrightServerInfo {
     workspaceDiagnosticsPartialResultToken?: string;
     pendingWorkspaceDiagnostics?: Promise<any>;
     queriedConfigSettings: Deferred<void>;
+    delayConfigurationResponse?: (params: ConfigurationParams) => Promise<void>;
 }
 
 export class TestHostOptions {
@@ -576,6 +579,7 @@ export async function runPyrightServer(
     const serverStarted = createDeferred<string>();
     const diagnosticsEmitter = new Emitter<PublishDiagnosticsParams>();
     const workspaceEditsEmitter = new Emitter<ApplyWorkspaceEditParams>();
+    const signalEmitter = new Emitter<CustomLSP.TestSignal>();
     const partialResultToken = `4fb5ab8a-37a6-4c16-a290-03cfc892ea7e`; // Doesn't need to be different, just a random guid
 
     // Setup the server info.
@@ -588,6 +592,7 @@ export async function runPyrightServer(
         progressReporterStatus: new Map<string, number>(),
         progressParts: new Map<string, TestProgressPart>(),
         signals: new Map(Object.values(CustomLSP.TestSignalKinds).map((v) => [v, createDeferred<boolean>()])),
+        signalEvent: signalEmitter.event,
         testData,
         testName: testServerData.testName,
         telemetry: [],
@@ -636,6 +641,7 @@ export async function runPyrightServer(
         }),
         info.connection.onNotification(CustomLSP.Notifications.TestSignal, (p: CustomLSP.TestSignal) => {
             info.signals.get(p.kind)!.resolve(true);
+            signalEmitter.fire(p);
         }),
         info.connection.onNotification(LogMessageNotification.type, (p) => {
             info.logs.push(p);
@@ -692,7 +698,8 @@ export async function runPyrightServer(
         })
     );
     info.disposables.push(
-        info.connection.onRequest(ConfigurationRequest.type, (p) => {
+        info.connection.onRequest(ConfigurationRequest.type, async (p) => {
+            await info.delayConfigurationResponse?.(p);
             const result = [];
             const mappedSettings = settingsMap.get(info) || [];
             for (const item of p.items) {
