@@ -138,3 +138,34 @@ class Derived5_2(Base5[str]):
     # This should generate an error.
     @classmethod
     def method2(cls) -> int: ...
+
+
+class Derived5_3(Base5[str]):
+    # This should generate an error.
+    def method1(self: object) -> int: ...
+
+
+class Base6:
+    def method1(self: Base6) -> int: ...
+
+    @classmethod
+    def method2(cls: type[Base6]) -> int: ...
+
+
+class Derived6(Base6):
+    def method1(self: object) -> int: ...
+
+    @classmethod
+    def method2(cls: type[object]) -> int: ...
+
+
+class Base7:
+    def method1(self: object) -> int: ...
+
+
+class Derived7_1(Base7, Base6): ...
+
+
+# This should generate an error because the base classes define
+# method1 in an incompatible way.
+class Derived7_2(Base7, Base5[str]): ...
