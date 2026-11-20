@@ -540,46 +540,56 @@ ${leafCode}`;
         releaseSettings();
     });
 
-    test('Workspace symbols requested before a settings refresh wait for the refreshed settings', async () => {
-        const code = `
+    test.each(['original', 'refreshed'])(
+        'Workspace symbols requested before a settings refresh wait for the refreshed settings: %s settings of root b arrive first',
+        async (first) => {
+            const code = `
 // @filename: a/needle.py
 //// /*needle*/needle = 1
 
 // @filename: b/other.py
 //// other = 1
         `;
-        const info = await runLanguageServer(
-            ['a', 'b'].map((root) => combinePaths(DEFAULT_WORKSPACE_ROOT, root)),
-            code,
-            /* callInitialize */ false
-        );
-        const [rootA, rootB] = info.projectRoots.map((root) => root.toString());
-        const needle = { name: 'needle', uri: getDocument(info, 'needle').uri };
-        const nextSettingsRequest = holdWorkspaceSettings(info);
+            const info = await runLanguageServer(
+                ['a', 'b'].map((root) => combinePaths(DEFAULT_WORKSPACE_ROOT, root)),
+                code,
+                /* callInitialize */ false
+            );
+            const [rootA, rootB] = info.projectRoots.map((root) => root.toString());
+            const needle = { name: 'needle', uri: getDocument(info, 'needle').uri };
+            const nextSettingsRequest = holdWorkspaceSettings(info);
 
-        await initialize(info);
-        (await nextSettingsRequest(rootA))();
-        await waitForTestSignal(info, CustomLSP.TestSignalKinds.Initialization);
-        const releaseOriginalB = await nextSettingsRequest(rootB);
+            await initialize(info);
+            (await nextSettingsRequest(rootA))();
+            await waitForTestSignal(info, CustomLSP.TestSignalKinds.Initialization);
+            const releaseOriginalB = await nextSettingsRequest(rootB);
 
-        const symbols = getWorkspaceSymbols(info, 'needle');
-        info.connection.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
-        const releaseRefreshA = await nextSettingsRequest(rootA);
-        const releaseRefreshB = await nextSettingsRequest(rootB);
+            const symbols = getWorkspaceSymbols(info, 'needle');
+            info.connection.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
+            const releaseRefreshA = await nextSettingsRequest(rootA);
+            const releaseRefreshB = await nextSettingsRequest(rootB);
 
-        const originalBApplied = waitForEvent(
-            info.signalEvent,
-            'original settings of root b',
-            (signal) => signal.kind === CustomLSP.TestSignalKinds.Initialization && signal.uri === rootB
-        );
-        releaseOriginalB();
-        await originalBApplied;
-        releaseRefreshA();
-        releaseRefreshB();
+            const firstBApplied = waitForEvent(
+                info.signalEvent,
+                `${first} settings of root b`,
+                (signal) => signal.kind === CustomLSP.TestSignalKinds.Initialization && signal.uri === rootB
+            );
+            if (first === 'original') {
+                releaseOriginalB();
+                await firstBApplied;
+                releaseRefreshA();
+                releaseRefreshB();
+            } else {
+                releaseRefreshA();
+                releaseRefreshB();
+                await firstBApplied;
+            }
 
-        expect(await symbols).toEqual([needle]);
-        expect(await getWorkspaceSymbols(info, 'needle')).toEqual([needle]);
-    });
+            expect(await waitForPromise(symbols)).toEqual([needle]);
+            expect(await getWorkspaceSymbols(info, 'needle')).toEqual([needle]);
+            releaseOriginalB();
+        }
+    );
 
     test('Workspace-wide request cancelled while settings are pending skips the source scan', async () => {
         const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, leafCode, /* callInitialize */ false);
