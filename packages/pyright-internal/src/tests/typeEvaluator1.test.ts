@@ -509,6 +509,11 @@ test('TypeNarrowingEnum2', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('TypeNarrowingIsinstanceMany', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstanceMany.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('TypeNarrowingIsinstance1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance1.py']);
 

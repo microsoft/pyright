@@ -1113,6 +1113,8 @@ function narrowTypeForInstanceOrSubclassInternal(
     nodeInfo: AnalyzerNodeInfoAccessor,
     allowDisjointRuntimeCheckNarrowingToNever: boolean
 ): Type {
+    let typeVarScopes: ReturnType<typeof ParseTreeUtils.getTypeVarScopesForNode> | undefined;
+    const getTypeVarScopes = () => (typeVarScopes ??= ParseTreeUtils.getTypeVarScopesForNode(errorNode, nodeInfo));
     const result = mapSubtypes(type, (subtype) => {
         let adjSubtype = subtype;
         let resultRequiresAdj = false;
@@ -1143,6 +1145,7 @@ function narrowTypeForInstanceOrSubclassInternal(
             allowIntersections,
             errorNode,
             nodeInfo,
+            getTypeVarScopes,
             allowDisjointRuntimeCheckNarrowingToNever
         );
 
@@ -1177,6 +1180,7 @@ function narrowTypeForInstance(
     allowIntersections: boolean,
     errorNode: ExpressionNode,
     nodeInfo: AnalyzerNodeInfoAccessor,
+    getTypeVarScopes: () => ReturnType<typeof ParseTreeUtils.getTypeVarScopesForNode>,
     allowDisjointRuntimeCheckNarrowingToNever: boolean
 ): Type {
     let expandedTypes = mapSubtypes(type, (subtype) => {
@@ -1193,7 +1197,7 @@ function narrowTypeForInstance(
 
         // If this is an isinstance or issubclass check, the type variables
         // should be converted to "free" type variables.
-        return makeTypeVarsFree(varType, ParseTreeUtils.getTypeVarScopesForNode(errorNode, nodeInfo));
+        return makeTypeVarsFree(varType, getTypeVarScopes());
     };
 
     // Filters the varType by the parameters of the isinstance
@@ -1209,6 +1213,7 @@ function narrowTypeForInstance(
 
         let foundSuperclass = false;
         let isClassRelationshipIndeterminate = false;
+        let freeVarType: ClassType | undefined;
 
         for (const filterType of filterTypes) {
             const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
@@ -1252,17 +1257,10 @@ function narrowTypeForInstance(
                     }
                 }
 
-                let runtimeVarType = concreteVarType;
-
-                // Type variables are erased for runtime types, so switch from
-                // bound to free type variables. We'll retain the bound type
-                // variables for TypeIs checks.
-                if (!isTypeIsCheck) {
-                    runtimeVarType = makeTypeVarsFree(
-                        runtimeVarType,
-                        ParseTreeUtils.getTypeVarScopesForNode(errorNode, nodeInfo)
-                    );
-                }
+                // Type variables are erased for runtime checks but remain bound for TypeIs.
+                let runtimeVarType = isTypeIsCheck
+                    ? concreteVarType
+                    : (freeVarType ??= makeTypeVarsFree(concreteVarType, getTypeVarScopes()));
 
                 // If the value is a TypedDict, convert it into its runtime form,
                 // which is a dict[str, Any].
