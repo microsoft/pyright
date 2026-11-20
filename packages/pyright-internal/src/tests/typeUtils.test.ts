@@ -365,34 +365,6 @@ test('Transform aligned class arguments but preserve mismatched wrappers', () =>
     );
 });
 
-function createFunction(parameterType: Type, defaultType: Type, returnType: Type) {
-    const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.None);
-    FunctionType.addParam(
-        functionType,
-        FunctionParam.create(ParamCategory.Simple, parameterType, undefined, 'value', defaultType)
-    );
-    functionType.shared.declaredReturnType = returnType;
-    return functionType;
-}
-
-function createClass(name: string) {
-    return ClassType.createInstantiable(
-        name,
-        'test',
-        `test.${name}`,
-        Uri.empty(),
-        ClassTypeFlags.None,
-        0,
-        /* declaredMetaclass */ undefined,
-        /* effectiveMetaclass */ undefined
-    );
-}
-
-function replacePair(source: Type, target: Type) {
-    return (sourceNode: Type, targetNode: Type) =>
-        sourceNode === source && targetNode === target ? targetNode : undefined;
-}
-
 test('AllSubtypes', () => {
     const unionType = createUnion(createClassType('A'), createClassType('B'), createClassType('C'));
     const visitedSubtypes: Type[] = [];
@@ -463,6 +435,34 @@ test('SomeSubtypes', () => {
     );
 });
 
+function createFunction(parameterType: Type, defaultType: Type, returnType: Type) {
+    const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.None);
+    FunctionType.addParam(
+        functionType,
+        FunctionParam.create(ParamCategory.Simple, parameterType, undefined, 'value', defaultType)
+    );
+    functionType.shared.declaredReturnType = returnType;
+    return functionType;
+}
+
+function createClass(name: string) {
+    return ClassType.createInstantiable(
+        name,
+        'test',
+        `test.${name}`,
+        Uri.empty(),
+        ClassTypeFlags.None,
+        0,
+        /* declaredMetaclass */ undefined,
+        /* effectiveMetaclass */ undefined
+    );
+}
+
+function replacePair(source: Type, target: Type) {
+    return (sourceNode: Type, targetNode: Type) =>
+        sourceNode === source && targetNode === target ? targetNode : undefined;
+}
+
 function createClassType(name: string, flags = ClassTypeFlags.None) {
     const classType = ClassType.createInstantiable(
         name,
@@ -478,7 +478,7 @@ function createClassType(name: string, flags = ClassTypeFlags.None) {
     return classType;
 }
 
-function createUnion(...subtypes: UnionableType[]) {
+function createUnion(...subtypes: readonly UnionableType[]) {
     const unionType = UnionType.create();
     subtypes.forEach((subtype) => {
         UnionType.addType(unionType, subtype);
