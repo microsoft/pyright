@@ -10,16 +10,79 @@ import * as assert from 'assert';
 
 import { applyTypeNarrowingCallback } from '../analyzer/typeGuards';
 import {
+    AnyType,
     ClassType,
     ClassTypeFlags,
     combineTypes,
     exceedsInferredTupleLiteralProduct,
     getInferredTupleLiteralBase,
     isTypeSame,
+    isUnion,
     retainInferredTupleLiterals,
+    TypeBase,
     TypeVarType,
+    UnknownType,
 } from '../analyzer/types';
 import { Uri } from '../common/uri/uri';
+
+test('CombineSpecializedTypedDictPresenceVariants', () => {
+    const cls = ClassType.createInstantiable(
+        'Options',
+        'test.Options',
+        'test',
+        Uri.empty(),
+        ClassTypeFlags.TypedDictClass,
+        0,
+        undefined,
+        undefined
+    );
+    const valueType = AnyType.create();
+    const specialized = ClassType.cloneAsInstance(ClassType.specialize(cls, [valueType]));
+    const otherSpecialization = ClassType.cloneAsInstance(ClassType.specialize(cls, [UnknownType.create()]));
+    const provided = { valueType, isRequired: false, isReadOnly: false, isProvided: true };
+    const absent = { ...provided, isProvided: false };
+    const variants = Array.from({ length: 32 }, (_, i) =>
+        ClassType.cloneForNarrowedTypedDictEntries(specialized, new Map([[`key${i}`, provided]]))
+    );
+    const ordered = ClassType.cloneForNarrowedTypedDictEntries(
+        specialized,
+        new Map([
+            ['a,b', provided],
+            ['"c"', provided],
+        ])
+    );
+    const reversed = ClassType.cloneForNarrowedTypedDictEntries(
+        specialized,
+        new Map([
+            ['"c"', provided],
+            ['a,b', provided],
+        ])
+    );
+    const notProvided = ClassType.cloneForNarrowedTypedDictEntries(specialized, new Map([['key0', absent]]));
+    const differentArgs = ClassType.cloneForNarrowedTypedDictEntries(
+        otherSpecialization,
+        new Map([['key0', provided]])
+    );
+    const expected = [...variants, ordered, notProvided, differentArgs, specialized];
+    const combined = combineTypes([...expected, reversed, variants[0]]);
+    assert.ok(isUnion(combined));
+    assert.deepStrictEqual(combined.priv.subtypes, expected);
+
+    // Both forms have identical key presence, but only one has type-form metadata.
+    const tagged = TypeBase.cloneWithTypeForm(ordered, specialized);
+    for (const [first, second] of [
+        [ordered, tagged],
+        [tagged, ordered],
+    ]) {
+        const capped = combineTypes([...variants, first, second, notProvided], { maxSubtypeCount: 34 });
+        assert.ok(isUnion(capped));
+        assert.deepStrictEqual(capped.priv.subtypes, [...variants, first, notProvided]);
+
+        const preserveForms = combineTypes([...variants, first, second], { skipElideRedundantLiterals: true });
+        assert.ok(isUnion(preserveForms));
+        assert.deepStrictEqual(preserveForms.priv.subtypes, [...variants, first, second]);
+    }
+});
 
 test('DisjointBaseDoesNotSynthesizeDataClassMethods', () => {
     const classType = ClassType.createInstantiable(

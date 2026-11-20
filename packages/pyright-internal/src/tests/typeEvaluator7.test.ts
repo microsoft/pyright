@@ -1957,6 +1957,19 @@ test('TypedDict27', () => {
     TestUtils.validateResults(analysisResults, 7);
 });
 
+test('TypedDictConditionalWrites', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    configOptions.diagnosticRuleSet.reportTypedDictNotRequiredAccess = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictConditionalWrites.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [[37, DiagnosticRule.reportTypedDictNotRequiredAccess]]
+    );
+});
+
 test('TypedDict28', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = pythonVersion3_13;
