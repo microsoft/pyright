@@ -309,6 +309,7 @@ def run_process_with_timeout(
     memory_limit_mb: int = DEFAULT_MEMORY_LIMIT_MB,
     capture_output: bool = True,
     environment: dict[str, str] | None = None,
+    encoding: str | None = None,
 ) -> ProcessResult:
     """Run a command with timeout and platform-appropriate memory measurement."""
     use_macos_time = sys.platform == "darwin" and Path("/usr/bin/time").is_file()
@@ -320,6 +321,7 @@ def run_process_with_timeout(
         "stderr": subprocess.PIPE if need_stderr_pipe else subprocess.DEVNULL,
         "text": True,
         "env": environment,
+        "encoding": encoding,
     }
     if sys.platform != "win32":
         popen_args["start_new_session"] = True

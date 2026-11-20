@@ -277,6 +277,29 @@ Dependency installation failures mark the package as unmeasured and skip its che
 report displays these preparation failures, but they do not count as performance regressions. If none
 of a package's configured check paths exist, the benchmark warns and checks the full repository.
 
+## Generated type-operation scaling
+
+For a focused comparison, build both worktrees with `pnpm run build:cli:dev` and run:
+
+```powershell
+python build\benchmark\type_operation_benchmark.py --baseline-root Q:\dev\pyright-base --candidate-root . > scaling.json
+```
+
+By default this checks 10, 50, 100, 500, and 1,000 entries, with three fresh CLI processes
+per build and size. Use `--sizes 10 50 --runs 1` for a smoke run or `--workloads` to select
+`literal-union` (indexed control), `typeddict-update` (writable-field tuple union), or
+`overload-width` (fixed single-argument shape, no union expansion). Use the same Node executable
+for both builds and rebuild if either bundle is stale. Both builds use the baseline's typeshed;
+this is an analyzer comparison, not a way to measure changes to typeshed.
+
+The runner alternates build order, checks exact diagnostic parity on every run, and requires
+precise `assert_type` checks and the expected negative diagnostics. JSON includes individual
+wall times, medians, peak RSS when supported (Linux and macOS), diagnostic details, and bundle
+and fixture hashes. The clean timings include startup and all analyzer phases; they cannot
+attribute a slowdown to one operation or establish its complexity. Use an A/A run to estimate
+noise and separate instrumentation or CPU profiling to attribute work. This runner does not
+measure CPU, GC, operation counts, edit latency, or editor responsiveness.
+
 ## Relationship to `perfCompare.py`
 
 `build/perfCompare.py` compares Pyright revisions on the same corpus to detect performance
