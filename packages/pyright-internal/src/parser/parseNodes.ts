@@ -1380,7 +1380,7 @@ export interface TernaryNode extends ParseNodeBase<ParseNodeType.Ternary> {
         ifExpr: ExpressionNode;
         testExpr: ExpressionNode;
         elseExpr: ExpressionNode;
-        hasParens?: boolean;
+        hasParens: boolean;
     };
 }
 
@@ -1402,6 +1402,7 @@ export namespace TernaryNode {
                 ifExpr,
                 testExpr,
                 elseExpr,
+                hasParens: false,
             },
         };
 
@@ -1693,7 +1694,7 @@ export interface LambdaNode extends ParseNodeBase<ParseNodeType.Lambda> {
     d: {
         params: ParameterNode[];
         expr: ExpressionNode;
-        hasParens?: boolean;
+        hasParens: boolean;
     };
 }
 
@@ -1709,6 +1710,7 @@ export namespace LambdaNode {
             d: {
                 params: [],
                 expr,
+                hasParens: false,
             },
         };
 
@@ -1786,6 +1788,7 @@ export interface NumberNode extends ParseNodeBase<ParseNodeType.Number> {
         value: number | bigint;
         isInteger: boolean;
         isImaginary: boolean;
+        hasParens: boolean;
     };
 }
 
@@ -1802,6 +1805,7 @@ export namespace NumberNode {
                 value: token.value,
                 isInteger: token.isInteger,
                 isImaginary: token.isImaginary,
+                hasParens: false,
             },
         };
 
@@ -1843,6 +1847,9 @@ export interface FormatStringNode extends ParseNodeBase<ParseNodeType.FormatStri
         fieldExprs: ExpressionNode[];
         formatExprs: ExpressionNode[];
 
+        // Source text between the quotes, if the string is terminated.
+        escapedValue: string | undefined;
+
         // Include a dummy "value" to simplify other code.
         value: '';
     };
@@ -1855,7 +1862,8 @@ export namespace FormatStringNode {
         endToken: FStringEndToken | undefined,
         middleTokens: FStringMiddleToken[],
         fieldExprs: ExpressionNode[],
-        formatExprs: ExpressionNode[]
+        formatExprs: ExpressionNode[],
+        escapedValue: string | undefined
     ) {
         const node: FormatStringNode = {
             start: startToken.start,
@@ -1869,6 +1877,7 @@ export namespace FormatStringNode {
                 middleTokens,
                 fieldExprs,
                 formatExprs,
+                escapedValue,
                 value: '',
             },
         };
