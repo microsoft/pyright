@@ -1739,9 +1739,15 @@ export function getTypeOfIndexedTypedDict(
             return subtype;
         }
 
-        if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['str', 'LiteralString'])) {
+        // The existing non-literal str mutation path does not validate possible
+        // keys, so do not extend it to LiteralString mutations.
+        if (
+            isClassInstance(subtype) &&
+            (ClassType.isBuiltIn(subtype, 'str') ||
+                (usage.method === 'get' && ClassType.isBuiltIn(subtype, 'LiteralString')))
+        ) {
             if (subtype.priv.literalValue === undefined) {
-                // If it's a plain str with no literal value, we can't
+                // If it's a string with no literal value, we can't
                 // make any determination about the resulting type.
                 return UnknownType.create();
             }
