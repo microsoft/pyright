@@ -333,7 +333,87 @@ test('FutureImport3', () => {
 
 test('Conditional1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['conditional1.py']);
-    TestUtils.validateResults(analysisResults, 15);
+    TestUtils.validateResults(analysisResults, 19);
+});
+
+test('ConditionalBooleanOperands1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['conditionalBooleanOperands1.py']);
+    TestUtils.validateResults(analysisResults, 33);
+    expect(
+        analysisResults[0].errors
+            .slice()
+            .sort(
+                (a, b) => a.range.start.line - b.range.start.line || a.range.start.character - b.range.start.character
+            )
+            .map((diagnostic) => [
+                diagnostic.range.start.line + 1,
+                diagnostic.range.start.character + 1,
+                diagnostic.getRule(),
+            ])
+    ).toEqual(
+        [
+            [13, 13],
+            [19, 8],
+            [21, 8],
+            [21, 13],
+            [23, 8],
+            [23, 14],
+            [25, 17],
+            [31, 16],
+            [33, 9],
+            [33, 14],
+            [35, 13],
+            [35, 18],
+            [37, 12],
+            [37, 17],
+            [38, 11],
+            [38, 16],
+            [40, 19],
+            [40, 24],
+            [41, 40],
+            [41, 45],
+            [43, 19],
+            [43, 24],
+            [45, 21],
+            [45, 26],
+            [47, 9],
+            [47, 14],
+            [49, 25],
+            [49, 31],
+            [55, 14],
+            [55, 19],
+            [77, 21],
+            [77, 28],
+            [79, 39],
+        ].map(([line, column]) => [line, column, DiagnosticRule.reportGeneralTypeIssues])
+    );
+});
+
+test('ConditionalGenericBoolean1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['conditionalGenericBoolean1.py']);
+    TestUtils.validateResults(analysisResults, 7);
+    expect(
+        analysisResults[0].errors
+            .slice()
+            .sort(
+                (a, b) => a.range.start.line - b.range.start.line || a.range.start.character - b.range.start.character
+            )
+            .map((diagnostic) => [
+                diagnostic.range.start.line + 1,
+                diagnostic.range.start.character + 1,
+                diagnostic.getRule(),
+            ])
+    ).toEqual(
+        [
+            [32, 13],
+            [33, 8],
+            [35, 8],
+            [37, 8],
+            [39, 8],
+            [41, 8],
+            [49, 9],
+        ].map(([line, column]) => [line, column, DiagnosticRule.reportGeneralTypeIssues])
+    );
 });
 
 test('TypePrinter1', () => {
