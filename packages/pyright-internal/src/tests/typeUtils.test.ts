@@ -10,9 +10,11 @@ import * as assert from 'assert';
 
 import { ConstraintSolution } from '../analyzer/constraintSolution';
 import {
+    allSubtypes,
     applySolvedTypeVars,
     containsLiteralType,
     mapSignatures,
+    someSubtypes,
     transformExpectedType,
     transformTypePair,
 } from '../analyzer/typeUtils';
@@ -35,6 +37,7 @@ import {
     TypeCategory,
     TypeVarScopeType,
     TypeVarType,
+    UnionableType,
     UnionType,
     UnknownType,
     Variance,
@@ -362,6 +365,76 @@ test('Transform aligned class arguments but preserve mismatched wrappers', () =>
     );
 });
 
+test('AllSubtypes', () => {
+    const unionType = createUnion(createClassType('A'), createClassType('B'), createClassType('C'));
+    const visitedSubtypes: Type[] = [];
+
+    const result = allSubtypes(unionType, (subtype) => {
+        visitedSubtypes.push(subtype);
+        return visitedSubtypes.length < 2;
+    });
+
+    assert.strictEqual(result, false);
+    assert.strictEqual(visitedSubtypes.length, 2);
+
+    assert.strictEqual(
+        allSubtypes(unionType, () => {
+            return true;
+        }),
+        true
+    );
+
+    const singleType = createClassType('D');
+    assert.strictEqual(
+        allSubtypes(singleType, (subtype) => {
+            assert.strictEqual(subtype, singleType);
+            return true;
+        }),
+        true
+    );
+});
+
+test('AllSubtypes passes only the subtype to callbacks', () => {
+    const literal = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(createClass('Value')), 1);
+    const nested = ClassType.specialize(ClassType.cloneAsInstance(createClass('Container')), [literal]);
+
+    assert.strictEqual(containsLiteralType(literal), true);
+    assert.strictEqual(containsLiteralType(nested), false);
+    assert.strictEqual(containsLiteralType(nested, true), true);
+    assert.strictEqual(allSubtypes(createUnion(literal, nested), containsLiteralType), false);
+    assert.strictEqual(allSubtypes(createUnion(nested, literal), containsLiteralType), false);
+    assert.strictEqual(allSubtypes(nested, containsLiteralType), false);
+});
+
+test('SomeSubtypes', () => {
+    const unionType = createUnion(createClassType('A'), createClassType('B'), createClassType('C'));
+    const visitedSubtypes: Type[] = [];
+
+    const result = someSubtypes(unionType, (subtype) => {
+        visitedSubtypes.push(subtype);
+        return visitedSubtypes.length === 2;
+    });
+
+    assert.strictEqual(result, true);
+    assert.strictEqual(visitedSubtypes.length, 2);
+
+    assert.strictEqual(
+        someSubtypes(unionType, () => {
+            return false;
+        }),
+        false
+    );
+
+    const singleType = createClassType('D');
+    assert.strictEqual(
+        someSubtypes(singleType, (subtype) => {
+            assert.strictEqual(subtype, singleType);
+            return false;
+        }),
+        false
+    );
+});
+
 function createFunction(parameterType: Type, defaultType: Type, returnType: Type) {
     const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.None);
     FunctionType.addParam(
@@ -388,4 +461,27 @@ function createClass(name: string) {
 function replacePair(source: Type, target: Type) {
     return (sourceNode: Type, targetNode: Type) =>
         sourceNode === source && targetNode === target ? targetNode : undefined;
+}
+
+function createClassType(name: string, flags = ClassTypeFlags.None) {
+    const classType = ClassType.createInstantiable(
+        name,
+        name,
+        '',
+        Uri.empty(),
+        flags,
+        0,
+        /* declaredMetaclass*/ undefined,
+        /* effectiveMetaclass */ undefined
+    );
+    classType.shared.mro.push(classType);
+    return classType;
+}
+
+function createUnion(...subtypes: readonly UnionableType[]) {
+    const unionType = UnionType.create();
+    subtypes.forEach((subtype) => {
+        UnionType.addType(unionType, subtype);
+    });
+    return unionType;
 }
