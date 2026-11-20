@@ -1,6 +1,7 @@
 # This sample tests the check for non-overlapping types compared
 # with equals comparison.
 
+from enum import IntEnum
 from typing import Literal, TypeVar
 
 
@@ -168,4 +169,55 @@ def func10(a: Literal[b"a"] | int, b: Literal[b"a"] | None):
 
     # This should generate an error because neither subtype can equal b"b".
     if b != b"b":
+        ...
+
+
+class IntEnum1(IntEnum):
+    A = 1
+
+
+def func11(
+    a: Literal[0, 1],
+    b: Literal[True],
+    c: Literal[False],
+    d: Literal[2, 3],
+    e: Literal[IntEnum1.A],
+):
+    # bool literals compare equal to the int literals 0 and 1.
+    if a == True:
+        ...
+
+    if True == a:
+        ...
+
+    if a != False:
+        ...
+
+    if b == 1:
+        ...
+
+    if c == 0:
+        ...
+
+    if e == True:
+        ...
+
+    # This should generate an error because True is not equal to 0.
+    if b == 0:
+        ...
+
+    # This should generate an error because True is not equal to 2 or 3.
+    if d == True:
+        ...
+
+    # This should generate an error because False is not equal to 2 or 3.
+    if False != d:
+        ...
+
+    # This should generate an error because an int is never identical to a bool.
+    if a is True:
+        ...
+
+    # This should generate an error because an int is never identical to a bool.
+    if b is not a:
         ...
