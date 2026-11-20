@@ -6126,7 +6126,7 @@ export class Checker extends ParseTreeWalker {
                     !this._evaluator.validateOverrideMethod(
                         overriddenTypeForComparison,
                         overrideTypeForComparison,
-                        /* baseClass */ undefined,
+                        childClassType,
                         diagAddendum,
                         /* enforceParamNameMatch */ true
                     )

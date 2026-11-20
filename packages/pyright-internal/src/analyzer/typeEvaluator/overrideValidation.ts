@@ -59,7 +59,7 @@ export function createOverrideValidation(context: Context) {
         if (isFunction(baseMethod)) {
             // Handle the easy case - a simple function overriding another simple function.
             if (isFunction(overrideMethod)) {
-                return validateOverrideMethodInternal(baseMethod, overrideMethod, diag, enforceParamNames);
+                return validateOverrideMethodInternal(baseMethod, overrideMethod, baseClass, diag, enforceParamNames);
             }
 
             const overloadsAndImpl = [...OverloadedType.getOverloads(overrideMethod)];
@@ -75,6 +75,7 @@ export function createOverrideValidation(context: Context) {
                     return validateOverrideMethodInternal(
                         baseMethod,
                         overrideOverload,
+                        baseClass,
                         /* diag */ undefined,
                         enforceParamNames
                     );
@@ -99,6 +100,7 @@ export function createOverrideValidation(context: Context) {
                 return validateOverrideMethodInternal(
                     overload,
                     overrideMethod,
+                    baseClass,
                     diag?.createAddendum(),
                     enforceParamNames
                 );
@@ -124,6 +126,7 @@ export function createOverrideValidation(context: Context) {
                 const isCompatible = validateOverrideMethodInternal(
                     baseOverload,
                     overrideOverload,
+                    baseClass,
                     /* diag */ undefined,
                     enforceParamNames
                 );
@@ -215,6 +218,7 @@ export function createOverrideValidation(context: Context) {
     function validateOverrideMethodInternal(
         baseMethod: FunctionType,
         overrideMethod: FunctionType,
+        childClass: ClassType | undefined,
         diag: DiagnosticAddendum | undefined,
         enforceParamNames: boolean
     ): boolean {
@@ -337,6 +341,32 @@ export function createOverrideValidation(context: Context) {
                         FunctionType.isClassMethod(overrideMethod) ||
                         FunctionType.isConstructorMethod(overrideMethod)
                     ) {
+                        const baseParamType = baseParamDetails.params[i].type;
+                        const overrideParamType = overrideParamDetails.params[i].type;
+
+                        // A declared "self" or "cls" type in the base method must
+                        // accept the child class or the override's declared type.
+                        if (
+                            !(isTypeVar(baseParamType) && baseParamType.shared.isSynthesized) &&
+                            !(childClass && isOverrideMethodApplicable(baseMethod, childClass)) &&
+                            !assignType(
+                                baseParamType,
+                                overrideParamType,
+                                diag?.createAddendum(),
+                                /* constraints */ undefined,
+                                AssignTypeFlags.Default
+                            )
+                        ) {
+                            diag?.addMessage(
+                                LocAddendum.overrideParamType().format({
+                                    index: i + 1,
+                                    baseType: printType(baseParamType),
+                                    overrideType: printType(overrideParamType),
+                                })
+                            );
+                            canOverride = false;
+                        }
+
                         continue;
                     }
                 }
