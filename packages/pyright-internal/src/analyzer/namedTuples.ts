@@ -130,6 +130,33 @@ export function createNamedTupleType(
     classType.shared.baseClasses.push(namedTupleType);
     classType.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode, nodeInfo);
 
+    // Make the generated class available while its field annotations are evaluated.
+    // This allows a quoted recursive field type to resolve to the final class rather
+    // than the variable currently being assigned.
+    const assignmentNode = errorNode.parent;
+    if (assignmentNode?.nodeType === ParseNodeType.Assignment && assignmentNode.d.rightExpr === errorNode) {
+        const assignmentTarget =
+            assignmentNode.d.leftExpr.nodeType === ParseNodeType.TypeAnnotation
+                ? assignmentNode.d.leftExpr.d.valueExpr
+                : assignmentNode.d.leftExpr;
+        if (assignmentTarget.nodeType === ParseNodeType.Name) {
+            evaluator.setTypeResultForNode(assignmentTarget, { type: classType });
+
+            // If the assignment is being evaluated to resolve an earlier reference
+            // to the symbol, register the class as a partial type so a recursive
+            // field type does not see the symbol as an unresolved variable.
+            const symbolWithScope = evaluator.lookUpSymbolRecursive(
+                assignmentTarget,
+                assignmentTarget.d.value,
+                /* honorCodeFlow */ false
+            );
+            const targetDecl = symbolWithScope?.symbol.getDeclarations().find((decl) => decl.node === assignmentTarget);
+            if (symbolWithScope && targetDecl) {
+                evaluator.setSymbolResolutionPartialType(symbolWithScope.symbol, targetDecl, classType);
+            }
+        }
+    }
+
     const classFields = ClassType.getSymbolTable(classType);
     classFields.set(
         '__class__',
@@ -254,9 +281,22 @@ export function createNamedTupleType(
                         if (entry.nodeType === ParseNodeType.Tuple && entry.d.items.length === 2) {
                             entryNameNode = entry.d.items[0];
                             entryTypeNode = entry.d.items[1];
-                            entryType = convertToInstance(
-                                evaluator.getTypeOfExpressionExpectingType(entryTypeNode).type
-                            );
+                            if (entryTypeNode.nodeType === ParseNodeType.Ellipsis) {
+                                // A bare "..." is not a valid type expression. Report it, but
+                                // keep the value type so uses of the field are still checked.
+                                evaluator.addDiagnostic(
+                                    DiagnosticRule.reportInvalidTypeForm,
+                                    LocMessage.ellipsisContext(),
+                                    entryTypeNode
+                                );
+                                entryType = convertToInstance(
+                                    evaluator.getTypeOfExpressionExpectingType(entryTypeNode).type
+                                );
+                            } else {
+                                // The typing spec treats functional NamedTuple field types as
+                                // type expressions, same as class-based annotations.
+                                entryType = evaluator.getTypeOfAnnotation(entryTypeNode);
+                            }
                         } else {
                             evaluator.addDiagnostic(
                                 DiagnosticRule.reportArgumentType,

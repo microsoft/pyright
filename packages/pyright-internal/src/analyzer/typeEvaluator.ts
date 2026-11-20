@@ -16897,6 +16897,14 @@ export function createTypeEvaluator(
                     if (classTypeInfo?.decoratedType) {
                         typesToCombine.push(classTypeInfo.decoratedType);
                     }
+                } else {
+                    // Use a partially-constructed type (such as a class synthesized
+                    // by a functional NamedTuple call) if one was registered for
+                    // this declaration while it is being resolved.
+                    const partialType = getSymbolResolutionPartialType(symbol, decl);
+                    if (partialType) {
+                        typesToCombine.push(partialType);
+                    }
                 }
 
                 isIncomplete = true;
@@ -19084,6 +19092,7 @@ export function createTypeEvaluator(
         useSpeculativeMode,
         isSpeculativeModeInUse,
         setTypeResultForNode,
+        setSymbolResolutionPartialType,
         getMaxCodeComplexity,
         checkForCancellation,
         printControlFlowGraph,
