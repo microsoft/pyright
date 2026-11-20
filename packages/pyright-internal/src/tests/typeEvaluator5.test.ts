@@ -452,6 +452,21 @@ test('TypedDictClosed12', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypedDictLiteralString1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictLiteralString1.py']);
+    const expectedLines = TestUtils.readSampleFile('typedDictLiteralString1.py')
+        .split(/\r?\n/)
+        .flatMap((line, index) => (line.includes('# This should generate an error.') ? [index] : []));
+    TestUtils.validateResults(analysisResults, expectedLines.length);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => diagnostic.range.start.line),
+        expectedLines
+    );
+    analysisResults[0].errors.forEach((diagnostic) =>
+        assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportGeneralTypeIssues)
+    );
+});
+
 test('DataclassTransform1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform1.py']);
 
