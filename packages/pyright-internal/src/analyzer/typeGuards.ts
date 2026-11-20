@@ -25,6 +25,7 @@ import { getInfoReader, AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { Declaration, DeclarationType } from './declaration';
+import { customMetaclassSupportsMethod } from './operations';
 import { getParamListDetails, ParamKind } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
@@ -243,7 +244,8 @@ export function getTypeNarrowingCallback(
     testExpression: ExpressionNode,
     isPositiveTest: boolean,
     nodeInfo: AnalyzerNodeInfoAccessor,
-    recursionCount = 0
+    recursionCount = 0,
+    isForwardedCondition = false
 ): TypeNarrowingCallback | undefined {
     if (recursionCount > maxTypeRecursionCount) {
         return undefined;
@@ -586,7 +588,8 @@ export function getTypeNarrowingCallback(
                             /* isTypeIsCheck */ false,
                             isPositiveTest,
                             testExpression,
-                            nodeInfo
+                            nodeInfo,
+                            /* allowDisjointRuntimeCheckNarrowingToNever */ !isForwardedCondition
                         ),
                         isIncomplete: isInstanceInfo.isIncomplete,
                     };
@@ -853,7 +856,8 @@ export function getTypeNarrowingCallback(
             notExpressionInfo.innerExpression,
             notExpressionInfo.adjIsPositiveTest,
             nodeInfo,
-            recursionCount
+            recursionCount,
+            isForwardedCondition
         );
     }
 
@@ -924,7 +928,15 @@ function getTypeNarrowingCallbackForAliasedCondition(
         return undefined;
     }
 
-    return getTypeNarrowingCallback(evaluator, reference, initNode, isPositiveTest, nodeInfo, recursionCount);
+    return getTypeNarrowingCallback(
+        evaluator,
+        reference,
+        initNode,
+        isPositiveTest,
+        nodeInfo,
+        recursionCount,
+        /* isForwardedCondition */ true
+    );
 }
 
 // Determines whether the symbol is a local variable or parameter within
@@ -996,9 +1008,18 @@ function getTypeNarrowingCallbackForAssignmentExpression(
             testExpression.d.rightExpr,
             isPositiveTest,
             nodeInfo,
-            recursionCount
+            recursionCount,
+            /* isForwardedCondition */ true
         ) ??
-        getTypeNarrowingCallback(evaluator, reference, testExpression.d.name, isPositiveTest, nodeInfo, recursionCount)
+        getTypeNarrowingCallback(
+            evaluator,
+            reference,
+            testExpression.d.name,
+            isPositiveTest,
+            nodeInfo,
+            recursionCount,
+            /* isForwardedCondition */ true
+        )
     );
 }
 
@@ -1064,7 +1085,8 @@ export function narrowTypeForInstanceOrSubclass(
     isTypeIsCheck: boolean,
     isPositiveTest: boolean,
     errorNode: ExpressionNode,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    nodeInfo: AnalyzerNodeInfoAccessor,
+    allowDisjointRuntimeCheckNarrowingToNever = true
 ) {
     return TypeEvaluatorNarrowing.narrowTypeForInstanceOrSubclass(
         evaluator,
@@ -1075,7 +1097,7 @@ export function narrowTypeForInstanceOrSubclass(
         isPositiveTest,
         errorNode,
         nodeInfo,
-        narrowTypeForInstanceOrSubclassInternal
+        (...args) => narrowTypeForInstanceOrSubclassInternal(...args, allowDisjointRuntimeCheckNarrowingToNever)
     );
 }
 
@@ -1088,7 +1110,8 @@ function narrowTypeForInstanceOrSubclassInternal(
     isPositiveTest: boolean,
     allowIntersections: boolean,
     errorNode: ExpressionNode,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    nodeInfo: AnalyzerNodeInfoAccessor,
+    allowDisjointRuntimeCheckNarrowingToNever: boolean
 ): Type {
     const result = mapSubtypes(type, (subtype) => {
         let adjSubtype = subtype;
@@ -1114,11 +1137,13 @@ function narrowTypeForInstanceOrSubclassInternal(
             evaluator,
             adjSubtype,
             adjFilterTypes,
+            isInstanceCheck,
             isTypeIsCheck,
             isPositiveTest,
             allowIntersections,
             errorNode,
-            nodeInfo
+            nodeInfo,
+            allowDisjointRuntimeCheckNarrowingToNever
         );
 
         if (!resultRequiresAdj) {
@@ -1146,11 +1171,13 @@ function narrowTypeForInstance(
     evaluator: TypeEvaluator,
     type: Type,
     filterTypes: Type[],
+    isInstanceCheck: boolean,
     isTypeIsCheck: boolean,
     isPositiveTest: boolean,
     allowIntersections: boolean,
     errorNode: ExpressionNode,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    nodeInfo: AnalyzerNodeInfoAccessor,
+    allowDisjointRuntimeCheckNarrowingToNever: boolean
 ): Type {
     let expandedTypes = mapSubtypes(type, (subtype) => {
         return transformPossibleRecursiveTypeAlias(subtype);
@@ -1396,6 +1423,25 @@ function narrowTypeForInstance(
                         !ClassType.isFinal(concreteVarType) &&
                         !ClassType.isFinal(concreteFilterType)
                     ) {
+                        // Runtime checks can succeed through custom metaclass membership.
+                        const filterMetaclass = concreteFilterType.shared.effectiveMetaclass;
+                        if (
+                            TypeEvaluatorNarrowing.areDisjointBasesIncompatible(concreteVarType, concreteFilterType) &&
+                            (isTypeIsCheck ||
+                                (!concreteFilterType.priv.includeSubclasses &&
+                                    filterMetaclass &&
+                                    isInstantiableClass(filterMetaclass) &&
+                                    !derivesFromAnyOrUnknown(filterMetaclass) &&
+                                    !customMetaclassSupportsMethod(
+                                        concreteFilterType,
+                                        isInstanceCheck ? '__instancecheck__' : '__subclasscheck__'
+                                    ) &&
+                                    allowDisjointRuntimeCheckNarrowingToNever &&
+                                    canNarrowDisjointRuntimeCheckToNever(evaluator, errorNode)))
+                        ) {
+                            continue;
+                        }
+
                         // The two types appear to have no relation. It's possible that the
                         // two types are protocols or the program is expecting one type to
                         // be a mix-in class used with the other. In this case, we'll
@@ -1863,6 +1909,22 @@ function narrowTypeForDiscriminatedFieldNoneComparison(
         memberName,
         isPositiveTest
     );
+}
+
+function canNarrowDisjointRuntimeCheckToNever(evaluator: TypeEvaluator, node: ExpressionNode): boolean {
+    if (node.nodeType !== ParseNodeType.Call) {
+        return false;
+    }
+
+    const reference = node.d.args[0]?.d.valueExpr;
+    if (reference?.nodeType !== ParseNodeType.Name) {
+        return false;
+    }
+
+    // Never-condition reachability currently evaluates only names with typed declarations.
+    return !!evaluator
+        .lookUpSymbolRecursive(reference, reference.d.value, /* honorCodeFlow */ false)
+        ?.symbol.hasTypedDeclarations();
 }
 
 // Determines whether two classes have incompatible disjoint bases (PEP 800),

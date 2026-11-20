@@ -2533,7 +2533,7 @@ export function isNameSameScope(evaluator: TypeEvaluator, reference: NameNode, e
     return isScopeContainedWithin(refScope, exprScope);
 }
 
-function areDisjointBasesIncompatible(classType1: ClassType, classType2: ClassType): boolean {
+export function areDisjointBasesIncompatible(classType1: ClassType, classType2: ClassType): boolean {
     const base1 = ClassType.getDisjointBase(classType1);
     const base2 = ClassType.getDisjointBase(classType2);
     return !!base1 && !!base2 && !ClassType.getMostDerivedDisjointBase([base1, base2]);

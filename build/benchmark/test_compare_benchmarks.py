@@ -788,7 +788,7 @@ Regression threshold: `10.0%`
             pr_workflow_data["env"],
             {
                 "BENCHMARK_RUNNER_CLASS": "github-ubuntu-latest",
-                "NODE_VERSION": "24.15.0",
+                "NODE_VERSION": "24.22.2",
                 "PYTHON_VERSION": "3.14.6",
             },
         )
