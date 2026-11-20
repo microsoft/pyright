@@ -77,11 +77,14 @@ import {
     isMetaclassInstance,
     isNoneInstance,
     isNoneTypeClass,
+    isOptionalType,
     isTupleGradualForm,
     lookUpClassMember,
     makeTypeVarsFree,
     mapSubtypes,
     MemberAccessFlags,
+    removeNoneFromUnion,
+    someSubtypes,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 
@@ -372,6 +375,56 @@ export function getTypeNarrowingCallback(
                             isIncomplete: isLiteralOrClassInfo.isIncomplete,
                         };
                     };
+                }
+
+                // If the RHS is statically known not to be None, a positive
+                // identity comparison proves that the LHS isn't None either.
+                // This is intentionally limited to removing None. In
+                // particular, don't attempt to intersect arbitrary nominal,
+                // protocol, or generic types here.
+                if (
+                    testExpression.nodeType === ParseNodeType.BinaryOperation &&
+                    isMatchingExpressionOrWalrusRhs(evaluator, reference, testExpression.d.leftExpr)
+                ) {
+                    const adjIsPositiveTest =
+                        testExpression.d.operator === OperatorType.Is ? isPositiveTest : !isPositiveTest;
+                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpr);
+                    const rightType = rightTypeResult.type;
+
+                    if (adjIsPositiveTest && !isAnyOrUnknown(rightType)) {
+                        const noneType = evaluator.getNoneType();
+                        const rightTypeCanBeNone = someSubtypes(rightType, (subtype) => {
+                            if (isAnyOrUnknown(subtype)) {
+                                return true;
+                            }
+
+                            if (isTypeVar(subtype)) {
+                                if (subtype.shared.boundType) {
+                                    return evaluator.assignType(subtype.shared.boundType, noneType);
+                                }
+
+                                if (subtype.shared.constraints.length > 0) {
+                                    return subtype.shared.constraints.some((constraint) =>
+                                        evaluator.assignType(constraint, noneType)
+                                    );
+                                }
+
+                                // An unconstrained TypeVar can be None.
+                                return true;
+                            }
+
+                            return evaluator.assignType(subtype, noneType);
+                        });
+
+                        if (!rightTypeCanBeNone) {
+                            return (type: Type) => {
+                                return {
+                                    type: isOptionalType(type) ? removeNoneFromUnion(type) : type,
+                                    isIncomplete: !!rightTypeResult.isIncomplete,
+                                };
+                            };
+                        }
+                    }
                 }
 
                 const indexedLiteralInfo = TypeEvaluatorNarrowing.getIndexedLiteralNarrowingInfo(
