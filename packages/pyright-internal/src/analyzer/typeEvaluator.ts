@@ -18798,14 +18798,18 @@ export function createTypeEvaluator(
         overrideMethod: FunctionType | OverloadedType,
         baseClass: ClassType | undefined,
         diag: DiagnosticAddendum,
-        enforceParamNames = true
+        enforceParamNames = true,
+        baseClassSelf?: ClassType,
+        childClassSelf?: ClassType
     ): boolean {
         return overrideValidation.validateOverrideMethod(
             baseMethod,
             overrideMethod,
             baseClass,
             diag,
-            enforceParamNames
+            enforceParamNames,
+            baseClassSelf,
+            childClassSelf
         );
     }
 
