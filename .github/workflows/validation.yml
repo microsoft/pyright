@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   typecheck:
@@ -33,7 +32,7 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: 'pnpm-lock.yaml'
 
-      - uses: ./.github/actions/choose-npm-install
+      - uses: ./.github/actions/standard-npm-install
 
       - run: pnpm exec lerna exec --stream --no-bail -- "tsc --noEmit"
 
@@ -53,7 +52,7 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: 'pnpm-lock.yaml'
 
-      - uses: ./.github/actions/choose-npm-install
+      - uses: ./.github/actions/standard-npm-install
 
       - name: Check diff after pnpm install
         run: git diff --exit-code --name-only
@@ -81,7 +80,7 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: 'pnpm-lock.yaml'
 
-      - uses: ./.github/actions/choose-npm-install
+      - uses: ./.github/actions/standard-npm-install
 
       - name: pnpm test (pyright-internal)
         if: matrix.os != 'macos-latest'
@@ -191,9 +190,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Build
     needs: typecheck
-    permissions:
-      id-token: write
-      contents: read
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -206,7 +202,7 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: 'pnpm-lock.yaml'
 
-      - uses: ./.github/actions/choose-npm-install
+      - uses: ./.github/actions/standard-npm-install
 
       - run: npm pack --dry-run
         working-directory: packages/pyright
