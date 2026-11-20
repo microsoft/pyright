@@ -1,7 +1,7 @@
 # This sample tests the reportUnnecessaryComparison check when applied
 # to match statements.
 
-from typing import Literal, Mapping, Sequence
+from typing import Any, Literal, Mapping, Sequence, TypeVar
 
 Letters = Literal["A", "B", "C"]
 
@@ -95,3 +95,79 @@ def func5(subj: int | str):
         # from the reportUnnecessaryComparison check.
         case _:
             pass
+
+
+T6 = TypeVar("T6")
+
+
+def func6(subj: T6) -> T6:
+    match subj:
+        case (a, b):
+            pass
+        case {"k": v}:
+            pass
+    return subj
+
+
+T7 = TypeVar("T7", bound=int | Sequence[int] | Mapping[str, int])
+
+
+def func7(subj: T7) -> T7:
+    match subj:
+        case (a, b):
+            pass
+        case {"k": v}:
+            pass
+    return subj
+
+
+T8 = TypeVar("T8", tuple[int, int], Mapping[str, int])
+
+
+def func8(subj: T8) -> T8:
+    match subj:
+        case (a, b):
+            pass
+        case {"k": v}:
+            pass
+    return subj
+
+
+T9 = TypeVar("T9", bound=Any)
+
+
+def func9(subj: T9) -> T9:
+    match subj:
+        case (a, b):
+            pass
+        case {"k": v}:
+            pass
+    return subj
+
+
+T10 = TypeVar("T10", bound=int)
+
+
+def func10(subj: T10) -> T10:
+    match subj:
+        # This should generate an error if reportUnnecessaryComparison is enabled.
+        case (a, b):
+            pass
+        # This should generate an error if reportUnnecessaryComparison is enabled.
+        case {"k": v}:
+            pass
+    return subj
+
+
+T11 = TypeVar("T11", int, str)
+
+
+def func11(subj: T11) -> T11:
+    match subj:
+        # This should generate an error if reportUnnecessaryComparison is enabled.
+        case (a, b):
+            pass
+        # This should generate an error if reportUnnecessaryComparison is enabled.
+        case {"k": v}:
+            pass
+    return subj

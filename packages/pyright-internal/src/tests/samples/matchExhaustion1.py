@@ -1,7 +1,7 @@
 # This sample tests the reportMatchNotExhaustive diagnostic check.
 
 from types import NoneType
-from typing import Literal
+from typing import Literal, TypeVar
 from enum import Enum
 
 
@@ -114,3 +114,25 @@ def func11(subj: int | float | None):
             reveal_type(subj, expected_text="int")
         case NoneType():
             reveal_type(subj, expected_text="None")
+
+
+T12 = TypeVar("T12", bound=int | tuple[int, int])
+
+
+def func12(subj: T12) -> T12:
+    match subj:
+        case (a, b):
+            return subj
+        case int():
+            return subj
+
+
+T13 = TypeVar("T13", tuple[int, str], str)
+
+
+def func13(subj: T13) -> T13:
+    match subj:
+        case (a, b):
+            return subj
+        case str():
+            return subj

@@ -51,7 +51,9 @@ import {
     NeverType,
     Type,
     TypeBase,
+    TypeCondition,
     TypedDictEntry,
+    TypeVarType,
     UnknownType,
     combineTypes,
     getInferredTupleLiteralBase,
@@ -64,6 +66,7 @@ import {
     isTypeSame,
     isTypeVar,
     isTypeVarTuple,
+    isParamSpec,
     isUnknown,
     isUnpackedTypeVar,
     isUnpackedTypeVarTuple,
@@ -118,8 +121,13 @@ const classPatternSpecialCases = [
 // performance cutoff.
 const maxSequencePatternTupleExpansionSubtypes = 128;
 
-interface SequencePatternInfo {
+interface PatternSubtypeInfo {
     subtype: Type;
+    concreteSubtype: Type;
+}
+
+interface SequencePatternInfo extends PatternSubtypeInfo {
+    typeCondition?: TypeCondition[];
     isDefiniteNoMatch: boolean;
     isPotentialNoMatch?: boolean;
     entryTypes: Type[];
@@ -128,8 +136,7 @@ interface SequencePatternInfo {
     isUnboundedTuple?: boolean;
 }
 
-interface MappingPatternInfo {
-    subtype: Type;
+interface MappingPatternInfo extends PatternSubtypeInfo {
     isDefinitelyMapping: boolean;
     isDefinitelyNotMapping: boolean;
     typedDict?: ClassType;
@@ -392,13 +399,16 @@ function narrowTypeBasedOnSequencePattern(
 
                     entry.subtype = combineTypes(
                         expandedEntryTypes.map((entryTypes) => {
-                            return ClassType.cloneAsInstance(
-                                specializeTupleClass(
-                                    tupleClassType,
-                                    entryTypes.map((t) => {
-                                        return { type: t, isUnbounded: false };
-                                    })
-                                )
+                            return addConditionToType(
+                                ClassType.cloneAsInstance(
+                                    specializeTupleClass(
+                                        tupleClassType,
+                                        entryTypes.map((t) => {
+                                            return { type: t, isUnbounded: false };
+                                        })
+                                    )
+                                ),
+                                entry.typeCondition
                             );
                         })
                     );
@@ -432,13 +442,16 @@ function narrowTypeBasedOnSequencePattern(
             if (canNarrowTuple && !isUnnarrowedTupleSubclass) {
                 const tupleClassType = evaluator.getBuiltInType(pattern, 'tuple');
                 if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                    entry.subtype = ClassType.cloneAsInstance(
-                        specializeTupleClass(
-                            tupleClassType,
-                            narrowedEntryTypes.map((t) => {
-                                return { type: t, isUnbounded: false };
-                            })
-                        )
+                    entry.subtype = addConditionToType(
+                        ClassType.cloneAsInstance(
+                            specializeTupleClass(
+                                tupleClassType,
+                                narrowedEntryTypes.map((t) => {
+                                    return { type: t, isUnbounded: false };
+                                })
+                            )
+                        ),
+                        entry.typeCondition
                     );
                 }
             }
@@ -453,7 +466,10 @@ function narrowTypeBasedOnSequencePattern(
                     // before wrapping it in a Sequence.
                     typeArgType = containsAnyOrUnknown(typeArgType, /* recurse */ false) ?? typeArgType;
 
-                    entry.subtype = ClassType.cloneAsInstance(ClassType.specialize(sequenceType, [typeArgType]));
+                    entry.subtype = addConditionToType(
+                        ClassType.cloneAsInstance(ClassType.specialize(sequenceType, [typeArgType])),
+                        entry.typeCondition
+                    );
                 }
             }
         }
@@ -461,10 +477,27 @@ function narrowTypeBasedOnSequencePattern(
         return isPlausibleMatch;
     });
 
-    return combineTypes(
-        sequenceInfo.map((entry) => entry.subtype),
-        { maxSubtypeCount: usingTupleExpansion ? maxSequencePatternTupleExpansionSubtypes : undefined }
-    );
+    return combineTypes(getNarrowedSubtypes(evaluator, sequenceInfo), {
+        maxSubtypeCount: usingTupleExpansion ? maxSequencePatternTupleExpansionSubtypes : undefined,
+    });
+}
+
+// Retains a TypeVar subtype if narrowing left its expanded subtypes unchanged.
+// Otherwise uses the expanded subtypes that remain.
+function getNarrowedSubtypes(evaluator: TypeEvaluator, info: PatternSubtypeInfo[]): Type[] {
+    return info.map((entry) => {
+        if (!isTypeVar(entry.subtype)) {
+            return entry.subtype;
+        }
+
+        const remainingType = combineTypes(
+            info.filter((other) => other.subtype === entry.subtype).map((other) => other.concreteSubtype)
+        );
+
+        return isTypeSame(remainingType, evaluator.makeTopLevelTypeVarsConcrete(entry.subtype))
+            ? entry.subtype
+            : entry.concreteSubtype;
+    });
 }
 
 function narrowTypeBasedOnAsPattern(
@@ -527,7 +560,12 @@ function narrowTypeBasedOnMappingPattern(
             pattern.d.entries[0].nodeType === ParseNodeType.PatternMappingExpandEntry
         ) {
             const mappingInfo = getMappingPatternInfo(evaluator, type, pattern);
-            return combineTypes(mappingInfo.filter((m) => !m.isDefinitelyMapping).map((m) => m.subtype));
+            return combineTypes(
+                getNarrowedSubtypes(
+                    evaluator,
+                    mappingInfo.filter((m) => !m.isDefinitelyMapping)
+                )
+            );
         }
 
         // Handle the case where the type is a union that includes a TypedDict with
@@ -747,7 +785,7 @@ function narrowTypeBasedOnMappingPattern(
         return isPlausibleMatch;
     });
 
-    return combineTypes(mappingInfo.map((entry) => entry.subtype));
+    return combineTypes(getNarrowedSubtypes(evaluator, mappingInfo));
 }
 
 // Looks up the "__match_args__" class member to determine the names of
@@ -1588,12 +1626,11 @@ export function hasCustomEq(type: Type): boolean {
 function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: PatternAtomNode): MappingPatternInfo[] {
     const mappingInfo: MappingPatternInfo[] = [];
 
-    doForEachSubtype(type, (subtype) => {
-        const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
-
+    evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (concreteSubtype, subtype) => {
         if (isAnyOrUnknown(concreteSubtype)) {
             mappingInfo.push({
                 subtype,
+                concreteSubtype,
                 isDefinitelyMapping: false,
                 isDefinitelyNotMapping: false,
                 dictTypeArgs: {
@@ -1609,6 +1646,7 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
             if (ClassType.isTypedDictClass(concreteSubtype)) {
                 mappingInfo.push({
                     subtype,
+                    concreteSubtype,
                     isDefinitelyMapping: true,
                     isDefinitelyNotMapping: false,
                     typedDict: concreteSubtype,
@@ -1624,12 +1662,13 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
 
             // Is it a subtype of Mapping?
             const constraints = new ConstraintTracker();
-            if (evaluator.assignType(mappingObject, subtype, /* diag */ undefined, constraints)) {
+            if (evaluator.assignType(mappingObject, concreteSubtype, /* diag */ undefined, constraints)) {
                 const specializedMapping = evaluator.solveAndApplyConstraints(mappingObject, constraints) as ClassType;
 
                 if (specializedMapping.priv.typeArgs && specializedMapping.priv.typeArgs.length >= 2) {
                     mappingInfo.push({
                         subtype,
+                        concreteSubtype,
                         isDefinitelyMapping: true,
                         isDefinitelyNotMapping: false,
                         dictTypeArgs: {
@@ -1643,9 +1682,10 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
             }
 
             // Is it a superclass of Mapping?
-            if (evaluator.assignType(subtype, mappingObject)) {
+            if (evaluator.assignType(concreteSubtype, mappingObject)) {
                 mappingInfo.push({
                     subtype,
+                    concreteSubtype,
                     isDefinitelyMapping: false,
                     isDefinitelyNotMapping: false,
                     dictTypeArgs: {
@@ -1658,6 +1698,7 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
 
             mappingInfo.push({
                 subtype,
+                concreteSubtype,
                 isDefinitelyMapping: false,
                 isDefinitelyNotMapping: true,
             });
@@ -1680,8 +1721,12 @@ function getSequencePatternInfo(
     const patternStarEntryIndex = pattern.d.starEntryIndex;
     const sequenceInfo: SequencePatternInfo[] = [];
 
-    doForEachSubtype(type, (subtype) => {
-        const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+    evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (concreteSubtype, subtype) => {
+        const typeCondition =
+            getTypeCondition(concreteSubtype) ??
+            (isTypeVar(subtype) && !isParamSpec(subtype) && !TypeVarType.hasConstraints(subtype)
+                ? [{ typeVar: subtype, constraintIndex: 0 }]
+                : undefined);
         let mroClassToSpecialize: ClassType | undefined;
 
         if (isClassInstance(concreteSubtype)) {
@@ -1699,6 +1744,8 @@ function getSequencePatternInfo(
                     // This is definitely not a match.
                     sequenceInfo.push({
                         subtype,
+                        concreteSubtype,
+                        typeCondition,
                         entryTypes: [],
                         isIndeterminateLength: true,
                         isDefiniteNoMatch: true,
@@ -1833,6 +1880,8 @@ function getSequencePatternInfo(
 
                         sequenceInfo.push({
                             subtype,
+                            concreteSubtype,
+                            typeCondition,
                             entryTypes: isDefiniteNoMatch ? [] : typeArgs.map((t) => t.type),
                             isIndeterminateLength: false,
                             isTuple: true,
@@ -1887,6 +1936,8 @@ function getSequencePatternInfo(
 
                             sequenceInfo.push({
                                 subtype,
+                                concreteSubtype,
+                                typeCondition,
                                 entryTypes: isDefiniteNoMatch ? [] : typeArgs.map((t) => t.type),
                                 isIndeterminateLength: false,
                                 isTuple: true,
@@ -1899,6 +1950,8 @@ function getSequencePatternInfo(
                 } else {
                     sequenceInfo.push({
                         subtype,
+                        concreteSubtype,
+                        typeCondition,
                         entryTypes: [
                             specializedSequence.priv.typeArgs && specializedSequence.priv.typeArgs.length > 0
                                 ? specializedSequence.priv.typeArgs[0]
@@ -1920,7 +1973,7 @@ function getSequencePatternInfo(
 
                 // Is it a subtype of Sequence?
                 const constraints = new ConstraintTracker();
-                if (evaluator.assignType(sequenceObject, subtype, /* diag */ undefined, constraints)) {
+                if (evaluator.assignType(sequenceObject, concreteSubtype, /* diag */ undefined, constraints)) {
                     const specializedSequence = evaluator.solveAndApplyConstraints(
                         sequenceObject,
                         constraints
@@ -1929,6 +1982,8 @@ function getSequencePatternInfo(
                     if (specializedSequence.priv.typeArgs && specializedSequence.priv.typeArgs.length > 0) {
                         sequenceInfo.push({
                             subtype,
+                            concreteSubtype,
+                            typeCondition,
                             entryTypes: [specializedSequence.priv.typeArgs[0]],
                             isIndeterminateLength: true,
                             isDefiniteNoMatch: false,
@@ -1944,7 +1999,7 @@ function getSequencePatternInfo(
                     addConstraintsForExpectedType(
                         evaluator,
                         ClassType.cloneAsInstance(sequenceType),
-                        subtype,
+                        concreteSubtype,
                         sequenceConstraints,
                         getTypeVarScopesForNode(pattern, nodeInfo),
                         pattern.start
@@ -1958,6 +2013,8 @@ function getSequencePatternInfo(
                     if (specializedSequence.priv.typeArgs && specializedSequence.priv.typeArgs.length > 0) {
                         sequenceInfo.push({
                             subtype,
+                            concreteSubtype,
+                            typeCondition,
                             entryTypes: [specializedSequence.priv.typeArgs[0]],
                             isIndeterminateLength: true,
                             isDefiniteNoMatch: false,
@@ -1969,12 +2026,14 @@ function getSequencePatternInfo(
 
                 if (
                     evaluator.assignType(
-                        subtype,
+                        concreteSubtype,
                         ClassType.specialize(ClassType.cloneAsInstance(sequenceType), [UnknownType.create()])
                     )
                 ) {
                     sequenceInfo.push({
                         subtype,
+                        concreteSubtype,
+                        typeCondition,
                         entryTypes: [UnknownType.create()],
                         isIndeterminateLength: true,
                         isDefiniteNoMatch: false,
@@ -1988,6 +2047,8 @@ function getSequencePatternInfo(
         // Push an entry that indicates that this is definitely not a match.
         sequenceInfo.push({
             subtype,
+            concreteSubtype,
+            typeCondition,
             entryTypes: [],
             isIndeterminateLength: true,
             isDefiniteNoMatch: true,
