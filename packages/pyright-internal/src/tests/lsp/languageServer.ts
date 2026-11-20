@@ -139,6 +139,9 @@ class TestServer extends PyrightServer {
         private readonly _supportsBackgroundAnalysis: boolean | undefined
     ) {
         super(connection, _supportsBackgroundAnalysis ? 1 : 0, fs);
+        connection.onNotification(CustomLSP.Notifications.StartAnalysisProgress, ({ fileCount }) => {
+            this.sendProgressMessage(fileCount);
+        });
     }
 
     test_onDidChangeWatchedFiles(params: any) {

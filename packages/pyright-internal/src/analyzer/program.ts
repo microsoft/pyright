@@ -102,6 +102,11 @@ export interface OpenFileOptions {
     isVirtual?: boolean;
 }
 
+export interface AnalyzeFileResult {
+    diagnostics: Diagnostic[];
+    requiringAnalysisCount: RequiringAnalysisCount;
+}
+
 // Track edit mode related information.
 class EditModeTracker {
     readonly analysisContextOwner = this;
@@ -846,15 +851,18 @@ export class Program {
         });
     }
 
-    analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken = CancellationToken.None): Diagnostic[] {
+    analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken = CancellationToken.None): AnalyzeFileResult {
         throwIfCancellationRequested(token);
         this.analyzeFile(fileUri, token);
         throwIfCancellationRequested(token);
         const sourceFile = this.getSourceFile(fileUri);
         if (!sourceFile) {
-            return [];
+            return { diagnostics: [], requiringAnalysisCount: this.getFilesToAnalyzeCount() };
         }
-        return this.getDiagnosticsForRange(fileUri, sourceFile.getRange());
+        return {
+            diagnostics: this.getDiagnosticsForRange(fileUri, sourceFile.getRange()),
+            requiringAnalysisCount: this.getFilesToAnalyzeCount(),
+        };
     }
 
     // This will allow the callback to execute a type evaluator with an associated

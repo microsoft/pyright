@@ -105,6 +105,7 @@ export interface PyrightServerInfo {
     projectRoots: Uri[];
     progressReporters: string[];
     progressReporterStatus: Map<string, number>;
+    progressReporterEnded: Set<string>;
     progressParts: Map<string, TestProgressPart>;
     telemetry: any[];
     supportsPullDiagnostics: boolean;
@@ -494,6 +495,7 @@ class TestProgressPart implements ProgressPart {
                         info.progressReporterStatus.set(_token.toString(), params.percentage ?? 0);
                         break;
                     case 'end':
+                        info.progressReporterEnded.add(_token.toString());
                         done();
                         break;
                 }
@@ -586,6 +588,7 @@ export async function runPyrightServer(
         logs: [],
         progressReporters: [],
         progressReporterStatus: new Map<string, number>(),
+        progressReporterEnded: new Set<string>(),
         progressParts: new Map<string, TestProgressPart>(),
         signals: new Map(Object.values(CustomLSP.TestSignalKinds).map((v) => [v, createDeferred<boolean>()])),
         testData,
@@ -669,6 +672,7 @@ export async function runPyrightServer(
                             info.progressReporterStatus.set(p.token.toString(), params.percentage ?? 0);
                             break;
                         case 'end':
+                            info.progressReporterEnded.add(p.token.toString());
                             break;
                     }
                 })
@@ -853,6 +857,37 @@ export async function openFile(info: PyrightServerInfo, markerName: string, text
     });
 
     await waitForTestSignal(info, CustomLSP.TestSignalKinds.DidOpenDocument);
+}
+
+export function startAnalysisProgress(info: PyrightServerInfo, fileCount: number) {
+    info.connection.sendNotification(CustomLSP.Notifications.StartAnalysisProgress, { fileCount });
+}
+
+export async function waitForProgressReporter(info: PyrightServerInfo, expectedCount: number, timeout = 10000) {
+    await waitForCondition(
+        () => info.progressReporters.length >= expectedCount,
+        timeout,
+        `Timed out waiting for ${expectedCount} progress reporters`
+    );
+    return info.progressReporters[info.progressReporters.length - 1];
+}
+
+export async function waitForProgressReporterEnd(info: PyrightServerInfo, reporter: string, timeout = 10000) {
+    await waitForCondition(
+        () => info.progressReporterEnded.has(reporter),
+        timeout,
+        `Timed out waiting for progress reporter ${reporter} to end`
+    );
+}
+
+async function waitForCondition(condition: () => boolean, timeout: number, errorMessage: string) {
+    const endTime = Date.now() + timeout;
+    while (!condition()) {
+        if (Date.now() >= endTime) {
+            throw new Error(errorMessage);
+        }
+        await sleep(10);
+    }
 }
 
 export async function hover(info: PyrightServerInfo, markerName: string) {

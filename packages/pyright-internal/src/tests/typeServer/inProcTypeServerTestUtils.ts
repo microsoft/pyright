@@ -58,6 +58,7 @@ import {
     Marker as FourSlashMarker,
     Range as FourSlashRange,
 } from '../harness/fourslash/fourSlashTypes';
+import { CustomLSP } from '../lsp/customLsp';
 import { createFileSystem, DEFAULT_WORKSPACE_ROOT, TestHost } from '../lsp/languageServerTestUtils';
 
 export async function initializeDependenciesForInProcTests() {
@@ -281,6 +282,13 @@ async function createInProcTypeServer(code: string): Promise<InProcTypeServer> {
     const rootUri = Uri.file(DEFAULT_WORKSPACE_ROOT, serviceProvider);
 
     class TestTypeServer extends TypeServer {
+        constructor(...args: ConstructorParameters<typeof TypeServer>) {
+            super(...args);
+            serverConnection.onNotification(CustomLSP.Notifications.StartAnalysisProgress, ({ fileCount }) => {
+                this.sendProgressMessage(fileCount);
+            });
+        }
+
         protected override createHost() {
             // Match the LSP harness's fixed Python environment rather than probing the machine's interpreter.
             return new TestHost(pyrightFs, testFS, fourslash, [DEFAULT_WORKSPACE_ROOT]);

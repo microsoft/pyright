@@ -63,6 +63,7 @@ export namespace CustomLSP {
         BeginProgress = 'python/beginProgress',
         ReportProgress = 'python/reportProgress',
         EndProgress = 'python/endProgress',
+        StartAnalysisProgress = 'test/startAnalysisProgress',
         WorkspaceTrusted = 'python/workspaceTrusted',
         TestSignal = 'test/signal',
 
@@ -94,6 +95,7 @@ export namespace CustomLSP {
         [Notifications.BeginProgress]: undefined;
         [Notifications.ReportProgress]: string;
         [Notifications.EndProgress]: undefined;
+        [Notifications.StartAnalysisProgress]: { fileCount: number };
         [Notifications.WorkspaceTrusted]: { isTrusted: boolean };
         [Notifications.TestSignal]: TestSignal;
         [Notifications.DidChangeConfiguration]: DidChangeConfigurationParams;

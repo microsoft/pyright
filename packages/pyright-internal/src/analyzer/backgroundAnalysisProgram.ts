@@ -19,7 +19,7 @@ import { Range } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { ImportResolver } from './importResolver';
-import { MaxAnalysisTime, OpenFileOptions, Program } from './program';
+import { AnalyzeFileResult, MaxAnalysisTime, OpenFileOptions, Program } from './program';
 import { generateTypeStubFiles, TypeStubGenerationPlan, TypeStubGenerationResult } from './typeStubGeneration';
 
 export enum InvalidatedReason {
@@ -181,7 +181,7 @@ export class BackgroundAnalysisProgram {
         return this._program.analyzeFile(fileUri, token);
     }
 
-    async analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<Diagnostic[]> {
+    async analyzeFileAndGetDiagnostics(fileUri: Uri, token: CancellationToken): Promise<AnalyzeFileResult> {
         if (this._backgroundAnalysis) {
             return this._backgroundAnalysis.analyzeFileAndGetDiagnostics(fileUri, token);
         }

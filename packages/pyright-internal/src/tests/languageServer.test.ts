@@ -41,7 +41,10 @@ import {
     PyrightServerInfo,
     runPyrightServer,
     sleep,
+    startAnalysisProgress,
     waitForDiagnostics,
+    waitForProgressReporter,
+    waitForProgressReporterEnd,
 } from './lsp/languageServerTestUtils';
 
 describe(`Basic language server tests`, () => {
@@ -513,6 +516,77 @@ describe(`Basic language server tests`, () => {
             });
 
             if (supportsPullDiagnostics) {
+                // Regression test: document diagnostic pulls can occur after every edit,
+                // so they should not create server-initiated work done progress notifications.
+                test('document diagnostic pull does not create work done progress', async () => {
+                    const code = `
+// @filename: test.py
+//// /*marker*/pass
+        `;
+                    const info = await runLanguageServer(
+                        DEFAULT_WORKSPACE_ROOT,
+                        code,
+                        /* callInitialize */ true,
+                        undefined,
+                        undefined,
+                        /* supportsBackgroundThread */ false,
+                        supportsPullDiagnostics
+                    );
+
+                    await openFile(info, 'marker');
+                    const fileUri = info.testData.markerPositions.get('marker')!.fileUri.toString();
+                    const progressReporterCount = info.progressReporters.length;
+
+                    await info.connection.sendRequest(DocumentDiagnosticRequest.type, {
+                        textDocument: { uri: fileUri },
+                    });
+
+                    assert.strictEqual(info.progressReporters.length, progressReporterCount);
+                });
+
+                test.each([
+                    { name: 'in-process analysis', supportsBackgroundThread: false },
+                    { name: 'background analysis', supportsBackgroundThread: true },
+                ])(
+                    'document diagnostic pulls update active analysis progress: $name',
+                    async ({ supportsBackgroundThread }) => {
+                        const code = `
+// @filename: first.py
+//// /*first*/x: int = 'bad'
+// @filename: second.py
+//// /*second*/y: int = 'bad'
+        `;
+                        const info = await runLanguageServer(
+                            DEFAULT_WORKSPACE_ROOT,
+                            code,
+                            /* callInitialize */ true,
+                            undefined,
+                            undefined,
+                            supportsBackgroundThread,
+                            supportsPullDiagnostics
+                        );
+
+                        await openFile(info, 'first');
+                        await openFile(info, 'second');
+
+                        startAnalysisProgress(info, 2);
+                        const reporter = await waitForProgressReporter(info, info.progressReporters.length + 1);
+                        const firstUri = info.testData.markerPositions.get('first')!.fileUri.toString();
+                        const secondUri = info.testData.markerPositions.get('second')!.fileUri.toString();
+
+                        await info.connection.sendRequest(DocumentDiagnosticRequest.type, {
+                            textDocument: { uri: firstUri },
+                        });
+
+                        assert.ok(!info.progressReporterEnded.has(reporter));
+
+                        await info.connection.sendRequest(DocumentDiagnosticRequest.type, {
+                            textDocument: { uri: secondUri },
+                        });
+                        await waitForProgressReporterEnd(info, reporter);
+                    }
+                );
+
                 // Regression test: in open-files-only mode, diagnostics for a library/out-of-workspace
                 // file that was transiently opened (e.g. via go-to-definition) must clear once the client
                 // closes the file. A re-pull of the now-closed file must return an empty `full` report.

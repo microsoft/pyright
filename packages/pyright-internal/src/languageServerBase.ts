@@ -78,7 +78,7 @@ import {
 } from 'vscode-languageserver';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { AnalysisResults } from './analyzer/analysis';
+import { AnalysisResults, RequiringAnalysisCount } from './analyzer/analysis';
 import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
@@ -173,7 +173,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     private _pendingCommandCancellationSource: AbstractCancellationTokenSource | undefined;
 
     private _progressReporter: ProgressReporter;
-    private _progressReportCounter = 0;
 
     private _lastTriggerKind: CompletionTriggerKind | undefined = CompletionTriggerKind.Invoked;
 
@@ -1181,50 +1180,45 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             return result;
         }
 
-        // Send a progress message to the client.
-        this.incrementAnalysisProgress();
+        // Reanalyze the file if it's not up to date.
+        if (params.previousResultId !== diagnosticsVersion.toString() && sourceFile) {
+            let diagnosticsVersionAfter = UncomputedDiagnosticsVersion - 1; // Just has to be different
+            let serverDiagnostics: AnalyzerDiagnostic[] = [];
 
-        try {
-            // Reanalyze the file if it's not up to date.
-            if (params.previousResultId !== diagnosticsVersion.toString() && sourceFile) {
-                let diagnosticsVersionAfter = UncomputedDiagnosticsVersion - 1; // Just has to be different
-                let serverDiagnostics: AnalyzerDiagnostic[] = [];
+            // Loop until we analyze the same version that we started with.
+            while (diagnosticsVersion !== diagnosticsVersionAfter && !token.isCancellationRequested && sourceFile) {
+                // Reset the version we're analyzing
+                sourceFile = workspace.service.getSourceFile(uri);
+                diagnosticsVersion = sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
 
-                // Loop until we analyze the same version that we started with.
-                while (diagnosticsVersion !== diagnosticsVersionAfter && !token.isCancellationRequested && sourceFile) {
-                    // Reset the version we're analyzing
-                    sourceFile = workspace.service.getSourceFile(uri);
-                    diagnosticsVersion = sourceFile?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
-
-                    // Then reanalyze the file (this should go to the background thread so this thread can handle other requests).
-                    if (sourceFile) {
-                        serverDiagnostics = await workspace.service.analyzeFileAndGetDiagnostics(uri, token);
-                    }
-
-                    // If any text edits came in, make sure we reanalyze the file. Diagnostics version should be reset to zero
-                    // if a text edit comes in.
-                    const sourceFileAfter = workspace.service.getSourceFile(uri);
-                    diagnosticsVersionAfter = sourceFileAfter?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
+                // Then reanalyze the file (this should go to the background thread so this thread can handle other requests).
+                if (sourceFile) {
+                    const analysisResult = await workspace.service.analyzeFileAndGetDiagnostics(uri, token);
+                    serverDiagnostics = analysisResult.diagnostics;
+                    this.refreshDisplayedAnalysisProgress(analysisResult.requiringAnalysisCount);
                 }
 
-                // Then convert the diagnostics to the LSP format.
-                const lspDiagnostics = this._convertDiagnostics(workspace.service.fs, serverDiagnostics).filter(
-                    (d) => d !== undefined
-                ) as Diagnostic[];
-
-                result.resultId =
-                    diagnosticsVersionAfter === UncomputedDiagnosticsVersion
-                        ? undefined
-                        : diagnosticsVersionAfter.toString();
-                result.items = lspDiagnostics;
-            } else {
-                (result as any).kind = 'unchanged';
-                result.resultId =
-                    diagnosticsVersion === UncomputedDiagnosticsVersion ? undefined : diagnosticsVersion.toString();
-                delete (result as any).items;
+                // If any text edits came in, make sure we reanalyze the file. Diagnostics version should be reset to zero
+                // if a text edit comes in.
+                const sourceFileAfter = workspace.service.getSourceFile(uri);
+                diagnosticsVersionAfter = sourceFileAfter?.getDiagnosticVersion() ?? UncomputedDiagnosticsVersion;
             }
-        } finally {
-            this.decrementAnalysisProgress();
+
+            // Then convert the diagnostics to the LSP format.
+            const lspDiagnostics = this._convertDiagnostics(workspace.service.fs, serverDiagnostics).filter(
+                (d) => d !== undefined
+            ) as Diagnostic[];
+
+            result.resultId =
+                diagnosticsVersionAfter === UncomputedDiagnosticsVersion
+                    ? undefined
+                    : diagnosticsVersionAfter.toString();
+            result.items = lspDiagnostics;
+        } else {
+            (result as any).kind = 'unchanged';
+            result.resultId =
+                diagnosticsVersion === UncomputedDiagnosticsVersion ? undefined : diagnosticsVersion.toString();
+            delete (result as any).items;
         }
 
         return result;
@@ -1383,24 +1377,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.sendProgressMessage(results.requiringAnalysisCount.files, results.requiringAnalysisCount.cells);
     }
 
-    protected incrementAnalysisProgress() {
-        this._progressReportCounter += 1;
-        this.sendProgressMessage(this._progressReportCounter);
-    }
-
-    protected decrementAnalysisProgress() {
-        this._progressReportCounter -= 1;
-        if (this._progressReportCounter < 0) {
-            this._progressReportCounter = 0;
+    protected refreshDisplayedAnalysisProgress(requiringAnalysisCount: RequiringAnalysisCount) {
+        if (this.getAnalysisProgressReporter().isDisplayingProgress()) {
+            this.sendProgressMessage(requiringAnalysisCount.files, requiringAnalysisCount.cells);
         }
-        this.sendProgressMessage(this._progressReportCounter);
-    }
-
-    protected getAnalysisProgressReporter(): ProgressReporter {
-        if (this._workspaceDiagnosticsProgressReporter) {
-            return this._workspaceDiagnosticsProgressReporter;
-        }
-        return this._progressReporter;
     }
 
     protected sendProgressMessage(fileCount: number, cellCount?: number) {
@@ -1421,6 +1401,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             reporter.begin();
         }
         reporter.report(progressMessage);
+    }
+
+    protected getAnalysisProgressReporter(): ProgressReporter {
+        if (this._workspaceDiagnosticsProgressReporter) {
+            return this._workspaceDiagnosticsProgressReporter;
+        }
+        return this._progressReporter;
     }
 
     protected onWorkspaceCreated(workspace: Workspace) {
