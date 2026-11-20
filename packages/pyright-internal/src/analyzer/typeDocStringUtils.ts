@@ -456,24 +456,85 @@ export function getClassDocString(
     // surfaces only when the base doesn't ship a doc-less stub. This keeps the
     // Pyright diff surgical; the async path mirrors the same decision.
     if (docString === undefined && classType.shared.docString === undefined) {
-        for (const [mroClass] of getClassIterator(classType, ClassIteratorFlags.Default)) {
-            if (!isInstantiableClass(mroClass)) {
-                continue;
-            }
-            if (ClassType.isSameGenericClass(mroClass, classType)) {
-                continue;
-            }
-            if (ClassType.isBuiltIn(mroClass)) {
-                continue;
-            }
-            if (mroClass.shared.docString) {
-                docString = mroClass.shared.docString;
-                break;
+        docString = getInheritedClassDocString(classType);
+    }
+
+    return docString;
+}
+
+// Returns the docstring inherited from the nearest base class (excluding the
+// class itself and builtin bases), approximating Python's `inspect.getdoc`.
+export function getInheritedClassDocString(classType: ClassType): string | undefined {
+    for (const [mroClass] of getClassIterator(classType, ClassIteratorFlags.Default)) {
+        if (!isInstantiableClass(mroClass)) {
+            continue;
+        }
+        if (ClassType.isSameGenericClass(mroClass, classType)) {
+            continue;
+        }
+        if (ClassType.isBuiltIn(mroClass)) {
+            continue;
+        }
+        if (mroClass.shared.docString) {
+            return mroClass.shared.docString;
+        }
+    }
+
+    return undefined;
+}
+
+// Returns the docstring for the named member as inherited from the nearest base
+// class (excluding the class itself and builtin bases), approximating Python's
+// `inspect.getdoc`.
+export function getInheritedMemberDocString(
+    classType: ClassType,
+    memberName: string,
+    evaluator: TypeEvaluator
+): string | undefined {
+    for (const [mroClass] of getClassIterator(classType, ClassIteratorFlags.Default)) {
+        if (!isInstantiableClass(mroClass)) {
+            continue;
+        }
+        if (ClassType.isSameGenericClass(mroClass, classType)) {
+            continue;
+        }
+        if (ClassType.isBuiltIn(mroClass)) {
+            continue;
+        }
+
+        const symbol = ClassType.getSymbolTable(mroClass).get(memberName);
+        if (!symbol) {
+            continue;
+        }
+
+        const docString = _getOwnDocStringOfMemberType(evaluator.getEffectiveTypeOfSymbol(symbol));
+        if (docString) {
+            return docString;
+        }
+    }
+
+    return undefined;
+}
+
+function _getOwnDocStringOfMemberType(type: Type): string | undefined {
+    if (isFunction(type)) {
+        return type.shared.docString;
+    }
+
+    if (isOverloaded(type)) {
+        const impl = OverloadedType.getImplementation(type);
+        if (impl && isFunction(impl) && impl.shared.docString) {
+            return impl.shared.docString;
+        }
+
+        for (const overload of OverloadedType.getOverloads(type)) {
+            if (overload.shared.docString) {
+                return overload.shared.docString;
             }
         }
     }
 
-    return docString;
+    return undefined;
 }
 
 export function getFunctionOrClassDeclDocString(decl: FunctionDeclaration | ClassDeclaration): string | undefined {
