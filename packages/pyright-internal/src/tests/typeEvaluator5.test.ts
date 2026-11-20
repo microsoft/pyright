@@ -366,7 +366,12 @@ test('TypedDictReadOnly1', () => {
 
 test('TypedDictReadOnly2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly2.py']);
-    TestUtils.validateResults(analysisResults, 17);
+    TestUtils.validateResults(analysisResults, 18);
+    const requiredKeyError = analysisResults[0].errors.find((diagnostic) => diagnostic.range.start.line === 260);
+    assert.ok(requiredKeyError);
+    assert.strictEqual(requiredKeyError.range.start.character, 27);
+    assert.strictEqual(requiredKeyError.getRule(), DiagnosticRule.reportAssignmentType);
+    assert.match(requiredKeyError.message, /"tag" is required in "TD_DstReqReadOnly"/);
 });
 
 test('TypedDictReadOnly3', () => {
