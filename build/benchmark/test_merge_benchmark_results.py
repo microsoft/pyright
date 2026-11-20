@@ -38,6 +38,35 @@ def _result(package: str, time: float) -> dict:
 
 
 class MergeBenchmarkResultsTest(unittest.TestCase):
+    def test_merges_variable_capability_evidence_but_rejects_changed_behavior(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            paths = []
+            data = []
+            for index, package in enumerate(("click", "numpy")):
+                result = _result(package, float(index + 1))
+                result["capability_suite"] = {
+                    "version": 1, "sha256": "same", "cases": {"returns": "Return inference"},
+                    "results": {
+                        "pyright": {
+                            "ok": True, "cases": {"returns": {"passed": True}},
+                            "evidence": {"stdout": f"Different temp path {index}", "time": index},
+                        },
+                    },
+                }
+                path = root / f"{index}.json"
+                path.write_text(json.dumps(result), encoding="utf-8")
+                paths.append(path)
+                data.append(result)
+            merged = merge_benchmark_results.merge_results(paths)
+            self.assertEqual(merged["package_count"], 2)
+            self.assertEqual(merged["capability_suite"], data[0]["capability_suite"])
+
+            data[1]["capability_suite"]["results"]["pyright"]["cases"]["returns"]["passed"] = False
+            paths[1].write_text(json.dumps(data[1]), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "different benchmark metadata"):
+                merge_benchmark_results.merge_results(paths)
+
     def test_merges_packages_and_recomputes_aggregate(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
