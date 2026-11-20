@@ -1102,6 +1102,47 @@ test('Sentinel5', () => {
     }
 });
 
+test.each([
+    { version: '3.13', pythonVersion: pythonVersion3_13 },
+    { version: '3.15', pythonVersion: pythonVersion3_15 },
+])('Sentinel6 (Python $version)', ({ pythonVersion }) => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel6.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test.each([
+    { version: '3.13', pythonVersion: pythonVersion3_13 },
+    { version: '3.15', pythonVersion: pythonVersion3_15 },
+])('Sentinel7 (Python $version)', ({ pythonVersion }) => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['sentinel7.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 13);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .slice()
+            .sort((left, right) => left.range.start.line - right.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [13, DiagnosticRule.reportCallIssue],
+            [14, DiagnosticRule.reportCallIssue],
+            [15, DiagnosticRule.reportArgumentType],
+            [16, DiagnosticRule.reportArgumentType],
+            [17, DiagnosticRule.reportArgumentType],
+            [18, DiagnosticRule.reportCallIssue],
+            [19, DiagnosticRule.reportCallIssue],
+            [31, DiagnosticRule.reportInvalidTypeForm],
+            [32, DiagnosticRule.reportInvalidTypeForm],
+            [33, DiagnosticRule.reportInvalidTypeForm],
+            [45, DiagnosticRule.reportArgumentType],
+            [46, DiagnosticRule.reportArgumentType],
+            [47, DiagnosticRule.reportArgumentType],
+        ]
+    );
+});
+
 test('Frozendict1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = pythonVersion3_15;
