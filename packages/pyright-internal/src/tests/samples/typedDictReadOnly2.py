@@ -246,3 +246,17 @@ class TD_B2(TypedDict):
 
 # This should generate an error for x but not y.
 class TD_B(TD_B1, TD_B2): ...
+
+
+class TD_SrcNotReq(TypedDict):
+    tag: NotRequired[str]
+
+
+class TD_DstReqReadOnly(TypedDict):
+    tag: ReadOnly[str]
+
+
+def test_not_required_to_readonly_required(s: TD_SrcNotReq) -> None:
+    # This should generate an error because tag is required in TD_DstReqReadOnly.
+    d: TD_DstReqReadOnly = s
+
