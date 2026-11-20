@@ -2,7 +2,7 @@
     "name": "pyright-internal",
     "displayName": "pyright",
     "description": "Type checker for the Python language",
-    "version": "1.1.414",
+    "version": "1.1.415",
     "license": "MIT",
     "private": true,
     "files": [
@@ -16,6 +16,7 @@
         "test": "pnpm run webpack:testserver && node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testPathIgnorePatterns src/tests/benchmarks",
         "test:norebuild": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testPathIgnorePatterns src/tests/benchmarks",
         "test:benchmark": "cross-env PYRIGHT_RUN_BENCHMARKS=1 node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testTimeout=300000 --runInBand --detectOpenHandles src/tests/benchmarks",
+        "benchmark:type-inference": "pnpm run build && node ./out/packages/pyright-internal/src/tests/benchmarks/typeInferenceComparison.js",
         "test:coverage": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest --forceExit --testPathIgnorePatterns src/tests/benchmarks --reporters=jest-junit --reporters=default --coverage --coverageReporters=cobertura --coverageReporters=html --coverageReporters=json",
         "test:imports": "node --max-old-space-size=8192 --expose-gc ./node_modules/jest/bin/jest importResolver.test --forceExit --runInBand",
         "trace": "node ./out/packages/pyright-internal/src/trace/cli.js",
@@ -36,7 +37,7 @@
         "vscode-jsonrpc": "^9.0.0-next.8",
         "vscode-languageserver": "^10.0.0-next.13",
         "vscode-languageserver-protocol": "^3.17.6-next.13",
-        "vscode-languageserver-textdocument": "^1.0.11",
+        "vscode-languageserver-textdocument": "^1.0.13",
         "vscode-languageserver-types": "^3.17.6-next.6",
         "vscode-uri": "^3.1.0"
     },

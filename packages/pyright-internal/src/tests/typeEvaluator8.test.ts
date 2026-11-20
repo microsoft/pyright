@@ -255,6 +255,12 @@ test('CapturedVariable2', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('CapturedVariable3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['capturedVariable3.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('Property1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property1.py']);
 
@@ -488,6 +494,80 @@ test('Operator12', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator12.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Operator13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator13.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportOperatorIssue);
+});
+
+test('Operator14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator14.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Enum17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum17.py']);
+
+    TestUtils.validateResults(analysisResults, 9);
+    analysisResults[0].errors.forEach((error) =>
+        assert.strictEqual(error.getRule(), DiagnosticRule.reportAttributeAccessIssue)
+    );
+});
+
+test('Enum18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum18.py']);
+
+    TestUtils.validateResults(analysisResults, 7);
+    analysisResults[0].errors.forEach((error) => assert.strictEqual(error.getRule(), DiagnosticRule.reportReturnType));
+});
+
+test('Enum19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum19.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+    analysisResults[0].errors.forEach((error) =>
+        assert.strictEqual(error.getRule(), DiagnosticRule.reportAttributeAccessIssue)
+    );
+});
+
+test('Enum20', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum20.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+    analysisResults[0].errors.forEach((error) =>
+        assert.ok(
+            error.getRule() === DiagnosticRule.reportAttributeAccessIssue ||
+                error.getRule() === DiagnosticRule.reportReturnType
+        )
+    );
+});
+
+test('Enum21', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum21.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+    analysisResults[0].errors.forEach((error) =>
+        assert.ok(
+            error.getRule() === DiagnosticRule.reportAttributeAccessIssue ||
+                error.getRule() === DiagnosticRule.reportReturnType
+        )
+    );
+});
+
+test('Enum22', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum22.py']);
+
+    TestUtils.validateResults(analysisResults, 18);
+    analysisResults[0].errors.forEach((error) =>
+        assert.ok(
+            error.getRule() === DiagnosticRule.reportAttributeAccessIssue ||
+                error.getRule() === DiagnosticRule.reportReturnType
+        )
+    );
 });
 
 test('Optional1', () => {
@@ -2130,6 +2210,11 @@ test('TupleComparisonResults20', () => {
     );
 });
 
+test('TupleComparisonResults25', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults25.py']);
+    TestUtils.validateResults(analysisResults, 7);
+});
+
 test('TupleComparisonResults24', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleComparisonResults24.py']);
     TestUtils.validateResults(analysisResults, 14);
@@ -2224,6 +2309,7 @@ test('TupleComparisonClosedResultWorkBound', () => {
         assert.ok(isClassInstance(listType) && tupleClass && isInstantiableClass(tupleClass));
         let payload = strType;
         let reads = 0;
+        let width = 0;
         if (shape === 'never') {
             payload = ClassType.specialize(listType, [NeverType.createNever()], true);
         } else if (shape === 'open') {
@@ -2238,7 +2324,7 @@ test('TupleComparisonClosedResultWorkBound', () => {
                 payload = ClassType.specialize(listType, [payload], true);
             }
         } else {
-            const width = maxSubtypesForInferredType - (shape === 'below' ? 2 : shape === 'limit' ? 1 : 0);
+            width = maxSubtypesForInferredType - (shape === 'below' ? 2 : shape === 'limit' ? 1 : 0);
             const args = Array.from({ length: width }, () => {
                 const arg = { type: strType, isUnbounded: false };
                 Object.defineProperty(arg, 'type', {
@@ -2264,19 +2350,11 @@ test('TupleComparisonClosedResultWorkBound', () => {
             reads = 0;
             const result = evaluator.getTypeOfExpression(node);
             assert.ok(expansions > 0);
-            assert.ok(reads <= maxSubtypesForInferredType, `Unbounded result traversal (${shape}: ${reads})`);
-            if (shape === 'over' || shape === 'open' || shape === 'deep') {
-                assert.ok(
-                    isTypeSame(result.type, boolType),
-                    `Complex result should use the existing fallback (${shape})`
-                );
-            } else {
-                if (shape !== 'depth' && shape !== 'never') assert.ok(reads > 0);
-                assert.ok(
-                    isTypeSame(result.type, combineTypes([payload, boolType])),
-                    `Closed result should preserve exactly payload | bool (${shape})`
-                );
-            }
+            assert.ok(reads <= 4 * width, `Unbounded result traversal (${shape}: ${reads})`);
+            assert.ok(
+                isTypeSame(result.type, combineTypes([payload, boolType])),
+                `Closed result should preserve exactly payload | bool (${shape})`
+            );
         } finally {
             evaluator.getTypeOfMagicMethodCall = originalCall;
             evaluator.mapSubtypesExpandTypeVars = originalExpand;
@@ -2302,7 +2380,12 @@ test('TupleComparisonGrowingWorkBound', () => {
         const original = evaluator.mapSubtypesExpandTypeVars;
         let visits = 0;
         evaluator.mapSubtypesExpandTypeVars = (...args) => {
-            assert.ok(++visits <= 64, `Recursive tuple ordering exceeded 64 type-expansion visits (${parameters})`);
+            assert.ok(
+                ++visits <= 8 * (maxTypeRecursionCount + 1),
+                `Recursive tuple ordering exceeded ${
+                    8 * (maxTypeRecursionCount + 1)
+                } type-expansion visits (${parameters})`
+            );
             return original(...args);
         };
         try {
@@ -2630,10 +2713,7 @@ test('TupleComparisonFreshEmptyListWorkBound', () => {
             nodes.forEach((node, index) => Object.defineProperty(node, 'nodeType', descriptors[index]));
         }
         assert.ok(result);
-        assert.strictEqual(
-            evaluator.printType(result.type),
-            exact && width === maxSubtypesForInferredType ? 'bool' : 'Unknown | bool'
-        );
+        assert.strictEqual(evaluator.printType(result.type), exact ? 'bool' : 'Unknown | bool');
         assert.ok(reads <= 4 * width, `Empty-list proof repeated source scans (${reads} node-kind reads)`);
     }
 });

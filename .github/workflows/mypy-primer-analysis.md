@@ -64,7 +64,7 @@ jobs:
         with:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: github.event_name == 'workflow_run'
         with:
           name: mypy_primer_analysis_context
@@ -93,7 +93,7 @@ jobs:
             const source = await loadSource(github.request.bind(github), `${context.repo.owner}/${context.repo.repo}`, handoff);
             fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'primer-source.json'), JSON.stringify(source));
             return source.runId;
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: steps.source.outputs.result != ''
         with:
           pattern: mypy_primer_diffs_*
@@ -125,7 +125,7 @@ jobs:
             fs.copyFileSync('./build/ci/mypyPrimerAnalysis.ts', path.join(folder, 'mypyPrimerAnalysis.ts'));
             core.setOutput('has_changes', String(manifest.projects.length > 0));
             core.notice(`${manifest.projects.length} changed projects; all eight shards accounted for`);
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.prepare.outputs.has_changes == 'true'
         with:
           name: primer-analysis-input
@@ -144,11 +144,11 @@ jobs:
         with:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: primer-analysis-input
           path: ${{ runner.temp }}/primer-input
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: agent-output-fallback
           path: ${{ runner.temp }}/primer-preview-output
@@ -171,13 +171,13 @@ jobs:
             fs.writeFileSync(path.join(folder, 'comment.md'), body);
             fs.writeFileSync(path.join(folder, 'full-report.md'), fullReport);
             await core.summary.addRaw(body).write();
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mypy-primer-analysis-report
           path: ${{ runner.temp }}/primer-preview
           if-no-files-found: error
 steps:
-  - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+  - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
     with:
       name: primer-analysis-input
       path: /tmp/gh-aw/primer-input
@@ -249,11 +249,11 @@ safe-outputs:
           with:
             ref: ${{ github.workflow_sha }}
             persist-credentials: false
-        - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
           with:
             name: primer-analysis-input
             path: ${{ runner.temp }}/primer-input
-        - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
           with:
             name: activation
             path: ${{ runner.temp }}/primer-activation
@@ -281,7 +281,7 @@ safe-outputs:
               );
               core.notice(result);
               await core.summary.addRaw(result).write();
-        - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
           with:
             name: mypy-primer-analysis-report
             path: ${{ runner.temp }}/mypy-primer-analysis.md

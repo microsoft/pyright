@@ -14,6 +14,7 @@ import { AliasDeclaration, DeclarationType } from '../analyzer/declaration';
 import { findNodeByOffset, getFirstAncestorOrSelfOfKind } from '../analyzer/parseTreeUtils';
 import { ExecutionEnvironment, getStandardDiagnosticRuleSet } from '../common/configOptions';
 import { DiagnosticSink } from '../common/diagnosticSink';
+import { convertOffsetsToRange } from '../common/positionUtils';
 import { pythonVersion3_13, pythonVersion3_14, pythonVersion3_15 } from '../common/pythonVersion';
 import { getStringFingerprint } from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
@@ -22,11 +23,15 @@ import { LocMessage } from '../localization/localize';
 import {
     getParserStringAnnotation,
     getParserStringAnnotationInfo,
+    getNextNodeId,
     ParseNodeType,
     StatementListNode,
 } from '../parser/parseNodes';
 import { ParseOptions, Parser } from '../parser/parser';
+import { Tokenizer } from '../parser/tokenizer';
+import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
+import { getRangeByMarkerName } from './harness/fourslash/testStateUtils';
 import * as TestUtils from './testUtils';
 
 test('Empty', () => {
@@ -35,6 +40,284 @@ test('Empty', () => {
 
     assert.equal(diagSink.fetchAndClear().length, 0);
     assert.equal(parserOutput.parseTree.d.statements.length, 0);
+});
+
+test.each([
+    '[*group for group in groups]',
+    '{*group for group in groups}',
+    '{**part for part in parts}',
+    '(*group for group in groups)',
+    'consume(*group for group in groups)',
+    'consume((*group for group in groups))',
+    'consume(*(*group for group in groups))',
+    '[*group for section in sections for group in section if group]',
+    '[\n *group\n for group in groups\n if group\n]',
+    '[*group for *group, last in groups]',
+    '[*(captured := group) for group in groups]',
+    '[*(group if enabled else ()) for group in groups]',
+    '(*(group if enabled else ()) for group in groups)',
+    '(*group if enabled else () for group in groups)',
+    'consume(*group if enabled else () for group in groups)',
+    '(*group if enabled else (captured := fallback) for group in groups)',
+    'consume(*group if enabled else (captured := fallback) for group in groups)',
+    '(*group or () for group in groups)',
+    '(*not group for group in groups)',
+    '(*group == other for group in groups)',
+    '(*group is other for group in groups)',
+    '(*group in others for group in groups)',
+    '(*lambda: group for group in groups)',
+    '{**part if enabled else {} for part in parts}',
+    '{**part if enabled else (captured := fallback) for part in parts}',
+    '{**part or {} for part in parts}',
+    '{**not part for part in parts}',
+    '{**part is other for part in parts}',
+    '{**lambda: part for part in parts}',
+    'async def inspect():\n    return [*group async for group in groups]',
+    'async def inspect():\n    return {*group async for group in groups}',
+    'async def inspect():\n    return {**part async for part in parts}',
+    '(*group async for group in groups)',
+    'consume(*group async for group in groups)',
+    'async def inspect():\n    return (*await resolve(group) for group in groups)',
+])('Python 3.15 comprehension unpacking grammar: %s', (source) => {
+    const options = new ParseOptions();
+    options.pythonVersion = pythonVersion3_15;
+    const sink = new DiagnosticSink();
+    TestUtils.parseText(source, sink, options);
+    assert.deepStrictEqual(sink.getErrors(), []);
+});
+
+test.each([
+    '[*group for group in groups]',
+    '{*group for group in groups}',
+    '{**part for part in parts}',
+    '(*group for group in groups)',
+    'consume(*group for group in groups)',
+    'consume((*group for group in groups))',
+])('Comprehension unpacking follows the stub syntax-version exemption: %s', (source) => {
+    const options = new ParseOptions();
+    options.pythonVersion = pythonVersion3_14;
+    options.isStubFile = true;
+    const sink = new DiagnosticSink();
+    TestUtils.parseText(source, sink, options);
+    assert.deepStrictEqual(sink.getErrors(), []);
+});
+
+test.each<[string, [string, string][]]>([
+    ['[[|/*error0*/**part|] for part in parts]', [['error0', LocMessage.dictUnpackInList()]]],
+    ['([|/*error0*/**part|] for part in parts)', [['error0', LocMessage.dictUnpackInGenerator()]]],
+    ['consume[|/*error0*/(|]**part for part in parts)', [['error0', LocMessage.expectedCloseParen()]]],
+    ['{[|/*error0*/*key|]: value for key, value in items}', [['error0', LocMessage.unpackInDict()]]],
+    ['{key: [|/*error0*/*value|] for key, value in items}', [['error0', LocMessage.unpackInValue()]]],
+    ['{[|/*error0*/**key|]: value for key, value in items}', [['error0', LocMessage.dictUnpackInKey()]]],
+    ['{key: [|/*error0*/**value|] for key, value in items}', [['error0', LocMessage.dictUnpackInValue()]]],
+    ['[|[/*error0*/|]*group if enabled else () for group in groups]', [['error0', LocMessage.expectedCloseBracket()]]],
+    [
+        '[|{/*error0*/|]*group if enabled else () [|/*error1*/for|] group in groups[|/*error2*/}|]',
+        [
+            ['error0', LocMessage.expectedCloseBrace()],
+            ['error1', LocMessage.expectedNewlineOrSemicolon()],
+            ['error2', LocMessage.expectedColon()],
+        ],
+    ],
+    [
+        '[|[/*error1*/|]group if enabled else [|/*error0*/*|]other for group in groups]',
+        [
+            ['error0', LocMessage.expectedExpr()],
+            ['error1', LocMessage.expectedCloseBracket()],
+        ],
+    ],
+    [
+        '[|[/*error2*/|][|/*error1*/(|]group if enabled else [|/*error0*/*|]other) for group in groups]',
+        [
+            ['error0', LocMessage.expectedExpr()],
+            ['error1', LocMessage.expectedCloseParen()],
+            ['error2', LocMessage.expectedCloseBracket()],
+        ],
+    ],
+    ['[([|/*error0*/*group|]) for group in groups]', [['error0', LocMessage.unpackOperatorNotAllowed()]]],
+    ['[*first, [|/*error0*/*group for group in groups|]]', [['error0', LocMessage.comprehensionInSequence()]]],
+    ['[first, [|/*error0*/group for group in groups|]]', [['error0', LocMessage.comprehensionInSequence()]]],
+    ['(first, [|/*error0*/*group for group in groups|])', [['error0', LocMessage.comprehensionInSequence()]]],
+    ['{**first, **[|/*error0*/part|] for part in parts}', [['error0', LocMessage.comprehensionInDict()]]],
+    ['consume([|/*error0*/*group for group in groups|],)', [['error0', LocMessage.generatorNotParenthesized()]]],
+    ['consume(first, [|/*error0*/*group for group in groups|])', [['error0', LocMessage.generatorNotParenthesized()]]],
+    [
+        'consume([|/*error0*/*group for group in groups|], key=value)',
+        [['error0', LocMessage.generatorNotParenthesized()]],
+    ],
+    [
+        'consume[|/*error1*/(|]key=[|/*error0*/*|]group for group in groups)',
+        [
+            ['error0', LocMessage.expectedExpr()],
+            ['error1', LocMessage.expectedCloseParen()],
+        ],
+    ],
+    ['(*[|/*error0*/group if enabled else ()|],)', [['error0', LocMessage.unpackOperatorNotAllowed()]]],
+    ['{**[|/*error0*/part if enabled else {}|]}', [['error0', LocMessage.unpackOperatorNotAllowed()]]],
+    ['(*[|/*error0*/group or other|],)', [['error0', LocMessage.unpackOperatorNotAllowed()]]],
+    ['(*[|/*error0*/not group|],)', [['error0', LocMessage.unpackOperatorNotAllowed()]]],
+    ['(*[|/*error0*/group in others|],)', [['error0', LocMessage.unpackOperatorNotAllowed()]]],
+    ['{**[|/*error0*/part or other|]}', [['error0', LocMessage.unpackOperatorNotAllowed()]]],
+    ['{**[|/*error0*/part == other|]}', [['error0', LocMessage.unpackOperatorNotAllowed()]]],
+    ['(*group [|/*error0*/:=|] other for group in groups)', [['error0', LocMessage.walrusNotAllowed()]]],
+    ['consume(*group [|/*error0*/:=|] other for group in groups)', [['error0', LocMessage.walrusNotAllowed()]]],
+    [
+        '(*group if enabled else captured [|/*error0*/:=|] fallback for group in groups)',
+        [['error0', LocMessage.walrusNotAllowed()]],
+    ],
+    [
+        'consume(*group if enabled else captured [|/*error0*/:=|] fallback for group in groups)',
+        [['error0', LocMessage.walrusNotAllowed()]],
+    ],
+    [
+        '{**part if enabled else captured [|/*error0*/:=|] fallback for part in parts}',
+        [['error0', LocMessage.walrusNotAllowed()]],
+    ],
+    [
+        '[|/*open*/(|][|/*bad*/* **part|],)',
+        [
+            ['bad', LocMessage.dictUnpackInGenerator()],
+            ['open', LocMessage.expectedCloseParen()],
+        ],
+    ],
+])('Invalid comprehension unpacking recovers into the following statement: %s', verifyComprehensionUnpackingRecovery);
+
+test.each<[string, [string, string][]]>([
+    [
+        '[|[/*error1*/|]*group for group in [|/*error0*/]|]',
+        [
+            ['error0', LocMessage.expectedExpr()],
+            ['error1', LocMessage.expectedCloseBracket()],
+        ],
+    ],
+    [
+        '[|{/*error1*/|]*group for group in [|/*error0*/}|]',
+        [
+            ['error0', LocMessage.expectedExpr()],
+            ['error1', LocMessage.expectedCloseBrace()],
+        ],
+    ],
+    [
+        '[|{/*error1*/|]**part for part in [|/*error0*/}|]',
+        [
+            ['error0', LocMessage.expectedExpr()],
+            ['error1', LocMessage.expectedCloseBrace()],
+        ],
+    ],
+    [
+        '[|/*error1*/(|]*group for group in [|/*error0*/)|]',
+        [
+            ['error0', LocMessage.expectedExpr()],
+            ['error1', LocMessage.expectedCloseParen()],
+        ],
+    ],
+    [
+        'consume[|/*error1*/(|]*group for group in [|/*error0*/)|]',
+        [
+            ['error0', LocMessage.expectedExpr()],
+            ['error1', LocMessage.expectedCloseParen()],
+        ],
+    ],
+    [
+        'consume[|/*error2*/(|][|/*error1*/(|]*group for group in [|/*error0*/)|])',
+        [
+            ['error0', LocMessage.expectedExpr()],
+            ['error1', LocMessage.expectedCloseParen()],
+            ['error2', LocMessage.expectedCloseParen()],
+        ],
+    ],
+    [
+        'consume[|/*error2*/(|]*group [|/*error0*/for|] [|/*error1*/)|]',
+        [
+            ['error0', LocMessage.expectedExpr()],
+            ['error1', LocMessage.expectedIn()],
+            ['error2', LocMessage.expectedCloseParen()],
+        ],
+    ],
+    [
+        '[|[/*error1*/|]*group for group in groups if [|/*error0*/]|]',
+        [
+            ['error0', LocMessage.expectedExpr()],
+            ['error1', LocMessage.expectedCloseBracket()],
+        ],
+    ],
+])('Incomplete comprehension unpacking preserves later statements: %s', verifyComprehensionUnpackingRecovery);
+
+function verifyComprehensionUnpackingRecovery(source: string, expected: [string, string][]) {
+    const data = parseTestData('', `////${source}\n////after = 1\n`, 'main.py');
+    const options = new ParseOptions();
+    options.pythonVersion = pythonVersion3_15;
+    const sink = new DiagnosticSink();
+    const results = TestUtils.parseText(data.files[0].content, sink, options);
+    assert.deepStrictEqual(
+        sink.getErrors().map(({ message, range }) => ({ message, range })),
+        expected.map(([name, message]) => {
+            const range = getRangeByMarkerName(data, name);
+            assert.ok(range);
+            return {
+                message,
+                range: convertOffsetsToRange(range.pos, range.end, results.parserOutput.lines),
+            };
+        })
+    );
+    const statements = results.parserOutput.parseTree.d.statements;
+    const lastStatement = statements[statements.length - 1];
+    assert.ok(lastStatement?.nodeType === ParseNodeType.StatementList);
+    const assignment = lastStatement.d.statements[0];
+    assert.ok(assignment.nodeType === ParseNodeType.Assignment);
+    assert.ok(assignment.d.leftExpr.nodeType === ParseNodeType.Name);
+    assert.strictEqual(assignment.d.leftExpr.d.value, 'after');
+}
+
+test.each([
+    '[item for group in groups for item in group]',
+    '{key: value for key, value in items}',
+    '(item for item in items)',
+    'consume(item for item in items)',
+    'consume(*groups)',
+    'consume(*(item for item in items))',
+    'consume(**mapping)',
+    '[*groups]',
+    '{*groups}',
+    '{**mapping}',
+    '(*groups,)',
+    '(*groups, other)',
+    'consume(*(first if enabled else second))',
+    '{**(first if enabled else second)}',
+    '(*(first or second),)',
+    '(*(not first),)',
+    '(*(first == second),)',
+    '(*(lambda: first),)',
+    '{**(first or second)}',
+    '{**(first is second)}',
+    '{**(lambda: first)}',
+])('Ordinary unpacking and comprehension syntax is preserved: %s', (source) => {
+    for (const version of [pythonVersion3_14, pythonVersion3_15]) {
+        const options = new ParseOptions();
+        options.pythonVersion = version;
+        const sink = new DiagnosticSink();
+        TestUtils.parseText(source, sink, options);
+        assert.deepStrictEqual(sink.getErrors(), []);
+    }
+});
+
+test.each(['dictionary', 'tuple'])('Nested ordinary %s unpacking is parsed once per operand', (kind) => {
+    for (const version of [pythonVersion3_14, pythonVersion3_15]) {
+        for (const depth of [1, 2, 4, 8]) {
+            let expression = 'base';
+            for (let index = 0; index < depth; index++) {
+                expression = kind === 'dictionary' ? `{**${expression}}` : `(*${expression},)`;
+            }
+            const options = new ParseOptions();
+            options.pythonVersion = version;
+            const sink = new DiagnosticSink();
+            const first = getNextNodeId();
+            TestUtils.parseText(`value = ${expression}\n`, sink, options);
+            const allocations = getNextNodeId() - first - 1;
+            assert.deepStrictEqual(sink.getErrors(), []);
+            assert.strictEqual(allocations, 5 + 2 * depth);
+        }
+    }
 });
 
 test('Parser uses a precomputed content fingerprint when provided', () => {
@@ -106,6 +389,44 @@ test('ExpressionWrappedInParens', () => {
     // length of node should include parens
     assert.equal(statementList.d.statements[0].nodeType, ParseNodeType.Name);
     assert.equal(statementList.d.statements[0].length, 5);
+});
+
+test('NameTokenPayloadPreservesIdentifierExtentAndNormalization', () => {
+    const text = '(\n# identifier comment\n\ufb00\n)';
+    const diagSink = new DiagnosticSink();
+    const results = TestUtils.parseText(text, diagSink);
+    assert.strictEqual(diagSink.getErrors().length, 0);
+
+    const statement = results.parserOutput.parseTree.d.statements[0];
+    assert.ok(statement.nodeType === ParseNodeType.StatementList);
+    const name = statement.d.statements[0];
+    assert.ok(name.nodeType === ParseNodeType.Name);
+    const offset = text.indexOf('\ufb00');
+    const tokens = results.tokenizerOutput.tokens;
+    const token = Array.from({ length: tokens.count }, (_, index) => tokens.getItemAt(index)).find(
+        (token) => token.start === offset
+    );
+
+    assert.ok(name.d === token);
+    assert.strictEqual(name.d.value, 'ff');
+    assert.strictEqual(name.d.start, offset);
+    assert.strictEqual(name.d.length, 1);
+    assert.strictEqual(name.d.comments?.[0].value, ' identifier comment');
+    assert.strictEqual(name.start, 0);
+    assert.strictEqual(name.length, text.length);
+
+    const recovered = new Tokenizer().tokenize(
+        text,
+        undefined,
+        undefined,
+        0,
+        false,
+        results.parserOutput.parseTree
+    ).tokens;
+    const recoveredToken = Array.from({ length: recovered.count }, (_, index) => recovered.getItemAt(index)).find(
+        (token) => token.start === offset
+    );
+    assert.ok(recoveredToken === name.d);
 });
 
 test('MaxParseDepth1', () => {
@@ -342,7 +663,7 @@ test('LazyImport - stub file at 3.14 does not error', () => {
     parseOptions.pythonVersion = pythonVersion3_14;
     parseOptions.isStubFile = true;
 
-    TestUtils.parseText('lazy import json\n', diagSink, parseOptions);
+    TestUtils.parseText('lazy import json\nlazy from json import loads\n', diagSink, parseOptions);
 
     assert.strictEqual(diagSink.getErrors().length, 0);
 });
@@ -434,6 +755,102 @@ test('LazyImport - wildcard import rejected at 3.15', () => {
     const errors = diagSink.getErrors();
     assert.strictEqual(errors.length, 1);
     assert.ok(errors[0].message === LocMessage.lazyImportWildcardIllegal());
+});
+
+test('LazyImport - scope restrictions', () => {
+    const parseOptions = new ParseOptions();
+    parseOptions.pythonVersion = pythonVersion3_15;
+
+    const invalidStatements = [
+        ['function', 'def f():\n    lazy import json\n'],
+        ['nested function', 'if True:\n    def f():\n        lazy import json\n'],
+        ['class', 'class C:\n    lazy import json\n'],
+        ['try', 'try:\n    lazy import json\nexcept ImportError:\n    pass\n'],
+        ['nested try suite', 'try:\n    if True:\n        lazy import json\nfinally:\n    pass\n'],
+        ['except', 'try:\n    pass\nexcept ImportError:\n    lazy import json\n'],
+        ['except*', 'try:\n    pass\nexcept* Exception:\n    lazy import json\n'],
+        ['else', 'try:\n    pass\nexcept ImportError:\n    pass\nelse:\n    lazy import json\n'],
+        ['finally', 'try:\n    pass\nfinally:\n    lazy import json\n'],
+    ] as const;
+
+    for (const [scope, source] of invalidStatements) {
+        const diagSink = new DiagnosticSink();
+        TestUtils.parseText(source, diagSink, parseOptions);
+        assert.deepStrictEqual(
+            diagSink.getErrors().map((error) => error.message),
+            ['Lazy imports are only allowed at module scope and outside try statements'],
+            `Expected a scope diagnostic for lazy import in ${scope}`
+        );
+    }
+});
+
+test('LazyImport - future import is rejected', () => {
+    const parseOptions = new ParseOptions();
+    parseOptions.pythonVersion = pythonVersion3_15;
+
+    const diagSink = new DiagnosticSink();
+    const parserOutput = TestUtils.parseText(
+        'lazy from __future__ import annotations\n',
+        diagSink,
+        parseOptions
+    ).parserOutput;
+
+    assert.deepStrictEqual(
+        diagSink.getErrors().map((error) => error.message),
+        ["Future imports cannot be used with 'lazy'"]
+    );
+    assert.deepStrictEqual([...parserOutput.futureImports], []);
+});
+
+test('LazyImport - valid module suites and recovery after restricted suites', () => {
+    const parseOptions = new ParseOptions();
+    parseOptions.pythonVersion = pythonVersion3_15;
+
+    const diagSink = new DiagnosticSink();
+    TestUtils.parseText(
+        'class C:\n' +
+            '    lazy import json\n' +
+            'try:\n' +
+            '    lazy import sys\n' +
+            'finally:\n' +
+            '    pass\n' +
+            'if True:\n' +
+            '    lazy import os\n' +
+            'with open(__file__):\n' +
+            '    lazy from os import path\n' +
+            'lazy import math\n',
+        diagSink,
+        parseOptions
+    );
+
+    assert.deepStrictEqual(
+        diagSink.getErrors().map((error) => error.message),
+        [
+            'Lazy imports are only allowed at module scope and outside try statements',
+            'Lazy imports are only allowed at module scope and outside try statements',
+        ]
+    );
+});
+
+test('LazyImport - incomplete from-import recovers for following statements', () => {
+    const parseOptions = new ParseOptions();
+    parseOptions.pythonVersion = pythonVersion3_15;
+
+    const diagSink = new DiagnosticSink();
+    const parserOutput = TestUtils.parseText(
+        'lazy from pkg import\nlazy import json\n',
+        diagSink,
+        parseOptions
+    ).parserOutput;
+
+    assert.ok(diagSink.getErrors().length > 0);
+
+    const recoveredStatementList = parserOutput.parseTree.d.statements[1] as StatementListNode;
+    const recoveredStatement = recoveredStatementList.d.statements[0];
+    assert.strictEqual(recoveredStatement.nodeType, ParseNodeType.Import);
+    if (recoveredStatement.nodeType === ParseNodeType.Import) {
+        assert.strictEqual(recoveredStatement.d.isLazy, true);
+    }
 });
 
 test('LazyImport - AliasDeclaration.isLazy is propagated', () => {

@@ -57,7 +57,7 @@ export interface FunctionDecoratorInfo {
 // Scans through the decorators to find a few built-in decorators
 // that affect the function flags.
 export function getFunctionInfoFromDecorators(
-    evaluator: TypeEvaluator,
+    evaluator: Pick<TypeEvaluator, 'getTypeOfExpression'>,
     node: FunctionNode,
     isInClass: boolean,
     nodeInfo: AnalyzerNodeInfoAccessor

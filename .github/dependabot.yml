@@ -7,7 +7,7 @@ updates:
         patterns: ['*']
     # gh-aw owns this runtime and its generated script calls; upgrade them together.
     ignore:
-      - dependency-name: 'github/gh-aw-actions'
+      - dependency-name: 'github/gh-aw-actions/setup'
     schedule:
       interval: 'weekly'
     cooldown:

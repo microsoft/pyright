@@ -16,5 +16,6 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
-        NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
-      run: pnpm run install:all
+        PNPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      run: pnpm install --frozen-lockfile --prefer-offline
