@@ -422,6 +422,18 @@ test('AllSubtypes', () => {
     );
 });
 
+test('AllSubtypes passes only the subtype to callbacks', () => {
+    const literal = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(createClass('Value')), 1);
+    const nested = ClassType.specialize(ClassType.cloneAsInstance(createClass('Container')), [literal]);
+
+    assert.strictEqual(containsLiteralType(literal), true);
+    assert.strictEqual(containsLiteralType(nested), false);
+    assert.strictEqual(containsLiteralType(nested, true), true);
+    assert.strictEqual(allSubtypes(createUnion(literal, nested), containsLiteralType), false);
+    assert.strictEqual(allSubtypes(createUnion(nested, literal), containsLiteralType), false);
+    assert.strictEqual(allSubtypes(nested, containsLiteralType), false);
+});
+
 test('SomeSubtypes', () => {
     const unionType = createUnion(createClassType('A'), createClassType('B'), createClassType('C'));
     const visitedSubtypes: Type[] = [];

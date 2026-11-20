@@ -791,7 +791,7 @@ export function someSubtypes(type: Type, callback: (type: Type) => boolean): boo
 
 export function allSubtypes(type: Type, callback: (type: Type) => boolean): boolean {
     if (isUnion(type)) {
-        return type.priv.subtypes.every(callback);
+        return type.priv.subtypes.every((subtype) => callback(subtype));
     }
 
     return callback(type);
