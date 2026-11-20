@@ -40,9 +40,10 @@ REPO_ROOT = SCRIPT_DIR.parents[1]
 PYRIGHT_PACKAGE_DIR = REPO_ROOT / "packages" / "pyright"
 PYRIGHT_ENTRY_POINT = PYRIGHT_PACKAGE_DIR / "index.js"
 PYRIGHT_BUNDLE = PYRIGHT_PACKAGE_DIR / "dist" / "pyright.js"
+PYRIGHT_ENTRY_POINT_ENV = "PYRIGHT_BENCHMARK_ENTRY_POINT"
 
 DEFAULT_TYPE_CHECKERS = ["pyright", "pyrefly", "ty", "mypy", "zuban"]
-AVAILABLE_TYPE_CHECKERS = [*DEFAULT_TYPE_CHECKERS, "pyright-pip"]
+AVAILABLE_TYPE_CHECKERS = [*DEFAULT_TYPE_CHECKERS, "pyright-threads", "pyright-pip"]
 DEFAULT_TIMEOUT = 300
 DEFAULT_MEMORY_LIMIT_MB = 4096
 CLONE_TIMEOUT = 300
@@ -135,17 +136,28 @@ def _executable(name: str) -> str | None:
 
 def _pyright_command() -> list[str] | None:
     node = _executable("node")
+    configured_entry_point = os.environ.get(PYRIGHT_ENTRY_POINT_ENV)
+    entry_point = (
+        Path(configured_entry_point).resolve()
+        if configured_entry_point
+        else PYRIGHT_ENTRY_POINT
+    )
+    bundle = (
+        entry_point.parent / "dist" / "pyright.js"
+        if configured_entry_point
+        else PYRIGHT_BUNDLE
+    )
     if (
         not node
-        or not PYRIGHT_ENTRY_POINT.is_file()
-        or not PYRIGHT_BUNDLE.is_file()
+        or not entry_point.is_file()
+        or not bundle.is_file()
     ):
         return None
-    return [node, str(PYRIGHT_ENTRY_POINT)]
+    return [node, str(entry_point)]
 
 
 def _checker_command(checker: str) -> list[str] | None:
-    if checker == "pyright":
+    if checker in ("pyright", "pyright-threads"):
         return _pyright_command()
     if checker == "pyright-pip":
         try:
@@ -180,6 +192,18 @@ def prepare_local_pyright(skip_build: bool) -> None:
     """Build the repository's Pyright CLI before any timed invocation."""
     if not _executable("node"):
         raise BenchmarkError("Node.js is required to run the local Pyright CLI")
+
+    configured_entry_point = os.environ.get(PYRIGHT_ENTRY_POINT_ENV)
+    if configured_entry_point:
+        entry_point = Path(configured_entry_point).resolve()
+        bundle = entry_point.parent / "dist" / "pyright.js"
+        missing_paths = [path for path in (entry_point, bundle) if not path.is_file()]
+        if missing_paths:
+            raise BenchmarkError(
+                f"{PYRIGHT_ENTRY_POINT_ENV} requires existing Pyright files: "
+                + ", ".join(str(path) for path in missing_paths)
+            )
+        return
 
     if skip_build:
         missing_paths = [
@@ -710,14 +734,18 @@ def _build_checker_command(
         return None, []
 
     relative_paths = _relative_check_paths(package_path, check_paths)
-    if checker in ("pyright", "pyright-pip"):
+    if checker in ("pyright", "pyright-threads", "pyright-pip"):
         config_path = _write_pyright_config(package_path, relative_paths)
-        return [
+        command = [
             *base_command,
             "--project",
             str(config_path),
-            "--stats",
-        ], [config_path]
+        ]
+        if checker == "pyright-threads":
+            command.append("--threads")
+        else:
+            command.append("--stats")
+        return command, [config_path]
     if checker == "pyrefly":
         config_path = _write_pyrefly_config(package_path, relative_paths)
         return [
@@ -1231,7 +1259,7 @@ def run_benchmark(
     local_dir: Path | None,
     skip_pyright_build: bool,
 ) -> Path:
-    if "pyright" in type_checkers:
+    if any(checker in type_checkers for checker in ("pyright", "pyright-threads")):
         prepare_local_pyright(skip_pyright_build)
 
     destination = output_dir or SCRIPT_DIR / "results"

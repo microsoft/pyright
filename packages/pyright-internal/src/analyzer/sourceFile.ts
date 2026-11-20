@@ -60,6 +60,13 @@ const _maxImportCyclesPerFile = 4;
 // https://github.com/microsoft/vscode/blob/1e750a7514f365585d8dab1a7a82e0938481ea2f/src/vs/editor/common/model/textModel.ts#L194
 export const maxSourceFileSize = 50 * 1024 * 1024;
 
+export type CheckOperationFactory = (
+    uri: Uri,
+    parserOutput: ParserOutput,
+    evaluator: TypeEvaluator,
+    nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+) => { walk: (node: ParseNode, callback: () => void) => void; dispose: () => void } | undefined;
+
 interface ResolveImportResult {
     imports: ImportResult[];
     builtinsImportResult?: ImportResult | undefined;
@@ -111,6 +118,7 @@ class WriteableData {
 
     parsedFileContents: string | undefined;
     parsedFileContentsHash: StringUtils.StringFingerprint | undefined;
+    parsedFileUseNotebookMode = false;
     tokenizerLines: TextRangeCollection<TextRange> | undefined;
     tokenizerOutput: TokenizerOutput | undefined;
     lineCount: number | undefined;
@@ -655,7 +663,9 @@ export class SourceFile {
         // If we've cached the tokenizer output, use the cached version.
         // Otherwise re-tokenize the contents on demand.
         const tokenizeContents = this._tokenizeContents.bind(this);
+        const parserOutput = this._writableData.parserOutput;
         const parsedFileContents = this._writableData.parsedFileContents;
+        const useNotebookMode = this._writableData.parsedFileUseNotebookMode;
         const contentHash =
             this._writableData.parsedFileContentsHash ??
             StringUtils.getStringFingerprint(this._writableData.parsedFileContents);
@@ -663,15 +673,15 @@ export class SourceFile {
 
         return {
             contentHash,
-            parserOutput: this._writableData.parserOutput,
+            parserOutput,
             get tokenizerOutput(): TokenizerOutput {
                 // Lazily tokenize the file contents only when accessed for the first time.
                 if (!tokenizerOutput) {
-                    tokenizerOutput = tokenizeContents(parsedFileContents, contentHash);
+                    tokenizerOutput = tokenizeContents(parsedFileContents, contentHash, parserOutput, useNotebookMode);
                 }
                 return tokenizerOutput!;
             },
-            text: this._writableData.parsedFileContents,
+            text: parsedFileContents,
         };
     }
 
@@ -758,12 +768,13 @@ export class SourceFile {
 
             try {
                 contentHash ??= StringUtils.getStringFingerprint(fileContents!);
+                const useNotebookMode = this._ipythonMode !== IPythonMode.None;
                 // Parse the token stream, building the abstract syntax tree.
                 const parseFileResults = this._parseFile(
                     configOptions,
                     this._uri,
                     fileContents!,
-                    this._ipythonMode !== IPythonMode.None,
+                    useNotebookMode,
                     diagSink,
                     contentHash
                 );
@@ -773,6 +784,7 @@ export class SourceFile {
                 this._writableData.tokenizerLines = parseFileResults.tokenizerOutput.lines;
                 this._writableData.parsedFileContents = fileContents;
                 this._writableData.parsedFileContentsHash = parseFileResults.contentHash;
+                this._writableData.parsedFileUseNotebookMode = useNotebookMode;
                 this._writableData.typeIgnoreLines = parseFileResults.tokenizerOutput.typeIgnoreLines;
                 this._writableData.typeIgnoreAll = parseFileResults.tokenizerOutput.typeIgnoreAll;
                 this._writableData.pyrightIgnoreLines = parseFileResults.tokenizerOutput.pyrightIgnoreLines;
@@ -846,6 +858,7 @@ export class SourceFile {
                 // Create dummy parse results.
                 this._writableData.parsedFileContents = '';
                 this._writableData.parsedFileContentsHash = StringUtils.getStringFingerprint('');
+                this._writableData.parsedFileUseNotebookMode = false;
                 this._writableData.tokenizerLines = new TextRangeCollection<TextRange>([]);
 
                 const parseTree = ModuleNode.create({ start: 0, length: 0 });
@@ -993,7 +1006,8 @@ export class SourceFile {
         importResolver: ImportResolver,
         evaluator: TypeEvaluator,
         dependentFiles: ParserOutput[] | undefined,
-        nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader
+        nodeInfoReader: AnalyzerNodeInfo.AnalyzerNodeInfoReader,
+        checkOperation?: CheckOperationFactory
     ) {
         assert(!this.isParseRequired(), `Check called before parsing: state=${this._writableData.debugPrint()}`);
         assert(!this.isBindingRequired(), `Check called before binding: state=${this._writableData.debugPrint()}`);
@@ -1007,15 +1021,26 @@ export class SourceFile {
                 timingStats.typeCheckerTime.timeOperation(() => {
                     const checkDuration = new Duration();
                     const nodeInfo = AnalyzerNodeInfo.createAnalyzerNodeInfoAccessor(nodeInfoReader);
+                    const operationOwner = checkOperation?.(
+                        this._uri,
+                        this._writableData.parserOutput!,
+                        evaluator,
+                        nodeInfoReader
+                    );
                     const checker = new Checker(
                         importResolver,
                         evaluator,
                         this._writableData.parserOutput!,
                         dependentFiles,
-                        nodeInfo
+                        nodeInfo,
+                        operationOwner?.walk
                     );
                     this._writableData.isCheckingInProgress = true;
-                    checker.check();
+                    try {
+                        checker.check();
+                    } finally {
+                        operationOwner?.dispose();
+                    }
                     this._writableData.isCheckingNeeded = false;
 
                     const fileInfo = nodeInfo.getFileInfo(this._writableData.parserOutput!.parseTree)!;
@@ -1615,14 +1640,27 @@ export class SourceFile {
         return this.parseFileContents(fileContents, parseOptions, diagSink, contentHash);
     }
 
-    private _tokenizeContents(fileContents: string, contentHash: StringUtils.StringFingerprint): TokenizerOutput {
+    private _tokenizeContents(
+        fileContents: string,
+        contentHash: StringUtils.StringFingerprint,
+        parserOutput: ParserOutput,
+        useNotebookMode: boolean
+    ): TokenizerOutput {
         const tokenizer = new Tokenizer();
-        const output = tokenizer.tokenize(fileContents);
+        const output = tokenizer.tokenize(
+            fileContents,
+            0,
+            fileContents.length,
+            0,
+            useNotebookMode,
+            parserOutput.parseTree
+        );
 
         // When the file is open, cache the tokenizer results.
         // Because the tokenizer is lazy, ensure that the state remains unchanged before caching its output.
         if (
             this._writableData.clientDocumentContents !== undefined &&
+            this._writableData.parserOutput === parserOutput &&
             this._writableData.lastFileContentHash &&
             StringUtils.areStringFingerprintsEqual(this._writableData.lastFileContentHash, contentHash)
         ) {

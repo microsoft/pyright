@@ -54,6 +54,20 @@ def _result(time: float, memory: float, ok: bool = True) -> dict:
                         "ok": ok,
                         "execution_time_s": time,
                         "peak_memory_mb": memory,
+                        "execution_time_stats": {
+                            "min": time,
+                            "max": time,
+                            "mean": time,
+                            "median": time,
+                            "stddev": 0.0,
+                        },
+                        "peak_memory_stats": {
+                            "min": memory,
+                            "max": memory,
+                            "mean": memory,
+                            "median": memory,
+                            "stddev": 0.0,
+                        },
                         "files_checked": 123,
                     }
                 },
@@ -70,6 +84,28 @@ class CompareBenchmarksTest(unittest.TestCase):
             )
 
         self.assertEqual(failures, [])
+
+    def test_compares_median_run_statistics(self) -> None:
+        baseline = _result(100.0, 1000.0)
+        candidate = _result(100.0, 1000.0)
+        baseline_metrics = baseline["results"][0]["metrics"]["pyright"]
+        candidate_metrics = candidate["results"][0]["metrics"]["pyright"]
+        baseline_metrics["execution_time_stats"]["median"] = 10.0
+        baseline_metrics["peak_memory_stats"]["median"] = 100.0
+        candidate_metrics["execution_time_stats"]["median"] = 11.0
+        candidate_metrics["peak_memory_stats"]["median"] = 105.0
+
+        with redirect_stdout(io.StringIO()):
+            failures = compare_benchmarks.compare(
+                baseline, candidate, 20.0, statistic="median"
+            )
+        report = compare_benchmarks.render_markdown(
+            baseline, candidate, 20.0, statistic="median"
+        )
+
+        self.assertEqual(failures, [])
+        self.assertIn("Statistic: `median`", report)
+        self.assertIn("| example | pyright | 123 | 11.000s | +10.0%", report)
 
     def test_report_includes_pyright_stats(self) -> None:
         candidate = _result(10.0, 100.0)
@@ -430,132 +466,663 @@ Regression threshold: `10.0%`
             with self.assertRaisesRegex(ValueError, "non-finite number NaN"):
                 compare_benchmarks._load_results(result_file)
 
-    def test_workflow_profile_matches_checked_in_baseline(self) -> None:
+    def test_pr_workflow_uses_paired_multi_run_profile(self) -> None:
         workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
-        timeout_match = re.search(
+        profile_matches = re.findall(
             r"typecheck_benchmark\.py \\\s+"
-            r"-c pyright -r 1 -w 0 -t (\d+)",
+            r"-c pyright -r (\d+) -w (\d+) -t (\d+)",
             workflow,
         )
-        self.assertIsNotNone(timeout_match)
 
-        baseline = json.loads(
-            (
-                REPO_ROOT
-                / "build"
-                / "benchmark"
-                / "baselines"
-                / "latest-linux-x64.json"
-            ).read_text(encoding="utf-8")
-        )
-        config = json.loads(
-            (
-                REPO_ROOT / "build" / "benchmark" / "install_envs.json"
-            ).read_text(encoding="utf-8")
-        )
-
-        self.assertEqual(int(timeout_match.group(1)), 1800)
-        baseline_packages = {
-            package["package_name"]: package for package in baseline["results"]
-        }
-        for package in config["packages"]:
-            package_name = package.get("name") or package["github_url"].rsplit(
-                "/", 1
-            )[-1]
-            baseline_package = baseline_packages[package_name]
-            self.assertEqual(
-                package.get("check_paths", []), baseline_package["check_paths"]
-            )
-            self.assertEqual(
-                package.get("exclude_directories", []),
-                baseline_package["exclude_directories"],
-            )
+        self.assertEqual(profile_matches, [("3", "1", "1800"), ("3", "1", "1800")])
+        self.assertEqual(workflow.count("--statistic median"), 2)
+        self.assertIn("--candidate-statistic median", workflow)
 
     def test_workflows_use_current_pnpm_setup(self) -> None:
-        for workflow_name in (
-            "typecheck_benchmark_pr.yml",
-            "typecheck_benchmark_weekly.yml",
-        ):
-            workflow = (
-                REPO_ROOT / ".github" / "workflows" / workflow_name
-            ).read_text(encoding="utf-8")
-
-            self.assertIn("uses: pnpm/action-setup@", workflow)
-            self.assertIn(
-                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
-                workflow,
-            )
-            self.assertIn(
-                "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6",
-                workflow,
-            )
-            self.assertIn("SKIP_LERNA_BOOTSTRAP: 'yes'", workflow)
-            self.assertIn("--max-old-space-size=6656", workflow)
-            self.assertIn("timeout-minutes: 10", workflow)
-            self.assertIn("pnpm install --frozen-lockfile --prefer-offline", workflow)
-            self.assertIn(
-                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1",
-                workflow,
-            )
-            self.assertNotIn("actions/upload-artifact@v4", workflow)
-            self.assertNotIn("actions/checkout@v4", workflow)
-            self.assertNotIn("actions/setup-python@v5", workflow)
-            self.assertNotIn("apt-get", workflow)
-            self.assertNotIn(".github/actions/npm-cache-dir", workflow)
-
-        weekly_workflow = (
+        weekly_workflow_path = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_weekly.yml"
-        ).read_text(encoding="utf-8")
-        self.assertIn("cache: 'pnpm'", weekly_workflow)
-        self.assertIn("pnpm-lock.yaml", weekly_workflow)
-        self.assertIn(
-            "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1",
-            weekly_workflow,
         )
-        self.assertNotIn("actions/download-artifact@v4", weekly_workflow)
+        weekly_workflow_data = _load_yaml(weekly_workflow_path)
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["benchmark"]["if"],
+            "${{ github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["report"]["if"],
+            "${{ always() && github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["benchmark"]["strategy"]["matrix"]["checker"],
+            ["pyright", "pyrefly", "ty", "mypy", "zuban"],
+        )
+        weekly_benchmark_steps = weekly_workflow_data["jobs"]["benchmark"]["steps"]
+        self.assertEqual(
+            [step.get("uses") for step in weekly_benchmark_steps],
+            [
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+                None,
+                None,
+                "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
+                "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+                None,
+                "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+                None,
+                None,
+                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            ],
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[1]["with"],
+            {
+                "python-version": "${{ env.PYTHON_VERSION }}",
+                "cache": "pip",
+                "cache-dependency-path": "build/benchmark/install_envs.json\n.github/workflows/typecheck_benchmark_weekly.yml\n",
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[5]["with"],
+            {"node-version": "${{ env.NODE_VERSION }}"},
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[6],
+            {
+                "name": "Locate benchmark pnpm store",
+                "if": "${{ matrix.checker == 'pyright' }}",
+                "id": "benchmark-pnpm",
+                "run": 'echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"\necho "lock-hash=$(sha256sum pnpm-lock.yaml | cut -d\' \' -f1)" >> "$GITHUB_OUTPUT"\n',
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[7],
+            {
+                "name": "Restore and save trusted benchmark pnpm store",
+                "if": "${{ matrix.checker == 'pyright' }}",
+                "uses": "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+                "with": {
+                    "path": "${{ steps.benchmark-pnpm.outputs.path }}",
+                    "key": "typecheck-benchmark-pnpm-${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ steps.benchmark-pnpm.outputs.lock-hash }}",
+                },
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[3]["if"],
+            "${{ matrix.checker != 'pyright' }}",
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[4]["if"],
+            "${{ matrix.checker == 'pyright' }}",
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[5]["if"],
+            "${{ matrix.checker == 'pyright' }}",
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[8],
+            {
+                "name": "Build Pyright CLI",
+                "if": "${{ matrix.checker == 'pyright' }}",
+                "timeout-minutes": 10,
+                "env": {"SKIP_LERNA_BOOTSTRAP": "yes"},
+                "run": "pnpm install --frozen-lockfile --prefer-offline\npnpm --dir packages/pyright run build\n",
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[9]["env"],
+            {
+                "BENCHMARK_RUNNER_CLASS": "github-ubuntu-latest",
+                "NODE_OPTIONS": "${{ matrix.checker == 'pyright' && '--max-old-space-size=6656' || '' }}",
+                "PYTHONNOUSERSITE": "1",
+            },
+        )
+        self.assertEqual(
+            weekly_benchmark_steps[9]["run"],
+            "checkers=('${{ matrix.checker }}')\nextra_args=()\nif [[ '${{ matrix.checker }}' == 'pyright' ]]; then\n  checkers+=(pyright-threads)\n  extra_args+=(--skip-pyright-build)\nfi\npython build/benchmark/typecheck_benchmark.py \\\n  -c \"${checkers[@]}\" -r 3 -w 1 -t 1800 \\\n  --memory-limit-mb 8192 --os-name linux-x64 \\\n  --output build/benchmark/results \\\n  \"${extra_args[@]}\"\n",
+        )
+        weekly_report_steps = weekly_workflow_data["jobs"]["report"]["steps"]
+        self.assertEqual(
+            [step.get("uses") for step in weekly_report_steps],
+            [
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+                None,
+                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+                None,
+            ],
+        )
+        self.assertEqual(
+            weekly_workflow_data["jobs"]["publish"],
+            {
+                "name": "Publish comparison report",
+                "needs": "report",
+                "if": "${{ github.repository == 'microsoft/pyright' && github.ref == 'refs/heads/main' }}",
+                "permissions": {
+                    "actions": "read",
+                    "contents": "read",
+                    "pages": "write",
+                    "id-token": "write",
+                },
+                "uses": "./.github/workflows/publish_pages.yml",
+                "with": {"benchmark-run-id": "${{ github.run_id }}"},
+            },
+        )
 
-        pr_workflow = (
-            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
-        ).read_text(encoding="utf-8")
-        self.assertIn(
-            "run-name: 'Type checker benchmark for PR #${{ inputs.pr_number }}'",
-            pr_workflow,
+        docs_workflow_path = REPO_ROOT / ".github" / "workflows" / "publish_docs.yml"
+        docs_workflow_data = _load_yaml(docs_workflow_path)
+        self.assertEqual(
+            docs_workflow_data,
+            {
+                "name": "Publish documentation site",
+                "on": {
+                    "push": {
+                        "branches": ["main"],
+                        "paths": [
+                            ".github/workflows/publish_docs.yml",
+                            ".github/workflows/publish_pages.yml",
+                            "docs/**",
+                        ],
+                    },
+                    "workflow_dispatch": None,
+                },
+                "permissions": {},
+                "jobs": {
+                    "publish": {
+                        "name": "Publish current documentation",
+                        "if": "${{ github.repository == 'microsoft/pyright' && github.ref == 'refs/heads/main' }}",
+                        "permissions": {
+                            "actions": "read",
+                            "contents": "read",
+                            "pages": "write",
+                            "id-token": "write",
+                        },
+                        "uses": "./.github/workflows/publish_pages.yml",
+                    }
+                },
+            },
         )
-        self.assertIn("PNPM_VERSION: '10.12.2'", pr_workflow)
-        self.assertIn("version: ${{ env.PNPM_VERSION }}", pr_workflow)
+
+        pages_workflow_path = (
+            REPO_ROOT / ".github" / "workflows" / "publish_pages.yml"
+        )
+        pages_workflow_data = _load_yaml(pages_workflow_path)
+        self.assertEqual(
+            pages_workflow_data["on"],
+            {
+                "workflow_call": {
+                    "inputs": {
+                        "benchmark-run-id": {
+                            "description": "Workflow run containing the weekly benchmark report artifact",
+                            "required": False,
+                            "default": "",
+                            "type": "string",
+                        },
+                        "history-run-id": {
+                            "description": "Workflow run containing the Pyright release history artifact",
+                            "required": False,
+                            "default": "",
+                            "type": "string",
+                        },
+                    }
+                }
+            },
+        )
+        pages_job = pages_workflow_data["jobs"]["publish"]
+        self.assertEqual(
+            {
+                key: pages_job[key]
+                for key in (
+                    "name",
+                    "runs-on",
+                    "permissions",
+                    "concurrency",
+                    "environment",
+                )
+            },
+            {
+                "name": "Publish documentation site",
+                "runs-on": "ubuntu-latest",
+                "permissions": {
+                    "actions": "read",
+                    "contents": "read",
+                    "pages": "write",
+                    "id-token": "write",
+                },
+                "concurrency": {"group": "pages", "cancel-in-progress": True},
+                "environment": {
+                    "name": "github-pages",
+                    "url": "${{ steps.deployment.outputs.page_url }}",
+                },
+            },
+        )
+        steps = pages_job["steps"]
+        self.assertEqual(
+            [step.get("name") for step in steps],
+            [
+                None,
+                "Find retained report artifacts",
+                "Download latest benchmark report",
+                "Download Pyright release history",
+                "Download retained PR histories",
+                "Add report to documentation site",
+                "Configure Pages",
+                "Upload Pages artifact",
+                "Deploy to GitHub Pages",
+            ],
+        )
+        self.assertEqual(
+            [step.get("uses") for step in steps],
+            [
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3",
+                "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+                "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+                None,
+                None,
+                "actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d",
+                "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9",
+                "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
+            ],
+        )
+        self.assertEqual(
+            steps[0]["with"],
+            {"ref": "main", "persist-credentials": False},
+        )
+        self.assertEqual(
+            steps[2]["with"],
+            {
+                "pattern": "weekly-typecheck-report-*",
+                "path": "weekly-report",
+                "merge-multiple": True,
+                "repository": "${{ github.repository }}",
+                "run-id": "${{ steps.reports.outputs.benchmark-run-id }}",
+                "github-token": "${{ secrets.GITHUB_TOKEN }}",
+            },
+        )
+        self.assertEqual(
+            steps[3]["with"],
+            {
+                "name": "pyright-release-history",
+                "path": "release-history",
+                "repository": "${{ github.repository }}",
+                "run-id": "${{ steps.reports.outputs.history-run-id }}",
+                "github-token": "${{ secrets.GITHUB_TOKEN }}",
+            },
+        )
+        self.assertEqual(
+            steps[4]["env"],
+            {"GH_TOKEN": "${{ secrets.GITHUB_TOKEN }}"},
+        )
+        self.assertIn("pr-history-artifacts.json", steps[4]["run"])
+        self.assertIn("pr_history_artifacts.py", steps[4]["run"])
+        self.assertIn("retained-pr-histories.json", steps[4]["run"])
+        self.assertIn(".run_attempt", steps[4]["run"])
+        self.assertIn(
+            "pr-histories/$pr_number/$run_id/$run_attempt",
+            steps[4]["run"],
+        )
+        self.assertIn("listArtifactsForRepo", steps[1]["with"]["script"])
+        self.assertIn(
+            "attempt-(\\d+)-base",
+            steps[1]["with"]["script"],
+        )
+        self.assertIn(
+            "run.data.path !== '.github/workflows/typecheck_benchmark_trigger.yml'",
+            steps[1]["with"]["script"],
+        )
+        self.assertEqual(
+            steps[7]["with"],
+            {"path": "docs", "include-hidden-files": True},
+        )
+
+        pr_workflow_path = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
+        )
+        pr_workflow_data = _load_yaml(pr_workflow_path)
+        self.assertEqual(
+            pr_workflow_data["run-name"],
+            "Type checker benchmark for PR #${{ inputs.pr_number }}",
+        )
+        self.assertEqual(
+            pr_workflow_data["env"],
+            {
+                "BENCHMARK_RUNNER_CLASS": "github-ubuntu-latest",
+                "NODE_VERSION": "24.22.2",
+                "PYTHON_VERSION": "3.14.6",
+            },
+        )
+        pr_benchmark_steps = pr_workflow_data["jobs"]["benchmark"]["steps"]
+        self.assertEqual(
+            pr_workflow_data["jobs"]["benchmark"]["if"],
+            "${{ github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            pr_workflow_data["jobs"]["comment"]["if"],
+            "${{ always() && needs.aggregate.result != 'cancelled' && github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            [step.get("uses") for step in pr_benchmark_steps],
+            [
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+                "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
+                "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
+                "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+                None,
+                "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            ],
+        )
+        self.assertEqual(
+            pr_benchmark_steps[6],
+            {
+                "name": "Locate benchmark pnpm store",
+                "id": "benchmark-pnpm",
+                "run": 'echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"\necho "lock-hash=$(sha256sum benchmark-base/pnpm-lock.yaml | cut -d\' \' -f1)" >> "$GITHUB_OUTPUT"\n',
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[7],
+            {
+                "name": "Restore trusted benchmark pnpm store",
+                "uses": "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+                "with": {
+                    "path": "${{ steps.benchmark-pnpm.outputs.path }}",
+                    "key": "typecheck-benchmark-pnpm-${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ steps.benchmark-pnpm.outputs.lock-hash }}",
+                },
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[9],
+            {
+                "name": "Install base JavaScript dependencies",
+                "timeout-minutes": 10,
+                "working-directory": "benchmark-base",
+                "env": {"SKIP_LERNA_BOOTSTRAP": "yes"},
+                "run": "pnpm install --frozen-lockfile --prefer-offline",
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[12],
+            {
+                "name": "Install candidate JavaScript dependencies",
+                "timeout-minutes": 10,
+                "env": {"SKIP_LERNA_BOOTSTRAP": "yes"},
+                "run": "pnpm install --frozen-lockfile --prefer-offline",
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[11]["working-directory"],
+            "benchmark-base",
+        )
+        self.assertEqual(
+            pr_benchmark_steps[11]["env"],
+            {
+                "NODE_OPTIONS": "--max-old-space-size=6656",
+                "PYTHONNOUSERSITE": "1",
+            },
+        )
+        self.assertEqual(
+            pr_benchmark_steps[14]["env"],
+            {
+                "NODE_OPTIONS": "--max-old-space-size=6656",
+                "PYTHONNOUSERSITE": "1",
+                "PYRIGHT_BENCHMARK_ENTRY_POINT": "${{ github.workspace }}/packages/pyright/index.js",
+            },
+        )
+        pnpm_setup, pnpm_retry = pr_benchmark_steps[3:5]
+        self.assertEqual(pnpm_setup["id"], "pnpm-setup")
+        self.assertTrue(pnpm_setup["continue-on-error"])
+        self.assertEqual(
+            pnpm_retry["if"],
+            "${{ !cancelled() && steps.pnpm-setup.outcome == 'failure' }}",
+        )
+        self.assertNotIn("if", pnpm_setup)
+        self.assertNotIn("continue-on-error", pnpm_retry)
+        history_workflow_data = _load_yaml(
+            REPO_ROOT
+            / ".github"
+            / "workflows"
+            / "typecheck_benchmark_history.yml"
+        )
+        self.assertEqual(
+            history_workflow_data["jobs"]["releases"]["if"],
+            "${{ github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            history_workflow_data["jobs"]["benchmark"]["if"],
+            "${{ github.repository == 'microsoft/pyright' }}",
+        )
+        self.assertEqual(
+            history_workflow_data["jobs"]["report"]["if"],
+            "${{ always() && github.repository == 'microsoft/pyright' && needs.releases.result == 'success' }}",
+        )
+
+    def test_pages_skips_unavailable_pr_history_runs(self) -> None:
+        script = r"""
+const assert = require('assert').strict;
+const fs = require('fs');
+const YAML = require('yaml');
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const workflow = YAML.parse(fs.readFileSync('.github/workflows/publish_pages.yml', 'utf8'));
+const script = workflow.jobs.publish.steps.find(
+    (step) => step.name === 'Find retained report artifacts'
+).with.script;
+const discover = new AsyncFunction('github', 'context', 'core', 'process', 'require', script);
+function artifact(id, changes = {}) {
+    return {
+        id, name: `typecheck-benchmark-history-pr-7-run-${id}-attempt-1-` +
+            `base-${'a'.repeat(40)}-candidate-${'b'.repeat(40)}`,
+        workflow_run: { id }, expired: false, created_at: '2026-10-07T00:00:00Z',
+        ...changes,
+    };
+}
+const artifacts = [
+    artifact(1),
+    artifact(2),
+    artifact(3),
+    artifact(4),
+    artifact(5, { expired: true }),
+    artifact(6, { name: 'unrelated' }),
+    artifact(7, { workflow_run: undefined }),
+];
+async function check(error, candidates = artifacts) {
+    const warnings = [];
+    const outputs = {};
+    const files = {};
+    const lookups = [];
+    const github = {
+        rest: { actions: {
+            listArtifactsForRepo: 'artifacts',
+            getWorkflowRun: async ({ owner, repo, run_id }) => {
+                assert.equal(owner, 'microsoft');
+                assert.equal(repo, 'pyright');
+                lookups.push(run_id);
+                if (run_id === 2 && error) throw error;
+                return { data: { path: run_id === 4
+                    ? '.github/workflows/unrelated.yml'
+                    : '.github/workflows/typecheck_benchmark_trigger.yml' } };
+            },
+        } },
+        paginate: async (method) => {
+            assert.equal(method, 'artifacts');
+            return candidates;
+        },
+    };
+    const core = {
+        warning: (message) => warnings.push(message),
+        setOutput: (name, value) => { outputs[name] = value; },
+        setFailed: (message) => { throw new Error(message); },
+    };
+    await discover(
+        github,
+        { repo: { owner: 'microsoft', repo: 'pyright' } },
+        core,
+        { env: { BENCHMARK_RUN_ID: '100', HISTORY_RUN_ID: '101' } },
+        (name) => {
+            assert.equal(name, 'fs');
+            return { writeFileSync: (path, contents) => { files[path] = contents; } };
+        }
+    );
+    return { warnings, outputs, lookups, retained: JSON.parse(files['pr-history-artifacts.json']) };
+}
+async function main() {
+    const result = await check({ status: 404 });
+    assert.deepEqual(result.lookups, [1, 2, 3, 4]);
+    assert.deepEqual(result.retained, [artifacts[0], artifacts[2]].map((artifact) => ({
+        id: artifact.id, name: artifact.name, run_id: artifact.workflow_run.id,
+        created_at: artifact.created_at,
+    })));
+    assert.deepEqual(result.warnings, [
+        'Skipping PR history artifact 2: workflow run 2 is unavailable (404).',
+    ]);
+    assert.deepEqual(result.outputs, { 'benchmark-run-id': '100', 'history-run-id': '101' });
+    const available = await check();
+    assert.deepEqual(available.retained.map((artifact) => artifact.id), [1, 2, 3]);
+    assert.deepEqual(available.warnings, []);
+    const missing = await check({ status: 404 }, [artifact(2)]);
+    assert.deepEqual(missing.retained, []);
+    assert.equal(missing.warnings.length, 1);
+    for (const error of [{ status: 403 }, { status: 429 }, { status: 500 }, new Error('network')]) {
+        await assert.rejects(check(error), (thrown) => thrown === error);
+    }
+}
+main().catch((error) => { console.error(error); process.exitCode = 1; });
+"""
+        subprocess.run(
+            ["node", "-e", script],
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
 
     def test_pr_benchmark_requires_authorized_comment(self) -> None:
-        trigger_workflow = (
+        trigger_workflow_path = (
             REPO_ROOT
             / ".github"
             / "workflows"
             / "typecheck_benchmark_trigger.yml"
-        ).read_text(encoding="utf-8")
+        )
+        trigger_workflow = trigger_workflow_path.read_text(encoding="utf-8")
+        trigger_workflow_data = _load_yaml(trigger_workflow_path)
         benchmark_workflow_path = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         )
         benchmark_workflow = benchmark_workflow_path.read_text(encoding="utf-8")
         benchmark_workflow_data = _load_yaml(benchmark_workflow_path)
 
-        self.assertIn("issue_comment:", trigger_workflow)
-        self.assertIn(
-            "startsWith(github.event.comment.body, '/benchmark')", trigger_workflow
+        self.assertEqual(
+            trigger_workflow_data["on"],
+            {
+                "issue_comment": {"types": ["created"]},
+                "workflow_run": {
+                    "workflows": ["Validation"],
+                    "types": ["completed"],
+                },
+            },
         )
         self.assertIn(
             "context.payload.comment.body.trim() !== '/benchmark'", trigger_workflow
         )
-        self.assertIn("github.event.issue.state == 'open'", trigger_workflow)
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["head"]["if"],
+            "${{ github.repository == 'microsoft/pyright' && ((github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark'))) }}",
+        )
+        self.assertEqual(trigger_workflow_data["jobs"]["trigger"]["needs"], "head")
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["trigger"]["if"],
+            "${{ needs.head.outputs.head-sha != '' }}",
+        )
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["trigger"]["steps"][1]["env"][
+                "EXPECTED_HEAD_SHA"
+            ],
+            "${{ needs.head.outputs.head-sha }}",
+        )
+        self.assertNotIn("github.event.issue.state == 'open'", trigger_workflow)
+        self.assertIn(
+            "pullRequest.data.state !== 'open' && !pullRequest.data.merged",
+            trigger_workflow,
+        )
+        self.assertIn("github.rest.repos.getCommit", trigger_workflow)
+        self.assertIn("candidateCommit.data.parents[0]?.sha", trigger_workflow)
+        self.assertIn(
+            "require('./build/resolveValidatedPullRequest.js')",
+            trigger_workflow,
+        )
+        self.assertIn(
+            "candidateCommit.data.parents[1]?.sha !== pullRequest.data.head.sha",
+            trigger_workflow,
+        )
+        self.assertNotIn("pullRequest.data.base.sha", trigger_workflow)
         self.assertIn("getCollaboratorPermissionLevel", trigger_workflow)
         self.assertIn("['admin', 'maintain', 'write']", trigger_workflow)
-        self.assertIn("actions: write", trigger_workflow)
-        self.assertIn("pull-requests: read", trigger_workflow)
-        self.assertIn("createWorkflowDispatch", trigger_workflow)
-        self.assertIn("workflow_id: 'typecheck_benchmark_pr.yml'", trigger_workflow)
-        self.assertIn("base_sha: pullRequest.data.base.sha", trigger_workflow)
-        self.assertIn("merge_sha: pullRequest.data.merge_commit_sha", trigger_workflow)
-        self.assertNotIn("actions/checkout", trigger_workflow)
+        self.assertEqual(
+            trigger_workflow_data["permissions"],
+            {"contents": "read", "pull-requests": "write"},
+        )
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["trigger"]["permissions"],
+            {
+                "actions": "read",
+                "contents": "read",
+                "pull-requests": "read",
+                "statuses": "write",
+            },
+        )
+        self.assertNotIn("actions: write", trigger_workflow)
+        self.assertNotIn("createWorkflowDispatch", trigger_workflow)
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["benchmark"]["uses"],
+            "./.github/workflows/typecheck_benchmark_pr.yml",
+        )
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["benchmark"]["with"],
+            {
+                "pr_number": "${{ needs.trigger.outputs.pr-number }}",
+                "head_sha": "${{ needs.trigger.outputs.head-sha }}",
+                "base_sha": "${{ needs.trigger.outputs.base-sha }}",
+                "merge_sha": "${{ needs.trigger.outputs.merge-sha }}",
+            },
+        )
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["benchmark"]["permissions"],
+            {
+                "actions": "read",
+                "contents": "read",
+                "id-token": "write",
+                "pages": "write",
+                "pull-requests": "write",
+            },
+        )
+        checkout = trigger_workflow_data["jobs"]["trigger"]["steps"][0]
+        self.assertEqual(
+            checkout["with"],
+            {
+                "ref": "${{ github.event.repository.default_branch }}",
+                "persist-credentials": False,
+            },
+        )
+        self.assertIn("github.rest.actions.listWorkflowRuns", trigger_workflow)
+        self.assertIn("status: 'success'", trigger_workflow)
+        self.assertIn(
+            "file.filename.startsWith('packages/pyright-internal/src/analyzer/')",
+            trigger_workflow,
+        )
+        self.assertIn(
+            "file.filename.startsWith('packages/pyright-internal/typeshed-fallback/')",
+            trigger_workflow,
+        )
         self.assertIn(
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
             trigger_workflow,
@@ -569,9 +1136,662 @@ Regression threshold: `10.0%`
             "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0",
             benchmark_workflow,
         )
+
+    def test_primer_waits_for_validation_and_uses_read_only_candidate(self) -> None:
+        workflow = _load_yaml(
+            REPO_ROOT / ".github" / "workflows" / "mypy_primer_pr.yaml"
+        )
+        self.assertEqual(
+            workflow["on"],
+            {"workflow_run": {"workflows": ["Validation"], "types": ["completed"]}},
+        )
+        self.assertIn(
+            "github.event.workflow_run.conclusion == 'success'",
+            workflow["jobs"]["resolve"]["if"],
+        )
+        self.assertEqual(
+            workflow["permissions"], {"contents": "read", "pull-requests": "read"}
+        )
+        primer = workflow["jobs"]["mypy_primer"]
+        self.assertEqual(primer["needs"], "resolve")
+        self.assertEqual(
+            primer["if"], "${{ needs.resolve.outputs.pr-number != '' }}"
+        )
+        self.assertEqual(primer["permissions"], {"contents": "read"})
+        checkout = primer["steps"][0]["with"]
+        self.assertEqual(checkout["ref"], "${{ needs.resolve.outputs.merge-sha }}")
+        self.assertFalse(checkout["persist-credentials"])
+        self.assertFalse(
+            any(step.get("with", {}).get("cache") for step in primer["steps"])
+        )
+        script = primer["steps"][5]["run"]
+        self.assertNotIn("GITHUB_SHA", script)
+        self.assertIn('git branch new_commit "$PRIMER_SHA"', script)
+
+    def test_primer_comment_validates_source_and_ignores_artifact_pr_number(self) -> None:
+        script = r"""
+const assert = require('assert').strict;
+const fs = require('fs');
+const YAML = require('yaml');
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const workflow = YAML.parse(fs.readFileSync('.github/workflows/mypy_primer_comment.yaml', 'utf8'));
+const steps = workflow.jobs.comment.steps;
+const download = steps.find((step) => step.id === 'download');
+const post = steps.find((step) => step.id === 'post-comment');
+assert.equal(steps[0].with.ref, '${{ github.workflow_sha }}');
+assert.equal(steps[0].with['persist-credentials'], false);
+assert.equal(workflow.permissions.actions, 'read');
+assert.equal(post.env.PR_NUMBER, '${{ steps.download.outputs.pr-number }}');
+assert.equal(post.env.PR_HEAD_SHA, '${{ steps.download.outputs.head-sha }}');
+assert.equal(steps.find((step) => step.name === 'Hide old comments').if,
+    "${{ steps.post-comment.outputs.result != '' }}");
+const repository = { id: 1, full_name: 'microsoft/pyright' };
+const headRepository = { id: 2, full_name: 'contributor/pyright', owner: { login: 'contributor' } };
+const headSha = 'a'.repeat(40);
+const run = {
+    id: 42, run_attempt: 1, event: 'workflow_run',
+    path: '.github/workflows/mypy_primer_pr.yaml', conclusion: 'success',
+    repository, display_title: 'Run mypy_primer after Validation #41',
+    run_started_at: '2026-01-01T00:00:00Z',
+};
+const validation = {
+    id: 41, name: 'Validation', path: '.github/workflows/validation.yml',
+    event: 'pull_request', conclusion: 'success', repository,
+    head_sha: headSha, head_branch: 'feature', head_repository: headRepository,
+    pull_requests: [{ number: 123 }],
+};
+const pullRequest = {
+    number: 123, state: 'open', base: { repo: repository },
+    head: { sha: headSha, ref: 'feature', repo: headRepository },
+};
+const artifacts = [...Array.from({ length: 8 }, (_, i) => `mypy_primer_diffs_${i}`),
+    'mypy_primer_diffs_pr_number'].map((name, id) => ({
+        id: id + 1, name, expired: false, size_in_bytes: 100,
+        created_at: '2026-01-01T00:01:00Z',
+    }));
+const context = {
+    repo: { owner: 'microsoft', repo: 'pyright' },
+    payload: { workflow_run: run },
+};
+async function check({ inventory = artifacts, current = pullRequest, beforePost = current, source = run } = {}) {
+    const outputs = {}, files = {}, downloads = [], comments = [];
+    let prLookups = 0;
+    const github = {
+        request: async (route, parameters) => {
+            if (route.endsWith('/artifacts')) return { data: { artifacts: inventory } };
+            return { data: parameters.run_id === 42 ? source : validation };
+        },
+        rest: {
+            actions: {
+                listWorkflowRunArtifacts: 'artifacts',
+                getWorkflowRun: async () => ({ data: validation }),
+                downloadArtifact: async ({ artifact_id }) => {
+                    downloads.push(artifact_id);
+                    return { data: Buffer.from('zip') };
+                },
+            },
+            pulls: {
+                list: 'pulls', listFiles: 'files',
+                get: async () => ({ data: ++prLookups === 1 ? current : beforePost }),
+            },
+            issues: { createComment: async (parameters) => comments.push(parameters) },
+        },
+        paginate: async (method) => {
+            if (method === 'artifacts') return inventory;
+            if (method === 'pulls') return [current];
+            if (method === 'files') return [];
+            throw new Error(`Unexpected pagination: ${method}`);
+        },
+    };
+    const mockedFs = {
+        mkdirSync: () => {},
+        writeFileSync: (name, contents) => { files[name] = contents; },
+        readFileSync: (name) => {
+            assert.equal(name, 'fulldiff.txt', 'Never read an artifact-provided PR number');
+            return 'untrusted diff';
+        },
+    };
+    const mockedRequire = (name) => name === 'fs' ? mockedFs : require(name);
+    const core = { setOutput: (name, value) => { outputs[name] = value; }, notice: () => {},
+        setFailed: (message) => { throw new Error(message); } };
+    await new AsyncFunction('github', 'context', 'core', 'require', download.with.script)(
+        github, context, core, mockedRequire
+    );
+    if (outputs['has-diffs']) {
+        process.env.PR_NUMBER = String(outputs['pr-number']);
+        process.env.PR_HEAD_SHA = outputs['head-sha'];
+        await new AsyncFunction('github', 'context', 'core', 'require', post.with.script)(
+            github, context, core, mockedRequire
+        );
+    }
+    return { outputs, files, downloads, comments };
+}
+(async () => {
+    process.env.RUNNER_TEMP = require('os').tmpdir();
+    const result = await check();
+    assert.equal(result.outputs['pr-number'], 123);
+    assert.deepEqual(result.downloads, [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.equal(result.comments[0].issue_number, 123);
+    for (const inventory of [
+        [...artifacts, { ...artifacts[0], id: 100 }],
+        [...artifacts, { ...artifacts[0], name: 'mypy_primer_diffs_extra' }],
+        artifacts.slice(1),
+    ]) {
+        await assert.rejects(check({ inventory }), /primer artifact/);
+    }
+    await assert.rejects(check({ source: { ...run, path: '.github/workflows/other.yml' } }),
+        /matching primer run/);
+    for (const current of [
+        { ...pullRequest, state: 'closed' },
+        { ...pullRequest, head: { ...pullRequest.head, sha: 'b'.repeat(40) } },
+        { ...pullRequest, head: { ...pullRequest.head, repo: { id: 99 } } },
+    ]) {
+        const stale = await check({ current });
+        assert.deepEqual(stale.downloads, []);
+        assert.deepEqual(stale.comments, []);
+    }
+    const changedBeforePosting = await check({
+        beforePost: { ...pullRequest, head: { ...pullRequest.head, sha: 'b'.repeat(40) } },
+    });
+    assert.equal(changedBeforePosting.downloads.length, 8);
+    assert.deepEqual(changedBeforePosting.comments, []);
+    assert.deepEqual(JSON.parse(changedBeforePosting.files['primer-analysis-context.json']), { skipped: true });
+    assert.deepEqual((await check({ inventory: [] })).comments, []);
+})().catch((error) => { console.error(error); process.exitCode = 1; });
+"""
+        subprocess.run(["node", "-e", script], cwd=REPO_ROOT, check=True)
+
+    def test_primer_comment_only_reads_bounded_expected_archive_entries(self) -> None:
+        import os
+        from zipfile import ZipFile
+
+        workflow = _load_yaml(
+            REPO_ROOT / ".github" / "workflows" / "mypy_primer_comment.yaml"
+        )
+        script = next(
+            step["run"]
+            for step in workflow["jobs"]["comment"]["steps"]
+            if step.get("shell") == "python"
+        )
+        for invalid_name, oversized in [
+            (None, False),
+            ("pr_number.txt", False),
+            ("../fulldiff.txt", False),
+            (None, True),
+        ]:
+            with self.subTest(name=invalid_name, oversized=oversized):
+                with tempfile.TemporaryDirectory() as temporary:
+                    directory = Path(temporary) / "primer-diffs"
+                    directory.mkdir()
+                    for shard in range(8):
+                        with ZipFile(directory / f"diff_{shard}.zip", "w") as archive:
+                            name = (
+                                invalid_name
+                                if shard == 0 and invalid_name
+                                else f"diff_{shard}.txt"
+                            )
+                            contents = (
+                                "x" * (8 * 1024 * 1024 + 1)
+                                if oversized and shard == 0
+                                else f"diff {shard}\n"
+                            )
+                            archive.writestr(name, contents)
+                    result = subprocess.run(
+                        ["python", "-c", script],
+                        cwd=temporary,
+                        env={**os.environ, "RUNNER_TEMP": temporary},
+                        capture_output=True,
+                        text=True,
+                    )
+                    if invalid_name or oversized:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn("Invalid primer shard archive", result.stderr)
+                    else:
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertEqual(
+                            (Path(temporary) / "fulldiff.txt").read_text(),
+                            "".join(f"diff {shard}\n" for shard in range(8)),
+                        )
+
+    def test_validated_pr_resolution_and_benchmark_only_path_filter(self) -> None:
+        script = r"""
+const assert = require('assert').strict;
+const fs = require('fs');
+const YAML = require('yaml');
+const resolve = require('./build/resolveValidatedPullRequest.js');
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const workflows = ['typecheck_benchmark_trigger.yml', 'mypy_primer_pr.yaml'].map(
+    (name) => YAML.parse(fs.readFileSync(`.github/workflows/${name}`, 'utf8'))
+);
+async function check(
+    runChanges = {}, prChanges = {}, filenames = [], script, requireSuccess = true,
+    eventName = 'workflow_run', permission = 'write'
+) {
+    const run = {
+        name: 'Validation', path: '.github/workflows/validation.yml',
+        event: 'pull_request', conclusion: 'success',
+        repository: { full_name: 'microsoft/pyright' },
+        head_repository: { id: 17, owner: { login: 'external' } },
+        head_branch: 'feature', head_sha: 'a'.repeat(40), ...runChanges,
+    };
+    const pr = {
+        number: 7, state: 'open', merge_commit_sha: 'b'.repeat(40),
+        head: { sha: 'a'.repeat(40), repo: { id: 17 } }, ...prChanges,
+    };
+    const outputs = {};
+    const core = {
+        notice: () => {}, setFailed: (message) => { throw new Error(message); },
+        setOutput: (name, value) => { outputs[name] = value; },
+    };
+    const context = {
+        eventName, actor: 'contributor', issue: { number: 7 },
+        repo: { owner: 'microsoft', repo: 'pyright' }, serverUrl: 'https://github.com', runId: 123,
+        payload: { workflow_run: run, comment: { body: '/benchmark' } },
+    };
+    const github = {
+        rest: {
+            pulls: {
+                list: 'list', listFiles: 'files', get: async () => ({ data: pr }),
+            },
+            repos: {
+                getCommit: async () => ({ data: {
+                    sha: 'b'.repeat(40),
+                    parents: [{ sha: 'c'.repeat(40) }, { sha: pr.head.sha }],
+                } }),
+                getCollaboratorPermissionLevel: async () => ({ data: { permission } }),
+                listCommitStatusesForRef: 'statuses',
+                createCommitStatus: async (parameters) => ({ data: { ...parameters, id: 42 } }),
+            },
+            actions: { listWorkflowRuns: 'runs' },
+        },
+        paginate: async (method, parameters) => {
+            if (method === 'list') {
+                assert.equal(parameters.head, 'external:feature');
+                return [pr];
+            }
+            if (method === 'statuses') return [];
+            if (method === 'runs') return [{ head_sha: pr.head.sha }];
+            assert.equal(method, 'files');
+            return filenames.map((filename) => ({ filename }));
+        },
+    };
+    if (script) {
+        await new AsyncFunction('github', 'context', 'core', 'require', script)(
+            github, context, core, require
+        );
+        return outputs['pr-number'];
+    }
+    return resolve({ github, context, core, requireSuccess });
+}
+(async () => {
+    process.env.EXPECTED_HEAD_SHA = 'a'.repeat(40);
+    assert.equal((await check()).pullRequest.number, 7);
+    for (const conclusion of ['failure', 'cancelled', null]) {
+        assert.equal(await check({ conclusion }), undefined);
+        assert.equal((await check({ conclusion }, {}, [], undefined, false)).pullRequest.number, 7);
+    }
+    assert.equal(await check({ event: 'push' }), undefined);
+    assert.equal(await check({ path: '.github/workflows/other.yml' }), undefined);
+    assert.equal(await check({ repository: { full_name: 'external/pyright' } }), undefined);
+    assert.equal(await check({}, { head: { sha: 'd'.repeat(40), repo: { id: 17 } } }), undefined);
+    assert.equal(await check({}, { head: { sha: 'a'.repeat(40), repo: { id: 18 } } }), undefined);
+    assert.equal(await check({}, { state: 'closed' }), undefined);
+    const scripts = [
+        workflows[0].jobs.trigger.steps.find((step) => step.id === 'resolve').with.script,
+        workflows[1].jobs.resolve.steps.find((step) => step.id === 'resolve').with.script,
+    ];
+    for (const [filename, expected] of [
+        ['packages/pyright-internal/src/analyzer/checker.ts', [7, 7]],
+        ['packages/pyright-internal/src/tests/sample.py', [undefined, 7]],
+        ['packages/pyright/index.js', [undefined, 7]],
+        ['packages/pyright-internal/typeshed-fallback/stdlib/os.pyi', [7, 7]],
+        ['packages/pyright-internal/typeshed-fallback/stubs/requests/requests/__init__.pyi', [7, 7]],
+        ['packages/pyright-internal/typeshed-fallback/commit.txt', [7, 7]],
+        ['packages/pyright-internal/typeshed-fallback-other/stdlib/os.pyi', [undefined, 7]],
+        ['README.md', [undefined, 7]],
+        ['.github/workflows/validation.yml', [undefined, 7]],
+    ]) {
+        for (let index = 0; index < scripts.length; index++) {
+            assert.equal(await check({}, {}, [filename], scripts[index]), expected[index]);
+        }
+    }
+    assert.equal(await check({}, {}, [], scripts[0]), undefined);
+    assert.equal(await check({}, {}, [
+        'README.md',
+        'packages/pyright-internal/typeshed-fallback/stdlib/os.pyi',
+    ], scripts[0]), 7);
+    for (const conclusion of ['failure', 'cancelled']) {
+        assert.equal(await check({ conclusion }, {}, [
+            'packages/pyright-internal/typeshed-fallback/stdlib/os.pyi',
+        ], scripts[0]), undefined);
+    }
+    const analyzer = ['packages/pyright-internal/src/analyzer/checker.ts'];
+    assert.equal(await check({}, {}, analyzer, scripts[0], true, 'issue_comment', 'write'), 7);
+    assert.equal(await check({}, {}, analyzer, scripts[0], true, 'issue_comment', 'read'), undefined);
+    process.env.EXPECTED_HEAD_SHA = 'd'.repeat(40);
+    assert.equal(await check({}, {}, analyzer, scripts[0]), undefined);
+    assert.equal(await check({}, {}, analyzer, scripts[0], true, 'issue_comment'), undefined);
+})().catch((error) => { console.error(error); process.exitCode = 1; });
+"""
+        subprocess.run(["node", "-e", script], cwd=REPO_ROOT, check=True)
+
+    def test_follow_up_checks_are_queued_and_report_actual_results(self) -> None:
+        script = r"""
+const assert = require('assert').strict;
+const fs = require('fs');
+const YAML = require('yaml');
+const report = require('./build/reportPullRequestCheck.js');
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const load = (name) => YAML.parse(fs.readFileSync(`.github/workflows/${name}`, 'utf8'));
+const queue = load('pr_follow_up_checks.yml');
+assert.equal(queue.on.pull_request_target, undefined);
+assert.deepEqual(queue.on.workflow_run, {
+    workflows: ['Validation'], types: ['requested', 'in_progress', 'completed'],
+});
+assert.equal(queue.permissions.statuses, 'write');
+assert.equal(queue.permissions.checks, undefined);
+assert.ok(queue.jobs.report.if.includes("github.event.workflow_run.conclusion != 'success'"));
+assert.ok(queue.jobs.report.if.includes("github.event.workflow_run.event == 'pull_request'"));
+assert.ok(queue.jobs.report.if.includes("github.event.workflow_run.path == '.github/workflows/validation.yml'"));
+assert.ok(queue.jobs.report.if.includes('github.event.workflow_run.repository.id == github.event.repository.id'));
+assert.equal(queue.jobs.report.steps[0].with.ref, '${{ github.workflow_sha }}');
+assert.equal(queue.jobs.report.steps[0].with['persist-credentials'], false);
+assert.deepEqual(queue.jobs.report.strategy.matrix.check, ['mypy_primer', 'Type checker benchmark']);
+assert.equal(queue.jobs.report.concurrency['cancel-in-progress'], false);
+assert.ok(queue.jobs.report.concurrency.group.includes('matrix.check'));
+assert.equal(queue.jobs.report.concurrency.queue, 'max');
+const workflows = [
+    [load('mypy_primer_pr.yaml'), 'resolve', 'mypy_primer', 'RESOLVE_RESULT', 'PRIMER_RESULT'],
+    [load('typecheck_benchmark_trigger.yml'), 'trigger', 'benchmark', 'TRIGGER_RESULT', 'BENCHMARK_RESULT'],
+];
+const context = {
+    repo: { owner: 'microsoft', repo: 'pyright' },
+    serverUrl: 'https://github.com', runId: 123,
+};
+let checks = [];
+let nextId = 1;
+let statuses = [];
+let nextStatusId = 1000;
+const pullRequest = {
+    number: 123, state: 'open', head: { sha: 'c'.repeat(40), repo: { id: 2 } },
+};
+const github = {
+    rest: { pulls: {
+        list: 'pulls', listFiles: 'files',
+        get: async () => ({ data: pullRequest }),
+    }, checks: {
+        listForRef: 'checks',
+        create: async (parameters) => {
+            if (parameters.status === 'completed') {
+                assert.ok(parameters.conclusion);
+                assert.ok(Number.isFinite(Date.parse(parameters.completed_at)));
+            }
+            const check = { ...parameters, id: nextId++ };
+            checks.unshift(check);
+            return { data: check };
+        },
+        update: async (parameters) => {
+            if (parameters.status === 'completed') {
+                assert.ok(parameters.conclusion);
+                assert.ok(Number.isFinite(Date.parse(parameters.completed_at)));
+            }
+            const check = checks.find((check) => check.id === parameters.check_run_id);
+            assert.ok(check);
+            Object.assign(check, parameters);
+            return { data: check };
+        },
+    }, repos: {
+        listCommitStatusesForRef: 'statuses',
+        createCommitStatus: async (parameters) => {
+            assert.ok(parameters.description.length <= 140);
+            const status = { ...parameters, id: nextStatusId++ };
+            statuses.unshift(status);
+            return { data: status };
+        },
+    } },
+    paginate: async (method, parameters) => {
+        if (method === 'pulls') return [pullRequest];
+        if (method === 'files') return [];
+        if (method === 'statuses') return statuses.filter((status) => status.sha === parameters.ref);
+        assert.equal(method, 'checks');
+        return checks.filter((check) =>
+            check.head_sha === parameters.ref && check.name === parameters.check_name
+        );
+    },
+};
+const execute = async (script, eventContext = context) =>
+    new AsyncFunction('github', 'context', 'core', 'require', script)(
+        github, eventContext, { notice: () => {} }, require
+    );
+(async () => {
+    const args = {
+        github, context, name: 'mypy_primer', headSha: 'a'.repeat(40),
+        status: 'queued', summary: 'Waiting for Validation to pass.',
+    };
+    const id = await report(args);
+    assert.equal(checks[0].status, 'queued');
+    assert.equal(checks[0].head_sha, args.headSha);
+    assert.equal(checks[0].details_url, 'https://github.com/microsoft/pyright/actions/runs/123');
+    await report(args);
+    assert.equal(checks.length, 1);
+    assert.equal(await report({ ...args, status: 'in_progress' }), id);
+    assert.ok(Number.isFinite(Date.parse(checks[0].started_at)));
+    await report(args);
+    assert.equal(checks[0].status, 'in_progress');
+    await report({ ...args, status: 'completed', conclusion: 'skipped' });
+    assert.equal(checks[0].status, 'in_progress');
+    const rerunId = await report({ ...args, status: 'in_progress' });
+    assert.notEqual(rerunId, id);
+    await report({ ...args, checkId: id, conclusion: 'cancelled' });
+    assert.equal(checks[0].status, 'in_progress');
+    assert.equal(checks[1].conclusion, 'cancelled');
+    await report({ ...args, checkId: rerunId, conclusion: 'success' });
+    await report(args);
+    assert.equal(checks[0].conclusion, 'success');
+    await report({ ...args, headSha: 'b'.repeat(40) });
+    assert.equal(checks[0].status, 'queued');
+    await report({ ...args, headSha: 'b'.repeat(40), status: 'completed', conclusion: 'skipped' });
+    assert.equal(checks[0].conclusion, 'skipped');
+    await report({ ...args, headSha: 'd'.repeat(40), status: 'completed', conclusion: 'skipped' });
+    assert.equal(checks[0].conclusion, 'skipped');
+
+    const validationUrl = 'https://github.com/microsoft/pyright/actions/runs/600';
+    const statusArgs = { ...args, useCommitStatus: true, targetUrl: validationUrl };
+    const queuedId = await report(statusArgs);
+    assert.equal(statuses[0].id, queuedId);
+    assert.equal(statuses[0].state, 'pending');
+    assert.equal(statuses[0].target_url, validationUrl);
+    await report(statusArgs);
+    assert.equal(statuses.length, 1);
+    const firstRun = { ...context, runId: 111 };
+    const secondRun = { ...context, runId: 222 };
+    const firstStatusId = await report({
+        ...statusArgs, context: firstRun, status: 'in_progress', targetUrl: undefined, summary: 'Running.',
+    });
+    assert.equal(statuses[0].target_url, 'https://github.com/microsoft/pyright/actions/runs/111');
+    await report(statusArgs);
+    await report({ ...statusArgs, status: 'completed', conclusion: 'skipped', summary: 'Not run.' });
+    assert.equal(statuses.length, 2);
+    const secondStatusId = await report({
+        ...statusArgs, context: secondRun, status: 'in_progress', targetUrl: undefined, summary: 'Running.',
+    });
+    const countBeforeOldCompletion = statuses.length;
+    await report({
+        ...statusArgs, context: firstRun, status: undefined, targetUrl: undefined,
+        statusId: firstStatusId, conclusion: 'cancelled', summary: 'Cancelled.',
+    });
+    assert.equal(statuses.length, countBeforeOldCompletion);
+    await report({
+        ...statusArgs, context: secondRun, status: undefined, targetUrl: undefined,
+        statusId: secondStatusId, conclusion: 'success', summary: 'Succeeded.',
+    });
+    assert.equal(statuses[0].state, 'success');
+    assert.equal(statuses[0].target_url, 'https://github.com/microsoft/pyright/actions/runs/222');
+    await report({ ...statusArgs, headSha: 'b'.repeat(40) });
+    await report({
+        ...statusArgs, headSha: 'b'.repeat(40), status: 'completed',
+        conclusion: 'skipped', summary: 'Not run because Validation did not pass.',
+    });
+    assert.equal(statuses[0].state, 'success');
+    assert.equal(statuses[0].description, 'Not run because Validation did not pass.');
+    assert.equal(statuses[0].target_url, validationUrl);
+    await report({
+        ...statusArgs, headSha: 'd'.repeat(40), status: 'completed', targetUrl: undefined,
+        conclusion: 'skipped', summary: 'Not run.',
+    });
+    assert.equal(statuses[0].state, 'success');
+    assert.equal(statuses[0].target_url, 'https://github.com/microsoft/pyright/actions/runs/123');
+    await assert.rejects(() => report({
+        ...statusArgs, status: undefined, statusId: 'invalid', conclusion: 'success',
+    }), /invalid/);
+
+    const benchmarkWorkflow = workflows[1][0];
+    const headJob = benchmarkWorkflow.jobs.head;
+    assert.deepEqual(headJob.permissions, { 'pull-requests': 'read' });
+    assert.equal(benchmarkWorkflow.jobs.trigger.needs, 'head');
+    const headScript = headJob.steps[0].with.script;
+    const runHeadScript = async (eventContext) => {
+        const outputs = {};
+        await new AsyncFunction('github', 'context', 'core', headScript)(
+            github, eventContext, {
+                notice: () => {},
+                setOutput: (name, value) => { outputs[name] = value; },
+            }
+        );
+        return outputs;
+    };
+    assert.equal((await runHeadScript({
+        ...context, eventName: 'workflow_run', payload: { workflow_run: { head_sha: pullRequest.head.sha } },
+    }))['head-sha'], pullRequest.head.sha);
+    assert.equal((await runHeadScript({
+        ...context, eventName: 'issue_comment', issue: { number: pullRequest.number },
+        payload: { comment: { body: '/benchmark' } },
+    }))['head-sha'], pullRequest.head.sha);
+    assert.deepEqual(await runHeadScript({
+        ...context, eventName: 'issue_comment', issue: { number: pullRequest.number },
+        payload: { comment: { body: '/benchmark please' } },
+    }), {});
+
+    for (const [workflow, resolveJob, workerJob, resolveEnv, workerEnv] of workflows) {
+        const resolver = workflow.jobs[resolveJob];
+        const reporter = workflow.jobs.report;
+        const name = resolveJob === 'resolve' ? 'mypy_primer' : 'Type checker benchmark';
+        assert.equal(resolver.permissions.statuses, 'write');
+        assert.equal(resolver.permissions.checks, undefined);
+        assert.equal(resolver.concurrency['cancel-in-progress'], false);
+        assert.equal(resolver.concurrency.queue, 'max');
+        assert.ok(resolver.concurrency.group.includes(
+            resolveJob === 'resolve' ? 'github.event.workflow_run.head_sha' : 'needs.head.outputs.head-sha'
+        ));
+        assert.ok(resolver.outputs['status-id']);
+        assert.ok(resolver.outputs['head-sha']);
+        assert.deepEqual(reporter.needs, [resolveJob, workerJob]);
+        assert.ok(reporter.if.includes('always()'));
+        assert.ok(reporter.if.includes(`needs.${resolveJob}.outputs.status-id != ''`));
+        assert.ok(reporter.concurrency.group.includes(`needs.${resolveJob}.outputs.head-sha`));
+        assert.equal(reporter.concurrency['cancel-in-progress'], false);
+        assert.equal(reporter.concurrency.queue, 'max');
+        const normalizeGroup = (group) => group.replace(/\$\{\{[^}]+\}\}/g, 'HEAD');
+        const queueGroup = queue.jobs.report.concurrency.group.replace('${{ matrix.check }}', name);
+        assert.equal(normalizeGroup(resolver.concurrency.group), normalizeGroup(queueGroup));
+        assert.equal(normalizeGroup(reporter.concurrency.group), normalizeGroup(queueGroup));
+        assert.deepEqual(reporter.permissions, { contents: 'read', statuses: 'write' });
+        for (const job of [resolver, reporter]) {
+            assert.equal(job.steps[0].with.ref, '${{ github.event.repository.default_branch }}');
+            assert.equal(job.steps[0].with['persist-credentials'], false);
+        }
+        const step = reporter.steps[1];
+        assert.equal(step.env.STATUS_ID, '${{ needs.' + resolveJob + '.outputs.status-id }}');
+        assert.equal(step.env.HEAD_SHA, '${{ needs.' + resolveJob + '.outputs.head-sha }}');
+        assert.equal(step.env[resolveEnv], '${{ needs.' + resolveJob + '.result }}');
+        assert.equal(step.env[workerEnv], '${{ needs.' + workerJob + '.result }}');
+        for (const [resolveResult, workerResult, conclusion, state] of [
+            ['success', 'success', 'success', 'success'],
+            ['success', 'failure', 'failure', 'failure'],
+            ['failure', 'skipped', 'failure', 'failure'],
+            ['success', 'cancelled', 'cancelled', 'error'],
+            ['cancelled', 'skipped', 'cancelled', 'error'],
+            ['success', 'skipped', 'skipped', 'success'],
+        ]) {
+            process.env.HEAD_SHA = 'e'.repeat(40);
+            process.env.STATUS_ID = String(await report({
+                github, context, name, headSha: process.env.HEAD_SHA, useCommitStatus: true,
+                status: 'in_progress', summary: 'Running.',
+            }));
+            process.env[resolveEnv] = resolveResult;
+            process.env[workerEnv] = workerResult;
+            await execute(step.with.script);
+            assert.equal(statuses[0].state, state);
+            assert.ok(statuses[0].description.includes(conclusion));
+            assert.equal(statuses[0].target_url, 'https://github.com/microsoft/pyright/actions/runs/123');
+        }
+    }
+    const primer = workflows[0][0].jobs.mypy_primer;
+    const benchmark = load('typecheck_benchmark_pr.yml').jobs.benchmark;
+    assert.deepEqual(primer.permissions, { contents: 'read' });
+    assert.deepEqual(benchmark.permissions, { contents: 'read' });
+    const queueScript = queue.jobs.report.steps[1].with.script;
+    assert.equal(queue.jobs.report.steps[1].env.CHECK_NAME, '${{ matrix.check }}');
+    const validation = {
+        name: 'Validation', path: '.github/workflows/validation.yml',
+        event: 'pull_request', conclusion: null,
+        repository: { full_name: 'microsoft/pyright' },
+        head_repository: { id: 2, owner: { login: 'contributor' } },
+        head_branch: 'feature', head_sha: pullRequest.head.sha,
+        html_url: validationUrl,
+    };
+    for (const action of ['requested', 'in_progress', 'completed']) {
+        for (const name of queue.jobs.report.strategy.matrix.check) {
+            process.env.CHECK_NAME = name;
+            await execute(queueScript, {
+                ...context, eventName: 'workflow_run',
+                payload: { action, workflow_run: {
+                    ...validation, conclusion: action === 'completed' ? 'failure' : null,
+                } },
+            });
+        }
+        for (const name of queue.jobs.report.strategy.matrix.check) {
+            const status = statuses.find((entry) => entry.sha === pullRequest.head.sha && entry.context === name);
+            assert.ok(status);
+            assert.equal(status.state, action === 'completed' ? 'success' : 'pending');
+            assert.equal(status.target_url, validationUrl);
+            assert.equal(status.description, action === 'completed'
+                ? 'Not run because Validation did not pass.'
+                : 'Waiting for Validation to pass.');
+        }
+    }
+    const countBeforeStaleRun = statuses.length;
+    await execute(queueScript, {
+        ...context, eventName: 'workflow_run',
+        payload: { action: 'requested', workflow_run: { ...validation, head_sha: 'f'.repeat(40) } },
+    });
+    assert.equal(statuses.length, countBeforeStaleRun);
+    await execute(queueScript, {
+        ...context, eventName: 'workflow_run',
+        payload: { workflow_run: {
+            name: 'Validation', path: '.github/workflows/other.yml',
+            event: 'pull_request', conclusion: 'failure',
+        } },
+    });
+    assert.equal(statuses.length, countBeforeStaleRun);
+    await assert.rejects(() => execute(queueScript, {
+        ...context, eventName: 'workflow_run',
+        payload: { action: 'requested', workflow_run: { ...validation, html_url: undefined } },
+    }), /missing its URL/);
+})().catch((error) => { console.error(error); process.exitCode = 1; });
+"""
+        subprocess.run(["node", "-e", script], cwd=REPO_ROOT, check=True)
+
+    def test_benchmark_workflow_preserves_candidate_and_reporting(self) -> None:
+        workflow_path = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
+        )
+        benchmark_workflow = workflow_path.read_text(encoding="utf-8")
+        benchmark_workflow_data = _load_yaml(workflow_path)
         self.assertNotIn("actions/checkout@v4", benchmark_workflow)
         self.assertNotIn("actions/github-script@v7", benchmark_workflow)
-        self.assertIn("workflow_dispatch:", benchmark_workflow)
+        self.assertIn("workflow_call:", benchmark_workflow)
+        self.assertNotIn("workflow_dispatch:", benchmark_workflow)
         self.assertNotIn("paths:", benchmark_workflow)
         self.assertNotIn("pull_request:", benchmark_workflow)
         self.assertNotIn("cache: 'pip'", benchmark_workflow)
@@ -580,16 +1800,116 @@ Regression threshold: `10.0%`
         self.assertIn("inputs.base_sha", benchmark_workflow)
         self.assertIn("ref: ${{ inputs.merge_sha }}", benchmark_workflow)
         self.assertIn("-merge-${{ inputs.merge_sha }}", benchmark_workflow)
-        self.assertIn("if: ${{ always() }}", benchmark_workflow)
         self.assertIn("run_id: context.runId", benchmark_workflow)
-        self.assertIn("pullRequest.data.base.sha !== expectedBaseSha", benchmark_workflow)
+        self.assertIn(
+            "candidateCommit.data.parents[0]?.sha !== expectedBaseSha",
+            benchmark_workflow,
+        )
+        self.assertIn(
+            "candidateCommit.data.parents[1]?.sha !== expectedHeadSha",
+            benchmark_workflow,
+        )
         self.assertIn(
             "pullRequest.data.merge_commit_sha !== expectedMergeSha",
             benchmark_workflow,
         )
+        self.assertIn("pullRequest.data.merged &&", benchmark_workflow)
+        self.assertIn(
+            "Compared candidate \\`${process.env.CANDIDATE_SHA}\\` against its first parent",
+            benchmark_workflow,
+        )
+        comment_steps = benchmark_workflow_data["jobs"]["comment"]["steps"]
+        self.assertEqual(
+            [
+                step.get("name")
+                for step in comment_steps
+                if step.get("name") in (
+                    "Render comparison history charts",
+                    "Upload comparison history charts",
+                )
+            ],
+            ["Render comparison history charts", "Upload comparison history charts"],
+        )
+        history_render = next(
+            step
+            for step in comment_steps
+            if step.get("name") == "Render comparison history charts"
+        )
+        self.assertEqual(
+            history_render,
+            {
+                "name": "Render comparison history charts",
+                "id": "render-history",
+                "if": "${{ steps.download.outputs.pr-number != '' }}",
+                "continue-on-error": True,
+                "run": "python build/benchmark/render_pyright_history.py \\\n  base.json \\\n  candidate.json \\\n  --existing-history docs/typecheck-benchmark/history/history.json \\\n  --candidate-label 'Base' \\\n  --candidate-label 'PR #${{ inputs.pr_number }}' \\\n  --candidate-statistic median \\\n  --output pr-history\n",
+            },
+        )
+        history_upload = next(
+            step
+            for step in comment_steps
+            if step.get("name") == "Upload comparison history charts"
+        )
+        self.assertEqual(
+            {
+                key: history_upload[key]
+                for key in ("name", "id", "if", "uses", "with")
+            },
+            {
+                "name": "Upload comparison history charts",
+                "id": "history",
+                "if": "${{ steps.download.outputs.pr-number != '' && steps.render-history.outcome == 'success' }}",
+                "uses": "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+                "with": {
+                    "name": "typecheck-benchmark-history-pr-${{ inputs.pr_number }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}",
+                    "path": "pr-history/",
+                    "if-no-files-found": "error",
+                    "retention-days": 90,
+                },
+            },
+        )
+        post_comment = next(
+            step for step in comment_steps if step.get("name") == "Post benchmark comment"
+        )
+        self.assertEqual(
+            post_comment["env"],
+            {
+                "PR_NUMBER": "${{ steps.download.outputs.pr-number }}",
+                "BASE_SHA": "${{ inputs.base_sha }}",
+                "CANDIDATE_SHA": "${{ inputs.merge_sha }}",
+                "HISTORY_ARTIFACT_URL": "${{ steps.history.outputs.artifact-url }}",
+                "HISTORY_URL": "https://microsoft.github.io/pyright/typecheck-benchmark/pr/${{ inputs.pr_number }}/${{ github.run_id }}/${{ github.run_attempt }}/",
+            },
+        )
+        packages_job = benchmark_workflow_data["jobs"]["packages"]
         benchmark_job = benchmark_workflow_data["jobs"]["benchmark"]
+        aggregate_job = benchmark_workflow_data["jobs"]["aggregate"]
         comment_job = benchmark_workflow_data["jobs"]["comment"]
+        publish_job = benchmark_workflow_data["jobs"]["publish"]
+        self.assertEqual(
+            packages_job["outputs"],
+            {
+                "count": "${{ steps.packages.outputs.count }}",
+                "matrix": "${{ steps.packages.outputs.matrix }}",
+            },
+        )
+        self.assertEqual(benchmark_job["needs"], "packages")
+        self.assertEqual(benchmark_job["timeout-minutes"], 300)
+        self.assertEqual(
+            benchmark_job["strategy"],
+            {
+                "fail-fast": False,
+                "matrix": {
+                    "package": "${{ fromJson(needs.packages.outputs.matrix) }}"
+                },
+            },
+        )
+        self.assertIn("--package-names '${{ matrix.package }}'", benchmark_workflow)
         self.assertEqual(benchmark_job["permissions"], {"contents": "read"})
+        self.assertEqual(aggregate_job["needs"], ["packages", "benchmark"])
+        self.assertIn(
+            "build/benchmark/merge_benchmark_results.py", benchmark_workflow
+        )
         self.assertEqual(
             comment_job["permissions"],
             {
@@ -598,7 +1918,32 @@ Regression threshold: `10.0%`
                 "pull-requests": "write",
             },
         )
-        self.assertEqual(comment_job["needs"], "benchmark")
+        self.assertEqual(comment_job["needs"], "aggregate")
+        self.assertEqual(
+            comment_job["outputs"],
+            {"history-rendered": "${{ steps.render-history.outcome == 'success' }}"},
+        )
+        self.assertIn(
+            "Release history charts were not rendered for this run.",
+            post_comment["with"]["script"],
+        )
+        self.assertEqual(
+            {
+                key: publish_job[key]
+                for key in ("needs", "if", "permissions", "uses")
+            },
+            {
+                "needs": "comment",
+                "if": "${{ needs.comment.result == 'success' && needs.comment.outputs.history-rendered == 'true' && github.repository == 'microsoft/pyright' }}",
+                "permissions": {
+                    "actions": "read",
+                    "contents": "read",
+                    "id-token": "write",
+                    "pages": "write",
+                },
+                "uses": "./.github/workflows/publish_pages.yml",
+            },
+        )
         self.assertEqual(
             [
                 job_name
@@ -616,20 +1961,35 @@ Regression threshold: `10.0%`
             ).exists()
         )
 
-    def test_pr_workflow_prefers_trusted_baseline_with_bootstrap_fallback(self) -> None:
+    def test_pr_workflow_benchmarks_exact_base_and_candidate(self) -> None:
         workflow = (
             REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
         ).read_text(encoding="utf-8")
 
-        trusted = "benchmark-baseline/build/benchmark/baselines/latest-linux-x64.json"
-        bootstrap = "build/benchmark/baselines/latest-linux-x64.json"
-        self.assertLess(
-            workflow.index('if [[ -f "$trusted" ]]'),
-            workflow.index('elif [[ -f "$bootstrap" ]]'),
+        self.assertIn("ref: ${{ inputs.base_sha }}", workflow)
+        self.assertIn("working-directory: benchmark-base", workflow)
+        self.assertIn(
+            "--output ../build/benchmark/results/base",
+            workflow,
         )
-        self.assertIn('echo "path=$trusted" >> "$GITHUB_OUTPUT"', workflow)
-        self.assertIn('echo "path=$bootstrap" >> "$GITHUB_OUTPUT"', workflow)
-        self.assertIn('"${{ steps.baseline.outputs.path }}"', workflow)
+        self.assertIn(
+            "--output build/benchmark/results/candidate",
+            workflow,
+        )
+        self.assertEqual(
+            workflow.count(
+                "python benchmark-base/build/benchmark/typecheck_benchmark.py"
+            ),
+            1,
+        )
+        self.assertIn(
+            "build/benchmark/results/base/latest-linux-x64.json",
+            workflow,
+        )
+        self.assertIn(
+            "build/benchmark/results/candidate/latest-linux-x64.json",
+            workflow,
+        )
 
 
 if __name__ == "__main__":

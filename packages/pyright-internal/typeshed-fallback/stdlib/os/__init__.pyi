@@ -33,7 +33,6 @@ from typing import (
     Final,
     Generic,
     Literal,
-    NoReturn,
     Protocol,
     TypeAlias,
     TypeVar,
@@ -42,7 +41,7 @@ from typing import (
     runtime_checkable,
     type_check_only,
 )
-from typing_extensions import LiteralString, Self, Unpack, deprecated
+from typing_extensions import LiteralString, Never, Self, Unpack, deprecated
 
 from . import path as _path
 
@@ -235,12 +234,15 @@ if sys.platform == "linux" and sys.version_info >= (3, 15):
         "AT_STATX_DONT_SYNC",
         "AT_STATX_FORCE_SYNC",
         "AT_STATX_SYNC_AS_STAT",
+        "RWF_ATOMIC",
+        "RWF_DONTCACHE",
         "STATX_ATIME",
         "STATX_BASIC_STATS",
         "STATX_BLOCKS",
         "STATX_BTIME",
         "STATX_CTIME",
         "STATX_DIOALIGN",
+        "STATX_DIO_READ_ALIGN",
         "STATX_GID",
         "STATX_INO",
         "STATX_MNT_ID",
@@ -249,8 +251,10 @@ if sys.platform == "linux" and sys.version_info >= (3, 15):
         "STATX_MTIME",
         "STATX_NLINK",
         "STATX_SIZE",
+        "STATX_SUBVOL",
         "STATX_TYPE",
         "STATX_UID",
+        "STATX_WRITE_ATOMIC",
         "statx",
         "statx_result",
     ]
@@ -704,12 +708,15 @@ if sys.platform == "linux" and sys.version_info >= (3, 15):
     AT_STATX_DONT_SYNC: Final[int]
     AT_STATX_FORCE_SYNC: Final[int]
     AT_STATX_SYNC_AS_STAT: Final[int]
+    RWF_ATOMIC: Final[int]
+    RWF_DONTCACHE: Final[int]
     STATX_ATIME: Final[int]
     STATX_BASIC_STATS: Final[int]
     STATX_BLOCKS: Final[int]
     STATX_BTIME: Final[int]
     STATX_CTIME: Final[int]
     STATX_DIOALIGN: Final[int]
+    STATX_DIO_READ_ALIGN: Final[int]
     STATX_GID: Final[int]
     STATX_INO: Final[int]
     STATX_MNT_ID: Final[int]
@@ -718,8 +725,10 @@ if sys.platform == "linux" and sys.version_info >= (3, 15):
     STATX_MTIME: Final[int]
     STATX_NLINK: Final[int]
     STATX_SIZE: Final[int]
+    STATX_SUBVOL: Final[int]
     STATX_TYPE: Final[int]
     STATX_UID: Final[int]
+    STATX_WRITE_ATOMIC: Final[int]
 
 if sys.platform != "win32":
     O_FSYNC: Final[int]
@@ -940,7 +949,7 @@ In the future, this property will contain the last metadata change time.""")
 # At runtime it inherits from ABC and is not a Protocol, but it will be
 # on the allowlist for use as a Protocol starting in 3.14.
 @runtime_checkable
-class PathLike(ABC, Protocol[AnyStr_co]):  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
+class PathLike(ABC, Protocol[AnyStr_co]):  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]  # ty:ignore[invalid-protocol]  # pyrefly: ignore [invalid-inheritance]
     __slots__ = ()
     @abstractmethod
     def __fspath__(self) -> AnyStr_co: ...
@@ -1409,6 +1418,18 @@ if sys.platform == "linux" and sys.version_info >= (3, 15):
         def stx_dio_mem_align(self) -> int | None: ...
         @property
         def stx_dio_offset_align(self) -> int | None: ...
+        @property
+        def stx_subvol(self) -> int | None: ...
+        @property
+        def stx_atomic_write_unit_min(self) -> int | None: ...
+        @property
+        def stx_atomic_write_unit_max(self) -> int | None: ...
+        @property
+        def stx_atomic_write_segments_max(self) -> int | None: ...
+        @property
+        def stx_dio_read_offset_align(self) -> int | None: ...
+        @property
+        def stx_atomic_write_unit_max_opt(self) -> int | None: ...
 
     def statx(
         path: FileDescriptorOrPath, mask: int, *, flags: int = 0, dir_fd: int | None = None, follow_symlinks: bool = True
@@ -1471,19 +1492,17 @@ if sys.platform != "win32":
             follow_symlinks: bool = True,
         ) -> None: ...
 
-def abort() -> NoReturn: ...
+def abort() -> Never: ...
 
 # These are defined as execl(file, *args) but the first *arg is mandatory.
-def execl(file: StrOrBytesPath, *args: Unpack[tuple[StrOrBytesPath, Unpack[tuple[StrOrBytesPath, ...]]]]) -> NoReturn: ...
-def execlp(file: StrOrBytesPath, *args: Unpack[tuple[StrOrBytesPath, Unpack[tuple[StrOrBytesPath, ...]]]]) -> NoReturn: ...
+def execl(file: StrOrBytesPath, *args: Unpack[tuple[StrOrBytesPath, Unpack[tuple[StrOrBytesPath, ...]]]]) -> Never: ...
+def execlp(file: StrOrBytesPath, *args: Unpack[tuple[StrOrBytesPath, Unpack[tuple[StrOrBytesPath, ...]]]]) -> Never: ...
 
 # These are: execle(file, *args, env) but env is pulled from the last element of the args.
-def execle(
-    file: StrOrBytesPath, *args: Unpack[tuple[StrOrBytesPath, Unpack[tuple[StrOrBytesPath, ...]], _ExecEnv]]
-) -> NoReturn: ...
+def execle(file: StrOrBytesPath, *args: Unpack[tuple[StrOrBytesPath, Unpack[tuple[StrOrBytesPath, ...]], _ExecEnv]]) -> Never: ...
 def execlpe(
     file: StrOrBytesPath, *args: Unpack[tuple[StrOrBytesPath, Unpack[tuple[StrOrBytesPath, ...]], _ExecEnv]]
-) -> NoReturn: ...
+) -> Never: ...
 
 # The docs say `args: tuple or list of strings`
 # The implementation enforces tuple or list so we can't use Sequence.
@@ -1506,11 +1525,11 @@ _ExecVArgs: TypeAlias = (
 # we limit to str | bytes.
 _ExecEnv: TypeAlias = Mapping[bytes, bytes | str] | Mapping[str, bytes | str]
 
-def execv(path: StrOrBytesPath, argv: _ExecVArgs, /) -> NoReturn: ...
-def execve(path: FileDescriptorOrPath, argv: _ExecVArgs, env: _ExecEnv) -> NoReturn: ...
-def execvp(file: StrOrBytesPath, args: _ExecVArgs) -> NoReturn: ...
-def execvpe(file: StrOrBytesPath, args: _ExecVArgs, env: _ExecEnv) -> NoReturn: ...
-def _exit(status: int) -> NoReturn: ...
+def execv(path: StrOrBytesPath, argv: _ExecVArgs, /) -> Never: ...
+def execve(path: FileDescriptorOrPath, argv: _ExecVArgs, env: _ExecEnv) -> Never: ...
+def execvp(file: StrOrBytesPath, args: _ExecVArgs) -> Never: ...
+def execvpe(file: StrOrBytesPath, args: _ExecVArgs, env: _ExecEnv) -> Never: ...
+def _exit(status: int) -> Never: ...
 def kill(pid: int, signal: int, /) -> None: ...
 
 if sys.platform != "win32":
@@ -1560,7 +1579,6 @@ else:
     @deprecated("Soft deprecated. Use the subprocess module instead.")
     def spawnve(mode: int, path: StrOrBytesPath, argv: _ExecVArgs, env: _ExecEnv, /) -> int: ...
 
-@deprecated("Soft deprecated. Use the subprocess module instead.")
 def system(command: StrOrBytesPath) -> int: ...
 
 @final

@@ -4,8 +4,8 @@ import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent import futures
 from types import ModuleType, TracebackType
-from typing import Any, Generic, NoReturn, Protocol, TypeAlias, TypeVar, type_check_only
-from typing_extensions import Self
+from typing import Any, Generic, Protocol, TypeAlias, TypeVar, runtime_checkable, type_check_only
+from typing_extensions import Never, Self
 
 from . import aio as aio
 
@@ -262,6 +262,9 @@ class Channel(abc.ABC):
 class Server(abc.ABC):
     @abc.abstractmethod
     def add_generic_rpc_handlers(self, generic_rpc_handlers: Iterable[GenericRpcHandler]) -> None: ...
+    def add_registered_method_handlers(
+        self, service_name: str, method_handlers: Mapping[str, RpcMethodHandler[Any, Any]]
+    ) -> None: ...
 
     # Returns an integer port on which server will accept RPC requests.
     @abc.abstractmethod
@@ -433,9 +436,9 @@ class StreamStreamClientInterceptor(abc.ABC):
 class ServicerContext(RpcContext, metaclass=abc.ABCMeta):
     # misnamed parameter 'details', does not align with status.proto, where it is called 'message':
     @abc.abstractmethod
-    def abort(self, code: StatusCode, details: str) -> NoReturn: ...
+    def abort(self, code: StatusCode, details: str) -> Never: ...
     @abc.abstractmethod
-    def abort_with_status(self, status: Status) -> NoReturn: ...
+    def abort_with_status(self, status: Status) -> Never: ...
 
     # FIXME: The docs say "A map of strings to an iterable of bytes for each auth property".
     # Does that mean 'bytes' (which is iterable), or 'Iterable[bytes]'?
@@ -483,7 +486,8 @@ class RpcMethodHandler(abc.ABC, Generic[_TRequest, _TResponse]):
 
     stream_stream: Callable[[Iterator[_TRequest], ServicerContext], Iterator[_TResponse]] | None
 
-class HandlerCallDetails(abc.ABC):
+@runtime_checkable
+class HandlerCallDetails(Protocol):
     method: str
     invocation_metadata: _Metadata
 

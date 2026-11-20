@@ -1,9 +1,10 @@
 from _typeshed import Incomplete, StrPath
-from typing import Final
+from typing import IO, Final
 from typing_extensions import deprecated
 
-from docutils import SettingsSpec
-from docutils.io import FileInput, Input, Output
+from docutils import SettingsSpec, nodes
+from docutils.frontend import Values
+from docutils.io import Input, Output
 from docutils.parsers import Parser
 from docutils.readers import Reader
 from docutils.utils import SystemMessage
@@ -12,14 +13,14 @@ from docutils.writers import Writer, _WriterParts
 __docformat__: Final = "reStructuredText"
 
 class Publisher:
-    document: Incomplete | None
+    document: nodes.document | None
     reader: Reader[Incomplete]
     parser: Parser
     writer: Writer[Incomplete]
     source: Input[Incomplete]
-    source_class: Incomplete
+    source_class: type[Input[Incomplete]]
     destination: Output | None
-    destination_class: Incomplete
+    destination_class: type[Output]
     settings: dict[str, Incomplete]
     def __init__(
         self,
@@ -27,9 +28,9 @@ class Publisher:
         parser: Parser | None = None,
         writer: Writer[Incomplete] | None = None,
         source: Input[Incomplete] | None = None,
-        source_class=...,
+        source_class: type[Input[Incomplete]] = ...,
         destination: Output | None = None,
-        destination_class=...,
+        destination_class: type[Output] = ...,
         settings: dict[str, Incomplete] | None = None,
     ) -> None: ...
     def set_reader(self, reader: str, parser: Parser | None = None, parser_name: str | None = None) -> None: ...
@@ -129,7 +130,7 @@ def publish_string(
 def publish_parts(
     source,
     source_path: StrPath | None = None,
-    source_class=...,
+    source_class: type[Input[Incomplete]] = ...,
     destination_path: StrPath | None = None,
     reader=None,
     reader_name: str | None = None,
@@ -144,19 +145,19 @@ def publish_parts(
     enable_exit_status: bool = False,
 ) -> _WriterParts: ...
 def publish_doctree(
-    source,
+    source: str | bytes | IO[str] | IO[bytes] | None,
     source_path: StrPath | None = None,
-    source_class=...,
-    reader=None,
+    source_class: type[Input[Incomplete]] = ...,
+    reader: Reader[Incomplete] | str | None = None,
     reader_name: str | None = None,
-    parser=None,
+    parser: Parser | str | None = None,
     parser_name: str | None = None,
-    settings=None,
-    settings_spec=None,
-    settings_overrides=None,
+    settings: Values | None = None,
+    settings_spec: SettingsSpec | type[SettingsSpec] | None = None,
+    settings_overrides: dict[str, Incomplete] | None = None,
     config_section: str | None = None,
     enable_exit_status: bool = False,
-): ...
+) -> nodes.document: ...
 def publish_from_doctree(
     document,
     destination_path: StrPath | None = None,
@@ -185,13 +186,13 @@ def publish_cmdline_to_binary(
     usage: str = "%prog [options] [<source> [<destination>]]",
     description: str = ...,
     destination=None,
-    destination_class=...,
+    destination_class: type[Output] = ...,
 ): ...
 def publish_programmatically(
-    source_class: type[FileInput],
+    source_class: type[Input[Incomplete]],
     source,
     source_path: StrPath | None,
-    destination_class,
+    destination_class: type[Output],
     destination,
     destination_path: StrPath | None,
     reader,

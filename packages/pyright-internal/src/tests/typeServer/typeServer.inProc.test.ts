@@ -11,13 +11,24 @@
  *
  * Ported from Pylance's `typeServer.inProc.test.ts`. The Pylance round-trip tests that
  * reconstruct a Pyright `Type` from the protocol `Type` depend on the client-side consumer
- * stack (ExternalProgram / snapshotSync), which stays in Pylance, so they are intentionally
+ * stack (SnapshotBackedProgram / snapshotSync), which stays in Pylance, so they are intentionally
  * not ported here. Instead these tests assert on the protocol-level responses.
  */
 
 import assert from 'assert';
 
+import { NotebookCellKind } from 'vscode-languageserver-protocol';
+
+import { ClassType, isClass, OverloadResultType, TypeCategory } from '../../analyzer/types';
+import { UriEx } from '../../common/uri/uriUtils';
+import { isExpressionNode } from '../../parser/parseNodes';
+import { NotebookUriMapper } from '../../typeServer/notebookUriMapper';
+import { makeProgram } from '../../typeServer/programWrapper';
 import { TypeServerProtocol } from '../../typeServer/protocol/typeServerProtocol';
+import { ProtocolTypeFactory } from '../../typeServer/typeServerConversionUtils';
+import { WellKnownWorkspaceKinds } from '../../workspaceFactory';
+import { getNodeAtMarker, parseAndGetTestState } from '../harness/fourslash/testState';
+import { distlibFolder } from '../harness/vfs/factory';
 import { initializeDependenciesForInProcTests, withInProcTypeServer } from './inProcTypeServerTestUtils';
 
 jest.setTimeout(120000);
@@ -32,6 +43,14 @@ function getClassTypeName(type: TypeServerProtocol.Type | undefined): string | u
         return classType.declaration.name;
     }
     return undefined;
+}
+
+function getListElement(type: TypeServerProtocol.Type): TypeServerProtocol.Type {
+    assert(type.kind === TypeServerProtocol.TypeKind.Class);
+    assert.strictEqual(getClassTypeName(type), 'list');
+    assert.strictEqual(type.flags, TypeServerProtocol.TypeFlags.Instance | TypeServerProtocol.TypeFlags.Generic);
+    assert(type.typeArgs && type.typeArgs.length === 1);
+    return type.typeArgs[0];
 }
 
 describe('TypeServer in-proc protocol', () => {
@@ -51,6 +70,54 @@ describe('TypeServer in-proc protocol', () => {
             const snapshot = await context.refreshSnapshot();
             assert(snapshot >= 0);
         });
+    });
+
+    test('fresh registered notebook cell uses its nearest nested regular workspace', async () => {
+        const code = `
+// @filename: main.py
+//// value = 1
+// @filename: /outer/inner/other.py
+//// value = 2
+`;
+        const outerWorkspace = UriEx.file('/outer');
+        const innerWorkspace = UriEx.file('/outer/inner');
+        const notebookUri = UriEx.file('/outer/inner/fresh.ipynb');
+        const freshCellUri = UriEx.parse('vscode-notebook-cell:/outer/inner/fresh.ipynb#cell1');
+
+        await withInProcTypeServer(
+            code,
+            async (context) => {
+                assert.strictEqual(NotebookUriMapper.isNotebookCell(freshCellUri), true);
+
+                context.sendNotification('notebookDocument/didOpen', {
+                    notebookDocument: {
+                        uri: notebookUri.toString(),
+                        notebookType: 'jupyter-notebook',
+                        version: 1,
+                        cells: [{ kind: NotebookCellKind.Code, document: freshCellUri.toString() }],
+                    },
+                    cellTextDocuments: [
+                        {
+                            uri: freshCellUri.toString(),
+                            languageId: 'python',
+                            version: 1,
+                            text: 'value = 3',
+                        },
+                    ],
+                });
+                await context.sendRequest(TypeServerProtocol.GetSupportedProtocolVersionRequest.type);
+
+                const workspace = await context.getTypeServerWorkspaceForFile(freshCellUri);
+                assert.strictEqual(workspace.rootUri?.toString(), innerWorkspace.toString());
+                assert.deepStrictEqual(workspace.kinds, [WellKnownWorkspaceKinds.Regular]);
+            },
+            {
+                workspaceFolders: [
+                    { uri: outerWorkspace.toString(), name: 'outer' },
+                    { uri: innerWorkspace.toString(), name: 'inner' },
+                ],
+            }
+        );
     });
 
     test('resolveImport resolves a local module', async () => {
@@ -88,6 +155,49 @@ describe('TypeServer in-proc protocol', () => {
 
             assert(Array.isArray(paths));
             assert(paths.every((p) => typeof p === 'string'));
+        });
+    });
+
+    test('type queries use the fixed Python version, platform, and virtual libraries', async () => {
+        const code = `
+// @filename: main.py
+//// import sys
+//// from fixture_library import library_value
+//// from distribution_fixture import distribution_value
+////
+//// if sys.version_info >= (3, 10) and sys.version_info < (3, 11):
+////     version_value = 1
+//// else:
+////     version_value = "different version"
+//// if sys.platform == "linux":
+////     platform_value = "linux"
+//// else:
+////     platform_value = 0
+////
+//// [|/*version*/version|] = version_value
+//// [|/*platform*/platform|] = platform_value
+//// [|/*library*/library|] = library_value
+//// [|/*distribution*/distribution|] = distribution_value
+// @filename: fixture_library.py
+// @library: true
+//// library_value: float = 1.0
+// @filename: ${distlibFolder.getFilePath()}/distribution_fixture.py
+//// distribution_value: bool = True
+`;
+
+        await withInProcTypeServer(code, async (context) => {
+            await context.openFileForMarker('version');
+            for (const [marker, expectedType] of [
+                ['version', 'int'],
+                ['platform', 'str'],
+                ['library', 'float'],
+                ['distribution', 'bool'],
+            ]) {
+                const type = await context.sendRequestWithSnapshot(TypeServerProtocol.GetComputedTypeRequest.type, {
+                    arg: context.getNodeForMarker(marker),
+                });
+                assert.strictEqual(getClassTypeName(type), expectedType);
+            }
         });
     });
 
@@ -196,6 +306,97 @@ describe('TypeServer in-proc protocol', () => {
             assert.strictEqual(type.kind, TypeServerProtocol.TypeKind.Class);
             assert.strictEqual(getClassTypeName(type), 'int');
         });
+    });
+
+    test('getComputedType serializes automatically retained overload alternatives', async () => {
+        const code = `
+// @filename: main.py
+//// from typing import Any, overload
+////
+//// @overload
+//// def choose(value: list[int]) -> list[list[int]]: ...
+//// @overload
+//// def choose(value: list[str]) -> list[list[str]]: ...
+//// def choose(value: Any) -> Any: ...
+////
+//// def ambiguous(value: list[Any]):
+////     [|/*ambiguous*/result|] = choose(value)
+////
+//// def concrete(value: list[int]):
+////     [|/*concrete*/result|] = choose(value)
+`;
+
+        await withInProcTypeServer(code, async (context) => {
+            await context.openFileForMarker('ambiguous');
+            await context.refreshSnapshot();
+            const type = await context.sendRequestWithSnapshot(TypeServerProtocol.GetComputedTypeRequest.type, {
+                arg: context.getNodeForMarker('ambiguous'),
+            });
+
+            assert(type?.kind === TypeServerProtocol.TypeKind.OverloadResult, JSON.stringify(type));
+            assert.strictEqual(type.flags, TypeServerProtocol.TypeFlags.Instance);
+            assert.strictEqual(type.uncertaintyKind, 'any');
+            assert.strictEqual(type.candidates.length, 2);
+            assert.deepStrictEqual(
+                type.candidates.map((candidate) => getClassTypeName(getListElement(getListElement(candidate)))),
+                ['int', 'str']
+            );
+            assert(type.baselineType.kind === TypeServerProtocol.TypeKind.TypeReference);
+            assert.strictEqual(type.baselineType.typeReferenceId, type.candidates[0].id);
+
+            const concrete = await context.sendRequestWithSnapshot(TypeServerProtocol.GetComputedTypeRequest.type, {
+                arg: context.getNodeForMarker('concrete'),
+            });
+            assert(concrete);
+            assert.strictEqual(getClassTypeName(getListElement(getListElement(concrete))), 'int');
+        });
+    });
+
+    test('ProtocolTypeFactory preserves nested unknown alternatives and shared references', () => {
+        const state = parseAndGetTestState(`
+// @filename: main.py
+//// def example(integers: list[int], strings: list[str]):
+////     /*integers*/integers
+////     /*strings*/strings
+`).state;
+
+        try {
+            state.program.analyze();
+            const integersNode = getNodeAtMarker(state, 'integers');
+            const stringsNode = getNodeAtMarker(state, 'strings');
+            assert(isExpressionNode(integersNode) && isExpressionNode(stringsNode));
+            const evaluator = state.program.evaluator;
+            assert(evaluator);
+            const integers = evaluator.getType(integersNode);
+            const strings = evaluator.getType(stringsNode);
+            assert(integers && isClass(integers) && strings && isClass(strings));
+
+            // Unknown ambiguity is transportable without widening automatic Any-only admission.
+            const carrier = OverloadResultType.create([integers, strings], integers, TypeCategory.Unknown);
+            const nested = ClassType.specialize(integers, [carrier]);
+            const factory = new ProtocolTypeFactory(
+                makeProgram(state.program),
+                state.configOptions.getDefaultExecEnvironment().pythonVersion,
+                integersNode
+            );
+            const type = getListElement(factory.getType(nested));
+            assert(type.kind === TypeServerProtocol.TypeKind.OverloadResult);
+            assert.strictEqual(type.flags, TypeServerProtocol.TypeFlags.Instance);
+            assert.strictEqual(type.uncertaintyKind, 'unknown');
+            assert.strictEqual(type.candidates.length, 2);
+            assert.deepStrictEqual(
+                type.candidates.map((candidate) => getClassTypeName(getListElement(candidate))),
+                ['int', 'str']
+            );
+            assert(type.baselineType.kind === TypeServerProtocol.TypeKind.TypeReference);
+            assert.strictEqual(type.baselineType.typeReferenceId, type.candidates[0].id);
+
+            const repeated = factory.getType(carrier);
+            assert(repeated.kind === TypeServerProtocol.TypeKind.TypeReference);
+            assert.strictEqual(repeated.typeReferenceId, type.id);
+        } finally {
+            state.dispose();
+        }
     });
 
     test('getExpectedType returns a type for a node', async () => {

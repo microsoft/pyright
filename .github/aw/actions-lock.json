@@ -1,0 +1,29 @@
+{
+  "entries": {
+    "actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0": {
+      "repo": "actions/download-artifact",
+      "version": "634f93cb2916e3fdff6788551b99b062d0335ce0",
+      "sha": "634f93cb2916e3fdff6788551b99b062d0335ce0"
+    },
+    "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333": {
+      "repo": "actions/download-artifact",
+      "version": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
+      "sha": "9000827ccba6bdab643e8b6fd33ac0654aef8333"
+    },
+    "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9": {
+      "repo": "actions/upload-artifact",
+      "version": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+      "sha": "cf430e030ddbb5b0abf93d22962f4752f3646cd9"
+    },
+    "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02": {
+      "repo": "actions/upload-artifact",
+      "version": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "sha": "ea165f8d65b6e75b540449e92b4886f43607fa02"
+    },
+    "github/gh-aw-actions/setup@v0.88.7": {
+      "repo": "github/gh-aw-actions/setup",
+      "version": "v0.88.7",
+      "sha": "5e508589e03a7757a7e05b26e834292f5445bfb6"
+    }
+  }
+}

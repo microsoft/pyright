@@ -13,7 +13,9 @@ import { SourceEnumerator } from '../analyzer/sourceEnumerator';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { NullConsole } from '../common/console';
 import { CommandLineOptions } from '../common/commandLineOptions';
+import { StatusMutationListener } from '../common/extensibility';
 import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
+import { ServiceKeys } from '../common/serviceKeys';
 import { Uri } from '../common/uri/uri';
 import { getFileSpec, UriEx } from '../common/uri/uriUtils';
 import { TestFileSystem } from './harness/vfs/filesystem';
@@ -30,6 +32,41 @@ test('random library file changed', () => {
         ),
         true
     );
+});
+
+test('program clone initializes services before creating files and notifying listeners', () => {
+    const { state } = parseAndGetTestState(`
+// @filename: test.py
+//// [|/*marker*/value = 1|]
+`);
+    const uri = state.getMarkerByName('marker').fileUri;
+    const originalOnFileDirty = jest.fn();
+    const cloneOnFileDirty = jest.fn();
+    const secondOnProgramCloned = jest.fn();
+    const listener: StatusMutationListener = {
+        onFileDirty: originalOnFileDirty,
+        onProgramCloned(program) {
+            assert.notStrictEqual(program.serviceProvider, state.program.serviceProvider);
+            assert.strictEqual(program.getSourceFile(uri), undefined);
+            program.serviceProvider.remove(ServiceKeys.stateMutationListeners, listener);
+            program.serviceProvider.add(ServiceKeys.stateMutationListeners, { onFileDirty: cloneOnFileDirty });
+        },
+    };
+    state.program.serviceProvider.add(ServiceKeys.stateMutationListeners, listener);
+    state.program.serviceProvider.add(ServiceKeys.stateMutationListeners, {
+        onProgramCloned: secondOnProgramCloned,
+    });
+    const clone = state.program.clone();
+    try {
+        expect(secondOnProgramCloned).toHaveBeenCalledTimes(1);
+        expect(secondOnProgramCloned).toHaveBeenCalledWith(clone);
+        expect(originalOnFileDirty).not.toHaveBeenCalled();
+        expect(cloneOnFileDirty).toHaveBeenCalledWith(uri);
+        assert.strictEqual(clone.getSourceFile(uri)?.getFileContent(), 'value = 1');
+    } finally {
+        clone.dispose();
+        state.dispose();
+    }
 });
 
 test('service clone preserves effective configuration', () => {
@@ -602,6 +639,80 @@ test('random folder changed', () => {
         ),
         false
     );
+});
+
+test('new folder is ignored when it is not a symlink', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    const folderUri = Uri.file('/projectRoot/newFolder', state.serviceProvider);
+    state.testFS.mkdirpSync(folderUri.getFilePath());
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'add'),
+        false
+    );
+});
+
+test('new folder under a symlinked parent is ignored', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    state.testFS.mkdirpSync('/projectRoot/realParent/newFolder');
+    state.testFS.symlinkSync('/projectRoot/realParent', '/projectRoot/linkParent');
+    const folderUri = Uri.file('/projectRoot/linkParent/newFolder', state.serviceProvider);
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'add'),
+        false
+    );
+});
+
+test('new symlinked folder is handled for its add and unlink events', () => {
+    const state = parseAndGetTestState('', '/projectRoot').state;
+    const folderUri = Uri.file('/projectRoot/exporter', state.serviceProvider);
+    state.testFS.mkdirpSync('/projectRoot/non_linked');
+    state.testFS.symlinkSync('/projectRoot/non_linked', folderUri.getFilePath());
+
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'add'),
+        true
+    );
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'change'),
+        false
+    );
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'unlink'),
+        true
+    );
+    assert.strictEqual(
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(folderUri, /* isFile */ false, 'unlink'),
+        false
+    );
+});
+
+test('new symlinked folder under a regular package is handled when removed', () => {
+    const code = `
+// @filename: package/__init__.py
+//// # empty
+    `;
+    const state = parseAndGetTestState(code, '/projectRoot').state;
+    const cmdOptions = new CommandLineOptions(state.workspace.rootUri, false);
+    cmdOptions.languageServerSettings.watchForSourceChanges = true;
+    state.workspace.service.setOptions(cmdOptions);
+
+    let invalidatedReason: InvalidatedReason | undefined;
+    state.workspace.service.test_setOnInvalidatedCallback((reason) => {
+        invalidatedReason = reason;
+    });
+
+    const folderUri = Uri.file('/projectRoot/package/exporter', state.serviceProvider);
+    state.testFS.mkdirpSync('/projectRoot/non_linked');
+    state.testFS.symlinkSync('/projectRoot/non_linked', folderUri.getFilePath());
+    state.testFS.fireFileWatcherEvent(folderUri.toString(), 'add');
+    assert.strictEqual(invalidatedReason, InvalidatedReason.SourceWatcherChanged);
+
+    invalidatedReason = undefined;
+    state.testFS.unlinkSync(folderUri);
+    state.testFS.fireFileWatcherEvent(folderUri.toString(), 'change');
+    assert.strictEqual(invalidatedReason, InvalidatedReason.SourceWatcherChanged);
 });
 
 test('excluded folder changed', () => {

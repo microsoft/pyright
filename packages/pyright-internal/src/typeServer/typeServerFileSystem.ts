@@ -116,6 +116,10 @@ export class TypeServerFileSystem implements IPyrightFileSystem, TypeServerVirtu
         return this._fs.readFileSync(uri, encoding as BufferEncoding);
     }
 
+    readFileRangeSync(uri: Uri, offset: number, length: number): Buffer {
+        return this._fs.readFileRangeSync(uri, offset, length);
+    }
+
     statSync(uri: Uri): Stats {
         return this._fs.statSync(uri);
     }

@@ -11,14 +11,14 @@
  * without needing any client-side consumer stack.
  *
  * This is a Pyright-native adaptation of Pylance's `inProcTypeServerTestUtils`. It omits the
- * client-side `ExternalProgram`/`snapshotSync` machinery (which stays in Pylance) and asserts
+ * client-side `SnapshotBackedProgram`/`snapshotSync` machinery (which stays in Pylance) and asserts
  * on the protocol-level responses instead.
  */
 
 import { Duplex } from 'stream';
 
 import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node';
-import { ProtocolRequestType } from 'vscode-languageserver-protocol';
+import { ProtocolRequestType, WorkspaceFolder } from 'vscode-languageserver-protocol';
 import {
     CancellationToken,
     ConfigurationRequest,
@@ -50,6 +50,7 @@ import { TypeServerFileSystem } from '../../typeServer/typeServerFileSystem';
 import { TypeServerProtocol } from '../../typeServer/protocol/typeServerProtocol';
 import { TypeServer } from '../../typeServer/server';
 import { TypeServerServiceKeys } from '../../typeServer/typeServerServiceKeys';
+import { Workspace } from '../../workspaceFactory';
 import { parseTestData } from '../harness/fourslash/fourSlashParser';
 import {
     FourSlashData,
@@ -57,7 +58,7 @@ import {
     Marker as FourSlashMarker,
     Range as FourSlashRange,
 } from '../harness/fourslash/fourSlashTypes';
-import { createFileSystem, DEFAULT_WORKSPACE_ROOT } from '../lsp/languageServerTestUtils';
+import { createFileSystem, DEFAULT_WORKSPACE_ROOT, TestHost } from '../lsp/languageServerTestUtils';
 
 export async function initializeDependenciesForInProcTests() {
     await initializeDependencies();
@@ -177,6 +178,7 @@ export interface InProcTypeServer {
 export interface InProcTypeServerContext {
     fourslash: FourSlashData;
     serviceProvider: ServiceProvider;
+    getTypeServerWorkspaceForFile(fileUri: Uri): Promise<Workspace>;
     openFileForMarker(markerName: string, version?: number): Promise<void>;
     getFileUriForMarker(markerName: string): Uri;
     getNodeForMarker(markerName: string): TypeServerProtocol.Node;
@@ -190,6 +192,10 @@ export interface InProcTypeServerContext {
         params: Omit<P, 'snapshot'>,
         token?: CancellationToken
     ): Promise<R>;
+}
+
+export interface InProcTypeServerOptions {
+    workspaceFolders?: WorkspaceFolder[];
 }
 
 function _getFourslashMarker(data: FourSlashData, markerName: string): FourSlashMarker {
@@ -274,7 +280,14 @@ async function createInProcTypeServer(code: string): Promise<InProcTypeServer> {
     const fileWatcherProvider = new WorkspaceFileWatcherProvider();
     const rootUri = Uri.file(DEFAULT_WORKSPACE_ROOT, serviceProvider);
 
-    const server = new TypeServer(
+    class TestTypeServer extends TypeServer {
+        protected override createHost() {
+            // Match the LSP harness's fixed Python environment rather than probing the machine's interpreter.
+            return new TestHost(pyrightFs, testFS, fourslash, [DEFAULT_WORKSPACE_ROOT]);
+        }
+    }
+
+    const server = new TestTypeServer(
         {
             productName: 'PyrightInProcTypeServer',
             rootDirectory: rootUri,
@@ -330,8 +343,11 @@ async function createInProcTypeServer(code: string): Promise<InProcTypeServer> {
     return { clientConnection, serverConnection, server, serviceProvider, fourslash, dispose };
 }
 
-async function initializeInProcServer(clientConnection: Connection) {
-    const rootUri = UriEx.file(DEFAULT_WORKSPACE_ROOT).toString();
+async function initializeInProcServer(
+    clientConnection: Connection,
+    workspaceFolders: WorkspaceFolder[] = [{ uri: UriEx.file(DEFAULT_WORKSPACE_ROOT).toString(), name: 'workspace' }]
+) {
+    const rootUri = workspaceFolders[0]?.uri ?? UriEx.file(DEFAULT_WORKSPACE_ROOT).toString();
 
     await clientConnection.sendRequest(InitializeRequest.type, {
         processId: null,
@@ -354,7 +370,7 @@ async function initializeInProcServer(clientConnection: Connection) {
             supportsPullDiagnostics: true,
             disablePullDiagnostics: false,
         },
-        workspaceFolders: [{ uri: rootUri, name: 'workspace' }],
+        workspaceFolders,
     });
 
     clientConnection.sendNotification(InitializedNotification.type, {});
@@ -389,13 +405,14 @@ export async function getStableSnapshot(
 
 export async function withInProcTypeServer(
     code: string,
-    callback: (context: InProcTypeServerContext) => Promise<void>
+    callback: (context: InProcTypeServerContext) => Promise<void>,
+    options: InProcTypeServerOptions = {}
 ) {
     const server = await createInProcTypeServer(code);
     const { clientConnection, fourslash, serviceProvider } = server;
 
     try {
-        await initializeInProcServer(clientConnection);
+        await initializeInProcServer(clientConnection, options.workspaceFolders);
 
         const linesCache = new Map<string, TokenizerOutput['lines']>();
         const getLinesForUri = (uri: string) => {
@@ -481,6 +498,7 @@ export async function withInProcTypeServer(
         const context: InProcTypeServerContext = {
             fourslash,
             serviceProvider,
+            getTypeServerWorkspaceForFile: (fileUri) => server.server.getWorkspaceForFile(fileUri),
             openFileForMarker,
             getFileUriForMarker,
             getNodeForMarker,

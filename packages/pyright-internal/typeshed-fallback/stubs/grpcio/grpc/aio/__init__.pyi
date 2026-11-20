@@ -8,15 +8,18 @@ from collections.abc import (
     Callable,
     Collection,
     Generator,
+    ItemsView,
     Iterable,
     Iterator,
+    KeysView,
     Mapping,
     Sequence,
+    ValuesView,
 )
 from concurrent import futures
 from types import TracebackType
-from typing import Any, Generic, NoReturn, TypeAlias, TypeVar, overload, type_check_only
-from typing_extensions import Self
+from typing import Any, Final, Generic, Literal, TypeAlias, TypeVar, overload, type_check_only
+from typing_extensions import Never, Self
 
 from grpc import (
     CallCredentials,
@@ -28,12 +31,59 @@ from grpc import (
     RpcError,
     RpcMethodHandler,
     ServerCredentials,
+    Status,
     StatusCode,
     _Options,
 )
 
+__all__ = (
+    "EOF",
+    "AbortError",
+    "AioRpcError",
+    "BaseError",
+    "Call",
+    "Channel",
+    "ClientCallDetails",
+    "ClientInterceptor",
+    "InterceptedUnaryUnaryCall",
+    "InternalError",
+    "Metadata",
+    "RpcContext",
+    "Server",
+    "ServerInterceptor",
+    "ServicerContext",
+    "StreamStreamCall",
+    "StreamStreamClientInterceptor",
+    "StreamStreamMultiCallable",
+    "StreamUnaryCall",
+    "StreamUnaryClientInterceptor",
+    "StreamUnaryMultiCallable",
+    "UnaryStreamCall",
+    "UnaryStreamClientInterceptor",
+    "UnaryStreamMultiCallable",
+    "UnaryUnaryCall",
+    "UnaryUnaryClientInterceptor",
+    "UnaryUnaryMultiCallable",
+    "UsageError",
+    "init_grpc_aio",
+    "insecure_channel",
+    "secure_channel",
+    "server",
+    "shutdown_grpc_aio",
+)
+
 _TRequest = TypeVar("_TRequest")
 _TResponse = TypeVar("_TResponse")
+
+@type_check_only
+class _EOF:
+    def __bool__(self) -> Literal[False]: ...
+    def __len__(self) -> Literal[0]: ...
+
+EOF: Final[_EOF]
+
+def init_grpc_aio() -> None: ...
+def shutdown_grpc_aio() -> None: ...
 
 # Exceptions:
 
@@ -46,16 +96,18 @@ class AioRpcError(RpcError):
     def __init__(
         self,
         code: StatusCode,
-        initial_metadata: Metadata,
-        trailing_metadata: Metadata,
+        initial_metadata: Metadata | None = None,
+        trailing_metadata: Metadata | None = None,
         details: str | None = None,
         debug_error_string: str | None = None,
     ) -> None: ...
-    def debug_error_string(self) -> str: ...
+    def code(self) -> StatusCode: ...
+    def details(self) -> str | None: ...
     def initial_metadata(self) -> Metadata | MaybeNone: ...
     # AioRpcError returns the async Metadata, overriding the synchronous
     # grpc.RpcError.trailing_metadata() -> tuple[_Metadatum, ...].
     def trailing_metadata(self) -> Metadata | MaybeNone: ...  # type: ignore[override]
+    def debug_error_string(self) -> str | None: ...
 
 # Create Client:
 
@@ -138,6 +190,9 @@ class Channel(abc.ABC):
 class Server(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def add_generic_rpc_handlers(self, generic_rpc_handlers: Iterable[GenericRpcHandler]) -> None: ...
+    def add_registered_method_handlers(
+        self, service_name: str, method_handlers: Mapping[str, RpcMethodHandler[Any, Any]]
+    ) -> None: ...
 
     # Returns an integer port on which server will accept RPC requests.
     @abc.abstractmethod
@@ -222,7 +277,7 @@ class _DoneCallback(Generic[_TRequest, _TResponse]):
 
 class ServicerContext(Generic[_TRequest, _TResponse], metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def abort(self, code: StatusCode, details: str = "", trailing_metadata: _MetadataType = ()) -> NoReturn: ...
+    async def abort(self, code: StatusCode, details: str = "", trailing_metadata: _MetadataType = ()) -> Never: ...
     @abc.abstractmethod
     async def read(self) -> _TRequest: ...
     @abc.abstractmethod
@@ -230,6 +285,8 @@ class ServicerContext(Generic[_TRequest, _TResponse], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def send_initial_metadata(self, initial_metadata: _MetadataType) -> None: ...
     def add_done_callback(self, callback: _DoneCallback[_TRequest, _TResponse]) -> None: ...
+    @abc.abstractmethod
+    async def abort_with_status(self, status: Status) -> Never: ...
     @abc.abstractmethod
     def set_trailing_metadata(self, trailing_metadata: _MetadataType) -> None: ...
     @abc.abstractmethod
@@ -311,6 +368,7 @@ class InterceptedUnaryUnaryCall(_InterceptedCall[_TRequest, _TResponse], metacla
         request_serializer: _Serializer[_TRequest],
         response_deserializer: _Deserializer[_TResponse],
         loop: asyncio.AbstractEventLoop,
+        registered_call_handle: int = 0,
     ) -> None: ...
 
     # pylint: disable=too-many-arguments
@@ -462,7 +520,7 @@ _T = TypeVar("_T")
 class Metadata(Collection[_MetadatumType]):
     def __init__(self, *args: tuple[_MetadataKey, _MetadataValue]) -> None: ...
     @classmethod
-    def from_tuple(cls, raw_metadata: tuple[_MetadataKey, _MetadataValue]) -> Metadata: ...
+    def from_tuple(cls, raw_metadata: Iterable[_MetadatumType]) -> Self: ...
     def add(self, key: _MetadataKey, value: _MetadataValue) -> None: ...
     def __len__(self) -> int: ...
     def __getitem__(self, key: _MetadataKey) -> _MetadataValue: ...
@@ -470,6 +528,9 @@ class Metadata(Collection[_MetadatumType]):
     def __delitem__(self, key: _MetadataKey) -> None: ...
     def delete_all(self, key: _MetadataKey) -> None: ...
     def __iter__(self) -> Iterator[_MetadatumType]: ...
+    def keys(self) -> KeysView[_MetadataKey]: ...
+    def values(self) -> ValuesView[list[_MetadataValue]]: ...
+    def items(self) -> ItemsView[_MetadataKey, list[_MetadataValue]]: ...
 
     @overload
     def get(self, key: _MetadataKey, default: None = None) -> _MetadataValue | None: ...

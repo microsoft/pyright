@@ -1,8 +1,8 @@
 from _typeshed import Incomplete, SupportsItems
 from abc import abstractmethod
 from collections.abc import Iterable, Sequence
-from typing import Any, Final, Literal, NoReturn, TypeAlias, TypedDict, type_check_only
-from typing_extensions import Self, Unpack
+from typing import Any, Final, Literal, TypeAlias, TypedDict, type_check_only
+from typing_extensions import Never, Self, Unpack
 
 from reportlab.lib.colors import Color
 from reportlab.lib.validators import NoneOr, Validator
@@ -105,7 +105,12 @@ __version__: Final[str]
 isOpacity: NoneOr
 NON_ZERO_WINDING: Final[str]
 EVEN_ODD: Final[str]
-STATE_DEFAULTS: Final[Incomplete]
+
+class RL_STATE_DEFAULTS(dict[str, Any]):
+    def get(self, x: str, default: Any = None) -> Any: ...  # type: ignore[override]
+    def copy(self) -> dict[str, Any]: ...
+
+STATE_DEFAULTS: Final[RL_STATE_DEFAULTS]
 
 class _DrawTimeResizeable: ...
 
@@ -197,7 +202,7 @@ class Line(LineShape):
     y2: float
     def __init__(self, x1: float, y1: float, x2: float, y2: float, **kw: Unpack[_LineShapeKwArgs]) -> None: ...
     # NOTE: For some reason Line doesn't implement copy
-    def copy(self) -> NoReturn: ...
+    def copy(self) -> Never: ...
     def getBounds(self) -> tuple[float, float, float, float]: ...
 
 class SolidShape(LineShape):

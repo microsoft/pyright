@@ -847,20 +847,20 @@ export function preserveUnknown(type1: Type, type2: Type): AnyType | UnknownType
     }
 }
 
-// Determines whether the specified type is a type that can be
-// combined with other types for a union.
-export function isUnionableType(subtypes: Type[]): boolean {
-    // If all of the subtypes are TypeForm types, we know that they
-    // are unionable.
-    if (subtypes.every((t) => t.props?.typeForm !== undefined)) {
+// Determines whether the two types will produce a union using the "|" operator.
+export function isUnionable(leftType: Type, rightType: Type): boolean {
+    // If both types are TypeForm types, we know that they are unionable.
+    if (leftType.props?.typeForm !== undefined && rightType.props?.typeForm !== undefined) {
         return true;
     }
 
-    let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
-
-    for (const subtype of subtypes) {
-        typeFlags &= subtype.flags;
+    // Special forms like Any and Never are unionable even though their
+    // types represent both instances and instantiable types.
+    if (leftType.props?.specialForm !== undefined && rightType.props?.specialForm !== undefined) {
+        return true;
     }
+
+    const typeFlags = leftType.flags & rightType.flags;
 
     // All subtypes need to be instantiable. Some types (like Any
     // and None) are both instances and instantiable. It's OK to
@@ -959,6 +959,9 @@ export function addConditionToType<T extends Type>(
         case TypeCategory.Function:
             return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
 
+        case TypeCategory.OverloadResult:
+            return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
+
         case TypeCategory.Overloaded:
             return OverloadedType.create(
                 OverloadedType.getOverloads(type).map((t) => addConditionToType(t, condition))
@@ -986,6 +989,7 @@ export function getTypeCondition(type: Type): TypeCondition[] | undefined {
 
         case TypeCategory.Class:
         case TypeCategory.Function:
+        case TypeCategory.OverloadResult:
             return type.props?.condition;
     }
 }
@@ -1045,10 +1049,11 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined, recu
             }
 
             const solution = buildSolution(type.shared.recursiveAlias.typeParams, aliasInfo.typeArgs);
-            return transformPossibleRecursiveTypeAlias(
+            const transformedType = transformPossibleRecursiveTypeAlias(
                 applySolvedTypeVars(unspecializedType, solution),
                 recursionCount
             );
+            return TypeBase.cloneForTypeAlias(transformedType, aliasInfo);
         }
 
         if (isUnion(type) && type.priv.includesRecursiveTypeAlias) {
@@ -1245,6 +1250,23 @@ export function isLiteralTypeOrUnion(type: Type, allowNone = false): boolean {
     return false;
 }
 
+// Determines whether two defaulted parameters overlap only when the
+// argument is omitted and the dest parameter's default decides the result.
+// This requires literal and None types throughout, a dest default that is
+// a member of the dest type, and dest and source types with no shared member.
+export function isOverlapOnlyByOmission(destType: Type, destDefaultType: Type, srcType: Type): boolean {
+    if (![destType, destDefaultType, srcType].every((type) => isLiteralTypeOrUnion(type, /* allowNone */ true))) {
+        return false;
+    }
+
+    const isMemberOf = (subtype: Type, type: Type) => !!findSubtype(type, (member) => isTypeSame(subtype, member));
+
+    return (
+        !findSubtype(destDefaultType, (subtype) => !isMemberOf(subtype, destType)) &&
+        !findSubtype(destType, (subtype) => isMemberOf(subtype, srcType))
+    );
+}
+
 export function isLiteralLikeType(type: ClassType): boolean {
     if (type.priv.literalValue !== undefined) {
         return true;
@@ -1261,28 +1283,28 @@ export function isSentinelLiteral(type: Type): boolean {
     return isClassInstance(type) && type.priv.literalValue instanceof SentinelLiteral;
 }
 
-export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
-    class ContainsLiteralTypeWalker extends TypeWalker {
-        foundLiteral = false;
+class ContainsLiteralTypeWalker extends TypeWalker {
+    foundLiteral = false;
 
-        constructor(private _includeTypeArgs: boolean) {
-            super();
-        }
-
-        override visitClass(classType: ClassType): void {
-            if (isClassInstance(classType)) {
-                if (isLiteralLikeType(classType)) {
-                    this.foundLiteral = true;
-                    this.cancelWalk();
-                }
-            }
-
-            if (this._includeTypeArgs) {
-                super.visitClass(classType);
-            }
-        }
+    constructor(private _includeTypeArgs: boolean) {
+        super();
     }
 
+    override visitClass(classType: ClassType): void {
+        if (isClassInstance(classType)) {
+            if (isLiteralLikeType(classType)) {
+                this.foundLiteral = true;
+                this.cancelWalk();
+            }
+        }
+
+        if (this._includeTypeArgs) {
+            super.visitClass(classType);
+        }
+    }
+}
+
+export function containsLiteralType(type: Type, includeTypeArgs = false): boolean {
     const walker = new ContainsLiteralTypeWalker(includeTypeArgs);
     walker.walk(type);
     return walker.foundLiteral;
@@ -1774,7 +1796,18 @@ export function lookUpClassMember(
     // define any instance variables, and it's by far the most common metaclass.
     if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
         const metaMemberItr = getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers);
-        const metaMember = metaMemberItr.next()?.value;
+        let metaMember = metaMemberItr.next()?.value;
+
+        // type.__dict__ describes class namespaces, not instance dictionaries.
+        if (
+            memberName === '__dict__' &&
+            isClassInstance(classType) &&
+            metaMember &&
+            isClass(metaMember.classType) &&
+            ClassType.isBuiltIn(metaMember.classType, 'type')
+        ) {
+            metaMember = undefined;
+        }
 
         // If the metaclass defines the member and we didn't hit an Unknown
         // class in the metaclass MRO, use the metaclass member.
@@ -3910,7 +3943,12 @@ export class TypeVarTransformer {
 
     transformGenericTypeAlias(type: Type, recursionCount: number) {
         const aliasInfo = type.props?.typeAliasInfo;
-        if (!aliasInfo || !aliasInfo.shared.typeParams || !aliasInfo.typeArgs) {
+        if (
+            !aliasInfo ||
+            !aliasInfo.shared.typeParams ||
+            !aliasInfo.typeArgs ||
+            (isTypeVar(type) && type.shared.recursiveAlias)
+        ) {
             return type;
         }
 
@@ -4020,6 +4058,10 @@ export class TypeVarTransformer {
 
             // If this is an empty tuple, don't recompute the non-tuple type argument.
             if (newTupleTypeArgs && newTupleTypeArgs.length > 0) {
+                if (!specializationNeeded) {
+                    return classType;
+                }
+
                 // Combine the tuple type args into a single non-tuple type argument.
                 newTypeArgs = [combineTupleTypeArgs(newTupleTypeArgs)];
             }
@@ -4066,16 +4108,8 @@ export class TypeVarTransformer {
             let functionType = sourceType;
 
             const declaredReturnType = FunctionType.getEffectiveReturnType(functionType);
-            const specializedReturnType = declaredReturnType
-                ? this.apply(declaredReturnType, recursionCount)
-                : undefined;
+            let specializedReturnType = declaredReturnType ? this.apply(declaredReturnType, recursionCount) : undefined;
             let typesRequiredSpecialization = declaredReturnType !== specializedReturnType;
-
-            const specializedParams: SpecializedFunctionTypes = {
-                parameterTypes: [],
-                parameterDefaultTypes: undefined,
-                returnType: specializedReturnType,
-            };
 
             const paramSpec = FunctionType.getParamSpecFromArgsKwargs(functionType);
 
@@ -4097,23 +4131,34 @@ export class TypeVarTransformer {
 
             let variadicParamIndex: number | undefined;
             let variadicTypesToUnpack: TupleTypeArg[] | undefined;
-            const specializedDefaultArgs: (Type | undefined)[] = [];
+            let specializedParamTypes: Type[] | undefined;
+            let specializedDefaultArgs: (Type | undefined)[] | undefined;
+            let hasDefaultArgs = false;
 
             for (let i = 0; i < functionType.shared.parameters.length; i++) {
                 const paramType = FunctionType.getParamType(functionType, i);
                 const specializedType = this.apply(paramType, recursionCount);
-                specializedParams.parameterTypes.push(specializedType);
+                if (paramType !== specializedType) {
+                    specializedParamTypes ??= functionType.shared.parameters.map((_, index) =>
+                        FunctionType.getParamType(functionType, index)
+                    );
+                    specializedParamTypes[i] = specializedType;
+                    typesRequiredSpecialization = true;
+                }
 
                 // Do we need to specialize the default argument type for this parameter?
-                let defaultArgType = FunctionType.getParamDefaultType(functionType, i);
+                const defaultArgType = FunctionType.getParamDefaultType(functionType, i);
                 if (defaultArgType) {
+                    hasDefaultArgs = true;
                     const specializedArgType = this.apply(defaultArgType, recursionCount);
                     if (specializedArgType !== defaultArgType) {
-                        defaultArgType = specializedArgType;
+                        specializedDefaultArgs ??= functionType.shared.parameters.map((_, index) =>
+                            FunctionType.getParamDefaultType(functionType, index)
+                        );
+                        specializedDefaultArgs[i] = specializedArgType;
                         typesRequiredSpecialization = true;
                     }
                 }
-                specializedDefaultArgs.push(defaultArgType);
 
                 if (
                     variadicParamIndex === undefined &&
@@ -4130,10 +4175,6 @@ export class TypeVarTransformer {
                         variadicTypesToUnpack = specializedType.priv.tupleTypeArgs;
                     }
                 }
-
-                if (paramType !== specializedType) {
-                    typesRequiredSpecialization = true;
-                }
             }
 
             let specializedInferredReturnType: Type | undefined;
@@ -4143,7 +4184,7 @@ export class TypeVarTransformer {
                     recursionCount
                 );
                 if (specializedInferredReturnType !== functionType.shared.inferredReturnType?.type) {
-                    specializedParams.returnType = specializedInferredReturnType;
+                    specializedReturnType = specializedInferredReturnType;
                     typesRequiredSpecialization = true;
                 }
             }
@@ -4169,9 +4210,18 @@ export class TypeVarTransformer {
                 return functionType;
             }
 
-            if (specializedDefaultArgs.some((t) => t !== undefined)) {
-                specializedParams.parameterDefaultTypes = specializedDefaultArgs;
-            }
+            const specializedParams: SpecializedFunctionTypes = {
+                parameterTypes:
+                    specializedParamTypes ??
+                    functionType.shared.parameters.map((_, index) => FunctionType.getParamType(functionType, index)),
+                parameterDefaultTypes: hasDefaultArgs
+                    ? specializedDefaultArgs ??
+                      functionType.shared.parameters.map((_, index) =>
+                          FunctionType.getParamDefaultType(functionType, index)
+                      )
+                    : undefined,
+                returnType: specializedReturnType,
+            };
 
             // If there was no unpacked variadic type variable, we're done.
             if (!variadicTypesToUnpack) {
@@ -4731,7 +4781,8 @@ class UnificationTypeTransformer extends TypeVarTransformer {
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
-        if (!this._isTypeVarLive(typeVar)) {
+        // A borrowed caller variable remains bound even outside its lexical scope.
+        if (!TypeVarType.isBound(typeVar) && !this._isTypeVarLive(typeVar)) {
             return TypeVarType.cloneAsUnificationVar(typeVar, this._usageOffset);
         }
 

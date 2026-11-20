@@ -229,6 +229,8 @@ def func2():
 
 When pyright evaluates a write to a class variable that contains a descriptor object (including properties), it normally applies assignment-based type narrowing. However, when the descriptor is asymmetric — that is, its “getter” type is different from its “setter” type, pyright refrains from applying assignment-based type narrowing. For a full discussion of this, refer to [this issue](https://github.com/python/mypy/issues/3004). Mypy has not yet implemented the agreed-upon behavior, so its type narrowing behavior may differ from pyright’s in this case.
 
+After an asymmetric descriptor assignment, pyright resets the read type to the getter's return type. This invalidates earlier narrowing without treating the assigned value as the read result. Subsequent conditions, such as an `is not None` check, can still narrow the read type.
+
 
 ### Parameter Type Inference
 

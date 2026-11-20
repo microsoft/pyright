@@ -16,6 +16,7 @@ type FileSystemMappingMethodName =
     | 'existsSync'
     | 'readdirEntriesSync'
     | 'readFileSync'
+    | 'readFileRangeSync'
     | 'statSync'
     | 'realpathSync'
     | 'createReadStream'
@@ -126,6 +127,10 @@ class FileSystemMappingImpl implements FileSystemMapping {
     readFileSync(uri: Uri, encoding: BufferEncoding): string;
     readFileSync(uri: Uri, encoding?: BufferEncoding | null): string | Buffer {
         return this._realFS.readFileSync(this._getInternalOriginalUri(uri), encoding);
+    }
+
+    readFileRangeSync(uri: Uri, offset: number, length: number): Buffer {
+        return this._realFS.readFileRangeSync(this._getInternalOriginalUri(uri), offset, length);
     }
 
     statSync(uri: Uri): Stats {
