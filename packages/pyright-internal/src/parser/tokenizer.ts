@@ -847,15 +847,7 @@ export class Tokenizer {
 
     static isPythonKeyword(name: string, includeSoftKeywords = false): boolean {
         const keyword = _keywords.get(name);
-        if (!keyword) {
-            return false;
-        }
-
-        if (includeSoftKeywords) {
-            return true;
-        }
-
-        return !_softKeywords.has(name);
+        return keyword !== undefined && (includeSoftKeywords || !_softKeywords.has(name));
     }
 
     static isPythonIdentifier(value: string) {

@@ -22,3 +22,6 @@ NT4 = NamedTuple("NT4", [("abc", int), ("def", int)])
 
 # These are soft keywords, so they shouldn't generate an error.
 NT5 = namedtuple("NT5", ["type", "match"])
+
+# This should generate an error because "and" is a keyword.
+NT6 = namedtuple("NT6", ["and"])
