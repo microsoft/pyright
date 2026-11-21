@@ -452,6 +452,18 @@ test('TypedDictClosed12', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypedDictClosed13', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed13.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+    const diagnostic = analysisResults[0].errors[0];
+    assert.strictEqual(diagnostic.getRule(), DiagnosticRule.reportAssignmentType);
+    assert.strictEqual(diagnostic.range.start.line, 22);
+    assert.ok(diagnostic.message.includes("() -> dict_items[Literal['a', 'b'], str | int]"));
+});
+
 test('DataclassTransform1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform1.py']);
 
