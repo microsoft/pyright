@@ -5,6 +5,9 @@
 # this field in its parameter list.
 
 from dataclasses import dataclass, field
+from typing import Final
+
+NO_INIT: Final = False
 
 
 @dataclass
@@ -43,3 +46,15 @@ class ClassB:
     def __post_init__(self):
         cprop_1 = "calculated value"
         cprop_2 = "calculated value"
+
+
+@dataclass
+class ClassC:
+    prop_1: str = field(init=NO_INIT, default="")
+
+
+ClassC()
+
+# This should generate an error because "prop_1" is not
+# a parameter of the synthesized __init__ method.
+ClassC(prop_1="")

@@ -185,8 +185,7 @@ export function applyFunctionDecorator(
             ) {
                 undecoratedType.shared.decoratorDataClassBehaviors = validateDataClassTransformDecorator(
                     evaluator,
-                    decoratorNode.d.expr,
-                    nodeInfo
+                    decoratorNode.d.expr
                 );
                 return inputFunctionType;
             }
@@ -347,8 +346,7 @@ export function applyClassDecorator(
             ) {
                 originalClassType.shared.classDataClassTransform = validateDataClassTransformDecorator(
                     evaluator,
-                    decoratorNode.d.expr,
-                    nodeInfo
+                    decoratorNode.d.expr
                 );
             }
         }
@@ -372,14 +370,7 @@ export function applyClassDecorator(
         }
 
         if (dataclassBehaviors) {
-            applyDataClassDecorator(
-                evaluator,
-                decoratorNode,
-                originalClassType,
-                dataclassBehaviors,
-                callNode,
-                nodeInfo
-            );
+            applyDataClassDecorator(evaluator, decoratorNode, originalClassType, dataclassBehaviors, callNode);
             return true;
         }
 
@@ -394,8 +385,7 @@ export function applyClassDecorator(
                 decoratorNode,
                 originalClassType,
                 dataclassBehaviors,
-                /* callNode */ undefined,
-                nodeInfo
+                /* callNode */ undefined
             );
             return inputClassType;
         }

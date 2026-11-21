@@ -780,7 +780,7 @@ test('NamedTuple8', () => {
 test('NamedTuple9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple9.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('NamedTuple10', () => {
@@ -1397,6 +1397,12 @@ test('StaticExpressionLiteral1', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('Ternary1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['ternary1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('SpecialForm1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialForm1.py']);
 
@@ -1893,11 +1899,11 @@ test('TupleLiteralInference4', () => {
 
 test('TupleLiteralInference5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleLiteralInference5.py']);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
     analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportArgumentType));
     assert.deepStrictEqual(
         analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((left, right) => left - right),
-        [80, 89]
+        [55, 80, 89]
     );
 });
 

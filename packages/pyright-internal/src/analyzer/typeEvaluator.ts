@@ -1477,7 +1477,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Ternary: {
-                typeResult = getTypeOfTernaryOperation(evaluatorInterface, node, flags, inferenceContext, nodeInfo);
+                typeResult = getTypeOfTernaryOperation(evaluatorInterface, node, flags, inferenceContext);
                 break;
             }
 
@@ -13181,8 +13181,7 @@ export function createTypeEvaluator(
                     node.d.name,
                     classType,
                     initSubclassArgs,
-                    dataClassBehaviors,
-                    nodeInfo
+                    dataClassBehaviors
                 );
             }
 

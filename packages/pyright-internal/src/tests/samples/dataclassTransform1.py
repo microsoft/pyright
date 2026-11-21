@@ -1,12 +1,19 @@
 # This sample tests the handling of the dataclass_transform mechanism
 # when applied to a decorator function.
 
-from typing import Any, Callable, TypeVar, overload
+from typing import Any, Callable, Final, TypeVar, overload
 from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
     dataclass_transform,
 )
 
 _T = TypeVar("_T")
+
+
+def get_flag() -> bool: ...
+
+
+IS_FROZEN: Final = True
+UNKNOWN_FLAG = get_flag()
 
 
 @overload
@@ -91,3 +98,24 @@ c3_1 = Customer3(id=2, name="hi")
 
 # This should generate an error because Customer3 is frozen.
 c3_1.id = 4
+
+
+@dataclass_transform(frozen_default=IS_FROZEN)
+def create_model_frozen2(cls: _T) -> _T: ...
+
+
+@create_model_frozen2
+class Customer4:
+    id: int
+
+
+c4_1 = Customer4(id=2)
+
+# This should generate an error because Customer4 is frozen.
+c4_1.id = 4
+
+
+# This should generate an error because the value of "frozen_default"
+# is not statically known.
+@dataclass_transform(frozen_default=UNKNOWN_FLAG)
+def create_model_frozen3(cls: _T) -> _T: ...

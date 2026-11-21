@@ -384,7 +384,7 @@ test('DataClass5', () => {
 test('DataClass6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass6.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('DataClass7', () => {
@@ -480,7 +480,7 @@ test('DataClassReplace1', () => {
 test('DataClassFrozen1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassFrozen1.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('DataClassKwOnly1', () => {
@@ -488,7 +488,7 @@ test('DataClassKwOnly1', () => {
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassKwOnly1.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('DataClassKwOnly2', () => {

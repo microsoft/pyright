@@ -11,7 +11,7 @@ class ClassA:
         return
 
 
-maybe = True
+maybe = random() > 0.5
 
 a = None if maybe else ClassA()
 b = None if maybe else ClassA()

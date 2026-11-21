@@ -38,7 +38,6 @@ import {
     getTypeSourceId,
     getTypeVarScopesForNode,
 } from './parseTreeUtils';
-import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
 import { Arg, EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
@@ -383,13 +382,7 @@ export function synthesizeDataClassMethods(
                     ) {
                         const initArg = statement.d.rightExpr.d.args.find((arg) => arg.d.name?.d.value === 'init');
                         if (initArg && initArg.d.valueExpr) {
-                            const fileInfo = nodeInfo.getFileInfo(node);
-                            includeInInit =
-                                evaluateStaticBoolExpression(
-                                    initArg.d.valueExpr,
-                                    fileInfo.executionEnvironment,
-                                    fileInfo.definedConstants
-                                ) ?? includeInInit;
+                            includeInInit = getBoolArgValue(evaluator, initArg.d.valueExpr) ?? includeInInit;
                         } else {
                             includeInInit =
                                 getDefaultArgValueForFieldSpecifier(
@@ -402,13 +395,7 @@ export function synthesizeDataClassMethods(
 
                         const kwOnlyArg = statement.d.rightExpr.d.args.find((arg) => arg.d.name?.d.value === 'kw_only');
                         if (kwOnlyArg && kwOnlyArg.d.valueExpr) {
-                            const fileInfo = nodeInfo.getFileInfo(node);
-                            isKeywordOnly =
-                                evaluateStaticBoolExpression(
-                                    kwOnlyArg.d.valueExpr,
-                                    fileInfo.executionEnvironment,
-                                    fileInfo.definedConstants
-                                ) ?? isKeywordOnly;
+                            isKeywordOnly = getBoolArgValue(evaluator, kwOnlyArg.d.valueExpr) ?? isKeywordOnly;
                         } else {
                             isKeywordOnly =
                                 getDefaultArgValueForFieldSpecifier(
@@ -1358,8 +1345,7 @@ function isDataclassFieldConstructor(type: Type, fieldDescriptorNames: string[])
 
 export function validateDataClassTransformDecorator(
     evaluator: TypeEvaluator,
-    node: CallNode,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    node: CallNode
 ): DataClassBehaviors | undefined {
     const behaviors: DataClassBehaviors = {
         skipGenerateInit: false,
@@ -1372,8 +1358,6 @@ export function validateDataClassTransformDecorator(
         frozenDefault: false,
         fieldDescriptorNames: [],
     };
-
-    const fileInfo = nodeInfo.getFileInfo(node);
 
     // Parse the arguments to the call.
     node.d.args.forEach((arg) => {
@@ -1388,11 +1372,7 @@ export function validateDataClassTransformDecorator(
 
         switch (arg.d.name.d.value) {
             case 'kw_only_default': {
-                const value = evaluateStaticBoolExpression(
-                    arg.d.valueExpr,
-                    fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
-                );
+                const value = getBoolArgValue(evaluator, arg.d.valueExpr);
                 if (value === undefined) {
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -1407,11 +1387,7 @@ export function validateDataClassTransformDecorator(
             }
 
             case 'eq_default': {
-                const value = evaluateStaticBoolExpression(
-                    arg.d.valueExpr,
-                    fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
-                );
+                const value = getBoolArgValue(evaluator, arg.d.valueExpr);
                 if (value === undefined) {
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -1426,11 +1402,7 @@ export function validateDataClassTransformDecorator(
             }
 
             case 'order_default': {
-                const value = evaluateStaticBoolExpression(
-                    arg.d.valueExpr,
-                    fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
-                );
+                const value = getBoolArgValue(evaluator, arg.d.valueExpr);
                 if (value === undefined) {
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -1445,11 +1417,7 @@ export function validateDataClassTransformDecorator(
             }
 
             case 'frozen_default': {
-                const value = evaluateStaticBoolExpression(
-                    arg.d.valueExpr,
-                    fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
-                );
+                const value = getBoolArgValue(evaluator, arg.d.valueExpr);
                 if (value === undefined) {
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -1565,13 +1533,30 @@ function applyDataClassBehaviorOverride(
     classType: ClassType,
     argName: string,
     argValueExpr: ExpressionNode,
-    behaviors: DataClassBehaviors,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    behaviors: DataClassBehaviors
 ) {
-    const fileInfo = nodeInfo.getFileInfo(errorNode);
-    const value = evaluateStaticBoolExpression(argValueExpr, fileInfo.executionEnvironment, fileInfo.definedConstants);
+    const value = getBoolArgValue(evaluator, argValueExpr);
 
     applyDataClassBehaviorOverrideValue(evaluator, errorNode, classType, argName, value, behaviors);
+}
+
+// Returns the value of a bool argument whose type is always truthy or always falsy.
+function getBoolArgValue(evaluator: TypeEvaluator, argValueExpr: ExpressionNode): boolean | undefined {
+    const argType = evaluator.getTypeOfExpression(argValueExpr).type;
+
+    if (!isClassInstance(argType) || !ClassType.isBuiltIn(argType, 'bool')) {
+        return undefined;
+    }
+
+    if (!evaluator.canBeFalsy(argType)) {
+        return true;
+    }
+
+    if (!evaluator.canBeTruthy(argType)) {
+        return false;
+    }
+
+    return undefined;
 }
 
 function applyDataClassBehaviorOverrideValue(
@@ -1693,8 +1678,7 @@ export function applyDataClassClassBehaviorOverrides(
     errorNode: ParseNode,
     classType: ClassType,
     args: Arg[],
-    defaultBehaviors: DataClassBehaviors,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    defaultBehaviors: DataClassBehaviors
 ) {
     let sawFrozenArg = false;
 
@@ -1714,8 +1698,7 @@ export function applyDataClassClassBehaviorOverrides(
                 classType,
                 arg.name.d.value,
                 arg.valueExpression,
-                behaviors,
-                nodeInfo
+                behaviors
             );
 
             if (arg.name.d.value === 'frozen') {
@@ -1744,15 +1727,13 @@ export function applyDataClassDecorator(
     errorNode: ParseNode,
     classType: ClassType,
     defaultBehaviors: DataClassBehaviors,
-    callNode: CallNode | undefined,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    callNode: CallNode | undefined
 ) {
     applyDataClassClassBehaviorOverrides(
         evaluator,
         errorNode,
         classType,
         (callNode?.d.args ?? []).map((arg) => evaluator.convertNodeToArg(arg)),
-        defaultBehaviors,
-        nodeInfo
+        defaultBehaviors
     );
 }
