@@ -1382,6 +1382,15 @@ test('StaticExpression3', () => {
     assert.strictEqual(analysisResults[1].errors.length, 0);
 });
 
+test('StaticExpression5', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonPlatform = 'Linux';
+    configOptions.defineConstant.set('DEFINED_STR', 'hi!');
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['staticExpression5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('StaticExpressionLiteral1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['staticExpressionLiteral1.py']);
 

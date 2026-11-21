@@ -1578,6 +1578,29 @@ export function createTypeEvaluator(
             validateTypeIsInstantiable(typeResult, flags, node);
         }
 
+        // If this is a constant boolean expression, assign it a literal type.
+        if (
+            (node.nodeType === ParseNodeType.Name ||
+                node.nodeType === ParseNodeType.MemberAccess ||
+                node.nodeType === ParseNodeType.UnaryOperation ||
+                node.nodeType === ParseNodeType.BinaryOperation) &&
+            (flags & EvalFlags.TypeExpression) === 0 &&
+            isClassInstance(typeResult.type) &&
+            ClassType.isBuiltIn(typeResult.type, 'bool') &&
+            typeResult.type.priv.literalValue === undefined
+        ) {
+            const fileInfo = nodeInfo.getFileInfo(node);
+            const constExprValue = evaluateStaticBoolExpression(
+                node,
+                fileInfo.executionEnvironment,
+                fileInfo.definedConstants
+            );
+
+            if (constExprValue !== undefined) {
+                typeResult = { ...typeResult, type: ClassType.cloneWithLiteral(typeResult.type, constExprValue) };
+            }
+        }
+
         // If this is a PEP 695 type alias, remove the special form so the type
         // printer prints it as its aliased type rather than TypeAliasType.
         if ((flags & EvalFlags.TypeExpression) !== 0 && typeResult.type.props?.typeForm === undefined) {
@@ -12202,20 +12225,6 @@ export function createTypeEvaluator(
                 // can be specialized.
                 typeAliasPlaceholder.shared.recursiveAlias!.typeParams =
                     rightHandType.props?.typeAliasInfo?.shared.typeParams;
-            } else {
-                // If the RHS is a constant boolean expression, assign it a literal type.
-                const constExprValue = evaluateStaticBoolExpression(
-                    node.d.rightExpr,
-                    fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
-                );
-
-                if (constExprValue !== undefined) {
-                    const boolType = getBuiltInObject(node, 'bool');
-                    if (isClassInstance(boolType)) {
-                        rightHandType = ClassType.cloneWithLiteral(boolType, constExprValue);
-                    }
-                }
             }
         }
 
