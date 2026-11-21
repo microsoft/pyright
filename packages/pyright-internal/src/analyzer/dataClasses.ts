@@ -116,6 +116,15 @@ function isDataClassKeywordOnlySeparator(
     return isClassInstance(annotatedType) && ClassType.isBuiltIn(annotatedType, 'KW_ONLY');
 }
 
+function isDataClassTransformClass(classType: ClassType) {
+    return (
+        classType.shared.classDataClassTransform !== undefined ||
+        (classType.shared.declaredMetaclass !== undefined &&
+            isInstantiableClass(classType.shared.declaredMetaclass) &&
+            classType.shared.declaredMetaclass.shared.classDataClassTransform !== undefined)
+    );
+}
+
 // Calculate generated slots without forcing deferred dataclass method synthesis.
 export function synthesizeDataClassSlots(evaluator: TypeEvaluator, classType: ClassType) {
     delete classType.shared.synthesizeDataClassSlotsDeferred;
@@ -1609,18 +1618,40 @@ function applyDataClassBehaviorOverrideValue(
                 behaviors.frozen = argValue;
             }
 
+            // A class that directly provides dataclass transform behaviors is
+            // neither frozen nor non-frozen, so it isn't subject to the normal
+            // dataclass inheritance compatibility checks.
+            if (isDataClassTransformClass(classType)) {
+                break;
+            }
+
             classType.shared.baseClasses.forEach((baseClass) => {
                 if (isInstantiableClass(baseClass) && ClassType.isDataClass(baseClass)) {
+                    // A class decorated with dataclass_transform is neither frozen
+                    // nor non-frozen. It can be used as a base for either kind of
+                    // generated dataclass without triggering an inheritance error.
+                    if (isDataClassTransformClass(baseClass)) {
+                        // The provider itself is neutral, but concrete dataclass
+                        // ancestors still constrain generated subclasses.
+                        baseClass.shared.mro.slice(1).forEach((mroClass) => {
+                            if (
+                                isInstantiableClass(mroClass) &&
+                                ClassType.isDataClass(mroClass) &&
+                                !isDataClassTransformClass(mroClass)
+                            ) {
+                                if (ClassType.isDataClassFrozen(mroClass)) {
+                                    hasFrozenBaseClass = true;
+                                } else {
+                                    hasUnfrozenBaseClass = true;
+                                }
+                            }
+                        });
+                        return;
+                    }
+
                     if (ClassType.isDataClassFrozen(baseClass)) {
                         hasFrozenBaseClass = true;
-                    } else if (
-                        !baseClass.shared.classDataClassTransform &&
-                        !(
-                            baseClass.shared.declaredMetaclass &&
-                            isInstantiableClass(baseClass.shared.declaredMetaclass) &&
-                            !!baseClass.shared.declaredMetaclass.shared.classDataClassTransform
-                        )
-                    ) {
+                    } else {
                         // If this base class is unfrozen and isn't the class that directly
                         // references the metaclass that provides dataclass-like behaviors,
                         // we'll assume we're deriving from an unfrozen dataclass.
