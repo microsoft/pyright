@@ -18296,7 +18296,9 @@ export function createTypeEvaluator(
                         concreteSrcType,
                         diag,
                         constraints,
-                        flags,
+                        isTypeVar(srcType) && !TypeVarType.isBound(srcType)
+                            ? flags | AssignTypeFlags.AllowMissingProtocolMembers
+                            : flags,
                         recursionCount
                     );
                 }

@@ -675,6 +675,21 @@ function assignUnconstrainedTypeVar(
 
             if (isEffectivelyInstantiable(concreteAdjSrcType)) {
                 adjSrcType = convertToInstance(concreteAdjSrcType);
+            } else if (
+                isContravariant &&
+                isClassInstance(concreteAdjSrcType) &&
+                ClassType.isProtocolClass(concreteAdjSrcType)
+            ) {
+                // A protocol can't bound the TypeVar whose class object must satisfy it,
+                // so check the class object against the protocol without recording a bound.
+                return evaluator.assignType(
+                    adjSrcType,
+                    curLowerBound ? convertToInstantiable(curLowerBound) : destType,
+                    diag,
+                    /* constraints */ undefined,
+                    AssignTypeFlags.Default,
+                    recursionCount
+                );
             } else {
                 diag?.addMessage(
                     LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(srcType, destType))
