@@ -479,7 +479,7 @@ test('DataclassTransform4', () => {
 test('DataclassTransform5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform5.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Async1', () => {
