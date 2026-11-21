@@ -1638,6 +1638,7 @@ export function createSpecialFormCreation(context: Context) {
                         addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.protocolNotAllowed(), errorNode);
                     }
 
+                    const uniqueTypeVars: TypeVarType[] = [];
                     typeArgs?.forEach((typeArg) => {
                         if (typeArg.typeList || !isTypeVar(typeArg.type)) {
                             addDiagnostic(
@@ -1645,6 +1646,16 @@ export function createSpecialFormCreation(context: Context) {
                                 LocMessage.protocolTypeArgMustBeTypeParam(),
                                 typeArg.node
                             );
+                        } else {
+                            if (uniqueTypeVars.some((t) => isTypeSame(t, typeArg.type))) {
+                                addDiagnostic(
+                                    DiagnosticRule.reportInvalidTypeForm,
+                                    LocMessage.protocolTypeArgUnique(),
+                                    typeArg.node
+                                );
+                            }
+
+                            uniqueTypeVars.push(typeArg.type);
                         }
                     });
 
