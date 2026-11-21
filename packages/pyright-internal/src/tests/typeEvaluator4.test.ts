@@ -130,8 +130,8 @@ test('CallSite12', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
-test('CallSiteFlowComplexity', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSiteFlowComplexity.py']);
+test('CallSite13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite13.py']);
     TestUtils.validateResults(analysisResults, 0, 0, 1);
 });
 
