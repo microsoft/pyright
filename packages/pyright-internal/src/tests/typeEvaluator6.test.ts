@@ -19,6 +19,7 @@ import {
     pythonVersion3_11,
     pythonVersion3_12,
     pythonVersion3_13,
+    pythonVersion3_15,
     pythonVersion3_8,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -52,6 +53,18 @@ test('Overload5', () => {
 test('OverloadCall1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall1.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Datetime1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['datetime1.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [62, DiagnosticRule.reportArgumentType],
+            [65, DiagnosticRule.reportArgumentType],
+        ]
+    );
 });
 
 test('OverloadCall2', () => {
@@ -315,6 +328,49 @@ test('TypeIs4', () => {
 test('TypeIs5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs5.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs6.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs7.py']);
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportReturnType);
+});
+
+test('TypeIs8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs8.py']);
+    TestUtils.validateResults(analysisResults, 3);
+    assert.ok(
+        analysisResults[0].errors.every(
+            (diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAttributeAccessIssue
+        )
+    );
+});
+
+test('TypeIs9', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs9.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs10.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeIs11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs11.py']);
+    TestUtils.validateResults(analysisResults, 4);
+    assert.ok(
+        analysisResults[0].errors.every(
+            (diagnostic) => diagnostic.getRule() === DiagnosticRule.reportAttributeAccessIssue
+        )
+    );
 });
 
 test('Never1', () => {
@@ -633,6 +689,14 @@ test('TypeVarTuple33', () => {
     TestUtils.validateResults(analysisResults, 9);
 });
 
+test('TypeVarTuple34', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarTuple34.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('Match1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -671,6 +735,14 @@ test('MatchSequence2', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequence2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('MatchSequence3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequence3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('MatchSequenceVariadic', () => {
@@ -1237,6 +1309,11 @@ test('Constructor35', () => {
     ]);
 });
 
+test('Constructor36', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor36.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('ConstructorCallable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable1.py']);
 
@@ -1402,4 +1479,11 @@ test('DisjointBase1', () => {
 test('DisjointBase2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['disjointBase2.py']);
     TestUtils.validateResults(analysisResults, 11);
+});
+
+test('DisjointBase3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_15;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['disjointBase3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
 });

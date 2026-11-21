@@ -788,7 +788,7 @@ Regression threshold: `10.0%`
             pr_workflow_data["env"],
             {
                 "BENCHMARK_RUNNER_CLASS": "github-ubuntu-latest",
-                "NODE_VERSION": "24.15.0",
+                "NODE_VERSION": "24.22.2",
                 "PYTHON_VERSION": "3.14.6",
             },
         )
@@ -808,6 +808,7 @@ Regression threshold: `10.0%`
                 "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
                 "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
                 "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
+                "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
                 "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
                 None,
                 "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
@@ -822,7 +823,7 @@ Regression threshold: `10.0%`
             ],
         )
         self.assertEqual(
-            pr_benchmark_steps[5],
+            pr_benchmark_steps[6],
             {
                 "name": "Locate benchmark pnpm store",
                 "id": "benchmark-pnpm",
@@ -830,7 +831,7 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[6],
+            pr_benchmark_steps[7],
             {
                 "name": "Restore trusted benchmark pnpm store",
                 "uses": "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
@@ -841,7 +842,7 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[8],
+            pr_benchmark_steps[9],
             {
                 "name": "Install base JavaScript dependencies",
                 "timeout-minutes": 10,
@@ -851,7 +852,7 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[11],
+            pr_benchmark_steps[12],
             {
                 "name": "Install candidate JavaScript dependencies",
                 "timeout-minutes": 10,
@@ -860,24 +861,33 @@ Regression threshold: `10.0%`
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[10]["working-directory"],
+            pr_benchmark_steps[11]["working-directory"],
             "benchmark-base",
         )
         self.assertEqual(
-            pr_benchmark_steps[10]["env"],
+            pr_benchmark_steps[11]["env"],
             {
                 "NODE_OPTIONS": "--max-old-space-size=6656",
                 "PYTHONNOUSERSITE": "1",
             },
         )
         self.assertEqual(
-            pr_benchmark_steps[13]["env"],
+            pr_benchmark_steps[14]["env"],
             {
                 "NODE_OPTIONS": "--max-old-space-size=6656",
                 "PYTHONNOUSERSITE": "1",
                 "PYRIGHT_BENCHMARK_ENTRY_POINT": "${{ github.workspace }}/packages/pyright/index.js",
             },
         )
+        pnpm_setup, pnpm_retry = pr_benchmark_steps[3:5]
+        self.assertEqual(pnpm_setup["id"], "pnpm-setup")
+        self.assertTrue(pnpm_setup["continue-on-error"])
+        self.assertEqual(
+            pnpm_retry["if"],
+            "${{ !cancelled() && steps.pnpm-setup.outcome == 'failure' }}",
+        )
+        self.assertNotIn("if", pnpm_setup)
+        self.assertNotIn("continue-on-error", pnpm_retry)
         history_workflow_data = _load_yaml(
             REPO_ROOT
             / ".github"
@@ -1025,8 +1035,19 @@ main().catch((error) => { console.error(error); process.exitCode = 1; });
             "context.payload.comment.body.trim() !== '/benchmark'", trigger_workflow
         )
         self.assertEqual(
-            trigger_workflow_data["jobs"]["trigger"]["if"],
+            trigger_workflow_data["jobs"]["head"]["if"],
             "${{ github.repository == 'microsoft/pyright' && ((github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark'))) }}",
+        )
+        self.assertEqual(trigger_workflow_data["jobs"]["trigger"]["needs"], "head")
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["trigger"]["if"],
+            "${{ needs.head.outputs.head-sha != '' }}",
+        )
+        self.assertEqual(
+            trigger_workflow_data["jobs"]["trigger"]["steps"][1]["env"][
+                "EXPECTED_HEAD_SHA"
+            ],
+            "${{ needs.head.outputs.head-sha }}",
         )
         self.assertNotIn("github.event.issue.state == 'open'", trigger_workflow)
         self.assertIn(
@@ -1056,7 +1077,7 @@ main().catch((error) => { console.error(error); process.exitCode = 1; });
                 "actions": "read",
                 "contents": "read",
                 "pull-requests": "read",
-                "checks": "write",
+                "statuses": "write",
             },
         )
         self.assertNotIn("actions: write", trigger_workflow)
@@ -1147,6 +1168,191 @@ main().catch((error) => { console.error(error); process.exitCode = 1; });
         self.assertNotIn("GITHUB_SHA", script)
         self.assertIn('git branch new_commit "$PRIMER_SHA"', script)
 
+    def test_primer_comment_validates_source_and_ignores_artifact_pr_number(self) -> None:
+        script = r"""
+const assert = require('assert').strict;
+const fs = require('fs');
+const YAML = require('yaml');
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const workflow = YAML.parse(fs.readFileSync('.github/workflows/mypy_primer_comment.yaml', 'utf8'));
+const steps = workflow.jobs.comment.steps;
+const download = steps.find((step) => step.id === 'download');
+const post = steps.find((step) => step.id === 'post-comment');
+assert.equal(steps[0].with.ref, '${{ github.workflow_sha }}');
+assert.equal(steps[0].with['persist-credentials'], false);
+assert.equal(workflow.permissions.actions, 'read');
+assert.equal(post.env.PR_NUMBER, '${{ steps.download.outputs.pr-number }}');
+assert.equal(post.env.PR_HEAD_SHA, '${{ steps.download.outputs.head-sha }}');
+assert.equal(steps.find((step) => step.name === 'Hide old comments').if,
+    "${{ steps.post-comment.outputs.result != '' }}");
+const repository = { id: 1, full_name: 'microsoft/pyright' };
+const headRepository = { id: 2, full_name: 'contributor/pyright', owner: { login: 'contributor' } };
+const headSha = 'a'.repeat(40);
+const run = {
+    id: 42, run_attempt: 1, event: 'workflow_run',
+    path: '.github/workflows/mypy_primer_pr.yaml', conclusion: 'success',
+    repository, display_title: 'Run mypy_primer after Validation #41',
+    run_started_at: '2026-01-01T00:00:00Z',
+};
+const validation = {
+    id: 41, name: 'Validation', path: '.github/workflows/validation.yml',
+    event: 'pull_request', conclusion: 'success', repository,
+    head_sha: headSha, head_branch: 'feature', head_repository: headRepository,
+    pull_requests: [{ number: 123 }],
+};
+const pullRequest = {
+    number: 123, state: 'open', base: { repo: repository },
+    head: { sha: headSha, ref: 'feature', repo: headRepository },
+};
+const artifacts = [...Array.from({ length: 8 }, (_, i) => `mypy_primer_diffs_${i}`),
+    'mypy_primer_diffs_pr_number'].map((name, id) => ({
+        id: id + 1, name, expired: false, size_in_bytes: 100,
+        created_at: '2026-01-01T00:01:00Z',
+    }));
+const context = {
+    repo: { owner: 'microsoft', repo: 'pyright' },
+    payload: { workflow_run: run },
+};
+async function check({ inventory = artifacts, current = pullRequest, beforePost = current, source = run } = {}) {
+    const outputs = {}, files = {}, downloads = [], comments = [];
+    let prLookups = 0;
+    const github = {
+        request: async (route, parameters) => {
+            if (route.endsWith('/artifacts')) return { data: { artifacts: inventory } };
+            return { data: parameters.run_id === 42 ? source : validation };
+        },
+        rest: {
+            actions: {
+                listWorkflowRunArtifacts: 'artifacts',
+                getWorkflowRun: async () => ({ data: validation }),
+                downloadArtifact: async ({ artifact_id }) => {
+                    downloads.push(artifact_id);
+                    return { data: Buffer.from('zip') };
+                },
+            },
+            pulls: {
+                list: 'pulls', listFiles: 'files',
+                get: async () => ({ data: ++prLookups === 1 ? current : beforePost }),
+            },
+            issues: { createComment: async (parameters) => comments.push(parameters) },
+        },
+        paginate: async (method) => {
+            if (method === 'artifacts') return inventory;
+            if (method === 'pulls') return [current];
+            if (method === 'files') return [];
+            throw new Error(`Unexpected pagination: ${method}`);
+        },
+    };
+    const mockedFs = {
+        mkdirSync: () => {},
+        writeFileSync: (name, contents) => { files[name] = contents; },
+        readFileSync: (name) => {
+            assert.equal(name, 'fulldiff.txt', 'Never read an artifact-provided PR number');
+            return 'untrusted diff';
+        },
+    };
+    const mockedRequire = (name) => name === 'fs' ? mockedFs : require(name);
+    const core = { setOutput: (name, value) => { outputs[name] = value; }, notice: () => {},
+        setFailed: (message) => { throw new Error(message); } };
+    await new AsyncFunction('github', 'context', 'core', 'require', download.with.script)(
+        github, context, core, mockedRequire
+    );
+    if (outputs['has-diffs']) {
+        process.env.PR_NUMBER = String(outputs['pr-number']);
+        process.env.PR_HEAD_SHA = outputs['head-sha'];
+        await new AsyncFunction('github', 'context', 'core', 'require', post.with.script)(
+            github, context, core, mockedRequire
+        );
+    }
+    return { outputs, files, downloads, comments };
+}
+(async () => {
+    process.env.RUNNER_TEMP = require('os').tmpdir();
+    const result = await check();
+    assert.equal(result.outputs['pr-number'], 123);
+    assert.deepEqual(result.downloads, [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.equal(result.comments[0].issue_number, 123);
+    for (const inventory of [
+        [...artifacts, { ...artifacts[0], id: 100 }],
+        [...artifacts, { ...artifacts[0], name: 'mypy_primer_diffs_extra' }],
+        artifacts.slice(1),
+    ]) {
+        await assert.rejects(check({ inventory }), /primer artifact/);
+    }
+    await assert.rejects(check({ source: { ...run, path: '.github/workflows/other.yml' } }),
+        /matching primer run/);
+    for (const current of [
+        { ...pullRequest, state: 'closed' },
+        { ...pullRequest, head: { ...pullRequest.head, sha: 'b'.repeat(40) } },
+        { ...pullRequest, head: { ...pullRequest.head, repo: { id: 99 } } },
+    ]) {
+        const stale = await check({ current });
+        assert.deepEqual(stale.downloads, []);
+        assert.deepEqual(stale.comments, []);
+    }
+    const changedBeforePosting = await check({
+        beforePost: { ...pullRequest, head: { ...pullRequest.head, sha: 'b'.repeat(40) } },
+    });
+    assert.equal(changedBeforePosting.downloads.length, 8);
+    assert.deepEqual(changedBeforePosting.comments, []);
+    assert.deepEqual(JSON.parse(changedBeforePosting.files['primer-analysis-context.json']), { skipped: true });
+    assert.deepEqual((await check({ inventory: [] })).comments, []);
+})().catch((error) => { console.error(error); process.exitCode = 1; });
+"""
+        subprocess.run(["node", "-e", script], cwd=REPO_ROOT, check=True)
+
+    def test_primer_comment_only_reads_bounded_expected_archive_entries(self) -> None:
+        import os
+        from zipfile import ZipFile
+
+        workflow = _load_yaml(
+            REPO_ROOT / ".github" / "workflows" / "mypy_primer_comment.yaml"
+        )
+        script = next(
+            step["run"]
+            for step in workflow["jobs"]["comment"]["steps"]
+            if step.get("shell") == "python"
+        )
+        for invalid_name, oversized in [
+            (None, False),
+            ("pr_number.txt", False),
+            ("../fulldiff.txt", False),
+            (None, True),
+        ]:
+            with self.subTest(name=invalid_name, oversized=oversized):
+                with tempfile.TemporaryDirectory() as temporary:
+                    directory = Path(temporary) / "primer-diffs"
+                    directory.mkdir()
+                    for shard in range(8):
+                        with ZipFile(directory / f"diff_{shard}.zip", "w") as archive:
+                            name = (
+                                invalid_name
+                                if shard == 0 and invalid_name
+                                else f"diff_{shard}.txt"
+                            )
+                            contents = (
+                                "x" * (8 * 1024 * 1024 + 1)
+                                if oversized and shard == 0
+                                else f"diff {shard}\n"
+                            )
+                            archive.writestr(name, contents)
+                    result = subprocess.run(
+                        ["python", "-c", script],
+                        cwd=temporary,
+                        env={**os.environ, "RUNNER_TEMP": temporary},
+                        capture_output=True,
+                        text=True,
+                    )
+                    if invalid_name or oversized:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn("Invalid primer shard archive", result.stderr)
+                    else:
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertEqual(
+                            (Path(temporary) / "fulldiff.txt").read_text(),
+                            "".join(f"diff {shard}\n" for shard in range(8)),
+                        )
+
     def test_validated_pr_resolution_and_benchmark_only_path_filter(self) -> None:
         script = r"""
 const assert = require('assert').strict;
@@ -1157,7 +1363,10 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const workflows = ['typecheck_benchmark_trigger.yml', 'mypy_primer_pr.yaml'].map(
     (name) => YAML.parse(fs.readFileSync(`.github/workflows/${name}`, 'utf8'))
 );
-async function check(runChanges = {}, prChanges = {}, filenames = [], script, requireSuccess = true) {
+async function check(
+    runChanges = {}, prChanges = {}, filenames = [], script, requireSuccess = true,
+    eventName = 'workflow_run', permission = 'write'
+) {
     const run = {
         name: 'Validation', path: '.github/workflows/validation.yml',
         event: 'pull_request', conclusion: 'success',
@@ -1175,8 +1384,9 @@ async function check(runChanges = {}, prChanges = {}, filenames = [], script, re
         setOutput: (name, value) => { outputs[name] = value; },
     };
     const context = {
-        eventName: 'workflow_run', repo: { owner: 'microsoft', repo: 'pyright' },
-        payload: { workflow_run: run },
+        eventName, actor: 'contributor', issue: { number: 7 },
+        repo: { owner: 'microsoft', repo: 'pyright' }, serverUrl: 'https://github.com', runId: 123,
+        payload: { workflow_run: run, comment: { body: '/benchmark' } },
     };
     const github = {
         rest: {
@@ -1185,20 +1395,22 @@ async function check(runChanges = {}, prChanges = {}, filenames = [], script, re
             },
             repos: {
                 getCommit: async () => ({ data: {
+                    sha: 'b'.repeat(40),
                     parents: [{ sha: 'c'.repeat(40) }, { sha: pr.head.sha }],
                 } }),
+                getCollaboratorPermissionLevel: async () => ({ data: { permission } }),
+                listCommitStatusesForRef: 'statuses',
+                createCommitStatus: async (parameters) => ({ data: { ...parameters, id: 42 } }),
             },
-            checks: {
-                listForRef: 'checks',
-                create: async (parameters) => ({ data: { ...parameters, id: 42 } }),
-            },
+            actions: { listWorkflowRuns: 'runs' },
         },
         paginate: async (method, parameters) => {
             if (method === 'list') {
                 assert.equal(parameters.head, 'external:feature');
                 return [pr];
             }
-            if (method === 'checks') return [];
+            if (method === 'statuses') return [];
+            if (method === 'runs') return [{ head_sha: pr.head.sha }];
             assert.equal(method, 'files');
             return filenames.map((filename) => ({ filename }));
         },
@@ -1212,6 +1424,7 @@ async function check(runChanges = {}, prChanges = {}, filenames = [], script, re
     return resolve({ github, context, core, requireSuccess });
 }
 (async () => {
+    process.env.EXPECTED_HEAD_SHA = 'a'.repeat(40);
     assert.equal((await check()).pullRequest.number, 7);
     for (const conclusion of ['failure', 'cancelled', null]) {
         assert.equal(await check({ conclusion }), undefined);
@@ -1252,6 +1465,12 @@ async function check(runChanges = {}, prChanges = {}, filenames = [], script, re
             'packages/pyright-internal/typeshed-fallback/stdlib/os.pyi',
         ], scripts[0]), undefined);
     }
+    const analyzer = ['packages/pyright-internal/src/analyzer/checker.ts'];
+    assert.equal(await check({}, {}, analyzer, scripts[0], true, 'issue_comment', 'write'), 7);
+    assert.equal(await check({}, {}, analyzer, scripts[0], true, 'issue_comment', 'read'), undefined);
+    process.env.EXPECTED_HEAD_SHA = 'd'.repeat(40);
+    assert.equal(await check({}, {}, analyzer, scripts[0]), undefined);
+    assert.equal(await check({}, {}, analyzer, scripts[0], true, 'issue_comment'), undefined);
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 """
         subprocess.run(["node", "-e", script], cwd=REPO_ROOT, check=True)
@@ -1265,15 +1484,22 @@ const report = require('./build/reportPullRequestCheck.js');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const load = (name) => YAML.parse(fs.readFileSync(`.github/workflows/${name}`, 'utf8'));
 const queue = load('pr_follow_up_checks.yml');
-assert.deepEqual(queue.on.pull_request_target, {
-    branches: ['main'], types: ['opened', 'synchronize', 'reopened'],
+assert.equal(queue.on.pull_request_target, undefined);
+assert.deepEqual(queue.on.workflow_run, {
+    workflows: ['Validation'], types: ['requested', 'in_progress', 'completed'],
 });
-assert.deepEqual(queue.on.workflow_run, { workflows: ['Validation'], types: ['completed'] });
-assert.equal(queue.permissions.checks, 'write');
+assert.equal(queue.permissions.statuses, 'write');
+assert.equal(queue.permissions.checks, undefined);
 assert.ok(queue.jobs.report.if.includes("github.event.workflow_run.conclusion != 'success'"));
+assert.ok(queue.jobs.report.if.includes("github.event.workflow_run.event == 'pull_request'"));
+assert.ok(queue.jobs.report.if.includes("github.event.workflow_run.path == '.github/workflows/validation.yml'"));
+assert.ok(queue.jobs.report.if.includes('github.event.workflow_run.repository.id == github.event.repository.id'));
+assert.equal(queue.jobs.report.steps[0].with.ref, '${{ github.workflow_sha }}');
+assert.equal(queue.jobs.report.steps[0].with['persist-credentials'], false);
 assert.deepEqual(queue.jobs.report.strategy.matrix.check, ['mypy_primer', 'Type checker benchmark']);
 assert.equal(queue.jobs.report.concurrency['cancel-in-progress'], false);
 assert.ok(queue.jobs.report.concurrency.group.includes('matrix.check'));
+assert.equal(queue.jobs.report.concurrency.queue, 'max');
 const workflows = [
     [load('mypy_primer_pr.yaml'), 'resolve', 'mypy_primer', 'RESOLVE_RESULT', 'PRIMER_RESULT'],
     [load('typecheck_benchmark_trigger.yml'), 'trigger', 'benchmark', 'TRIGGER_RESULT', 'BENCHMARK_RESULT'],
@@ -1284,9 +1510,16 @@ const context = {
 };
 let checks = [];
 let nextId = 1;
-const updates = [];
+let statuses = [];
+let nextStatusId = 1000;
+const pullRequest = {
+    number: 123, state: 'open', head: { sha: 'c'.repeat(40), repo: { id: 2 } },
+};
 const github = {
-    rest: { checks: {
+    rest: { pulls: {
+        list: 'pulls', listFiles: 'files',
+        get: async () => ({ data: pullRequest }),
+    }, checks: {
         listForRef: 'checks',
         create: async (parameters) => {
             if (parameters.status === 'completed') {
@@ -1305,11 +1538,21 @@ const github = {
             const check = checks.find((check) => check.id === parameters.check_run_id);
             assert.ok(check);
             Object.assign(check, parameters);
-            updates.push(parameters);
             return { data: check };
+        },
+    }, repos: {
+        listCommitStatusesForRef: 'statuses',
+        createCommitStatus: async (parameters) => {
+            assert.ok(parameters.description.length <= 140);
+            const status = { ...parameters, id: nextStatusId++ };
+            statuses.unshift(status);
+            return { data: status };
         },
     } },
     paginate: async (method, parameters) => {
+        if (method === 'pulls') return [pullRequest];
+        if (method === 'files') return [];
+        if (method === 'statuses') return statuses.filter((status) => status.sha === parameters.ref);
         assert.equal(method, 'checks');
         return checks.filter((check) =>
             check.head_sha === parameters.ref && check.name === parameters.check_name
@@ -1352,57 +1595,177 @@ const execute = async (script, eventContext = context) =>
     await report({ ...args, headSha: 'd'.repeat(40), status: 'completed', conclusion: 'skipped' });
     assert.equal(checks[0].conclusion, 'skipped');
 
+    const validationUrl = 'https://github.com/microsoft/pyright/actions/runs/600';
+    const statusArgs = { ...args, useCommitStatus: true, targetUrl: validationUrl };
+    const queuedId = await report(statusArgs);
+    assert.equal(statuses[0].id, queuedId);
+    assert.equal(statuses[0].state, 'pending');
+    assert.equal(statuses[0].target_url, validationUrl);
+    await report(statusArgs);
+    assert.equal(statuses.length, 1);
+    const firstRun = { ...context, runId: 111 };
+    const secondRun = { ...context, runId: 222 };
+    const firstStatusId = await report({
+        ...statusArgs, context: firstRun, status: 'in_progress', targetUrl: undefined, summary: 'Running.',
+    });
+    assert.equal(statuses[0].target_url, 'https://github.com/microsoft/pyright/actions/runs/111');
+    await report(statusArgs);
+    await report({ ...statusArgs, status: 'completed', conclusion: 'skipped', summary: 'Not run.' });
+    assert.equal(statuses.length, 2);
+    const secondStatusId = await report({
+        ...statusArgs, context: secondRun, status: 'in_progress', targetUrl: undefined, summary: 'Running.',
+    });
+    const countBeforeOldCompletion = statuses.length;
+    await report({
+        ...statusArgs, context: firstRun, status: undefined, targetUrl: undefined,
+        statusId: firstStatusId, conclusion: 'cancelled', summary: 'Cancelled.',
+    });
+    assert.equal(statuses.length, countBeforeOldCompletion);
+    await report({
+        ...statusArgs, context: secondRun, status: undefined, targetUrl: undefined,
+        statusId: secondStatusId, conclusion: 'success', summary: 'Succeeded.',
+    });
+    assert.equal(statuses[0].state, 'success');
+    assert.equal(statuses[0].target_url, 'https://github.com/microsoft/pyright/actions/runs/222');
+    await report({ ...statusArgs, headSha: 'b'.repeat(40) });
+    await report({
+        ...statusArgs, headSha: 'b'.repeat(40), status: 'completed',
+        conclusion: 'skipped', summary: 'Not run because Validation did not pass.',
+    });
+    assert.equal(statuses[0].state, 'success');
+    assert.equal(statuses[0].description, 'Not run because Validation did not pass.');
+    assert.equal(statuses[0].target_url, validationUrl);
+    await report({
+        ...statusArgs, headSha: 'd'.repeat(40), status: 'completed', targetUrl: undefined,
+        conclusion: 'skipped', summary: 'Not run.',
+    });
+    assert.equal(statuses[0].state, 'success');
+    assert.equal(statuses[0].target_url, 'https://github.com/microsoft/pyright/actions/runs/123');
+    await assert.rejects(() => report({
+        ...statusArgs, status: undefined, statusId: 'invalid', conclusion: 'success',
+    }), /invalid/);
+
+    const benchmarkWorkflow = workflows[1][0];
+    const headJob = benchmarkWorkflow.jobs.head;
+    assert.deepEqual(headJob.permissions, { 'pull-requests': 'read' });
+    assert.equal(benchmarkWorkflow.jobs.trigger.needs, 'head');
+    const headScript = headJob.steps[0].with.script;
+    const runHeadScript = async (eventContext) => {
+        const outputs = {};
+        await new AsyncFunction('github', 'context', 'core', headScript)(
+            github, eventContext, {
+                notice: () => {},
+                setOutput: (name, value) => { outputs[name] = value; },
+            }
+        );
+        return outputs;
+    };
+    assert.equal((await runHeadScript({
+        ...context, eventName: 'workflow_run', payload: { workflow_run: { head_sha: pullRequest.head.sha } },
+    }))['head-sha'], pullRequest.head.sha);
+    assert.equal((await runHeadScript({
+        ...context, eventName: 'issue_comment', issue: { number: pullRequest.number },
+        payload: { comment: { body: '/benchmark' } },
+    }))['head-sha'], pullRequest.head.sha);
+    assert.deepEqual(await runHeadScript({
+        ...context, eventName: 'issue_comment', issue: { number: pullRequest.number },
+        payload: { comment: { body: '/benchmark please' } },
+    }), {});
+
     for (const [workflow, resolveJob, workerJob, resolveEnv, workerEnv] of workflows) {
         const resolver = workflow.jobs[resolveJob];
         const reporter = workflow.jobs.report;
-        assert.equal(resolver.permissions.checks, 'write');
+        const name = resolveJob === 'resolve' ? 'mypy_primer' : 'Type checker benchmark';
+        assert.equal(resolver.permissions.statuses, 'write');
+        assert.equal(resolver.permissions.checks, undefined);
         assert.equal(resolver.concurrency['cancel-in-progress'], false);
-        assert.ok(resolver.concurrency.group.includes('github.event.workflow_run.head_sha'));
-        assert.ok(resolver.outputs['check-id']);
+        assert.equal(resolver.concurrency.queue, 'max');
+        assert.ok(resolver.concurrency.group.includes(
+            resolveJob === 'resolve' ? 'github.event.workflow_run.head_sha' : 'needs.head.outputs.head-sha'
+        ));
+        assert.ok(resolver.outputs['status-id']);
+        assert.ok(resolver.outputs['head-sha']);
         assert.deepEqual(reporter.needs, [resolveJob, workerJob]);
         assert.ok(reporter.if.includes('always()'));
-        assert.ok(reporter.if.includes(`needs.${resolveJob}.outputs.check-id != ''`));
-        assert.deepEqual(reporter.permissions, { contents: 'read', checks: 'write' });
+        assert.ok(reporter.if.includes(`needs.${resolveJob}.outputs.status-id != ''`));
+        assert.ok(reporter.concurrency.group.includes(`needs.${resolveJob}.outputs.head-sha`));
+        assert.equal(reporter.concurrency['cancel-in-progress'], false);
+        assert.equal(reporter.concurrency.queue, 'max');
+        const normalizeGroup = (group) => group.replace(/\$\{\{[^}]+\}\}/g, 'HEAD');
+        const queueGroup = queue.jobs.report.concurrency.group.replace('${{ matrix.check }}', name);
+        assert.equal(normalizeGroup(resolver.concurrency.group), normalizeGroup(queueGroup));
+        assert.equal(normalizeGroup(reporter.concurrency.group), normalizeGroup(queueGroup));
+        assert.deepEqual(reporter.permissions, { contents: 'read', statuses: 'write' });
         for (const job of [resolver, reporter]) {
             assert.equal(job.steps[0].with.ref, '${{ github.event.repository.default_branch }}');
             assert.equal(job.steps[0].with['persist-credentials'], false);
         }
         const step = reporter.steps[1];
-        assert.equal(step.env.CHECK_ID, '${{ needs.' + resolveJob + '.outputs.check-id }}');
+        assert.equal(step.env.STATUS_ID, '${{ needs.' + resolveJob + '.outputs.status-id }}');
+        assert.equal(step.env.HEAD_SHA, '${{ needs.' + resolveJob + '.outputs.head-sha }}');
         assert.equal(step.env[resolveEnv], '${{ needs.' + resolveJob + '.result }}');
         assert.equal(step.env[workerEnv], '${{ needs.' + workerJob + '.result }}');
-        for (const [resolveResult, workerResult, expected] of [
-            ['success', 'success', 'success'],
-            ['success', 'failure', 'failure'],
-            ['failure', 'skipped', 'failure'],
-            ['success', 'cancelled', 'cancelled'],
-            ['cancelled', 'skipped', 'cancelled'],
-            ['success', 'skipped', 'skipped'],
+        for (const [resolveResult, workerResult, conclusion, state] of [
+            ['success', 'success', 'success', 'success'],
+            ['success', 'failure', 'failure', 'failure'],
+            ['failure', 'skipped', 'failure', 'failure'],
+            ['success', 'cancelled', 'cancelled', 'error'],
+            ['cancelled', 'skipped', 'cancelled', 'error'],
+            ['success', 'skipped', 'skipped', 'success'],
         ]) {
-            process.env.CHECK_ID = String(rerunId);
+            process.env.HEAD_SHA = 'e'.repeat(40);
+            process.env.STATUS_ID = String(await report({
+                github, context, name, headSha: process.env.HEAD_SHA, useCommitStatus: true,
+                status: 'in_progress', summary: 'Running.',
+            }));
             process.env[resolveEnv] = resolveResult;
             process.env[workerEnv] = workerResult;
             await execute(step.with.script);
-            assert.equal(updates.at(-1).conclusion, expected);
+            assert.equal(statuses[0].state, state);
+            assert.ok(statuses[0].description.includes(conclusion));
+            assert.equal(statuses[0].target_url, 'https://github.com/microsoft/pyright/actions/runs/123');
         }
     }
     const primer = workflows[0][0].jobs.mypy_primer;
     const benchmark = load('typecheck_benchmark_pr.yml').jobs.benchmark;
     assert.deepEqual(primer.permissions, { contents: 'read' });
     assert.deepEqual(benchmark.permissions, { contents: 'read' });
-    assert.equal(queue.jobs.report.steps[0].with.ref, '${{ github.event.repository.default_branch }}');
-    assert.equal(queue.jobs.report.steps[0].with['persist-credentials'], false);
     const queueScript = queue.jobs.report.steps[1].with.script;
     assert.equal(queue.jobs.report.steps[1].env.CHECK_NAME, '${{ matrix.check }}');
-    for (const name of queue.jobs.report.strategy.matrix.check) {
-        process.env.CHECK_NAME = name;
-        await execute(queueScript, {
-            ...context, eventName: 'pull_request_target',
-            payload: { pull_request: { head: { sha: 'c'.repeat(40) } } },
-        });
+    const validation = {
+        name: 'Validation', path: '.github/workflows/validation.yml',
+        event: 'pull_request', conclusion: null,
+        repository: { full_name: 'microsoft/pyright' },
+        head_repository: { id: 2, owner: { login: 'contributor' } },
+        head_branch: 'feature', head_sha: pullRequest.head.sha,
+        html_url: validationUrl,
+    };
+    for (const action of ['requested', 'in_progress', 'completed']) {
+        for (const name of queue.jobs.report.strategy.matrix.check) {
+            process.env.CHECK_NAME = name;
+            await execute(queueScript, {
+                ...context, eventName: 'workflow_run',
+                payload: { action, workflow_run: {
+                    ...validation, conclusion: action === 'completed' ? 'failure' : null,
+                } },
+            });
+        }
+        for (const name of queue.jobs.report.strategy.matrix.check) {
+            const status = statuses.find((entry) => entry.sha === pullRequest.head.sha && entry.context === name);
+            assert.ok(status);
+            assert.equal(status.state, action === 'completed' ? 'success' : 'pending');
+            assert.equal(status.target_url, validationUrl);
+            assert.equal(status.description, action === 'completed'
+                ? 'Not run because Validation did not pass.'
+                : 'Waiting for Validation to pass.');
+        }
     }
-    assert.deepEqual(checks.slice(0, 2).map((check) => check.status), ['queued', 'queued']);
-    assert.deepEqual(checks.slice(0, 2).map((check) => check.head_sha), ['c'.repeat(40), 'c'.repeat(40)]);
+    const countBeforeStaleRun = statuses.length;
+    await execute(queueScript, {
+        ...context, eventName: 'workflow_run',
+        payload: { action: 'requested', workflow_run: { ...validation, head_sha: 'f'.repeat(40) } },
+    });
+    assert.equal(statuses.length, countBeforeStaleRun);
     await execute(queueScript, {
         ...context, eventName: 'workflow_run',
         payload: { workflow_run: {
@@ -1410,7 +1773,11 @@ const execute = async (script, eventContext = context) =>
             event: 'pull_request', conclusion: 'failure',
         } },
     });
-    assert.equal(checks[0].status, 'queued');
+    assert.equal(statuses.length, countBeforeStaleRun);
+    await assert.rejects(() => execute(queueScript, {
+        ...context, eventName: 'workflow_run',
+        payload: { action: 'requested', workflow_run: { ...validation, html_url: undefined } },
+    }), /missing its URL/);
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 """
         subprocess.run(["node", "-e", script], cwd=REPO_ROOT, check=True)
@@ -1472,7 +1839,9 @@ const execute = async (script, eventContext = context) =>
             history_render,
             {
                 "name": "Render comparison history charts",
+                "id": "render-history",
                 "if": "${{ steps.download.outputs.pr-number != '' }}",
+                "continue-on-error": True,
                 "run": "python build/benchmark/render_pyright_history.py \\\n  base.json \\\n  candidate.json \\\n  --existing-history docs/typecheck-benchmark/history/history.json \\\n  --candidate-label 'Base' \\\n  --candidate-label 'PR #${{ inputs.pr_number }}' \\\n  --candidate-statistic median \\\n  --output pr-history\n",
             },
         )
@@ -1489,8 +1858,8 @@ const execute = async (script, eventContext = context) =>
             {
                 "name": "Upload comparison history charts",
                 "id": "history",
-                "if": "${{ steps.download.outputs.pr-number != '' }}",
-                "uses": "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+                "if": "${{ steps.download.outputs.pr-number != '' && steps.render-history.outcome == 'success' }}",
+                "uses": "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
                 "with": {
                     "name": "typecheck-benchmark-history-pr-${{ inputs.pr_number }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}",
                     "path": "pr-history/",
@@ -1551,13 +1920,21 @@ const execute = async (script, eventContext = context) =>
         )
         self.assertEqual(comment_job["needs"], "aggregate")
         self.assertEqual(
+            comment_job["outputs"],
+            {"history-rendered": "${{ steps.render-history.outcome == 'success' }}"},
+        )
+        self.assertIn(
+            "Release history charts were not rendered for this run.",
+            post_comment["with"]["script"],
+        )
+        self.assertEqual(
             {
                 key: publish_job[key]
                 for key in ("needs", "if", "permissions", "uses")
             },
             {
                 "needs": "comment",
-                "if": "${{ needs.comment.result == 'success' && github.repository == 'microsoft/pyright' }}",
+                "if": "${{ needs.comment.result == 'success' && needs.comment.outputs.history-rendered == 'true' && github.repository == 'microsoft/pyright' }}",
                 "permissions": {
                     "actions": "read",
                     "contents": "read",

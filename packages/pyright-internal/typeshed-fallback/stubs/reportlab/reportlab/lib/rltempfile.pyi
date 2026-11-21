@@ -1,5 +1,4 @@
 def get_rl_tempdir(*subdirs: str) -> str: ...
 def get_rl_tempfile(fn: str | None = None) -> str: ...
 
-# The duplicate entry matches the runtime __all__.
-__all__ = ("get_rl_tempdir", "get_rl_tempdir")  # ruff: ignore[duplicate-entry-in-dunder-all]
+__all__ = ("get_rl_tempdir", "get_rl_tempfile")

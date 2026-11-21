@@ -13,6 +13,7 @@ import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_10, pythonVersion3_8, pythonVersion3_9 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { LocMessage } from '../localization/localize';
 import * as TestUtils from './testUtils';
 
 test('BadToken1', () => {
@@ -265,7 +266,17 @@ test('UnnecessaryIsInstance1', () => {
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
+    expect(
+        analysisResults[0].errors
+            .filter((diagnostic) => diagnostic.range.start.line === 18)
+            .map((diagnostic) => [diagnostic.getRule(), diagnostic.message])
+    ).toEqual([
+        [
+            DiagnosticRule.reportUnnecessaryIsInstance,
+            LocMessage.unnecessaryIsInstanceNever().format({ testType: 'int', classType: 'float' }),
+        ],
+    ]);
 });
 
 test('UnnecessaryIsInstance2', () => {
@@ -352,7 +363,17 @@ test('UnnecessaryIsSubclass1', () => {
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsSubclass1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
+    expect(
+        analysisResults[0].errors
+            .filter((diagnostic) => diagnostic.range.start.line === 11)
+            .map((diagnostic) => [diagnostic.getRule(), diagnostic.message])
+    ).toEqual([
+        [
+            DiagnosticRule.reportUnnecessaryIsInstance,
+            LocMessage.unnecessaryIsSubclassNever().format({ testType: 'type[int]', classType: 'float' }),
+        ],
+    ]);
 });
 
 test('UnnecessaryCast1', () => {
@@ -794,4 +815,14 @@ test('Deprecated8', () => {
     configOptions.diagnosticRuleSet.reportDeprecated = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated8.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 4);
+});
+
+test('TypeNarrowingContainer1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingContainer1.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingContainer2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingContainer2.py']);
+    TestUtils.validateResults(analysisResults, 1);
 });
