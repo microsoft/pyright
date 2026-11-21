@@ -2951,6 +2951,59 @@ function areDisjointBasesIncompatible(classType1: ClassType, classType2: ClassTy
     return !!base1 && !!base2 && !ClassType.getMostDerivedDisjointBase([base1, base2]);
 }
 
+export function narrowConstrainedTypeVarForSubclass(
+    evaluator: TypeEvaluator,
+    constraints: ClassType[],
+    filter: ClassType,
+    isPositiveTest: boolean,
+    errorNode: ParseNode
+): ClassType[] {
+    const metaclass = filter.shared.effectiveMetaclass;
+    // Only a known class with the default metaclass gives a reliable nominal test.
+    if (
+        (filter.priv.includeSubclasses && !ClassType.isFinal(filter)) ||
+        !metaclass ||
+        !isInstantiableClass(metaclass) ||
+        !ClassType.isBuiltIn(metaclass, 'type') ||
+        hasUnresolvedMetaclassInMro(filter) ||
+        ClassType.isIllegalIsinstanceClass(filter) ||
+        ClassType.isProtocolClass(filter) ||
+        ClassType.isTypedDictClass(filter)
+    ) {
+        return constraints;
+    }
+
+    return constraints.filter((constraint) => {
+        // A promotion can select a constraint without satisfying a runtime subclass test.
+        return someSubtypes(evaluator.expandPromotionTypes(errorNode, constraint), (subtype) => {
+            if (
+                !isClassInstance(subtype) ||
+                ClassType.derivesFromAnyOrUnknown(subtype) ||
+                ClassType.isProtocolClass(subtype) ||
+                ClassType.isTypedDictClass(subtype)
+            ) {
+                return true;
+            }
+
+            const subclass = ClassType.cloneAsInstantiable(subtype);
+            const derivesFromFilter = ClassType.isDerivedFrom(subclass, filter);
+            if (!isPositiveTest) {
+                return !derivesFromFilter;
+            }
+
+            // Unrelated classes can still share a subclass unless one of them
+            // is final or their disjoint bases are incompatible.
+            return (
+                derivesFromFilter ||
+                ClassType.isDerivedFrom(filter, subclass) ||
+                (!ClassType.isFinal(subclass) &&
+                    !ClassType.isFinal(filter) &&
+                    !areDisjointBasesIncompatible(subclass, filter))
+            );
+        });
+    });
+}
+
 // Fill gradual holes without replacing facts inferred from the guarded value.
 function fillTypeGuardGradualArgs(
     input: Type,
