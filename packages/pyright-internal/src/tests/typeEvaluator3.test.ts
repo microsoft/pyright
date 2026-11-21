@@ -50,7 +50,17 @@ test('Ellipsis1', () => {
 test('NotImplemented1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['notImplemented1.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportOperatorIssue);
+});
+
+test('FinalAnyNarrowing', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['finalAnyNarrowing.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 1);
+    assert.strictEqual(analysisResults[0].errors[0].getRule(), DiagnosticRule.reportReturnType);
 });
 
 test('Generator1', () => {

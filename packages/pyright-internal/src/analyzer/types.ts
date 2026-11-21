@@ -725,6 +725,9 @@ export const enum ClassTypeFlags {
 
     // An explicit metaclass expression could not be resolved to a class type.
     HasUnresolvedMetaclass = 1 << 27,
+
+    // The class bases are the typing.Any special form and explicit or implicit object.
+    HasOnlyAnyAndObjectBases = 1 << 28,
 }
 
 export interface DataClassBehaviors {

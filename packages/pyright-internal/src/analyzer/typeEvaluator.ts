@@ -12259,6 +12259,7 @@ export function createTypeEvaluator(
             let genericTypeParams: TypeVarType[] | undefined;
             let protocolTypeParams: TypeVarType[] | undefined;
             let isNamedTupleSubclass = false;
+            let hasExplicitAnyBase = false;
 
             const initSubclassArgs: Arg[] = [];
             let metaclassNode: ExpressionNode | undefined;
@@ -12314,6 +12315,7 @@ export function createTypeEvaluator(
                     // Any is allowed as a base class. Remove its "special form" flag to avoid
                     // false positive errors.
                     if (isAny(argType) && argType.props?.specialForm) {
+                        hasExplicitAnyBase = true;
                         argType = AnyType.create();
                     }
 
@@ -12660,6 +12662,14 @@ export function createTypeEvaluator(
             ) {
                 // If there are no other (known) base classes, the class implicitly derives from object.
                 classType.shared.baseClasses.push(getBuiltInType(node, 'object'));
+            }
+
+            if (
+                hasExplicitAnyBase &&
+                classType.shared.baseClasses.length === 2 &&
+                classType.shared.baseClasses.some((base) => isClass(base) && ClassType.isBuiltIn(base, 'object'))
+            ) {
+                classType.shared.flags |= ClassTypeFlags.HasOnlyAnyAndObjectBases;
             }
 
             // If genericTypeParams or protocolTypeParams are provided,

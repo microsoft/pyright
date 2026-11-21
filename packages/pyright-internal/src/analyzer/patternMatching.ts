@@ -38,6 +38,7 @@ import { getTypedDictMembersForClass } from './typedDicts';
 import { EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     enumerateLiteralsForType,
+    isDisjointFromFinalAnyClass,
     narrowTypeForDiscriminatedDictEntryComparison,
     narrowTypeForDiscriminatedLiteralFieldComparison,
     narrowTypeForDiscriminatedTupleComparison,
@@ -1007,7 +1008,11 @@ function narrowTypeBasedOnClassPattern(
                     return undefined;
                 }
 
-                if (!evaluator.assignType(classInstance, subjectSubtypeExpanded)) {
+                if (
+                    (isClassInstance(subjectSubtypeExpanded) &&
+                        isDisjointFromFinalAnyClass(subjectSubtypeExpanded, classType, /* isInstanceCheck */ true)) ||
+                    !evaluator.assignType(classInstance, subjectSubtypeExpanded)
+                ) {
                     return subjectSubtypeExpanded;
                 }
 
@@ -1178,11 +1183,17 @@ function narrowTypeBasedOnClassPattern(
                     if (isClassInstance(subjectSubtypeExpanded)) {
                         let resultType: Type;
 
-                        if (evaluator.assignType(ClassType.cloneAsInstance(expandedSubtype), subjectSubtypeExpanded)) {
-                            resultType = subjectSubtypeExpanded;
-                        } else if (
-                            evaluator.assignType(subjectSubtypeExpanded, ClassType.cloneAsInstance(expandedSubtype))
+                        if (
+                            isDisjointFromFinalAnyClass(
+                                subjectSubtypeExpanded,
+                                expandedSubtype,
+                                /* isInstanceCheck */ true
+                            )
                         ) {
+                            return undefined;
+                        } else if (evaluator.assignType(expandedSubtypeInstance, subjectSubtypeExpanded)) {
+                            resultType = subjectSubtypeExpanded;
+                        } else if (evaluator.assignType(subjectSubtypeExpanded, expandedSubtypeInstance)) {
                             resultType = addConditionToType(
                                 convertToInstance(unexpandedSubtype),
                                 getTypeCondition(subjectSubtypeExpanded)

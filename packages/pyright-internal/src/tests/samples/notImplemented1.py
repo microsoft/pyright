@@ -1,6 +1,6 @@
-# This sample validates narrowing and magic method resolution for
-# types.NotImplementedType.
+# This sample validates narrowing and the use of NotImplementedType in operators.
 
+from typing import TypeVar
 from types import EllipsisType, NotImplementedType
 
 
@@ -8,7 +8,7 @@ def check1(val: int | str | NotImplementedType):
     if isinstance(val, int):
         reveal_type(val, expected_text="int")
 
-    # This should generate an error for both str and NotImplementedType.
+    # This should generate an error because str does not support addition with int.
     _ = val + 2
 
 
@@ -20,9 +20,8 @@ def check2(val: int | str | EllipsisType):
 def check3(val: int | NotImplementedType):
     if isinstance(val, int):
         reveal_type(val, expected_text="int")
-
-    # This should generate an error for NotImplementedType.
-    _ = val + 2
+    else:
+        reveal_type(val, expected_text="NotImplementedType")
 
 
 def check4(val: NotImplementedType):
@@ -30,10 +29,25 @@ def check4(val: NotImplementedType):
         reveal_type(val, expected_text="NotImplementedType")
 
 
-class AcceptsObject:
-    def __radd__(self, other: object) -> str:
+class AcceptsSingleton:
+    def __contains__(self, value: NotImplementedType) -> bool:
+        return value is NotImplemented
+
+    def __add__(self, other: NotImplementedType) -> str:
         return ""
 
 
-# The reflected method can still explicitly accept NotImplemented as an object.
-reveal_type(NotImplemented + AcceptsObject(), expected_text="str")
+T = TypeVar("T")
+
+
+class WrapsOperand:
+    def __add__(self, other: T) -> list[T]:
+        return [other]
+
+
+def check_operators(value: NotImplementedType):
+    reveal_type(value in AcceptsSingleton(), expected_text="bool")
+    reveal_type(AcceptsSingleton() + value, expected_text="str")
+    result = WrapsOperand() + value
+    reveal_type(result, expected_text="list[NotImplementedType]")
+    reveal_type(WrapsOperand().__add__(value), expected_text="list[NotImplementedType]")

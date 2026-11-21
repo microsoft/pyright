@@ -1057,6 +1057,38 @@ export function getIsInstanceClassTypes(
     return TypeEvaluatorNarrowing.getIsInstanceClassTypes(evaluator, argType, argExpr);
 }
 
+export function isDisjointFromFinalAnyClass(
+    subjectType: ClassType,
+    filterType: ClassType,
+    isInstanceCheck: boolean
+): boolean {
+    const flags = ClassTypeFlags.Final | ClassTypeFlags.HasOnlyAnyAndObjectBases;
+    const subjectIsFinalAny = (subjectType.shared.flags & flags) === flags;
+    const filterIsFinalAny = (filterType.shared.flags & flags) === flags;
+    if (!subjectIsFinalAny && !filterIsFinalAny) {
+        return false;
+    }
+
+    // A final class whose only bases are typing.Any and object cannot have a
+    // nominal relationship with another concrete class (other than object).
+    // Keep ordinary assignability and runtime checks with non-nominal filters.
+    return (
+        TypeBase.getInstantiableDepth(subjectType) === 0 &&
+        TypeBase.getInstantiableDepth(filterType) === 0 &&
+        !ClassType.isProtocolClass(subjectType) &&
+        !ClassType.isProtocolClass(filterType) &&
+        !ClassType.isSpecialBuiltIn(subjectType) &&
+        !ClassType.isSpecialBuiltIn(filterType) &&
+        !ClassType.isBuiltIn(subjectType, 'object') &&
+        !ClassType.isBuiltIn(filterType, 'object') &&
+        !ClassType.isSameGenericClass(ClassType.cloneAsInstance(subjectType), ClassType.cloneAsInstance(filterType)) &&
+        ((subjectIsFinalAny && filterIsFinalAny) ||
+            !ClassType.derivesFromAnyOrUnknown(subjectIsFinalAny ? filterType : subjectType)) &&
+        !(filterType.shared.flags & ClassTypeFlags.HasUnresolvedMetaclass) &&
+        !customMetaclassSupportsMethod(filterType, isInstanceCheck ? '__instancecheck__' : '__subclasscheck__')
+    );
+}
+
 export function narrowTypeForInstanceOrSubclass(
     evaluator: TypeEvaluator,
     type: Type,
@@ -1115,6 +1147,7 @@ function narrowTypeForInstanceOrSubclassInternal(
             evaluator,
             adjSubtype,
             adjFilterTypes,
+            isInstanceCheck,
             isTypeIsCheck,
             isPositiveTest,
             allowIntersections,
@@ -1147,6 +1180,7 @@ function narrowTypeForInstance(
     evaluator: TypeEvaluator,
     type: Type,
     filterTypes: Type[],
+    isInstanceCheck: boolean,
     isTypeIsCheck: boolean,
     isPositiveTest: boolean,
     allowIntersections: boolean,
@@ -1252,7 +1286,14 @@ function narrowTypeForInstance(
                     }
                 }
 
-                let filterIsSuperclass = evaluator.assignType(
+                if (
+                    !isTypeIsCheck &&
+                    isDisjointFromFinalAnyClass(runtimeVarType, concreteFilterType, isInstanceCheck)
+                ) {
+                    continue;
+                }
+
+                const filterIsSuperclass = evaluator.assignType(
                     filterType,
                     runtimeVarType,
                     /* diag */ undefined,
@@ -1268,31 +1309,15 @@ function narrowTypeForInstance(
                     AssignTypeFlags.AllowIsinstanceSpecialForms | AssignTypeFlags.AllowProtocolClassSource
                 );
 
+                if (filterIsSuperclass) {
+                    foundSuperclass = true;
+                }
+
                 // Special-case the TypeForm special form. This represents a variety
                 // of runtime classes that will not appear to overlap with TypeForm.
                 if (ClassType.isBuiltIn(runtimeVarType, 'TypeForm')) {
                     isClassRelationshipIndeterminate = true;
                     filterIsSubclass = true;
-                }
-
-                // NotImplementedType derives from Any in typeshed so the NotImplemented
-                // singleton can be used as the result of arbitrary binary methods. At
-                // runtime it is a final class derived directly from object, so don't let
-                // the synthetic Any base prevent normal isinstance narrowing.
-                if (
-                    runtimeVarType.shared.fullName === 'types.NotImplementedType' &&
-                    !ClassType.isSameGenericClass(runtimeVarType, concreteFilterType) &&
-                    !ClassType.isBuiltIn(concreteFilterType, 'object') &&
-                    !ClassType.isProtocolClass(concreteFilterType) &&
-                    !customMetaclassSupportsMethod(concreteFilterType, '__instancecheck__')
-                ) {
-                    filterIsSuperclass = false;
-                    filterIsSubclass = false;
-                    isClassRelationshipIndeterminate = false;
-                }
-
-                if (filterIsSuperclass) {
-                    foundSuperclass = true;
                 }
 
                 // Normally, a type should never be both a subclass and a superclass.
