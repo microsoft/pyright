@@ -1300,6 +1300,17 @@ export function createEvaluatorCore(contextDependencies: Context) {
             return true;
         }
 
+        if (assignmentNode.d.rightExpr.nodeType === ParseNodeType.Call) {
+            const calleeType = getTypeOfExpression(assignmentNode.d.rightExpr.d.leftExpr).type;
+            if (
+                isFunction(calleeType) &&
+                calleeType.shared.declaredReturnType &&
+                !isPartlyUnknown(calleeType.shared.declaredReturnType)
+            ) {
+                return true;
+            }
+        }
+
         return false;
     }
 
