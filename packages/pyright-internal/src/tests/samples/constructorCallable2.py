@@ -126,6 +126,16 @@ reveal_type(r7(0), expected_text="Class7[int]")
 reveal_type(r7(""), expected_text="Class7[str]")
 
 
+class Class7Sub[A, B](Class7[B]): ...
+
+
+r7_sub = accepts_callable(Class7Sub)
+reveal_type(
+    r7_sub,
+    expected_text="Overload[(x: int) -> Class7Sub[Unknown, int], (x: str) -> Class7Sub[Unknown, str]]",
+)
+
+
 class Class8(Generic[T]):
     def __new__(cls, x: T, y: list[T]) -> Self:
         return super().__new__(cls)
@@ -161,3 +171,66 @@ class Class10(metaclass=Meta2):
 r10 = accepts_callable(Class10)
 reveal_type(r10, expected_text="(x: int, y: str) -> Class10")
 reveal_type(r10(1, ""), expected_text="Class10")
+
+
+class Class11[T, U]:
+    def __init__[V](self: "Class11[V, int]", x: V) -> None: ...
+
+
+class Class11Sub[A, B](Class11[A, B]): ...
+
+
+class Class11Nested[A](Class11[list[A], int]): ...
+
+
+r11_sub = accepts_callable(Class11Sub)
+reveal_type(r11_sub, expected_text="(x: V@__init__) -> Class11Sub[V@__init__, int]")
+
+r11_nested = accepts_callable(Class11Nested)
+reveal_type(r11_nested, expected_text="(x: list[A@Class11Nested]) -> Class11Nested[A@Class11Nested]")
+reveal_type(r11_nested([1]), expected_text="Class11Nested[int]")
+
+
+class Class12[T, U]:
+    first: T
+    second: U
+
+    def __init__(self: "Class12[int, str]", x: int) -> None: ...
+
+
+class Class12Repeat[A](Class12[A, A]): ...
+
+
+r12 = accepts_callable(Class12Repeat)
+reveal_type(r12, expected_text="(x: int) -> Class12[int, str]")
+
+
+class Class13[T, U]:
+    first: T
+    second: U
+
+    @overload
+    def __init__(self: "Class13[int, str]", x: int) -> None: ...
+    @overload
+    def __init__(self: "Class13[str, int]", x: str) -> None: ...
+    def __init__(self, x: int | str) -> None: ...
+
+
+class Class13Repeat[A](Class13[A, A]): ...
+
+
+r13 = accepts_callable(Class13Repeat)
+reveal_type(
+    r13, expected_text="Overload[(x: int) -> Class13[int, str], (x: str) -> Class13[str, int]]"
+)
+
+
+class Class14[T]:
+    def __init__[V](self: "Class14[V]", value: V) -> None: ...
+
+
+class Class14Sub[A](Class14[A]):
+    @classmethod
+    def method1(cls) -> None:
+        r14 = accepts_callable(cls)
+        reveal_type(r14, expected_text="(value: A@Class14Sub) -> Self@Class14Sub[A@Class14Sub]")

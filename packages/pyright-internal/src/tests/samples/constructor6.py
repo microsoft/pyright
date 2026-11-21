@@ -85,3 +85,83 @@ class Class3(Generic[_T3, _T4]):
     # This should generate an error because class-scoped TypeVars are not
     # allowed in the "self" type annotation for an __init__ method.
     def __init__(self: "Class3[_T3, _T4]", value1: _T3, value2: _T4) -> None: ...
+
+
+class TextFieldSub[T: str | None](TextField[T]): ...
+
+
+reveal_type(TextFieldSub(null=True), expected_text="TextFieldSub[str | None]")
+
+
+class Class1Sub[A, B, C](Class1[C, B]): ...
+
+
+reveal_type(Class1Sub(0, ""), expected_text="Class1Sub[Unknown, str, int]")
+
+
+class DictSub[K, V](dict[K, V]): ...
+
+
+reveal_type(DictSub(a=1), expected_text="DictSub[str, int]")
+
+
+class IntKeyedDict[V](dict[int, V]): ...
+
+
+# This should generate an error.
+IntKeyedDict(a=1)
+
+
+class Class4[T]:
+    value: T
+
+    def __init__[V](self: "Class4[V]", value: V) -> None: ...
+
+
+class Class4Sub[A](Class4[list[A]]): ...
+
+
+reveal_type(Class4Sub([1]), expected_text="Class4Sub[int]")
+
+
+class Class4Bounded[A: str | None](Class4[A]): ...
+
+
+reveal_type(Class4Bounded(""), expected_text="Class4Bounded[str]")
+
+# This should generate an error.
+Class4Bounded(1)
+
+
+class Class4Optional[A](Class4[A | None]): ...
+
+
+reveal_type(Class4Optional(1), expected_text="Class4Optional[int]")
+
+
+class Class5[T = str]:
+    def __init__[V](self: "Class5[V]") -> None: ...
+
+
+class Class5Sub[A = str](Class5[A]): ...
+
+
+reveal_type(Class5(), expected_text="Class5[str]")
+reveal_type(Class5Sub(), expected_text="Class5Sub[str]")
+
+
+class Class6[T = str, U = bytes]:
+    def __init__[V, W](self: "Class6[V, W]", value: V) -> None: ...
+
+
+reveal_type(Class6(1), expected_text="Class6[int, bytes]")
+
+
+class Class7[T, U]:
+    def __init__[V](self: "Class7[V, V]", value: V) -> None: ...
+
+
+class Class7Sub[A, B](Class7[A, B]): ...
+
+
+reveal_type(Class7Sub(1), expected_text="Class7Sub[int, int]")
