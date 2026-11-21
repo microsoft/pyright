@@ -3213,8 +3213,8 @@ export class Binder extends ParseTreeWalker {
             return node.antecedents[0];
         }
 
-        // Exclude unreachable antecedents because code flow analysis
-        // never traverses them.
+        // Don't count unreachable antecedents. Code flow analysis stops
+        // when it reaches one, so they add no paths.
         const reachableAntecedentCount = node.antecedents.filter(
             (antecedent) =>
                 !(antecedent.flags & (FlowFlags.UnreachableStructural | FlowFlags.UnreachableStaticCondition))

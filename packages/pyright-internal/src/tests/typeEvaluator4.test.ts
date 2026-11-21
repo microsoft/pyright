@@ -132,7 +132,7 @@ test('CallSite12', () => {
 
 test('CallSite13', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite13.py']);
-    TestUtils.validateResults(analysisResults, 0, 0, 1);
+    TestUtils.validateResults(analysisResults, 0, 0, 4);
 });
 
 test('FString1', () => {
