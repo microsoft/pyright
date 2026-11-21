@@ -52,7 +52,11 @@ import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment, narrowForKeyDeletion } from './typedDicts';
 import { EvalFlags, Reachability, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
-import { applyTypeNarrowingCallback, getTypeNarrowingCallback } from './typeGuards';
+import {
+    applyTypeNarrowingCallback,
+    getTypeNarrowingCallback,
+    narrowConstrainedTypeVarForSubclass,
+} from './typeGuards';
 import {
     ClassType,
     combineTypes,
@@ -74,6 +78,7 @@ import {
     NeverType,
     OverloadedType,
     Type,
+    TypeBase,
     TypeVarType,
     UnboundType,
     UnknownType,
@@ -1800,8 +1805,7 @@ export function getCodeFlowEngine(
     }
 
     // Determines whether the specified typeVar, which is assumed to be constrained,
-    // can be narrowed to one of its constrained types based on isinstance type
-    // guard checks.
+    // can be narrowed to one of its constrained types based on type guard checks.
     function narrowConstrainedTypeVar(flowNode: FlowNode, typeVar: TypeVarType): ClassType | undefined {
         assert(!isParamSpec(typeVar));
         assert(!isTypeVarTuple(typeVar));
@@ -1902,7 +1906,7 @@ export function getCodeFlowEngine(
                     continue;
                 }
 
-                // Handle an isinstance type guard.
+                // Handle isinstance and issubclass type guards.
                 if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
                     const conditionFlowNode = curFlowNode as FlowCondition;
                     const testExpression = conditionFlowNode.expression;
@@ -1911,14 +1915,37 @@ export function getCodeFlowEngine(
                     if (
                         testExpression.nodeType === ParseNodeType.Call &&
                         testExpression.d.leftExpr.nodeType === ParseNodeType.Name &&
-                        testExpression.d.leftExpr.d.value === 'isinstance' &&
+                        (testExpression.d.leftExpr.d.value === 'isinstance' ||
+                            testExpression.d.leftExpr.d.value === 'issubclass') &&
                         testExpression.d.args.length === 2
                     ) {
-                        const arg0Expr = testExpression.d.args[0].d.valueExpr;
+                        const [arg0, arg1] = testExpression.d.args;
+                        const arg0Type = evaluator.getTypeOfExpression(arg0.d.valueExpr).type;
+                        const isSubclassCheck = testExpression.d.leftExpr.d.value === 'issubclass';
+                        const matchesTypeVar = isSubclassCheck
+                            ? isTypeVar(arg0Type) &&
+                              TypeBase.isInstantiable(arg0Type) &&
+                              isTypeSame(TypeVarType.cloneAsInstance(arg0Type), typeVar)
+                            : isCompatibleWithConstrainedTypeVar(arg0Type, typeVar);
 
-                        const arg0Type = evaluator.getTypeOfExpression(arg0Expr).type;
+                        if (matchesTypeVar && isSubclassCheck) {
+                            const callType = evaluator.getTypeOfExpression(
+                                testExpression.d.leftExpr,
+                                EvalFlags.CallBaseDefaults
+                            ).type;
+                            if (
+                                !isFunction(callType) ||
+                                !FunctionType.isBuiltIn(callType, 'issubclass') ||
+                                testExpression.d.args.some(
+                                    (arg) => arg.d.argCategory !== ArgCategory.Simple || arg.d.name
+                                )
+                            ) {
+                                curFlowNode = conditionFlowNode.antecedent;
+                                continue;
+                            }
+                        }
 
-                        if (isCompatibleWithConstrainedTypeVar(arg0Type, typeVar)) {
+                        if (matchesTypeVar) {
                             // Prevent infinite recursion by noting that we've been here before.
                             visitedFlowNodeMap.add(curFlowNode.id);
                             const priorRemainingConstraints = narrowConstrainedTypeVarRecursive(
@@ -1927,7 +1954,7 @@ export function getCodeFlowEngine(
                             );
                             visitedFlowNodeMap.delete(curFlowNode.id);
 
-                            const arg1Expr = testExpression.d.args[1].d.valueExpr;
+                            const arg1Expr = arg1.d.valueExpr;
                             const arg1Type = evaluator.getTypeOfExpression(
                                 arg1Expr,
                                 EvalFlags.AllowMissingTypeArgs |
@@ -1939,6 +1966,16 @@ export function getCodeFlowEngine(
                             ).type;
 
                             if (isInstantiableClass(arg1Type)) {
+                                if (isSubclassCheck) {
+                                    return narrowConstrainedTypeVarForSubclass(
+                                        evaluator,
+                                        priorRemainingConstraints,
+                                        arg1Type,
+                                        isPositiveTest,
+                                        testExpression
+                                    );
+                                }
+
                                 return priorRemainingConstraints.filter((subtype) => {
                                     if (ClassType.isSameGenericClass(subtype, ClassType.cloneAsInstance(arg1Type))) {
                                         return isPositiveTest;

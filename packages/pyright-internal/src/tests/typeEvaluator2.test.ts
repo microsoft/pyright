@@ -601,6 +601,18 @@ test('ConstrainedTypeVar13', () => {
     TestUtils.validateResults(analysisResults, 5);
 });
 
+test('ConstrainedTypeVarIssubclass', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constrainedTypeVarIssubclass.py']);
+    TestUtils.validateResults(analysisResults, 8);
+    assert.deepStrictEqual(
+        analysisResults[0].errors
+            .slice()
+            .sort((left, right) => left.range.start.line - right.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [41, 51, 61, 74, 95, 96, 105, 122].map((line) => [line, DiagnosticRule.reportReturnType])
+    );
+});
+
 test('ConstrainedTypeVar14', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constrainedTypeVar14.py']);
 

@@ -124,3 +124,10 @@ def func5(t: _T3) -> _T3:
         return B()
     elif isinstance(t, C):
         return C()
+
+
+def func6(t: type[_T1]) -> _T1:
+    if issubclass(t, str):
+        return ""
+    else:
+        return 0
