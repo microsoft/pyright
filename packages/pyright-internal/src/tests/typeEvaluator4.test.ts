@@ -37,7 +37,7 @@ test('Final2', () => {
 
 test('Final3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final3.py']);
-    TestUtils.validateResults(analysisResults, 41);
+    TestUtils.validateResults(analysisResults, 42);
 });
 
 test('Final4', () => {
@@ -57,6 +57,11 @@ test('Final6', () => {
 
 test('Final8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final8.py']);
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('Final9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final9.py']);
     TestUtils.validateResults(analysisResults, 4);
 });
 

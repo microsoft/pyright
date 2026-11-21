@@ -889,9 +889,13 @@ export function createSpecialFormCreation(context: Context) {
         flags: EvalFlags
     ): Type {
         if (flags & (EvalFlags.NoFinal | EvalFlags.TypeFormArg)) {
-            if ((flags & (EvalFlags.TypeExpression | EvalFlags.TypeFormArg)) !== 0) {
-                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.finalContext(), errorNode);
-            }
+            // "Final" is not allowed in this context. Unlike the other
+            // special forms checked here, this must not depend on the
+            // TypeExpression flag: base class arguments and constructor
+            // call type arguments are evaluated without it, and a nested
+            // "Final" is invalid in those positions just as it is in a
+            // variable annotation.
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.finalContext(), errorNode);
             return (flags & EvalFlags.TypeFormArg) !== 0 ? UnknownType.create() : classType;
         }
 
