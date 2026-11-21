@@ -1368,6 +1368,20 @@ test('StaticExpression2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('StaticExpression3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonPlatform = 'Linux';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(
+        ['staticExpression4.py', 'staticExpression3.py'],
+        configOptions
+    );
+
+    assert.strictEqual(analysisResults.length, 2);
+    assert.strictEqual(analysisResults[0].errors.length, 6);
+    assert.strictEqual(analysisResults[1].errors.length, 0);
+});
+
 test('StaticExpressionLiteral1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['staticExpressionLiteral1.py']);
 
