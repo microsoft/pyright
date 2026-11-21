@@ -318,3 +318,10 @@ def func33(x: bytes | int, s: Sequence[int] | list[int]):
 def func34[*Ts](x: int | None, c: tuple[*Ts] | list[int]):
     if x in c:
         reveal_type(x, expected_text="int | None")
+
+
+def func35(x: object):
+    y = None
+    if x in (int, str):
+        y = x
+    reveal_type(y, expected_text="type[int] | type[str] | None")

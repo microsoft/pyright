@@ -88,6 +88,7 @@ import {
 import {
     applySolvedTypeVars,
     ApplyTypeVarOptions,
+    ClassMember,
     convertToInstance,
     derivesFromClassRecursive,
     derivesFromStdlibClass,
@@ -1372,6 +1373,65 @@ export function createEvaluatorCore(contextDependencies: Context) {
         );
     }
 
+    function lookUpEqOperatorOverload(type: Type): ClassMember | undefined {
+        let classType: ClassType | undefined;
+        if (isInstantiableClass(type)) {
+            const metaclass = type.shared.effectiveMetaclass;
+            classType = metaclass && isClass(metaclass) ? metaclass : undefined;
+        } else if (isClassInstance(type)) {
+            classType = ClassType.cloneAsInstantiable(type);
+        }
+
+        if (!classType) {
+            return undefined;
+        }
+
+        const eqMethod = lookUpClassMember(
+            classType,
+            '__eq__',
+            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
+        );
+
+        if (!eqMethod) {
+            return undefined;
+        }
+
+        // If this is a synthesized method for a dataclass, we can assume
+        // that other dataclass types will not be comparable.
+        if (ClassType.isDataClass(classType) && eqMethod.symbol.getSynthesizedType()) {
+            return undefined;
+        }
+
+        // An instance variable declared in the class body without a value
+        // doesn't set a class attribute, so the comparison never calls it.
+        const decls = eqMethod.symbol.getDeclarations();
+        if (
+            !eqMethod.isClassVar &&
+            decls.length > 0 &&
+            decls.every(
+                (decl) =>
+                    decl.type === DeclarationType.Variable && (decl.isDefinedByMemberAccess || !decl.inferredTypeSource)
+            )
+        ) {
+            return undefined;
+        }
+
+        return eqMethod;
+    }
+
+    function hasEqOperatorOverload(leftType: Type, rightType: Type, assumeIsOperator: boolean) {
+        if (lookUpEqOperatorOverload(leftType)) {
+            return true;
+        }
+
+        if (assumeIsOperator) {
+            return false;
+        }
+
+        const eqMethod = lookUpEqOperatorOverload(rightType);
+        return !!eqMethod && !(isClass(eqMethod.classType) && ClassType.isBuiltIn(eqMethod.classType));
+    }
+
     function isTypeComparable(leftType: Type, rightType: Type, assumeIsOperator = false) {
         if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
             return true;
@@ -1399,10 +1459,7 @@ export function createEvaluatorCore(contextDependencies: Context) {
         }
 
         if (isInstantiableClass(leftType) || (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'type'))) {
-            if (
-                isInstantiableClass(rightType) ||
-                (isClassInstance(rightType) && ClassType.isBuiltIn(rightType, 'type'))
-            ) {
+            if (isClass(rightType)) {
                 const genericLeftType = ClassType.specialize(leftType, /* typeArgs */ undefined);
                 const genericRightType = ClassType.specialize(rightType, /* typeArgs */ undefined);
 
@@ -1411,15 +1468,8 @@ export function createEvaluatorCore(contextDependencies: Context) {
                 }
             }
 
-            // Does the class have an operator overload for eq?
-            const metaclass = leftType.shared.effectiveMetaclass;
-            if (metaclass && isClass(metaclass)) {
-                if (lookUpClassMember(metaclass, '__eq__', MemberAccessFlags.SkipObjectBaseClass)) {
-                    return true;
-                }
-            }
-
-            return false;
+            // Does either operand have an operator overload for eq?
+            return hasEqOperatorOverload(leftType, rightType, assumeIsOperator);
         }
 
         if (isClassInstance(leftType)) {
@@ -1499,24 +1549,8 @@ export function createEvaluatorCore(contextDependencies: Context) {
                 }
             }
 
-            // Does the class have an operator overload for eq?
-            const eqMethod = lookUpClassMember(
-                ClassType.cloneAsInstantiable(leftType),
-                '__eq__',
-                MemberAccessFlags.SkipObjectBaseClass
-            );
-
-            if (eqMethod) {
-                // If this is a synthesized method for a dataclass, we can assume
-                // that other dataclass types will not be comparable.
-                if (ClassType.isDataClass(leftType) && eqMethod.symbol.getSynthesizedType()) {
-                    return false;
-                }
-
-                return true;
-            }
-
-            return false;
+            // Does either operand have an operator overload for eq?
+            return hasEqOperatorOverload(leftType, rightType, assumeIsOperator);
         }
 
         return true;
