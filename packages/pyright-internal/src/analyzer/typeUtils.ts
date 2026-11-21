@@ -1494,22 +1494,18 @@ export function isUnboundedTupleClass(type: ClassType) {
 
 // Indicates whether the specified index is within range and its type is unambiguous
 // in that it doesn't involve any element ranges that are of indeterminate length.
-export function isTupleIndexUnambiguous(type: ClassType, index: number) {
-    if (!type.priv.tupleTypeArgs) {
-        return false;
-    }
-
-    const unboundedIndex = type.priv.tupleTypeArgs.findIndex(
+export function isTupleIndexUnambiguous(tupleTypeArgs: TupleTypeArg[], index: number) {
+    const unboundedIndex = tupleTypeArgs.findIndex(
         (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type) || isUnpackedTypeVar(t.type)
     );
 
     if (index < 0) {
         const lowerIndexLimit = unboundedIndex < 0 ? 0 : unboundedIndex;
-        index += type.priv.tupleTypeArgs.length;
+        index += tupleTypeArgs.length;
         return index >= lowerIndexLimit;
     }
 
-    const upperIndexLimit = unboundedIndex < 0 ? type.priv.tupleTypeArgs.length : unboundedIndex;
+    const upperIndexLimit = unboundedIndex < 0 ? tupleTypeArgs.length : unboundedIndex;
     return index < upperIndexLimit;
 }
 
@@ -2874,6 +2870,29 @@ export function combineTupleTypeArgs(typeArgs: TupleTypeArg[]): Type {
     return combineTypes(typesToCombine);
 }
 
+// Replaces each unpacked TypeVar whose upper bound is a tuple with the
+// entries of that bound.
+export function expandUnpackedTypeVarsInTupleArgs(typeArgs: TupleTypeArg[]): TupleTypeArg[] {
+    const expandedTypeArgs: TupleTypeArg[] = [];
+
+    typeArgs.forEach((t) => {
+        if (
+            isUnpackedTypeVar(t.type) &&
+            t.type.shared.boundType &&
+            isClassInstance(t.type.shared.boundType) &&
+            isTupleClass(t.type.shared.boundType) &&
+            t.type.shared.boundType.priv.tupleTypeArgs
+        ) {
+            expandedTypeArgs.push(...t.type.shared.boundType.priv.tupleTypeArgs);
+            return;
+        }
+
+        expandedTypeArgs.push(t);
+    });
+
+    return expandedTypeArgs;
+}
+
 // Tuples require special handling for specialization. This method computes
 // the "effective" type argument, which is a union of the variadic type
 // arguments.
@@ -2904,6 +2923,24 @@ function _expandUnpackedTypeVarTupleUnion(type: Type) {
     }
 
     return type;
+}
+
+function _getUnionTupleTypeArgs(type: Type): TupleTypeArg[][] | undefined {
+    if (!isUnion(type)) {
+        return undefined;
+    }
+
+    const tupleTypeArgs: TupleTypeArg[][] = [];
+
+    for (const subtype of type.priv.subtypes) {
+        if (!isClassInstance(subtype) || !isTupleClass(subtype) || !subtype.priv.tupleTypeArgs) {
+            return undefined;
+        }
+
+        tupleTypeArgs.push(subtype.priv.tupleTypeArgs);
+    }
+
+    return tupleTypeArgs;
 }
 
 // If this is an unpacked type, returns the type as no longer unpacked.
@@ -4003,6 +4040,10 @@ export class TypeVarTransformer {
             if (classType.priv.tupleTypeArgs) {
                 newTupleTypeArgs = [];
 
+                // When the type assigned to an unpacked TypeVar is a union of
+                // tuples, expand the tuple into a union of tuples.
+                let unionEntry: { index: number; tupleTypeArgs: TupleTypeArg[][] } | undefined;
+
                 classType.priv.tupleTypeArgs.forEach((oldTypeArgType) => {
                     const newTypeArgType = this.apply(oldTypeArgType.type, recursionCount);
 
@@ -4010,7 +4051,14 @@ export class TypeVarTransformer {
                         specializationNeeded = true;
                     }
 
-                    if (
+                    const unionTupleTypeArgs = isUnpackedTypeVar(oldTypeArgType.type)
+                        ? _getUnionTupleTypeArgs(newTypeArgType)
+                        : undefined;
+
+                    if (unionTupleTypeArgs) {
+                        unionEntry = { index: newTupleTypeArgs!.length, tupleTypeArgs: unionTupleTypeArgs };
+                        newTupleTypeArgs!.push({ type: newTypeArgType, isUnbounded: false });
+                    } else if (
                         isUnpackedTypeVarTuple(oldTypeArgType.type) &&
                         isClassInstance(newTypeArgType) &&
                         isTupleClass(newTypeArgType) &&
@@ -4037,6 +4085,28 @@ export class TypeVarTransformer {
                         }
                     }
                 });
+
+                if (unionEntry) {
+                    const { index, tupleTypeArgs } = unionEntry;
+
+                    return combineTypes(
+                        tupleTypeArgs.map((entries) => {
+                            const expandedTupleTypeArgs = [
+                                ...newTupleTypeArgs!.slice(0, index),
+                                ...entries,
+                                ...newTupleTypeArgs!.slice(index + 1),
+                            ];
+
+                            return ClassType.specialize(
+                                classType,
+                                [combineTupleTypeArgs(expandedTupleTypeArgs)],
+                                isTypeArgExplicit,
+                                /* includeSubclasses */ undefined,
+                                expandedTupleTypeArgs
+                            );
+                        })
+                    );
+                }
             } else if (typeParams.length > 0) {
                 newTupleTypeArgs = this.transformTupleTypeVar(typeParams[0], recursionCount);
                 if (newTupleTypeArgs) {

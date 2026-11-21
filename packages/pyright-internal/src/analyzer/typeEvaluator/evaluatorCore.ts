@@ -72,6 +72,7 @@ import {
     isUnknown,
     isUnpacked,
     isUnpackedClass,
+    isUnpackedTypeVar,
     LiteralValue,
     maxTypeRecursionCount,
     OverloadedType,
@@ -1144,7 +1145,9 @@ export function createEvaluatorCore(contextDependencies: Context) {
                     return ClassType.cloneForPacked(type);
                 }
 
-                return makeTupleObject(evaluatorInterface, [{ type, isUnbounded: !isTypeVarTuple(type) }]);
+                return makeTupleObject(evaluatorInterface, [
+                    { type, isUnbounded: !(isTypeVarTuple(type) || isUnpackedTypeVar(type)) },
+                ]);
             }
 
             case ParamCategory.KwargsDict: {

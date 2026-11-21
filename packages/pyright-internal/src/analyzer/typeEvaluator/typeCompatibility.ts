@@ -48,6 +48,7 @@ import {
     isUnknown,
     isUnpacked,
     isUnpackedClass,
+    isUnpackedTypeVar,
     isUnpackedTypeVarTuple,
     TupleTypeArg,
     Type,
@@ -1218,7 +1219,8 @@ export function createTypeCompatibility(context: Context) {
 
             // Skip over the *args parameter since it's handled separately below.
             if (paramIndex === destParamDetails.argsIndex) {
-                if (!isUnpackedTypeVarTuple(destParamDetails.params[destParamDetails.argsIndex].type)) {
+                const destArgsType = destParamDetails.params[destParamDetails.argsIndex].type;
+                if (!isUnpackedTypeVarTuple(destArgsType) && !isUnpackedTypeVar(destArgsType)) {
                     skippedPosParamIndices.push(paramIndex);
                 }
                 continue;
@@ -2111,7 +2113,7 @@ export function createTypeCompatibility(context: Context) {
         const srcTupleTypes: TupleTypeArg[] = [];
         srcPositionalsToPack.forEach((entry) => {
             if (entry.param.category === ParamCategory.ArgsList) {
-                if (isUnpackedTypeVarTuple(entry.type)) {
+                if (isUnpackedTypeVarTuple(entry.type) || isUnpackedTypeVar(entry.type)) {
                     srcTupleTypes.push({ type: entry.type, isUnbounded: false });
                 } else if (isUnpackedClass(entry.type) && entry.type.priv.tupleTypeArgs) {
                     appendArray(srcTupleTypes, entry.type.priv.tupleTypeArgs);
@@ -2123,7 +2125,10 @@ export function createTypeCompatibility(context: Context) {
             }
         });
 
-        if (srcTupleTypes.length !== 1 || !isTypeVarTuple(srcTupleTypes[0].type)) {
+        if (
+            srcTupleTypes.length !== 1 ||
+            (!isTypeVarTuple(srcTupleTypes[0].type) && !isUnpackedTypeVar(srcTupleTypes[0].type))
+        ) {
             const srcPositionalsType = makeTupleObject(evaluatorInterface, srcTupleTypes, /* isUnpacked */ true);
 
             // Snip out the portion of the source positionals that map to the variadic
