@@ -39,7 +39,7 @@ import {
 } from './codeFlowTypes';
 import { formatControlFlowGraph } from './codeFlowUtils';
 import { getBoundCallMethod, getBoundNewMethod } from './constructors';
-import { DeclarationType } from './declaration';
+import { Declaration, DeclarationType } from './declaration';
 import {
     getEvaluationScopeNode,
     getTypedDictKeyDeletionCall,
@@ -49,6 +49,7 @@ import {
     printExpression,
 } from './parseTreeUtils';
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
+import { Symbol } from './symbol';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment, narrowForKeyDeletion } from './typedDicts';
 import { EvalFlags, Reachability, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
@@ -198,6 +199,64 @@ const enablePrintCallNoReturn = false;
 // to determine whether it is `NoReturn`? Enabling this produces more consistent
 // and complete results, but it can be very expensive.
 const inferNoReturnForUnannotatedFunctions = false;
+
+// A reference to an imported name resolves to an alias declaration, which has no
+// declared type in the file that reads it, so the check above skips it. Look
+// through the alias to see whether the imported symbol is a Final with an
+// initializer: uses of a bare Final initialized with a literal are expected to be
+// treated as the literal itself, and that applies at the place of use rather than
+// only where the Final is declared. Aliases are followed here only when they
+// resolve to a symbol whose type would otherwise have to be inferred, so the fast
+// path for declared types is unaffected.
+function isImportedFinalWithInitializer(evaluator: TypeEvaluator, symbol: Symbol): boolean {
+    for (const decl of symbol.getDeclarations()) {
+        if (decl.type !== DeclarationType.Alias) {
+            continue;
+        }
+
+        // Resolve "as" renames so that "from flags import IS_WIN as WIN" is handled.
+        const resolved = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+        if (isVariableFinalWithInitializer(resolved)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// The symbol accessed as "module.CONST" comes from the module's own symbol
+// table, so unlike an imported name it may hold the Final's variable declaration
+// directly, or an alias declaration if the module re-exported the name.
+function isModuleMemberFinalWithInitializer(evaluator: TypeEvaluator, symbol: Symbol): boolean {
+    for (const decl of symbol.getDeclarations()) {
+        if (decl.type === DeclarationType.Variable) {
+            if (isVariableFinalWithInitializer(decl)) {
+                return true;
+            }
+            continue;
+        }
+
+        if (decl.type !== DeclarationType.Alias) {
+            continue;
+        }
+
+        const resolved = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+        if (isVariableFinalWithInitializer(resolved)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isVariableFinalWithInitializer(declaration: Declaration | undefined): boolean {
+    return (
+        !!declaration &&
+        declaration.type === DeclarationType.Variable &&
+        !!declaration.isFinal &&
+        !!declaration.inferredTypeSource
+    );
+}
 
 // In rare circumstances, it's possible for types in a loop not to converge. This
 // can happen, for example, if there are many symbols that depend on each other
@@ -837,17 +896,23 @@ export function getCodeFlowEngine(
 
                     if (curFlowNode.flags & (FlowFlags.TrueNeverCondition | FlowFlags.FalseNeverCondition)) {
                         const conditionalFlowNode = curFlowNode as FlowCondition;
-                        if (!options?.skipConditionalNarrowing && conditionalFlowNode.reference) {
+
+                        // Never conditions are limited to name references.
+                        const neverReference =
+                            conditionalFlowNode.reference?.nodeType === ParseNodeType.Name
+                                ? conditionalFlowNode.reference
+                                : undefined;
+                        if (!options?.skipConditionalNarrowing && neverReference) {
                             // Don't allow apply if the conditional expression references the expression
                             // we're already narrowing. This case will be handled by the TrueCondition
                             // or FalseCondition node.
-                            if (createKeyForReference(conditionalFlowNode.reference) !== referenceKey) {
+                            if (createKeyForReference(neverReference) !== referenceKey) {
                                 // Make sure the reference type has a declared type. If not,
                                 // don't bother trying to infer its type because that would be
                                 // too expensive.
                                 const symbolWithScope = evaluator.lookUpSymbolRecursive(
-                                    conditionalFlowNode.reference,
-                                    conditionalFlowNode.reference.d.value,
+                                    neverReference,
+                                    neverReference.d.value,
                                     /* honorCodeFlow */ false
                                 );
 
@@ -855,7 +920,7 @@ export function getCodeFlowEngine(
                                     const result = preventRecursion(curFlowNode, () => {
                                         const typeNarrowingCallback = getTypeNarrowingCallback(
                                             evaluator,
-                                            conditionalFlowNode.reference!,
+                                            neverReference,
                                             conditionalFlowNode.expression,
                                             !!(
                                                 conditionalFlowNode.flags &
@@ -865,9 +930,7 @@ export function getCodeFlowEngine(
                                         );
 
                                         if (typeNarrowingCallback) {
-                                            const refTypeInfo = evaluator.getTypeOfExpression(
-                                                conditionalFlowNode.reference!
-                                            );
+                                            const refTypeInfo = evaluator.getTypeOfExpression(neverReference);
 
                                             let narrowedType = refTypeInfo.type;
                                             let isIncomplete = !!refTypeInfo.isIncomplete;
@@ -1648,22 +1711,42 @@ export function getCodeFlowEngine(
                         FlowFlags.FalseNeverCondition)
                 ) {
                     const conditionalFlowNode = curFlowNode as FlowCondition;
-                    if (conditionalFlowNode.reference) {
+                    const reference = conditionalFlowNode.reference;
+                    if (reference) {
                         // Make sure the reference type has a declared type. If not,
                         // don't bother trying to infer its type because that would be
                         // too expensive.
-                        const symbolWithScope = evaluator.lookUpSymbolRecursive(
-                            conditionalFlowNode.reference,
-                            conditionalFlowNode.reference.d.value,
-                            /* honorCodeFlow */ false
-                        );
+                        let symbol: Symbol | undefined;
+                        let isFinalWithInitializer: boolean;
 
-                        if (symbolWithScope && symbolWithScope.symbol.hasTypedDeclarations()) {
+                        if (reference.nodeType === ParseNodeType.Name) {
+                            const symbolWithScope = evaluator.lookUpSymbolRecursive(
+                                reference,
+                                reference.d.value,
+                                /* honorCodeFlow */ false
+                            );
+                            symbol = symbolWithScope?.symbol;
+                            isFinalWithInitializer =
+                                !!symbol && isImportedFinalWithInitializer(evaluator, symbol);
+                        } else if (reference.d.leftExpr.nodeType === ParseNodeType.Name) {
+                            // A member access whose base name resolves to a module
+                            // alias; the gate applies to the accessed member's symbol.
+                            symbol = evaluator.lookUpModuleMemberSymbol(
+                                reference.d.leftExpr,
+                                reference.d.member.d.value
+                            );
+                            isFinalWithInitializer =
+                                !!symbol && isModuleMemberFinalWithInitializer(evaluator, symbol);
+                        } else {
+                            isFinalWithInitializer = false;
+                        }
+
+                        if (symbol && (symbol.hasTypedDeclarations() || isFinalWithInitializer)) {
                             let isUnreachable = false;
 
                             const typeNarrowingCallback = getTypeNarrowingCallback(
                                 evaluator,
-                                conditionalFlowNode.reference!,
+                                reference,
                                 conditionalFlowNode.expression,
                                 !!(
                                     conditionalFlowNode.flags &
@@ -1673,7 +1756,7 @@ export function getCodeFlowEngine(
                             );
 
                             if (typeNarrowingCallback) {
-                                const refTypeInfo = evaluator.getTypeOfExpression(conditionalFlowNode.reference!);
+                                const refTypeInfo = evaluator.getTypeOfExpression(reference);
 
                                 const narrowedTypeResult = applyTypeNarrowingCallback(
                                     typeNarrowingCallback,

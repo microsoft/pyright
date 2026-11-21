@@ -15744,6 +15744,48 @@ export function createTypeEvaluator(
         return memberResolution.lookUpSymbolRecursive(node, name, honorCodeFlow, preferGlobalScope);
     }
 
+    // Resolves the symbol accessed as "module.member" where the base name refers to
+    // a module. Returns undefined if the base name is not a module alias, so a
+    // caller can gate on the result without evaluating the base expression's type.
+    function lookUpModuleMemberSymbol(baseNameNode: NameNode, memberName: string): Symbol | undefined {
+        const symbolWithScope = lookUpSymbolRecursive(
+            baseNameNode,
+            baseNameNode.d.value,
+            /* honorCodeFlow */ false
+        );
+        if (!symbolWithScope) {
+            return undefined;
+        }
+
+        for (const decl of symbolWithScope.symbol.getDeclarations()) {
+            if (decl.type !== DeclarationType.Alias) {
+                // The base name is shadowed by a local assignment, parameter, class,
+                // etc., so it does not refer to a module.
+                return undefined;
+            }
+
+            // A resolved alias declaration without a symbol name refers to a module.
+            const resolved = resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+            if (
+                !resolved ||
+                resolved.type !== DeclarationType.Alias ||
+                resolved.symbolName ||
+                resolved.isUnresolved ||
+                resolved.uri.isEmpty()
+            ) {
+                continue;
+            }
+
+            const lookupResult = importLookup(resolved.uri);
+            const memberSymbol = lookupResult?.symbolTable.get(memberName);
+            if (memberSymbol) {
+                return memberSymbol;
+            }
+        }
+
+        return undefined;
+    }
+
     // Disables recording of errors and warnings.
     function suppressDiagnostics<T>(
         node: ParseNode,
@@ -19027,6 +19069,7 @@ export function createTypeEvaluator(
         mapSubtypesExpandTypeVars,
         isTypeSubsumedByOtherType,
         lookUpSymbolRecursive,
+        lookUpModuleMemberSymbol,
         getDeclaredTypeOfSymbol,
         getEffectiveTypeOfSymbol,
         getEffectiveTypeOfSymbolForUsage,

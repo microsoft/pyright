@@ -119,7 +119,12 @@ export interface FlowWildcardImport extends FlowNode {
 // be true or false at the node's location in the control flow.
 export interface FlowCondition extends FlowNode {
     expression: ExpressionNode;
-    reference?: NameNode | undefined;
+
+    // The reference is the name expression (or the member access expression whose
+    // base is a name) that the condition narrows, if one can be selected from the
+    // expression. The member access form applies only to TrueCondition and
+    // FalseCondition nodes.
+    reference?: NameNode | MemberAccessNode | undefined;
     antecedent: FlowNode;
 }
 
