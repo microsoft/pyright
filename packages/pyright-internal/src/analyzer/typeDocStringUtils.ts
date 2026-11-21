@@ -24,10 +24,12 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import {
     ClassType,
+    FunctionParam,
     FunctionType,
     isFunction,
     isInstantiableClass,
     isOverloaded,
+    isTypeSame,
     ModuleType,
     OverloadedType,
     Type,
@@ -35,7 +37,7 @@ import {
 } from '../analyzer/types';
 import { addIfNotNull, appendArray } from '../common/collectionUtils';
 import { Uri } from '../common/uri/uri';
-import { ModuleNode, ParseNodeType } from '../parser/parseNodes';
+import { ModuleNode, ParamCategory, ParseNodeType } from '../parser/parseNodes';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import { ClassIteratorFlags, getClassIterator, isMaybeDescriptorInstance, MemberAccessFlags } from './typeUtils';
 
@@ -93,6 +95,7 @@ function _selectMemberDocInfo(
 
     const overloads = OverloadedType.getOverloads(memberType);
     const impl = OverloadedType.getImplementation(memberType);
+    const memberName = overloads.length > 0 ? overloads[0].shared.name : undefined;
 
     // Tier 1: the call-matched overload(s). First read the matched overload's OWN docstring
     // directly; this is robust to declaration-cleared specializations (e.g. a ParamSpec/Callable
@@ -105,7 +108,6 @@ function _selectMemberDocInfo(
         // actually belongs to this member; otherwise another member's matched overload could
         // short-circuit Rule B here. Name is preserved across binding/specialization, so filtering
         // by name is a safe scope check.
-        const memberName = overloads.length > 0 ? overloads[0].shared.name : undefined;
         for (const matched of matchedOverloads) {
             if (memberName !== undefined && matched.shared.name !== memberName) {
                 continue;
@@ -133,24 +135,89 @@ function _selectMemberDocInfo(
         }
     }
 
-    // Tier 3: the remaining overloads, in declaration order.
-    for (const overload of overloads) {
-        const info = _functionDocInfo(overload, sourceMapper);
-        if (info) {
-            return info;
+    // Tier 3: the remaining overloads, in declaration order. Only consider other
+    // overloads when no specific overload was matched for this member (e.g. uncalled
+    // function hover, or hints forwarded from a different constructor member).
+    const hasMatchedOverloadForMember =
+        matchedOverloads &&
+        matchedOverloads.length < overloads.length &&
+        matchedOverloads.some(
+            (matched) =>
+                (memberName === undefined || matched.shared.name === memberName) &&
+                overloads.some((overload) => _isMatchedOverload(overload, [matched]))
+        );
+
+    if (!hasMatchedOverloadForMember) {
+        for (const overload of overloads) {
+            const info = _functionDocInfo(overload, sourceMapper);
+            if (info) {
+                return info;
+            }
         }
     }
 
     return undefined;
 }
 
+function _getCallableParameters(type: FunctionType): { param: FunctionParam; type: Type }[] {
+    const isBound = !!type.priv.boundToType;
+    const isUnboundMethod =
+        !isBound &&
+        type.shared.parameters.length > 0 &&
+        type.shared.parameters[0].category === ParamCategory.Simple &&
+        (type.shared.parameters[0].name === 'self' ||
+            type.shared.parameters[0].name === 'cls' ||
+            type.shared.name === '__init__' ||
+            type.shared.name === '__new__' ||
+            (!!type.shared.methodClass && !FunctionType.isStaticMethod(type)));
+
+    const startIndex = isUnboundMethod ? 1 : 0;
+    const result: { param: FunctionParam; type: Type }[] = [];
+    for (let i = startIndex; i < type.shared.parameters.length; i++) {
+        result.push({
+            param: type.shared.parameters[i],
+            type: FunctionType.getParamType(type, i),
+        });
+    }
+    return result;
+}
+
+function _isMatchingOverloadSignature(overload: FunctionType, candidate: FunctionType): boolean {
+    const params1 = _getCallableParameters(overload);
+    const params2 = _getCallableParameters(candidate);
+
+    if (params1.length !== params2.length) {
+        return false;
+    }
+
+    for (let i = 0; i < params1.length; i++) {
+        const p1 = params1[i];
+        const p2 = params2[i];
+        if (p1.param.category !== p2.param.category) {
+            return false;
+        }
+        if (p1.param.name && p2.param.name && p1.param.name !== p2.param.name) {
+            return false;
+        }
+        if (!isTypeSame(p1.type, p2.type)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 function _isMatchedOverload(overload: FunctionType, matchedOverloads: FunctionType[]): boolean {
     // Match by object identity first, then by shared declaration. The latter keeps the
     // matched-overload tier robust to binding/specialization (e.g. a generic `Box[int]()`
     // whose matched overload is a specialized clone); `shared.declaration` is preserved
-    // across those transforms. If it ever were not, this falls through to the impl/other tiers.
+    // across those transforms. Then fall back to signature matching across class inheritance
+    // or constructor members (__init__ vs __new__).
     return matchedOverloads.some(
-        (m) => m === overload || (!!m.shared.declaration && m.shared.declaration === overload.shared.declaration)
+        (m) =>
+            m === overload ||
+            (!!m.shared.declaration && m.shared.declaration === overload.shared.declaration) ||
+            _isMatchingOverloadSignature(overload, m)
     );
 }
 
@@ -252,7 +319,11 @@ export function resolveMethodDocInfo(
                 continue;
             }
 
-            const info = _selectMemberDocInfo(evaluator.getEffectiveTypeOfSymbol(symbol), undefined, sourceMapper);
+            const info = _selectMemberDocInfo(
+                evaluator.getEffectiveTypeOfSymbol(symbol),
+                matchedOverloads,
+                sourceMapper
+            );
             if (info?.docString) {
                 return info;
             }
