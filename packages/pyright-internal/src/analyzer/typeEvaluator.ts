@@ -309,7 +309,7 @@ import {
     getUnknownForTypeVar,
     InferenceContext,
     invertVariance,
-    isDescriptorInstance,
+    isDataDescriptorInstance,
     isEffectivelyInstantiable,
     isEllipsisType,
     isIncompleteUnknown,
@@ -1806,35 +1806,31 @@ export function createTypeEvaluator(
         // Consider only the metaclass class variables in this case.
         let skipObjectTypeLookup = objectTypeIsInstantiable && (flags & MemberAccessFlags.SkipInstanceMembers) !== 0;
 
-        // Look up the attribute in the metaclass first. If the member is a descriptor
-        // (an object with a __get__ and __set__ method) and the access is a 'get',
-        // the Python runtime uses this descriptor to satisfy the lookup. Skip this
-        // costly lookup in the common case where the metaclass is 'type' since we know
-        // that `type` doesn't have any attributes that are descriptors.
-        if (
-            usage.method === 'get' &&
-            objectTypeIsInstantiable &&
-            metaclass &&
-            isInstantiableClass(metaclass) &&
-            !ClassType.isBuiltIn(metaclass, 'type') &&
-            !ClassType.isSameGenericClass(metaclass, objectType)
-        ) {
-            const descMemberInfo = getTypeOfClassMemberName(
-                errorNode,
+        // Look up the attribute in the metaclass first. A metaclass data descriptor intercepts
+        // mutations of the class, so the class's own attribute can't override it. Both lookups
+        // apply if only some of the subtypes are data descriptors.
+        let partiallyInterceptingMetaclass: ClassType | undefined;
+
+        if (objectTypeIsInstantiable && metaclass && isInstantiableClass(metaclass)) {
+            const metaclassMember = lookUpClassMember(
                 metaclass,
                 memberName,
-                usage,
-                /* diag */ undefined,
-                flags | MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.SkipTypedDictEntries,
-                objectType,
-                recursionCount
+                flags | MemberAccessFlags.SkipInstanceMembers
             );
 
-            if (descMemberInfo) {
-                const isProperty =
-                    isClassInstance(descMemberInfo.type) && ClassType.isPropertyClass(descMemberInfo.type);
-                if (isDescriptorInstance(descMemberInfo.type, /* requireSetter */ true) || isProperty) {
+            if (metaclassMember) {
+                const metaclassMemberType = getTypeOfMember(metaclassMember);
+                const requireGetter = usage.method === 'get';
+
+                if (isDataDescriptorInstance(metaclassMemberType, requireGetter)) {
                     skipObjectTypeLookup = true;
+                } else if (
+                    isUnion(metaclassMemberType) &&
+                    metaclassMemberType.priv.subtypes.some((subtype) =>
+                        isDataDescriptorInstance(subtype, requireGetter)
+                    )
+                ) {
+                    partiallyInterceptingMetaclass = metaclass;
                 }
             }
         }
@@ -1867,6 +1863,35 @@ export function createTypeEvaluator(
                 selfType,
                 recursionCount
             );
+
+            if (memberInfo && partiallyInterceptingMetaclass) {
+                const metaclassDiag = diag ? new DiagnosticAddendum() : undefined;
+                const metaclassMemberInfo = getTypeOfClassMemberName(
+                    errorNode,
+                    ClassType.cloneAsInstance(partiallyInterceptingMetaclass),
+                    memberName,
+                    usage,
+                    metaclassDiag,
+                    flags | MemberAccessFlags.DataDescriptorsOnly,
+                    objectType,
+                    recursionCount
+                );
+
+                if (metaclassMemberInfo) {
+                    if (metaclassMemberInfo.isDescriptorError && !memberInfo.isDescriptorError) {
+                        subDiag = metaclassDiag;
+                    }
+
+                    memberInfo = {
+                        ...memberInfo,
+                        type: combineTypes([memberInfo.type, metaclassMemberInfo.type]),
+                        isTypeIncomplete: memberInfo.isTypeIncomplete || metaclassMemberInfo.isTypeIncomplete,
+                        isDescriptorError: memberInfo.isDescriptorError || metaclassMemberInfo.isDescriptorError,
+                        isAsymmetricAccessor:
+                            memberInfo.isAsymmetricAccessor || metaclassMemberInfo.isAsymmetricAccessor,
+                    };
+                }
+            }
         }
 
         // If it wasn't found on the object, see if it's part of the metaclass.
@@ -2184,15 +2209,34 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        // If it's a descriptor, we need to get the setter type.
-        if (useDescriptorSetterType && isClassInstance(declaredType)) {
-            const setter = getBoundMagicMethod(declaredType, '__set__');
-            if (setter && isFunction(setter) && setter.shared.parameters.length >= 2) {
-                declaredType = FunctionType.getParamType(setter, 1);
+        // If it's a descriptor, we need to get the setter type. A data descriptor
+        // without a setter provides no declared type for the assigned value.
+        if (useDescriptorSetterType) {
+            let isSetterTypeUnavailable = false;
 
-                if (isAnyOrUnknown(declaredType)) {
-                    return undefined;
+            declaredType = mapSubtypes(declaredType, (subtype) => {
+                if (!isClassInstance(subtype)) {
+                    return subtype;
                 }
+
+                const setter = getBoundMagicMethod(subtype, '__set__');
+                if (setter && isFunction(setter) && setter.shared.parameters.length >= 2) {
+                    const valueType = FunctionType.getParamType(setter, 1);
+                    if (isAnyOrUnknown(valueType)) {
+                        isSetterTypeUnavailable = true;
+                    }
+                    return valueType;
+                }
+
+                if (!setter && isDataDescriptorInstance(subtype, /* requireGetter */ false)) {
+                    isSetterTypeUnavailable = true;
+                }
+
+                return subtype;
+            });
+
+            if (isSetterTypeUnavailable) {
+                return undefined;
             }
         }
 
@@ -4910,7 +4954,7 @@ export function createTypeEvaluator(
                         const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, selfClass, flags);
 
                         if (typeResult) {
-                            if (isDescriptorInstance(typeResult.type, /* requireSetter */ true)) {
+                            if (isDataDescriptorInstance(typeResult.type, /* requireGetter */ false)) {
                                 type = typeResult.type;
                                 flags &= MemberAccessFlags.DisallowClassVarWrites;
                             }
@@ -4988,10 +5032,22 @@ export function createTypeEvaluator(
             type,
             (subtype) => {
                 const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+
+                if (
+                    (flags & MemberAccessFlags.DataDescriptorsOnly) !== 0 &&
+                    !isDataDescriptorInstance(concreteSubtype, /* requireGetter */ usage.method === 'get')
+                ) {
+                    return undefined;
+                }
+
                 const isClassMember = !memberInfo || (memberInfo.isClassMember && !memberInfo.isSlotsMember);
                 let resultType: Type;
 
-                if (isClass(concreteSubtype) && isClassMember && errorNode) {
+                // Assigning or deleting an attribute on a class object replaces or removes
+                // the class's own entry rather than invoking its descriptor.
+                const isDescriptorAccess = usage.method === 'get' || isAccessedThroughObject;
+
+                if (isClass(concreteSubtype) && isClassMember && errorNode && isDescriptorAccess) {
                     const descResult = applyDescriptorAccessMethod(
                         subtype,
                         concreteSubtype,
@@ -5199,6 +5255,20 @@ export function createTypeEvaluator(
                 const message =
                     usage.method === 'set' ? LocAddendum.propertyMissingSetter() : LocAddendum.propertyMissingDeleter();
                 diag?.addMessage(message.format({ name: memberName }));
+                return { type: AnyType.create(), typeErrors: true };
+            }
+
+            if (
+                !methodTypeResult &&
+                usage.method !== 'get' &&
+                isDataDescriptorInstance(concreteMemberType, /* requireGetter */ false)
+            ) {
+                diag?.addMessage(
+                    LocAddendum.descriptorAccessMethodMissing().format({
+                        name: accessMethodName,
+                        className: printType(convertToInstance(concreteMemberType)),
+                    })
+                );
                 return { type: AnyType.create(), typeErrors: true };
             }
 
