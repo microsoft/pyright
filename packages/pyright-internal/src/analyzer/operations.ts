@@ -56,6 +56,7 @@ import {
     OverloadedType,
     Type,
     TypeBase,
+    UnionType,
     UnknownType,
     combineTypes,
     exceedsInferredTupleLiteralProduct,
@@ -270,6 +271,14 @@ export function validateBinaryOperation(
                     );
                 }
             );
+
+            if (
+                isUnion(type) &&
+                (operator === OperatorType.And || operator === OperatorType.Or) &&
+                [leftType, rightType].some((t) => isUnion(t) && UnionType.isOrIncludesSpecialForm(t))
+            ) {
+                type.priv.includesSpecialForm = true;
+            }
         }
     } else if (binaryOperatorMap[operator]) {
         if (isNever(leftType) || isNever(rightType)) {
