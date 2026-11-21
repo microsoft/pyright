@@ -177,6 +177,11 @@ test('DunderAll3', () => {
     TestUtils.validateResults(analysisResults, 0, 0);
 });
 
+test('CodeFlowManyAssignments', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlowManyAssignments.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('CodeFlow1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlow1.py']);
 
