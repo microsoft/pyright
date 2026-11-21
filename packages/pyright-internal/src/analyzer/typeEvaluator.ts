@@ -2629,7 +2629,7 @@ export function createTypeEvaluator(
 
         const resultToCache: TypeResult = {
             type: setTypeResult.narrowedTypeForSet ?? typeResult.type,
-            isIncomplete: typeResult.isIncomplete,
+            isIncomplete: typeResult.isIncomplete || setTypeResult.isIncomplete,
             memberAccessDeprecationInfo: setTypeResult.memberAccessDeprecationInfo,
         };
         writeTypeCache(target, resultToCache, EvalFlags.None);
@@ -4063,7 +4063,7 @@ export function createTypeEvaluator(
 
                 if (classMemberInfo) {
                     typeAtStart = getTypeOfMember(classMemberInfo);
-                    isTypeAtStartIncomplete = false;
+                    isTypeAtStartIncomplete = !!getEffectiveTypeOfSymbolForUsage(classMemberInfo.symbol).isIncomplete;
                 }
             }
 
@@ -4532,6 +4532,9 @@ export function createTypeEvaluator(
                         /* useLastDecl */ true
                     );
                     type = typeResult.type;
+                    if (typeResult.isIncomplete) {
+                        isIncomplete = true;
+                    }
 
                     if ((flags & EvalFlags.TypeExpression) !== 0) {
                         type = validateSymbolIsTypeExpression(node, type, !!typeResult.includesVariableDecl);
@@ -4849,7 +4852,7 @@ export function createTypeEvaluator(
                     return {
                         symbol: undefined,
                         type: generalAttrType.type,
-                        isTypeIncomplete: false,
+                        isTypeIncomplete: !!generalAttrType.isIncomplete,
                         isDescriptorError: false,
                         isClassMember: false,
                         isClassVar: false,
@@ -5007,6 +5010,10 @@ export function createTypeEvaluator(
 
                     if (descResult.isAsymmetricAccessor) {
                         isAsymmetricAccessor = true;
+                    }
+
+                    if (descResult.isIncomplete) {
+                        isTypeIncomplete = true;
                     }
 
                     if (descResult.memberAccessDeprecationInfo) {
@@ -5222,6 +5229,10 @@ export function createTypeEvaluator(
         if (!isFunctionOrOverloaded(methodType)) {
             if (isAnyOrUnknown(methodType)) {
                 return { type: methodType };
+            }
+
+            if (methodTypeResult?.isIncomplete) {
+                return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
             }
 
             // TODO - emit an error for this condition.

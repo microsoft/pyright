@@ -72,6 +72,7 @@ import {
     isModule,
     isOverloaded,
     isTypeSame,
+    isUnbound,
     isUnknown,
     ModuleType,
     OverloadedType,
@@ -496,6 +497,12 @@ export function createMemberResolution(context: Context) {
                 );
             }
 
+            // If either accessor is still being evaluated, don't cache a result.
+            // Assume asymmetric so an assignment doesn't narrow the member.
+            if (isUnbound(getterType) || isUnbound(setterType)) {
+                return true;
+            }
+
             // If this is an overload, find the appropriate overload.
             if (isOverloaded(getterType)) {
                 const getOverloads = OverloadedType.getOverloads(getterType).filter((overload) => {
@@ -546,7 +553,7 @@ export function createMemberResolution(context: Context) {
         selfType?: ClassType | TypeVarType
     ): MemberAccessTypeResult | undefined {
         const getAttributeAccessMember = (name: string) => {
-            return getTypeOfBoundMember(
+            const memberResult = getTypeOfBoundMember(
                 errorNode,
                 classType,
                 name,
@@ -557,9 +564,16 @@ export function createMemberResolution(context: Context) {
                     MemberAccessFlags.SkipTypeBaseClass |
                     MemberAccessFlags.SkipAttributeAccessOverride,
                 selfType
-            )?.type;
+            );
+
+            if (memberResult?.isIncomplete) {
+                isAccessMemberIncomplete = true;
+            }
+
+            return memberResult?.type;
         };
 
+        let isAccessMemberIncomplete = false;
         let accessMemberType: Type | undefined;
         if (usage.method === 'get') {
             accessMemberType = getAttributeAccessMember('__getattribute__') ?? getAttributeAccessMember('__getattr__');
@@ -603,6 +617,10 @@ export function createMemberResolution(context: Context) {
                 return { type: accessMemberType };
             }
 
+            if (isAccessMemberIncomplete) {
+                return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
+            }
+
             // TODO - emit an error for this condition.
             return undefined;
         }
@@ -625,6 +643,7 @@ export function createMemberResolution(context: Context) {
             type: callResult.returnType ?? UnknownType.create(),
             typeErrors: callResult.argumentErrors,
             isAsymmetricAccessor,
+            isIncomplete: isAccessMemberIncomplete || callResult.isTypeIncomplete,
         };
     }
 
@@ -1448,6 +1467,12 @@ export function createMemberResolution(context: Context) {
         } else {
             const getterType = getEffectiveTypeOfSymbol(getterSymbolResult.symbol);
             const setterType = getEffectiveTypeOfSymbol(setterSymbolResult.symbol);
+
+            // If either accessor is still being evaluated, don't cache a result.
+            // Assume asymmetric so an assignment doesn't narrow the member.
+            if (isUnbound(getterType) || isUnbound(setterType)) {
+                return true;
+            }
 
             // If either the setter or getter is an overload (or some other non-function type),
             // conservatively assume that it's not asymmetric.
