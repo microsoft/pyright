@@ -1236,3 +1236,20 @@ test('EnumNarrowing3', () => {
         ])
     );
 });
+
+for (const disableBytesTypePromotions of [true, false]) {
+    test(`BytesLiteralAssignment (disableBytesTypePromotions=${disableBytesTypePromotions})`, () => {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.diagnosticRuleSet.disableBytesTypePromotions = disableBytesTypePromotions;
+        const results = TestUtils.typeAnalyzeSampleFiles(['bytesLiteralAssignment.py'], configOptions);
+        const errorLines = [5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49];
+        if (disableBytesTypePromotions) {
+            errorLines.push(62, 66);
+        }
+        TestUtils.validateResults(results, errorLines.length);
+        assert.deepStrictEqual(
+            results[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+            errorLines.map((line) => [line, DiagnosticRule.reportReturnType])
+        );
+    });
+}

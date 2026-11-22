@@ -241,8 +241,8 @@ export function createTypeCompatibility(context: Context) {
             }
         }
 
-        // Handle special-case type promotions.
-        if (destType.priv.includePromotions) {
+        // Type promotions do not establish the specific value required by a literal.
+        if (destType.priv.includePromotions && destType.priv.literalValue === undefined) {
             const promotionList = typePromotions.get(destType.shared.fullName);
             if (
                 promotionList &&
