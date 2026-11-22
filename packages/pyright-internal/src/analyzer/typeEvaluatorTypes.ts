@@ -695,6 +695,7 @@ export interface TypeEvaluator {
     getTypeResult: (node: ExpressionNode) => TypeResult | undefined;
     getTypeResultForDecorator: (node: DecoratorNode) => TypeResult | undefined;
     getCachedType: (node: ExpressionNode) => Type | undefined;
+    getTypeOfSuperCallForCompletion: (node: CallNode) => Type;
     getTypeOfExpression: (node: ExpressionNode, flags?: EvalFlags, context?: InferenceContext) => TypeResult;
     getTypeOfAnnotation: (node: ExpressionNode, options?: ExpectedTypeOptions) => Type;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;

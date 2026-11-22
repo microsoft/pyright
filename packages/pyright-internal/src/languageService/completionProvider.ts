@@ -894,7 +894,13 @@ export class CompletionProvider {
         const symbolTable = new Map<string, Symbol>();
         const completionMap = new CompletionMap();
 
-        let leftType = this.evaluator.getType(leftExprNode);
+        const isSuperCall =
+            leftExprNode.nodeType === ParseNodeType.Call &&
+            leftExprNode.d.leftExpr.nodeType === ParseNodeType.Name &&
+            leftExprNode.d.leftExpr.d.value === 'super';
+        let leftType = isSuperCall
+            ? this.evaluator.getTypeOfSuperCallForCompletion(leftExprNode)
+            : this.evaluator.getType(leftExprNode);
         if (!leftType) {
             return completionMap;
         }
