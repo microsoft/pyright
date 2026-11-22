@@ -7014,6 +7014,16 @@ export function createTypeEvaluator(
         return expressionEvaluation.getTypeOfRevealLocals(node);
     }
 
+    // Completions need the base class even when the following member name is incomplete.
+    // Keep this result out of the normal expression cache used for member resolution.
+    function getTypeOfSuperCallForCompletion(node: CallNode): Type {
+        initializePrefetchedTypes(node);
+        return useSpeculativeMode(
+            node,
+            () => expressionEvaluation.getTypeOfSuperCall(node, /* forCompletion */ true).type
+        );
+    }
+
     function getTypeOfSuperCall(node: CallNode): TypeResult {
         return expressionEvaluation.getTypeOfSuperCall(node);
     }
@@ -18978,6 +18988,7 @@ export function createTypeEvaluator(
         getType,
         getTypeResult,
         getTypeResultForDecorator,
+        getTypeOfSuperCallForCompletion,
         getCachedType,
         getTypeOfExpression,
         getTypeOfAnnotation,

@@ -1721,7 +1721,7 @@ export function createExpressionEvaluation(context: Context) {
         return getNoneType();
     }
 
-    function getTypeOfSuperCall(node: CallNode): TypeResult {
+    function getTypeOfSuperCall(node: CallNode, forCompletion = false): TypeResult {
         if (node.d.args.length > 2) {
             addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.superCallArgCount(), node.d.args[2]);
         }
@@ -1908,6 +1908,20 @@ export function createExpressionEvaluation(context: Context) {
                     }
                 }
             }
+        }
+
+        if (forCompletion && isInstantiableClass(concreteTargetClassType)) {
+            // A partially typed member cannot select a single defining class. Include
+            // the classes after the target in the MRO, preserving generic arguments.
+            const classType = bindToType ?? concreteTargetClassType;
+            const targetIndex = classType.shared.mro.findIndex(
+                (base) => isClass(base) && ClassType.isSameGenericClass(base, concreteTargetClassType)
+            );
+            const baseTypes = classType.shared.mro.slice(targetIndex + 1).map((base) => {
+                const specialized = isInstantiableClass(base) ? specializeForBaseClass(classType, base) : base;
+                return resultIsInstance ? convertToInstance(specialized) : specialized;
+            });
+            return { type: combineTypes(baseTypes) };
         }
 
         // Python docs indicate that super() isn't valid for
