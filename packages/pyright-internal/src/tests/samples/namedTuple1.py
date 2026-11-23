@@ -105,6 +105,23 @@ def func2():
     n2 = NamedTuple8(a=1, b=2)
 
 
+NamedTuple9 = namedtuple(field_names=["a", "b"], defaults=(1,), typename="NamedTuple9")
+
+
+def func3():
+    reveal_type(NamedTuple9, expected_text="type[NamedTuple9]")
+    NamedTuple9(1)
+    NamedTuple9(1, 2)
+
+
+def func4():
+    # This should generate an error.
+    NamedTuple9()
+
+    # This should generate an error.
+    NamedTuple9(1, 2, 3)
+
+
 # This should generate an error because NamedTuple isn't allowed in isinstance.
 if isinstance(1, NamedTuple):
     pass

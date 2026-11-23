@@ -82,19 +82,21 @@ export function createNamedTupleType(
         }
     }
 
-    if (argList.length === 0) {
+    // The typename and field_names parameters of namedtuple are positional-or-keyword.
+    // Those of NamedTuple are positional-only.
+    const nameArg = includesTypes ? argList[0] : getPositionalOrKeywordArg(argList, 0, 'typename');
+    const entriesArg = includesTypes ? argList[1] : getPositionalOrKeywordArg(argList, 1, 'field_names');
+
+    if (!nameArg) {
         evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleFirstArg(), errorNode);
-    } else {
-        const nameArg = argList[0];
-        if (nameArg.argCategory !== ArgCategory.Simple) {
-            evaluator.addDiagnostic(
-                DiagnosticRule.reportArgumentType,
-                LocMessage.namedTupleFirstArg(),
-                argList[0].valueExpression || errorNode
-            );
-        } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
-            className = nameArg.valueExpression.d.strings.map((s) => s.d.value).join('');
-        }
+    } else if (nameArg.argCategory !== ArgCategory.Simple) {
+        evaluator.addDiagnostic(
+            DiagnosticRule.reportArgumentType,
+            LocMessage.namedTupleFirstArg(),
+            nameArg.valueExpression || errorNode
+        );
+    } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
+        className = nameArg.valueExpression.d.strings.map((s) => s.d.value).join('');
     }
 
     // Is there is a default arg? If so, is it defined in a way that we
@@ -161,11 +163,10 @@ export function createNamedTupleType(
     let addGenericGetAttribute = false;
     const entryTypes: Type[] = [];
 
-    if (argList.length < 2) {
+    if (!entriesArg) {
         evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleSecondArg(), errorNode);
         addGenericGetAttribute = true;
     } else {
-        const entriesArg = argList[1];
         if (entriesArg.argCategory !== ArgCategory.Simple) {
             addGenericGetAttribute = true;
         } else {
@@ -537,6 +538,11 @@ export function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[]
     });
 
     return isUpdateNeeded;
+}
+
+function getPositionalOrKeywordArg(argList: Arg[], index: number, paramName: string): Arg | undefined {
+    const positionalArgs = argList.filter((arg) => !arg.name && arg.argCategory !== ArgCategory.UnpackedDictionary);
+    return positionalArgs[index] ?? argList.find((arg) => arg.name?.d.value === paramName);
 }
 
 function validateAndRenameField(
