@@ -415,6 +415,8 @@ jobs:
           fi
 
       - name: Render comparison history charts
+        id: render-history
+        continue-on-error: true
         if: ${{ steps.download.outputs.pr-number != '' }}
         run: |
           python build/benchmark/render_pyright_history.py \
@@ -428,7 +430,7 @@ jobs:
 
       - name: Upload comparison history charts
         id: history
-        if: ${{ steps.download.outputs.pr-number != '' }}
+        if: ${{ steps.download.outputs.pr-number != '' && steps.render-history.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: typecheck-benchmark-history-pr-${{ inputs.pr_number }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}
@@ -454,15 +456,16 @@ jobs:
             const revisions =
               `Compared candidate \`${process.env.CANDIDATE_SHA}\` against its first parent ` +
               `\`${process.env.BASE_SHA}\`.\n\n`
-            const history =
-              `[View the full release history charts with the base and PR results](${process.env.HISTORY_URL}).\n\n` +
-              `### Execution time history\n\n` +
-              `[![Execution time history](${process.env.HISTORY_URL}execution-time.svg)]` +
-              `(${process.env.HISTORY_URL})\n\n` +
-              `### Peak memory history\n\n` +
-              `[![Peak memory history](${process.env.HISTORY_URL}peak-memory.svg)]` +
-              `(${process.env.HISTORY_URL})\n\n` +
-              `[Download the chart artifact](${process.env.HISTORY_ARTIFACT_URL}).\n\n`
+            const history = process.env.HISTORY_ARTIFACT_URL
+              ? `[View the full release history charts with the base and PR results](${process.env.HISTORY_URL}).\n\n` +
+                `### Execution time history\n\n` +
+                `[![Execution time history](${process.env.HISTORY_URL}execution-time.svg)]` +
+                `(${process.env.HISTORY_URL})\n\n` +
+                `### Peak memory history\n\n` +
+                `[![Peak memory history](${process.env.HISTORY_URL}peak-memory.svg)]` +
+                `(${process.env.HISTORY_URL})\n\n` +
+                `[Download the chart artifact](${process.env.HISTORY_ARTIFACT_URL}).\n\n`
+              : `Benchmark history charts were skipped; see the workflow run for details.\n\n`
             const body = `${marker}\n${revisions}${history}${report}`
             await github.rest.issues.createComment({
               owner: context.repo.owner,

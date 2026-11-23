@@ -283,18 +283,36 @@ def _analyze(
                 }
             )
             continue
-        if not new:
+        if not new or not new.get("ok"):
             failures.append(f"{package}/{checker}: candidate result failed or is missing")
-            rows.append({
-                "package": package, "checker": checker, "execution_time_s": None,
-                "time_delta": None, "peak_memory_mb": None, "memory_delta": None,
-                "status": "Missing",
-            })
+            rows.append(
+                {
+                    "package": package,
+                    "checker": checker,
+                    "execution_time_s": None,
+                    "time_delta": None,
+                    "peak_memory_mb": None,
+                    "memory_delta": None,
+                    "status": "Missing" if not new else "Failed",
+                }
+            )
             continue
         scope_changed = False
         if old.get("files_selected") != new.get("files_selected"):
             failures.append(f"{package}/{checker}: native source-file count changed")
-            scope_changed = True
+            rows.append(
+                {
+                    "package": package,
+                    "checker": checker,
+                    "execution_time_s": float(new["execution_time_s"]),
+                    "time_delta": None,
+                    "peak_memory_mb": float(new["peak_memory_mb"]),
+                    "memory_delta": None,
+                    "files_checked": new.get("files_checked"),
+                    "status": "Scope changed",
+                }
+            )
+            continue
         for field in ("check_paths", "exclude_directories", "source_manifest_sha256", "resolved_dependencies"):
             if old_package.get(field, []) != new_package.get(field, []):
                 failures.append(
@@ -316,21 +334,6 @@ def _analyze(
                 break
         if scope_changed:
             continue
-        if not new or not new.get("ok"):
-            failures.append(f"{package}/{checker}: candidate result failed or is missing")
-            rows.append(
-                {
-                    "package": package,
-                    "checker": checker,
-                    "execution_time_s": None,
-                    "time_delta": None,
-                    "peak_memory_mb": None,
-                    "memory_delta": None,
-                    "status": "Failed",
-                }
-            )
-            continue
-
         old_time = _metric_value(old, "execution_time_s", statistic)
         new_time = _metric_value(new, "execution_time_s", statistic)
         old_memory = _metric_value(old, "peak_memory_mb", statistic)

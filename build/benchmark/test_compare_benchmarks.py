@@ -102,7 +102,56 @@ class CompareBenchmarksTest(unittest.TestCase):
         candidate["results"][0]["metrics"]["pyright"]["files_selected"] = 1
         failures, rows = compare_benchmarks._analyze(baseline, candidate, 10.0)
         self.assertIn("example/pyright: native source-file count changed", failures)
-        self.assertEqual(rows, [])
+        self.assertEqual(
+            rows,
+            [
+                {
+                    "package": "example",
+                    "checker": "pyright",
+                    "execution_time_s": 5.0,
+                    "time_delta": None,
+                    "peak_memory_mb": 100.0,
+                    "memory_delta": None,
+                    "files_checked": 123,
+                    "status": "Scope changed",
+                }
+            ],
+        )
+        report = compare_benchmarks.render_markdown(baseline, candidate, 10.0)
+        self.assertIn(
+            "| example | pyright | 123 | 5.000s | N/A | 100.0 MB | N/A | 🔴 Scope changed |",
+            report,
+        )
+
+    def test_failed_candidate_metric_precedes_native_file_count_comparison(self) -> None:
+        baseline = _result(10.0, 100.0)
+        candidate = _result(0.0, 0.0, ok=False)
+        baseline["results"][0]["metrics"]["pyright"]["files_selected"] = 2
+
+        failures, rows = compare_benchmarks._analyze(baseline, candidate, 10.0)
+
+        self.assertEqual(
+            failures, ["example/pyright: candidate result failed or is missing"]
+        )
+        self.assertEqual(
+            rows,
+            [
+                {
+                    "package": "example",
+                    "checker": "pyright",
+                    "execution_time_s": None,
+                    "time_delta": None,
+                    "peak_memory_mb": None,
+                    "memory_delta": None,
+                    "status": "Failed",
+                }
+            ],
+        )
+        report = compare_benchmarks.render_markdown(baseline, candidate, 10.0)
+        self.assertIn(
+            "| example | pyright | N/A | N/A | N/A | N/A | N/A | 🔴 Failed |",
+            report,
+        )
 
     def test_rejects_faster_results_with_changed_capability_evidence(self) -> None:
         baseline = _result(10.0, 100.0)
@@ -1774,6 +1823,8 @@ const execute = async (script, eventContext = context) =>
             {
                 "name": "Render comparison history charts",
                 "if": "${{ steps.download.outputs.pr-number != '' }}",
+                "id": "render-history",
+                "continue-on-error": True,
                 "run": "python build/benchmark/render_pyright_history.py \\\n  base.json \\\n  candidate.json \\\n  --existing-history docs/typecheck-benchmark/history/history.json \\\n  --candidate-label 'Base' \\\n  --candidate-label 'PR #${{ inputs.pr_number }}' \\\n  --candidate-statistic median \\\n  --output pr-history\n",
             },
         )
@@ -1790,7 +1841,7 @@ const execute = async (script, eventContext = context) =>
             {
                 "name": "Upload comparison history charts",
                 "id": "history",
-                "if": "${{ steps.download.outputs.pr-number != '' }}",
+                "if": "${{ steps.download.outputs.pr-number != '' && steps.render-history.outcome == 'success' }}",
                 "uses": "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
                 "with": {
                     "name": "typecheck-benchmark-history-pr-${{ inputs.pr_number }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}-base-${{ inputs.base_sha }}-candidate-${{ inputs.merge_sha }}",
@@ -1812,6 +1863,14 @@ const execute = async (script, eventContext = context) =>
                 "HISTORY_ARTIFACT_URL": "${{ steps.history.outputs.artifact-url }}",
                 "HISTORY_URL": "https://microsoft.github.io/pyright/typecheck-benchmark/pr/${{ inputs.pr_number }}/${{ github.run_id }}/${{ github.run_attempt }}/",
             },
+        )
+        self.assertIn(
+            "const history = process.env.HISTORY_ARTIFACT_URL",
+            post_comment["with"]["script"],
+        )
+        self.assertIn(
+            "Benchmark history charts were skipped",
+            post_comment["with"]["script"],
         )
         packages_job = benchmark_workflow_data["jobs"]["packages"]
         benchmark_job = benchmark_workflow_data["jobs"]["benchmark"]
@@ -1883,6 +1942,53 @@ const execute = async (script, eventContext = context) =>
                 / "workflows"
                 / "typecheck_benchmark_comment.yml"
             ).exists()
+        )
+
+    def test_benchmark_comment_posts_without_history_charts(self) -> None:
+        workflow_path = (
+            REPO_ROOT / ".github" / "workflows" / "typecheck_benchmark_pr.yml"
+        )
+        script = r"""
+const assert = require('assert').strict;
+const fs = require('fs');
+const YAML = require('yaml');
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const workflow = YAML.parse(fs.readFileSync(process.argv[1], 'utf8'));
+const comment = workflow.jobs.comment.steps.find((step) =>
+    step.name === 'Post benchmark comment'
+);
+const execute = new AsyncFunction('github', 'context', 'process', 'require', comment.with.script);
+async function run(historyArtifactUrl) {
+    let postedBody;
+    const github = {
+        rest: { issues: { createComment: async ({ body }) => { postedBody = body; } } },
+    };
+    const context = { repo: { owner: 'microsoft', repo: 'pyright' } };
+    const process = { env: {
+        PR_NUMBER: '42',
+        BASE_SHA: 'a'.repeat(40),
+        CANDIDATE_SHA: 'b'.repeat(40),
+        HISTORY_ARTIFACT_URL: historyArtifactUrl,
+        HISTORY_URL: 'https://example.test/history/',
+    } };
+    const mockRequire = (name) =>
+        name === 'fs' ? { readFileSync: () => 'benchmark report' } : require(name);
+    await execute(github, context, process, mockRequire);
+    return postedBody;
+}
+(async () => {
+    const withoutCharts = await run('');
+    assert(withoutCharts.includes('Benchmark history charts were skipped'));
+    assert(withoutCharts.includes('benchmark report'));
+    assert(!withoutCharts.includes('https://example.test/history/'));
+    assert(!withoutCharts.includes('Download the chart artifact'));
+    const withCharts = await run('https://example.test/artifact');
+    assert(withCharts.includes('https://example.test/history/execution-time.svg'));
+    assert(withCharts.includes('https://example.test/artifact'));
+})().catch((error) => { console.error(error); process.exitCode = 1; });
+"""
+        subprocess.run(
+            ["node", "-e", script, str(workflow_path)], cwd=REPO_ROOT, check=True
         )
 
     def test_pr_workflow_benchmarks_exact_base_and_candidate(self) -> None:
