@@ -1,86 +1,124 @@
 name: 'Author responsibility'
 
 # Checks that the PR description's author responsibility box from the PR template is checked.
+# pull_request runs from forks can't write statuses or comments, so this runs on the trigger workflow's runs.
 
 on:
-  pull_request_target:
-    types: [opened, edited, reopened, synchronize, ready_for_review]
+  workflow_run:
+    workflows: ['Author responsibility trigger']
+    types: [requested]
   workflow_dispatch:
 
 permissions: {}
 
 jobs:
+  pull-requests:
+    if: >-
+      ${{ github.repository == 'microsoft/pyright' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.path == '.github/workflows/author_responsibility_trigger.yml' &&
+      github.event.workflow_run.repository.id == github.event.repository.id)) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    outputs:
+      numbers: ${{ steps.list.outputs.result }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - id: list
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const check = require('./build/checkAuthorResponsibility.js');
+            const { owner, repo } = context.repo;
+            const prs = await check.listPullRequests({ github, context });
+            // Hides the previous result until the check job replaces it, so a failed check job blocks.
+            for (const pr of prs) {
+                await github.rest.repos.createCommitStatus({
+                    owner,
+                    repo,
+                    sha: pr.head.sha,
+                    context: check.NAME,
+                    state: 'pending',
+                    description: 'Checking the author responsibility box.',
+                    target_url: `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+                });
+            }
+            return prs.map((pr) => pr.number);
+
   check:
-    if: github.repository == 'microsoft/pyright'
+    needs: pull-requests
+    if: needs.pull-requests.outputs.numbers != '[]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
       statuses: write
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJSON(needs.pull-requests.outputs.numbers) }}
     concurrency:
-      group: author-responsibility-${{ github.event.pull_request.number || 'all' }}
+      group: author-responsibility-${{ matrix.pr }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.workflow_sha }}
           persist-credentials: false
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR: ${{ matrix.pr }}
         with:
           script: |
             const check = require('./build/checkAuthorResponsibility.js');
             const { owner, repo } = context.repo;
             const policy = `[AI contribution policy](${context.serverUrl}/${owner}/${repo}/blob/main/AI_POLICY.md)`;
 
-            async function report(pullNumber) {
-                const { pullRequest: pr, result } = await check.evaluate({ github, context, pullNumber });
-                await github.rest.repos.createCommitStatus({
-                    owner,
-                    repo,
-                    sha: pr.head.sha,
-                    context: check.NAME,
-                    state: result.state,
-                    description: result.description,
-                    target_url: `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
-                });
-                if (result.exempt) {
-                    return;
-                }
-
-                const comments = await github.paginate(github.rest.issues.listComments, {
-                    owner,
-                    repo,
-                    issue_number: pr.number,
-                    per_page: 100,
-                });
-                const existing = comments.find(
-                    (c) => c.user?.login === 'github-actions[bot]' && c.body?.includes(check.MARKER)
-                );
-                if (result.state === 'success') {
-                    if (existing) {
-                        await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id });
-                    }
-                    return;
-                }
-                if (!existing && pr.draft) {
-                    return;
-                }
-                const body = `${check.MARKER}\n\n:warning: **Action needed:** ${result.problem} See the ${policy}.`;
-                if (existing?.body === body) {
-                    return;
-                }
-                if (existing) {
-                    await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
-                } else {
-                    await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
-                }
+            const { pullRequest: pr, result } = await check.evaluate({ github, context, pullNumber: Number(process.env.PR) });
+            await github.rest.repos.createCommitStatus({
+                owner,
+                repo,
+                sha: pr.head.sha,
+                context: check.NAME,
+                state: result.state,
+                description: result.description,
+                target_url: `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+            });
+            if (result.exempt) {
+                return;
             }
 
-            if (context.eventName === 'pull_request_target') {
-                await report(context.payload.pull_request.number);
-            } else {
-                const prs = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'open', per_page: 100 });
-                for (const pr of prs) {
-                    await report(pr.number);
+            const comments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number: pr.number,
+                per_page: 100,
+            });
+            const existing = comments.find(
+                (c) => c.user?.login === 'github-actions[bot]' && c.body?.includes(check.MARKER)
+            );
+            if (result.state === 'success') {
+                if (existing) {
+                    await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id });
                 }
+                return;
+            }
+            if (!existing && pr.draft) {
+                return;
+            }
+            const body = `${check.MARKER}\n\n:warning: **Action needed:** ${result.problem} See the ${policy}.`;
+            if (existing?.body === body) {
+                return;
+            }
+            if (existing) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
             }

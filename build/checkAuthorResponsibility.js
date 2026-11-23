@@ -75,4 +75,18 @@ async function evaluate({ github, context, pullNumber }) {
     return { pullRequest, result: { state: 'success', description: 'The author responsibility box is checked.' } };
 }
 
-module.exports = { MARKER, NAME, evaluate };
+async function listPullRequests({ github, context }) {
+    const { owner, repo } = context.repo;
+    const run = context.payload.workflow_run;
+    const params = { owner, repo, state: 'open', per_page: 100 };
+    if (run === undefined) {
+        return github.paginate(github.rest.pulls.list, params);
+    }
+    const pullRequests = await github.paginate(github.rest.pulls.list, {
+        ...params,
+        head: `${run.head_repository.owner.login}:${run.head_branch}`,
+    });
+    return pullRequests.filter((pr) => pr.head.repo?.id === run.head_repository.id);
+}
+
+module.exports = { MARKER, NAME, evaluate, listPullRequests };

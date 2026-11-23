@@ -1,0 +1,15 @@
+name: 'Author responsibility trigger'
+
+# Starts the Author responsibility workflow, which writes the status and comment from the default branch.
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'true'
