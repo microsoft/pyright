@@ -45,7 +45,7 @@ export function createOverrideValidation(context: Context) {
     function validateOverrideMethod(
         baseMethod: Type,
         overrideMethod: FunctionType | OverloadedType,
-        baseClass: ClassType | undefined,
+        childClass: ClassType | undefined,
         diag: DiagnosticAddendum,
         enforceParamNames = true
     ): boolean {
@@ -59,7 +59,7 @@ export function createOverrideValidation(context: Context) {
         if (isFunction(baseMethod)) {
             // Handle the easy case - a simple function overriding another simple function.
             if (isFunction(overrideMethod)) {
-                return validateOverrideMethodInternal(baseMethod, overrideMethod, baseClass, diag, enforceParamNames);
+                return validateOverrideMethodInternal(baseMethod, overrideMethod, childClass, diag, enforceParamNames);
             }
 
             const overloadsAndImpl = [...OverloadedType.getOverloads(overrideMethod)];
@@ -75,7 +75,7 @@ export function createOverrideValidation(context: Context) {
                     return validateOverrideMethodInternal(
                         baseMethod,
                         overrideOverload,
-                        baseClass,
+                        childClass,
                         /* diag */ undefined,
                         enforceParamNames
                     );
@@ -92,15 +92,15 @@ export function createOverrideValidation(context: Context) {
         // override must match all of the overloads.
         if (isFunction(overrideMethod)) {
             return OverloadedType.getOverloads(baseMethod).every((overload) => {
-                // If the override isn't applicable for this base class, skip the check.
-                if (baseClass && !isOverrideMethodApplicable(overload, baseClass)) {
+                // If the override isn't applicable for this child class, skip the check.
+                if (childClass && !isOverrideMethodApplicable(overload, childClass)) {
                     return true;
                 }
 
                 return validateOverrideMethodInternal(
                     overload,
                     overrideMethod,
-                    baseClass,
+                    childClass,
                     diag?.createAddendum(),
                     enforceParamNames
                 );
@@ -118,15 +118,15 @@ export function createOverrideValidation(context: Context) {
             let possibleMatchIndex: number | undefined;
 
             let matchIndex = baseOverloads.findIndex((baseOverload, index) => {
-                // If the override isn't applicable for this base class, skip the check.
-                if (baseClass && !isOverrideMethodApplicable(baseOverload, baseClass)) {
+                // If the override isn't applicable for this child class, skip the check.
+                if (childClass && !isOverrideMethodApplicable(baseOverload, childClass)) {
                     return false;
                 }
 
                 const isCompatible = validateOverrideMethodInternal(
                     baseOverload,
                     overrideOverload,
-                    baseClass,
+                    childClass,
                     /* diag */ undefined,
                     enforceParamNames
                 );
@@ -163,9 +163,9 @@ export function createOverrideValidation(context: Context) {
 
             // See if all of the remaining overrides are nonapplicable.
             if (
-                !baseClass ||
+                !childClass ||
                 unmatchedOverloads.some((overload) => {
-                    return isOverrideMethodApplicable(overload, baseClass);
+                    return isOverrideMethodApplicable(overload, childClass);
                 })
             ) {
                 // We didn't find matches for all of the base overloads.

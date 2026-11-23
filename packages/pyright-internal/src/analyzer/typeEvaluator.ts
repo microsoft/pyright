@@ -18592,14 +18592,14 @@ export function createTypeEvaluator(
     function validateOverrideMethod(
         baseMethod: Type,
         overrideMethod: FunctionType | OverloadedType,
-        baseClass: ClassType | undefined,
+        childClass: ClassType | undefined,
         diag: DiagnosticAddendum,
         enforceParamNames = true
     ): boolean {
         return overrideValidation.validateOverrideMethod(
             baseMethod,
             overrideMethod,
-            baseClass,
+            childClass,
             diag,
             enforceParamNames
         );
