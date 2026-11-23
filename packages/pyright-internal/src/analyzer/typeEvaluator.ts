@@ -2184,11 +2184,20 @@ export function createTypeEvaluator(
             return undefined;
         }
 
+        let isDescriptorSetterType = false;
+
         // If it's a descriptor, we need to get the setter type.
         if (useDescriptorSetterType && isClassInstance(declaredType)) {
             const setter = getBoundMagicMethod(declaredType, '__set__');
             if (setter && isFunction(setter) && setter.shared.parameters.length >= 2) {
                 declaredType = FunctionType.getParamType(setter, 1);
+
+                // The setter's value type is used as-is, so it must not be bound.
+                // Binding would also have solved Self, so solve it here using the
+                // object being assigned to.
+                bindFunction = false;
+                selfType = selfType ?? classOrObjectBase;
+                isDescriptorSetterType = true;
 
                 if (isAnyOrUnknown(declaredType)) {
                     return undefined;
@@ -2198,7 +2207,31 @@ export function createTypeEvaluator(
 
         if (classOrObjectBase) {
             if (memberAccessClass && isInstantiableClass(memberAccessClass)) {
-                declaredType = partiallySpecializeType(declaredType, memberAccessClass, getTypeClassType(), selfType);
+                const specializedType = partiallySpecializeType(
+                    declaredType,
+                    memberAccessClass,
+                    getTypeClassType(),
+                    selfType
+                );
+
+                // If the receiver is a value-constrained TypeVar, the assignment is
+                // checked against each constraint separately, so a setter value type
+                // that refers to Self can't serve as a single expected type for all
+                // of them. Don't provide an expected type in that case.
+                if (
+                    isDescriptorSetterType &&
+                    selfType &&
+                    isTypeVar(selfType) &&
+                    TypeVarType.hasConstraints(selfType) &&
+                    !isTypeSame(
+                        specializedType,
+                        partiallySpecializeType(declaredType, memberAccessClass, getTypeClassType())
+                    )
+                ) {
+                    return undefined;
+                }
+
+                declaredType = specializedType;
             }
 
             if (isFunctionOrOverloaded(declaredType)) {
