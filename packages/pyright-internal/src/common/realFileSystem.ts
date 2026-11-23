@@ -6,8 +6,10 @@
 
 import { FakeFS, NativePath, PortablePath, PosixFS, ppath, VirtualFS, ZipFS, ZipOpenFS } from '@yarnpkg/fslib';
 import { getLibzipSync } from '@yarnpkg/libzip';
+import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as os from 'os';
+import * as path from 'path';
 import * as tmp from 'tmp';
 import { isMainThread } from 'worker_threads';
 
@@ -287,6 +289,18 @@ export class RealFileSystem implements FileSystem {
         return yarnFS.readFileSync(path);
     }
 
+    readFileRangeSync(uri: Uri, offset: number, length: number): Buffer {
+        const path = uri.getFilePath();
+        const buffer = Buffer.alloc(length);
+        const fd = yarnFS.openSync(path, 'r');
+        try {
+            const bytesRead = yarnFS.readSync(fd, buffer, 0, length, offset);
+            return buffer.subarray(0, bytesRead);
+        } finally {
+            yarnFS.closeSync(fd);
+        }
+    }
+
     writeFileSync(uri: Uri, data: string | Buffer, encoding: BufferEncoding | null) {
         const path = uri.getFilePath();
         yarnFS.writeFileSync(path, data, encoding || undefined);
@@ -500,6 +514,87 @@ export class WorkspaceFileWatcherProvider implements FileWatcherProvider, FileWa
                 watcher.eventHandler(eventType, fileUri.getFilePath());
             }
         });
+    }
+}
+
+export class NativeRecursiveFileWatcherProvider implements FileWatcherProvider {
+    constructor(
+        private readonly _caseSensitiveDetector: CaseSensitivityDetector,
+        private readonly _console: ConsoleInterface
+    ) {}
+
+    createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
+        return new NativeRecursiveFileWatcher(paths, listener, this._caseSensitiveDetector, this._console);
+    }
+}
+
+class NativeRecursiveFileWatcher extends EventEmitter implements FileWatcher {
+    private readonly _watchers: fs.FSWatcher[] = [];
+    private _closed = false;
+
+    constructor(
+        paths: string[],
+        listener: FileWatcherEventHandler,
+        detector: CaseSensitivityDetector,
+        console: ConsoleInterface
+    ) {
+        super();
+        try {
+            for (const rootPath of paths) {
+                const root = Uri.file(rootPath, detector);
+                const watcher = fs.watch(fs.realpathSync.native(rootPath), { recursive: true }, (event, filename) => {
+                    if (this._closed) return;
+                    if (filename === null) {
+                        listener('unlinkDir', rootPath);
+                        return;
+                    }
+                    const relative = filename.toString();
+                    const uri = Uri.file(path.resolve(rootPath, relative), detector);
+                    if (uri.equals(root)) {
+                        listener('unlinkDir', rootPath);
+                        return;
+                    }
+                    if (path.isAbsolute(relative) || !uri.isChild(root)) {
+                        this.emit('error', new Error('Native recursive watcher returned a path outside its root'));
+                        return;
+                    }
+                    listener(event === 'change' ? 'change' : 'add', uri.getFilePath());
+                });
+                this._watchers.push(watcher);
+                watcher.on('error', (error) => {
+                    if (!this._closed) this.emit('error', error);
+                });
+                watcher.on('close', () => {
+                    if (!this._closed) this.emit('close');
+                });
+            }
+        } catch (error) {
+            try {
+                this.close();
+            } catch (cleanupError) {
+                console.error(`Native recursive watcher cleanup failed: ${String(cleanupError)}`);
+            }
+            throw error;
+        }
+        queueMicrotask(() => {
+            if (!this._closed) this.emit('ready');
+        });
+    }
+
+    close(): void {
+        if (this._closed) return;
+        this._closed = true;
+        const errors: unknown[] = [];
+        for (const watcher of this._watchers) {
+            try {
+                watcher.close();
+            } catch (error) {
+                errors.push(error);
+            }
+        }
+        if (errors.length) {
+            throw new Error(`Native recursive watcher cleanup failed: ${errors.map(String).join('; ')}`);
+        }
     }
 }
 

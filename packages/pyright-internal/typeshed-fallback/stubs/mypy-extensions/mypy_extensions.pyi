@@ -75,8 +75,7 @@ def KwArg(type: _T) -> _T: ...
 def KwArg() -> Any: ...
 
 # Return type that indicates a function does not return.
-# Deprecated: Use typing.NoReturn instead.
-@deprecated("Use typing.NoReturn or typing.Never instead")
+@deprecated("Use typing.Never instead")
 class NoReturn: ...
 
 # This is consistent with implementation. Usage intends for this as
@@ -93,4 +92,8 @@ class FlexibleAlias(Generic[_T, _U]): ...
 i64 = int
 i32 = int
 i16 = int
+i8 = int
+u64 = int
+u32 = int
+u16 = int
 u8 = int

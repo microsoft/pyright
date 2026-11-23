@@ -162,6 +162,10 @@ export class VirtualFileOverlayFileSystem implements FileSystem {
         return this._realFS.readFileSync(this._getRedirectedUri(uri), encoding as BufferEncoding);
     }
 
+    readFileRangeSync(uri: Uri, offset: number, length: number): Buffer {
+        return this._realFS.readFileRangeSync(this._getRedirectedUri(uri), offset, length);
+    }
+
     statSync(uri: Uri): Stats {
         return this._realFS.statSync(this._getRedirectedUri(uri));
     }

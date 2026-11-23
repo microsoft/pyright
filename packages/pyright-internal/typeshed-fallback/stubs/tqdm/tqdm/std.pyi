@@ -2,8 +2,8 @@ import contextlib
 from _typeshed import Incomplete, SupportsRead, SupportsWrite
 from collections.abc import Callable, Iterable, Iterator, Mapping, MutableMapping
 from types import TracebackType
-from typing import Any, ClassVar, Generic, Literal, NoReturn, TypeVar, overload
-from typing_extensions import Self
+from typing import Any, ClassVar, Generic, Literal, TypeVar, overload
+from typing_extensions import Never, Self
 
 from ._monitor import TMonitor
 from .utils import Comparable
@@ -95,7 +95,7 @@ class tqdm(Comparable, Generic[_T]):
     ) -> None: ...
     @overload
     def __init__(
-        self: tqdm[NoReturn],
+        self: tqdm[Never],
         iterable: None = None,
         desc: str | None = None,
         total: float | None = None,
@@ -167,36 +167,36 @@ class tqdm(Comparable, Generic[_T]):
     ) -> None: ...
 
     iterable: Incomplete
-    disable: Incomplete
-    pos: Incomplete
-    n: Incomplete
-    total: Incomplete
-    leave: Incomplete
-    desc: Incomplete
+    disable: bool | None
+    pos: int
+    n: float | int
+    total: float | int | None
+    leave: bool | None
+    desc: str
     fp: Incomplete
-    ncols: Incomplete
-    nrows: Incomplete
-    mininterval: Incomplete
-    maxinterval: Incomplete
-    miniters: Incomplete
-    dynamic_miniters: Incomplete
-    ascii: Incomplete
-    unit: Incomplete
-    unit_scale: Incomplete
-    unit_divisor: Incomplete
-    initial: Incomplete
-    lock_args: Incomplete
-    delay: Incomplete
-    gui: Incomplete
-    dynamic_ncols: Incomplete
-    smoothing: Incomplete
-    bar_format: Incomplete
-    postfix: Incomplete
-    colour: Incomplete
-    last_print_n: Incomplete
+    ncols: int | None
+    nrows: int | None
+    mininterval: float
+    maxinterval: float
+    miniters: float | None
+    dynamic_miniters: bool
+    ascii: bool | str | None
+    unit: str
+    unit_scale: bool | float
+    unit_divisor: float
+    initial: float
+    lock_args: tuple[bool | None, float | None] | tuple[bool | None] | None
+    delay: float | None
+    gui: bool
+    dynamic_ncols: bool
+    smoothing: float
+    bar_format: str | None
+    postfix: Mapping[str, object] | str | None
+    colour: str | None
+    last_print_n: float | int
     sp: Incomplete
-    last_print_t: Incomplete
-    start_t: Incomplete
+    last_print_t: float
+    start_t: float
 
     def __bool__(self) -> bool: ...
     def __len__(self) -> int: ...

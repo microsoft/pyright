@@ -78,6 +78,7 @@ import {
     ImportFromNode,
     ImportNode,
     IndexNode,
+    isExpressionNode,
     LambdaNode,
     ListNode,
     MatchNode,
@@ -246,6 +247,7 @@ export class Parser {
     private _diagSink: DiagnosticSink = new DiagnosticSink();
     private _isInLoop = false;
     private _isInFunction = false;
+    private _isLazyImportAllowed = true;
     private _isInExceptionGroup = false;
     private _isParsingTypeAnnotation = false;
     private _isParsingIndexTrailer = false;
@@ -565,8 +567,10 @@ export class Parser {
     // lazy_import_stmt: "lazy" import_stmt | "lazy" from_import_stmt
     private _parseLazyImportStatement(): ImportNode | ImportFromNode {
         const lazyToken = this._getKeywordToken(KeywordType.Lazy);
+        const lazyImportAllowedForVersion =
+            this._parseOptions.isStubFile || !PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_15);
 
-        if (!this._parseOptions.isStubFile && PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_15)) {
+        if (!lazyImportAllowedForVersion) {
             this._addSyntaxError(LocMessage.lazyImportIllegal(), lazyToken);
         }
 
@@ -574,7 +578,7 @@ export class Parser {
         let node: ImportNode | ImportFromNode;
 
         if (nextToken.type === TokenType.Keyword && (nextToken as KeywordToken).keywordType === KeywordType.From) {
-            node = this._parseFromStatement();
+            node = this._parseFromStatement(/* isLazy */ true);
         } else {
             node = this._parseImportStatement();
         }
@@ -586,6 +590,18 @@ export class Parser {
         // PEP 810 disallows wildcard imports with 'lazy'.
         if (node.nodeType === ParseNodeType.ImportFrom && node.d.isWildcardImport) {
             this._addSyntaxError(LocMessage.lazyImportWildcardIllegal(), node.d.wildcardToken ?? lazyToken);
+        }
+
+        const isFutureImport =
+            node.nodeType === ParseNodeType.ImportFrom &&
+            node.d.module.d.leadingDots === 0 &&
+            node.d.module.d.nameParts.length === 1 &&
+            node.d.module.d.nameParts[0].d.value === '__future__';
+
+        if (isFutureImport) {
+            this._addSyntaxError(LocMessage.lazyImportFutureIllegal(), lazyToken);
+        } else if (lazyImportAllowedForVersion && !this._isLazyImportAllowed) {
+            this._addSyntaxError(LocMessage.lazyImportScopeIllegal(), lazyToken);
         }
 
         return node;
@@ -1623,7 +1639,22 @@ export class Parser {
     }
 
     // suite: ':' (simple_stmt | NEWLINE INDENT stmt+ DEDENT)
-    private _parseSuite(isFunction = false, skipBody = false, postColonCallback?: () => void): SuiteNode {
+    private _parseSuite(
+        isFunction = false,
+        skipBody = false,
+        postColonCallback?: () => void,
+        allowLazyImports = true
+    ): SuiteNode {
+        const wasLazyImportAllowed = this._isLazyImportAllowed;
+        this._isLazyImportAllowed = wasLazyImportAllowed && allowLazyImports;
+        try {
+            return this._parseSuiteContents(isFunction, skipBody, postColonCallback);
+        } finally {
+            this._isLazyImportAllowed = wasLazyImportAllowed;
+        }
+    }
+
+    private _parseSuiteContents(isFunction: boolean, skipBody: boolean, postColonCallback?: () => void): SuiteNode {
         const nextToken = this._peekToken();
         const suite = SuiteNode.create(this._getOwnerKey(), nextToken);
 
@@ -1883,17 +1914,31 @@ export class Parser {
     }
 
     // comp_iter: comp_for | comp_if
-    private _tryParseComprehension(target: ParseNode, isGenerator: boolean): ComprehensionNode | undefined {
+    private _tryParseComprehension(
+        target: ParseNode,
+        isGenerator: boolean,
+        unpackToken?: Token
+    ): ComprehensionNode | undefined {
         const compFor = this._tryParseCompForStatement();
 
         if (!compFor) {
             return undefined;
         }
 
-        if (target.nodeType === ParseNodeType.Unpack) {
-            this._addSyntaxError(LocMessage.unpackIllegalInComprehension(), target);
-        } else if (target.nodeType === ParseNodeType.DictionaryExpandEntry) {
-            this._addSyntaxError(LocMessage.dictExpandIllegalInComprehension(), target);
+        if (unpackToken) {
+            assert(isExpressionNode(target));
+            if (target.nodeType === ParseNodeType.AssignmentExpression && !target.d.hasParens) {
+                this._addSyntaxError(LocMessage.walrusNotAllowed(), target.d.walrusToken);
+            }
+            target = UnpackNode.create(this._getOwnerKey(), unpackToken, target);
+        }
+
+        if (!this._parseOptions.isStubFile && PythonVersion.isLessThan(this._getLanguageVersion(), pythonVersion3_15)) {
+            if (target.nodeType === ParseNodeType.Unpack) {
+                this._addSyntaxError(LocMessage.unpackIllegalInComprehension(), target);
+            } else if (target.nodeType === ParseNodeType.DictionaryExpandEntry) {
+                this._addSyntaxError(LocMessage.dictExpandIllegalInComprehension(), target);
+            }
         }
 
         const compNode = ComprehensionNode.create(this._getOwnerKey(), target, isGenerator);
@@ -2013,7 +2058,12 @@ export class Parser {
     // except_clause: 'except' [test ['as' NAME]]
     private _parseTryStatement(): TryNode {
         const tryToken = this._getKeywordToken(KeywordType.Try);
-        const trySuite = this._parseSuite(this._isInFunction);
+        const trySuite = this._parseSuite(
+            this._isInFunction,
+            /* skipBody */ false,
+            undefined,
+            /* allowLazyImports */ false
+        );
         const tryNode = TryNode.create(this._getOwnerKey(), tryToken, trySuite);
         let sawCatchAllExcept = false;
         let reportedExceptGroupMismatch = false;
@@ -2097,7 +2147,9 @@ export class Parser {
                 }
             }
 
-            const exceptSuite = this._parseExceptSuite(isExceptGroup, () => this._parseSuite(this._isInFunction));
+            const exceptSuite = this._parseExceptSuite(isExceptGroup, () =>
+                this._parseSuite(this._isInFunction, /* skipBody */ false, undefined, /* allowLazyImports */ false)
+            );
             const exceptNode = ExceptNode.create(this._getOwnerKey(), exceptToken, exceptSuite, isExceptGroup);
             if (typeExpr) {
                 exceptNode.d.typeExpr = typeExpr;
@@ -2117,7 +2169,12 @@ export class Parser {
             extendRange(tryNode, tryNode.d.exceptClauses[tryNode.d.exceptClauses.length - 1]);
 
             if (this._consumeTokenIfKeyword(KeywordType.Else)) {
-                tryNode.d.elseSuite = this._parseSuite(this._isInFunction);
+                tryNode.d.elseSuite = this._parseSuite(
+                    this._isInFunction,
+                    /* skipBody */ false,
+                    undefined,
+                    /* allowLazyImports */ false
+                );
                 tryNode.d.elseSuite.parent = tryNode;
                 extendRange(tryNode, tryNode.d.elseSuite);
             }
@@ -2129,7 +2186,12 @@ export class Parser {
             this._isInFinallyBlock = true;
             this._isInFinallyLoop = this._isInLoop;
 
-            tryNode.d.finallySuite = this._parseSuite(this._isInFunction);
+            tryNode.d.finallySuite = this._parseSuite(
+                this._isInFunction,
+                /* skipBody */ false,
+                undefined,
+                /* allowLazyImports */ false
+            );
 
             this._isInFinallyBlock = wasInFinallyBlock;
             this._isInFinallyLoop = wasInFinallyLoop;
@@ -2207,11 +2269,16 @@ export class Parser {
         this._isInFinallyBlock = false;
         this._isInFinallyLoop = false;
 
-        const suite = this._parseSuite(/* isFunction */ true, this._parseOptions.skipFunctionAndClassBody, () => {
-            if (!functionTypeAnnotationToken) {
-                functionTypeAnnotationToken = this._getTypeAnnotationCommentText();
-            }
-        });
+        const suite = this._parseSuite(
+            /* isFunction */ true,
+            this._parseOptions.skipFunctionAndClassBody,
+            () => {
+                if (!functionTypeAnnotationToken) {
+                    functionTypeAnnotationToken = this._getTypeAnnotationCommentText();
+                }
+            },
+            /* allowLazyImports */ false
+        );
 
         this._isInExceptionGroup = wasInExceptionGroup;
         this._isInFinallyBlock = wasInFinallyBlock;
@@ -2694,7 +2761,12 @@ export class Parser {
             }
         }
 
-        const suite = this._parseSuite(/* isFunction */ false, this._parseOptions.skipFunctionAndClassBody);
+        const suite = this._parseSuite(
+            /* isFunction */ false,
+            this._parseOptions.skipFunctionAndClassBody,
+            undefined,
+            /* allowLazyImports */ false
+        );
 
         const classNode = ClassNode.create(
             this._getOwnerKey(),
@@ -2793,7 +2865,7 @@ export class Parser {
     //             'import' ('*' | '(' import_as_names ')' | import_as_names))
     // import_as_names: import_as_name (',' import_as_name)* [',']
     // import_as_name: NAME ['as' NAME]
-    private _parseFromStatement(): ImportFromNode {
+    private _parseFromStatement(isLazy = false): ImportFromNode {
         const fromToken = this._getKeywordToken(KeywordType.From);
 
         const modName = this._parseDottedModuleName(/* allowJustDots */ true);
@@ -2855,7 +2927,7 @@ export class Parser {
                     importFromAsNode.parent = importFromNode;
                     extendRange(importFromNode, importFromAsNode);
 
-                    if (isFutureImport) {
+                    if (isFutureImport && !isLazy) {
                         // Add the future import by name.
                         this._futureImports.add(importName.value);
                     }
@@ -3502,7 +3574,7 @@ export class Parser {
             );
         }
 
-        const elseExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
+        const elseExpr = this._parseTestExpression(/* allowAssignmentExpression */ false);
 
         return TernaryNode.create(this._getOwnerKey(), ifExpr, testExpr, elseExpr);
     }
@@ -3523,7 +3595,12 @@ export class Parser {
             return leftExpr;
         }
 
-        if (!this._assignmentExpressionsAllowed || disallowAssignmentExpression) {
+        if (!this._assignmentExpressionsAllowed) {
+            // Assignment expressions are disallowed anywhere within the iterable
+            // expression of a comprehension's "for" clause, even if parenthesized.
+            // This differs from the "requires surrounding parentheses" case below.
+            this._addSyntaxError(LocMessage.walrusNotAllowedInComprehension(), walrusToken);
+        } else if (disallowAssignmentExpression) {
             this._addSyntaxError(LocMessage.walrusNotAllowed(), walrusToken);
         }
 
@@ -4020,7 +4097,7 @@ export class Parser {
                     valueExpr = this._parsePossibleSlice();
 
                     if (nameExpr.nodeType === ParseNodeType.Name) {
-                        nameIdentifier = nameExpr.d.token;
+                        nameIdentifier = nameExpr.d;
                     } else {
                         this._addSyntaxError(LocMessage.expectedParamName(), nameExpr);
                     }
@@ -4224,20 +4301,25 @@ export class Parser {
         let valueExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
         let nameIdentifier: IdentifierToken | undefined;
 
-        if (argType === ArgCategory.Simple) {
-            if (this._consumeTokenIfOperator(OperatorType.Assign)) {
+        if (argType !== ArgCategory.UnpackedDictionary) {
+            if (argType === ArgCategory.Simple && this._consumeTokenIfOperator(OperatorType.Assign)) {
                 const nameExpr = valueExpr;
                 valueExpr = this._parseTestExpression(/* allowAssignmentExpression */ false);
 
                 if (nameExpr.nodeType === ParseNodeType.Name) {
-                    nameIdentifier = nameExpr.d.token;
+                    nameIdentifier = nameExpr.d;
                 } else {
                     this._addSyntaxError(LocMessage.expectedParamName(), nameExpr);
                 }
             } else {
-                const comprehension = this._tryParseComprehension(valueExpr, /* isGenerator */ true);
+                const comprehension = this._tryParseComprehension(
+                    valueExpr,
+                    /* isGenerator */ true,
+                    argType === ArgCategory.UnpackedList ? firstToken : undefined
+                );
                 if (comprehension) {
                     valueExpr = comprehension;
+                    argType = ArgCategory.Simple;
                 }
             }
         }
@@ -4308,7 +4390,9 @@ export class Parser {
             if (
                 possibleTupleNode.nodeType === ParseNodeType.StringList ||
                 possibleTupleNode.nodeType === ParseNodeType.Comprehension ||
-                possibleTupleNode.nodeType === ParseNodeType.AssignmentExpression
+                possibleTupleNode.nodeType === ParseNodeType.AssignmentExpression ||
+                possibleTupleNode.nodeType === ParseNodeType.Ternary ||
+                possibleTupleNode.nodeType === ParseNodeType.Lambda
             ) {
                 possibleTupleNode.d.hasParens = true;
             }
@@ -4486,20 +4570,70 @@ export class Parser {
 
     private _parseTestListWithComprehension(isGenerator: boolean): ListResult<ExpressionNode> {
         let sawComprehension = false;
+        let isFirstEntry = true;
 
         return this._parseExpressionListGeneric(
             () => {
-                let expr = this._parseTestOrStarExpression(/* allowAssignmentExpression */ true);
+                const firstToken = this._peekToken();
+                const isUnpackingGenerator = isGenerator && this._consumeTokenIfOperator(OperatorType.Multiply);
+                let expr: ExpressionNode;
+                if (this._consumeTokenIfOperator(OperatorType.Power)) {
+                    const operand = this._parseTestExpression(/* allowAssignmentExpression */ false);
+                    const range = TextRange.create(firstToken.start, TextRange.getEnd(operand) - firstToken.start);
+                    this._addSyntaxError(
+                        isGenerator ? LocMessage.dictUnpackInGenerator() : LocMessage.dictUnpackInList(),
+                        range
+                    );
+                    expr = ErrorNode.create(
+                        this._getOwnerKey(),
+                        range,
+                        ErrorExpressionCategory.MissingExpression,
+                        operand
+                    );
+                } else {
+                    expr = isUnpackingGenerator
+                        ? UnpackNode.create(
+                              this._getOwnerKey(),
+                              firstToken,
+                              this._parseTestExpression(/* allowAssignmentExpression */ false)
+                          )
+                        : this._parseTestOrStarExpression(/* allowAssignmentExpression */ true);
+                }
                 const comprehension = this._tryParseComprehension(expr, isGenerator);
                 if (comprehension) {
                     expr = comprehension;
                     sawComprehension = true;
+                    if (!isFirstEntry) {
+                        this._addSyntaxError(LocMessage.comprehensionInSequence(), comprehension);
+                    }
+                } else if (isUnpackingGenerator && expr.nodeType === ParseNodeType.Unpack) {
+                    this._validateUnpackOperand(expr.d.expr);
                 }
+                isFirstEntry = false;
                 return expr;
             },
             () => this._isNextTokenNeverExpression(),
             () => sawComprehension
         );
+    }
+
+    private _validateUnpackOperand(expr: ExpressionNode) {
+        const isComplexExpression =
+            expr.nodeType === ParseNodeType.Ternary ||
+            expr.nodeType === ParseNodeType.Lambda ||
+            (expr.nodeType === ParseNodeType.UnaryOperation && expr.d.operator === OperatorType.Not) ||
+            (expr.nodeType === ParseNodeType.BinaryOperation &&
+                (Tokenizer.isOperatorComparison(expr.d.operator) ||
+                    expr.d.operator === OperatorType.And ||
+                    expr.d.operator === OperatorType.Or ||
+                    expr.d.operator === OperatorType.In ||
+                    expr.d.operator === OperatorType.NotIn ||
+                    expr.d.operator === OperatorType.Is ||
+                    expr.d.operator === OperatorType.IsNot));
+
+        if (isComplexExpression && !expr.d.hasParens) {
+            this._addSyntaxError(LocMessage.unpackOperatorNotAllowed(), expr);
+        }
     }
 
     // '{' [dictorsetmaker] '}'
@@ -4534,7 +4668,15 @@ export class Parser {
             const doubleStar = this._peekToken();
 
             if (this._consumeTokenIfOperator(OperatorType.Power)) {
-                doubleStarExpression = this._parseExpression(/* allowUnpack */ false);
+                doubleStarExpression = this._parseTestExpression(/* allowAssignmentExpression */ false);
+                if (this._peekTokenType() === TokenType.Colon) {
+                    this._addSyntaxError(
+                        LocMessage.dictUnpackInKey(),
+                        TextRange.create(doubleStar.start, TextRange.getEnd(doubleStarExpression) - doubleStar.start)
+                    );
+                    keyExpression = doubleStarExpression;
+                    doubleStarExpression = undefined;
+                }
             } else {
                 // A dictionary key is never a forward-reference type annotation, even
                 // when the dictionary appears within a type annotation (e.g. the field
@@ -4546,23 +4688,35 @@ export class Parser {
                 this._isParsingTypeAnnotation = false;
                 keyExpression = this._parseTestOrStarExpression(/* allowAssignmentExpression */ true);
                 this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
+            }
 
-                // Allow walrus operators in this context only for Python 3.10 and newer.
-                // Older versions of Python generated a syntax error in this context.
-                let isWalrusAllowed = PythonVersion.isGreaterOrEqualTo(this._getLanguageVersion(), pythonVersion3_10);
-
-                if (this._consumeTokenIfType(TokenType.Colon)) {
-                    valueExpression = this._parseTestExpression(/* allowAssignmentExpression */ false);
-                    isWalrusAllowed = false;
+            // Allow walrus operators in this context only for Python 3.10 and newer.
+            // Older versions of Python generated a syntax error in this context.
+            let isWalrusAllowed = PythonVersion.isGreaterOrEqualTo(this._getLanguageVersion(), pythonVersion3_10);
+            if (keyExpression && this._consumeTokenIfType(TokenType.Colon)) {
+                const valueToken = this._peekToken();
+                const unpackOperator = this._peekOperatorType();
+                const isUnpack = unpackOperator === OperatorType.Multiply || unpackOperator === OperatorType.Power;
+                if (isUnpack) {
+                    this._getNextToken();
                 }
-
-                if (
-                    !isWalrusAllowed &&
-                    keyExpression.nodeType === ParseNodeType.AssignmentExpression &&
-                    !keyExpression.d.hasParens
-                ) {
-                    this._addSyntaxError(LocMessage.walrusNotAllowed(), keyExpression.d.walrusToken);
+                valueExpression = this._parseTestExpression(/* allowAssignmentExpression */ false);
+                if (isUnpack) {
+                    this._addSyntaxError(
+                        unpackOperator === OperatorType.Power
+                            ? LocMessage.dictUnpackInValue()
+                            : LocMessage.unpackInValue(),
+                        TextRange.create(valueToken.start, TextRange.getEnd(valueExpression) - valueToken.start)
+                    );
                 }
+                isWalrusAllowed = false;
+            }
+            if (
+                !isWalrusAllowed &&
+                keyExpression?.nodeType === ParseNodeType.AssignmentExpression &&
+                !keyExpression.d.hasParens
+            ) {
+                this._addSyntaxError(LocMessage.walrusNotAllowed(), keyExpression.d.walrusToken);
             }
 
             if (keyExpression && valueExpression) {
@@ -4606,6 +4760,8 @@ export class Parser {
                         if (!isFirstEntry) {
                             this._addSyntaxError(LocMessage.comprehensionInDict(), doubleStarExpression);
                         }
+                    } else {
+                        this._validateUnpackOperand(doubleStarExpression);
                     }
                     dictionaryEntries.push(expandEntryNode);
                     isDictionary = true;

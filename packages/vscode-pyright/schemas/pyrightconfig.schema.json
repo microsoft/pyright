@@ -529,6 +529,11 @@
         "pattern": "^(.*)$"
       }
     },
+    "useDefaultExcludes": {
+      "type": "boolean",
+      "title": "Apply built-in excludes and automatically exclude virtual environment directories",
+      "default": true
+    },
     "ignore": {
       "type": "array",
       "title": "Files and directories whose diagnostics are suppressed",
@@ -889,6 +894,12 @@
       "type": "boolean",
       "title": "Output verbose logging",
       "default": false
+    },
+    "maxCodeComplexity": {
+      "type": "integer",
+      "title": "Maximum code complexity for type evaluation",
+      "default": 768,
+      "minimum": 768
     },
     "executionEnvironments": {
       "type": "array",

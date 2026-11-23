@@ -98,6 +98,8 @@ if sys.platform != "win32" and sys.platform != "darwin" and sys.platform != "lin
     SO_SETFIB: Final[int]
 if sys.platform == "linux" and sys.version_info >= (3, 13):
     SO_BINDTOIFINDEX: Final[int]
+if sys.platform == "linux" and sys.version_info >= (3, 15):
+    SO_PASSRIGHTS: Final[int]
 
 SOMAXCONN: Final[int]
 
@@ -693,7 +695,7 @@ if sys.platform != "darwin":
     BDADDR_ANY: Final = "00:00:00:00:00:00"
     BDADDR_LOCAL: Final = "00:00:00:FF:FF:FF"
 
-if sys.platform != "win32" and sys.platform != "darwin" and sys.platform != "linux":
+if sys.platform != "win32" and sys.platform != "darwin":
     HCI_FILTER: Final[int]  # not in NetBSD or DragonFlyBSD
     HCI_TIME_STAMP: Final[int]  # not in FreeBSD, NetBSD, or DragonFlyBSD
     HCI_DATA_DIR: Final[int]  # not in FreeBSD, NetBSD, or DragonFlyBSD

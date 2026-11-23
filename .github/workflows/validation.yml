@@ -1,7 +1,7 @@
 name: 'Validation'
 
 env:
-  NODE_VERSION: '24.15.0' # Shipped with VS Code.
+  NODE_VERSION: '24.22.2' # Shipped with VS Code.
   PYTHON_VERSION: 3.11
 
 on:
@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   typecheck:
@@ -25,15 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+      - uses: pnpm/action-setup@5eea8caf49c844361c1e9ddc1324e179c54b58e9 # v6
 
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
           cache-dependency-path: 'pnpm-lock.yaml'
 
-      - uses: ./.github/actions/choose-npm-install
+      - uses: ./.github/actions/standard-npm-install
 
       - run: pnpm exec lerna exec --stream --no-bail -- "tsc --noEmit"
 
@@ -45,15 +44,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+      - uses: pnpm/action-setup@5eea8caf49c844361c1e9ddc1324e179c54b58e9 # v6
 
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
           cache-dependency-path: 'pnpm-lock.yaml'
 
-      - uses: ./.github/actions/choose-npm-install
+      - uses: ./.github/actions/standard-npm-install
 
       - name: Check diff after pnpm install
         run: git diff --exit-code --name-only
@@ -73,23 +72,81 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+      - uses: pnpm/action-setup@5eea8caf49c844361c1e9ddc1324e179c54b58e9 # v6
 
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
           cache-dependency-path: 'pnpm-lock.yaml'
 
-      - uses: ./.github/actions/choose-npm-install
+      - uses: ./.github/actions/standard-npm-install
 
       - name: pnpm test (pyright-internal)
+        if: matrix.os != 'macos-latest'
         run: pnpm test
         working-directory: packages/pyright-internal
 
+      - name: pnpm test (pyright-internal, macOS)
+        id: mac_tests
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        # Parallel workers cause swapping on the 7 GiB hosted macOS runners.
+        run: |
+          set -o pipefail
+          /usr/bin/time -lp pnpm test --maxWorkers=1 --json --outputFile=mac-test-results.json 2>&1 | tee mac-test.log
+        working-directory: packages/pyright-internal
+
+      - name: Report macOS test timings
+        if: always() && matrix.os == 'macos-latest' && steps.mac_tests.outcome != 'skipped'
+        shell: bash
+        working-directory: packages/pyright-internal
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const notice = (title, text) => console.log(`::notice title=${title}::${text.slice(0, 12000).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')}`);
+          const log = fs.readFileSync('mac-test.log', 'utf8');
+          notice('Mac test log tail', log.split('\n').slice(-40).join('\n').slice(-6000));
+          if (!fs.existsSync('mac-test-results.json')) {
+              throw new Error('Mac tests did not produce JSON results; see the Mac test log tail.');
+          }
+          const results = JSON.parse(fs.readFileSync('mac-test-results.json', 'utf8'));
+          notice('Mac test summary', JSON.stringify({
+              success: results.success,
+              passedTests: results.numPassedTests,
+              failedTests: results.numFailedTests,
+              passedSuites: results.numPassedTestSuites,
+              failedSuites: results.numFailedTestSuites,
+          }));
+          const suites = [...results.testResults].sort((a, b) => (b.endTime - b.startTime) - (a.endTime - a.startTime));
+          notice('Mac slow suites', suites.slice(0, 8).map((suite) =>
+              `${path.basename(suite.name)}: ${(suite.endTime - suite.startTime) / 1000}s (${suite.status})`
+          ).join('\n'));
+          const failures = suites.filter((suite) => suite.status === 'failed').slice(0, 5);
+          if (failures.length) {
+              notice('Mac test failures', failures.map((suite) =>
+                  `${path.basename(suite.name)}: ${suite.message}\n${suite.assertionResults.filter((test) =>
+                      test.status === 'failed'
+                  ).map((test) => `${test.fullName}: ${test.failureMessages.join('\n')}`).join('\n')}`.slice(0, 6000)
+              ).join('\n'));
+          }
+          NODE
+
+      - name: Upload macOS test logs
+        if: always() && matrix.os == 'macos-latest' && steps.mac_tests.outcome != 'skipped'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macos-test-logs-${{ github.run_attempt }}
+          path: |
+            packages/pyright-internal/mac-test.log
+            packages/pyright-internal/mac-test-results.json
+          if-no-files-found: error
+          retention-days: 7
+
       # Install python so we can create a VENV for tests
       - name: Use Python ${{env.PYTHON_VERSION}}
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         id: install_python
         with:
           python-version: ${{env.PYTHON_VERSION}}
@@ -133,22 +190,19 @@ jobs:
     runs-on: ubuntu-latest
     name: Build
     needs: typecheck
-    permissions:
-      id-token: write
-      contents: read
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+      - uses: pnpm/action-setup@5eea8caf49c844361c1e9ddc1324e179c54b58e9 # v6
 
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
           cache-dependency-path: 'pnpm-lock.yaml'
 
-      - uses: ./.github/actions/choose-npm-install
+      - uses: ./.github/actions/standard-npm-install
 
       - run: npm pack --dry-run
         working-directory: packages/pyright

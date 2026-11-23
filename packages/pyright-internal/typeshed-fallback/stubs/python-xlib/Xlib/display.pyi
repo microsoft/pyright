@@ -6,32 +6,38 @@ from typing import Any, Literal, TypeAlias, TypedDict, overload, type_check_only
 from Xlib import error
 from Xlib._typing import ErrorHandler
 from Xlib.protocol import display, request, rq
-from Xlib.xobject import colormap, cursor, drawable, fontable, resource
+from Xlib.xobject import (
+    colormap as _colormap,
+    cursor as _cursor,
+    drawable as _drawable,
+    fontable as _fontable,
+    resource as _resource,
+)
 
 _ResourceBaseClass: TypeAlias = (
-    resource.Resource
-    | drawable.Drawable
-    | drawable.Window
-    | drawable.Pixmap
-    | fontable.Fontable
-    | fontable.Font
-    | fontable.GC
-    | colormap.Colormap
-    | cursor.Cursor
+    _resource.Resource
+    | _drawable.Drawable
+    | _drawable.Window
+    | _drawable.Pixmap
+    | _fontable.Fontable
+    | _fontable.Font
+    | _fontable.GC
+    | _colormap.Colormap
+    | _cursor.Cursor
 )
 
 # Is the type of the `_resource_baseclasses` variable, defined in this file at runtime
 @type_check_only
 class _ResourceBaseClassesType(TypedDict):  # noqa: Y049
-    resource: type[resource.Resource]
-    drawable: type[drawable.Drawable]
-    window: type[drawable.Window]
-    pixmap: type[drawable.Pixmap]
-    fontable: type[fontable.Fontable]
-    font: type[fontable.Font]
-    gc: type[fontable.GC]
-    colormap: type[colormap.Colormap]
-    cursor: type[cursor.Cursor]
+    resource: type[_resource.Resource]
+    drawable: type[_drawable.Drawable]
+    window: type[_drawable.Window]
+    pixmap: type[_drawable.Pixmap]
+    fontable: type[_fontable.Fontable]
+    font: type[_fontable.Font]
+    gc: type[_fontable.GC]
+    colormap: type[_colormap.Colormap]
+    cursor: type[_cursor.Cursor]
 
 class _BaseDisplay(display.Display):
     def __init__(self, display: str | None = None) -> None: ...
@@ -56,25 +62,25 @@ class Display:
     def has_extension(self, extension: str) -> bool: ...
 
     @overload
-    def create_resource_object(self, type: Literal["resource"], id: int) -> resource.Resource: ...
+    def create_resource_object(self, type: Literal["resource"], id: int) -> _resource.Resource: ...
     @overload
-    def create_resource_object(self, type: Literal["drawable"], id: int) -> drawable.Drawable: ...
+    def create_resource_object(self, type: Literal["drawable"], id: int) -> _drawable.Drawable: ...
     @overload
-    def create_resource_object(self, type: Literal["window"], id: int) -> drawable.Window: ...
+    def create_resource_object(self, type: Literal["window"], id: int) -> _drawable.Window: ...
     @overload
-    def create_resource_object(self, type: Literal["pixmap"], id: int) -> drawable.Pixmap: ...
+    def create_resource_object(self, type: Literal["pixmap"], id: int) -> _drawable.Pixmap: ...
     @overload
-    def create_resource_object(self, type: Literal["fontable"], id: int) -> fontable.Fontable: ...
+    def create_resource_object(self, type: Literal["fontable"], id: int) -> _fontable.Fontable: ...
     @overload
-    def create_resource_object(self, type: Literal["font"], id: int) -> fontable.Font: ...
+    def create_resource_object(self, type: Literal["font"], id: int) -> _fontable.Font: ...
     @overload
-    def create_resource_object(self, type: Literal["gc"], id: int) -> fontable.GC: ...
+    def create_resource_object(self, type: Literal["gc"], id: int) -> _fontable.GC: ...
     @overload
-    def create_resource_object(self, type: Literal["colormap"], id: int) -> colormap.Colormap: ...
+    def create_resource_object(self, type: Literal["colormap"], id: int) -> _colormap.Colormap: ...
     @overload
-    def create_resource_object(self, type: Literal["cursor"], id: int) -> cursor.Cursor: ...
+    def create_resource_object(self, type: Literal["cursor"], id: int) -> _cursor.Cursor: ...
     @overload
-    def create_resource_object(self, type: str, id: int) -> resource.Resource: ...
+    def create_resource_object(self, type: str, id: int) -> _resource.Resource: ...
 
     def __getattr__(self, attr: str) -> MethodType: ...
     def screen(self, sno: int | None = None) -> rq.Struct: ...
@@ -104,7 +110,7 @@ class Display:
     ) -> None: ...
     def ungrab_pointer(self, time: int, onerror: ErrorHandler[object] | None = None) -> None: ...
     def change_active_pointer_grab(
-        self, event_mask: int, cursor: cursor.Cursor, time: int, onerror: ErrorHandler[object] | None = None
+        self, event_mask: int, cursor: _cursor.Cursor, time: int, onerror: ErrorHandler[object] | None = None
     ) -> None: ...
     def ungrab_keyboard(self, time: int, onerror: ErrorHandler[object] | None = None) -> None: ...
     def allow_events(self, mode: int, time: int, onerror: ErrorHandler[object] | None = None) -> None: ...

@@ -17,6 +17,7 @@ type ExpectedMappingKey =
     | 'existsSync'
     | 'readdirEntriesSync'
     | 'readFileSync'
+    | 'readFileRangeSync'
     | 'statSync'
     | 'realpathSync'
     | 'createReadStream'
@@ -434,6 +435,7 @@ test('file system mapping preserves read, metadata, stream, and promise identiti
     const readFileSync = jest
         .spyOn(fs, 'readFileSync')
         .mockImplementation((_uri, encoding) => (encoding ? 'text' : bufferResult));
+    const readFileRangeSync = jest.spyOn(fs, 'readFileRangeSync').mockReturnValue(bufferResult);
     const statSync = jest.spyOn(fs, 'statSync').mockReturnValue(statResult as never);
     const createReadStream = jest.spyOn(fs, 'createReadStream').mockReturnValue(streamResult);
     const readFile = jest.spyOn(fs, 'readFile').mockReturnValue(readPromise);
@@ -444,6 +446,7 @@ test('file system mapping preserves read, metadata, stream, and promise identiti
     expect(mapping.readFileSync(publicFile)).toBe(bufferResult);
     expect(mapping.readFileSync(publicFile, null)).toBe(bufferResult);
     expect(mapping.readFileSync(publicFile, 'latin1')).toBe('text');
+    expect(mapping.readFileRangeSync(publicFile, 2, 3)).toBe(bufferResult);
     expect(mapping.statSync(publicFile)).toBe(statResult);
     expect(mapping.createReadStream(publicFile)).toBe(streamResult);
     expect(mapping.readFile(publicFile)).toBe(readPromise);
@@ -454,6 +457,7 @@ test('file system mapping preserves read, metadata, stream, and promise identiti
         [originalFile, null],
         [originalFile, 'latin1'],
     ]);
+    expect(readFileRangeSync).toHaveBeenCalledWith(originalFile, 2, 3);
     expect(statSync).toHaveBeenCalledTimes(1);
     expect(statSync).toHaveBeenCalledWith(originalFile);
     expect(createReadStream).toHaveBeenCalledTimes(1);

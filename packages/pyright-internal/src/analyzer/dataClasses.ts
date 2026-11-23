@@ -30,7 +30,7 @@ import { ConstraintSolution } from './constraintSolution';
 import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod } from './constructors';
 import { DeclarationType, VariableDeclaration } from './declaration';
-import { updateNamedTupleBaseClass } from './namedTuples';
+import { createNamedTupleReplaceFromDunderReplace, updateNamedTupleBaseClass } from './namedTuples';
 import {
     getClassFullName,
     getEnclosingClassOrFunction,
@@ -227,13 +227,13 @@ export function synthesizeDataClassMethods(
     initType.shared.declaredReturnType = evaluator.getNoneType();
 
     // For Python 3.13 and newer, synthesize a __replace__ method.
+    // NamedTuple also provides _replace on all supported Python versions.
+    const synthesizeDunderReplace = PythonVersion.isGreaterOrEqualTo(
+        nodeInfo.getFileInfo(node).executionEnvironment.pythonVersion,
+        pythonVersion3_13
+    );
     let replaceType: FunctionType | undefined;
-    if (
-        PythonVersion.isGreaterOrEqualTo(
-            nodeInfo.getFileInfo(node).executionEnvironment.pythonVersion,
-            pythonVersion3_13
-        )
-    ) {
+    if (synthesizeDunderReplace || isNamedTuple) {
         replaceType = FunctionType.createSynthesizedInstance('__replace__');
         FunctionType.addParam(replaceType, selfParam);
         FunctionType.addKeywordOnlyParamSeparator(replaceType);
@@ -332,6 +332,7 @@ export function synthesizeDataClassMethods(
             let variableTypeEvaluator: EntryTypeEvaluator | undefined;
             let hasDefault = false;
             let isDefaultFactory = false;
+            let isFieldSpecifierWithoutDefault = false;
             let isKeywordOnly = ClassType.isDataClassKeywordOnly(classType) || sawKeywordOnlySeparator;
             let defaultExpr: ExpressionNode | undefined;
             let includeInInit = true;
@@ -436,6 +437,8 @@ export function synthesizeDataClassMethods(
                         if (defaultFactoryArg?.d.valueExpr) {
                             defaultExpr = defaultFactoryArg.d.valueExpr;
                         }
+
+                        isFieldSpecifierWithoutDefault = !hasDefault;
 
                         const aliasArg = statement.d.rightExpr.d.args.find((arg) => arg.d.name?.d.value === 'alias');
                         if (aliasArg) {
@@ -576,9 +579,15 @@ export function synthesizeDataClassMethods(
                     if (insertIndex >= 0) {
                         const oldEntry = fullDataClassEntries[insertIndex];
 
-                        // While this isn't documented behavior, it appears that the dataclass implementation
-                        // causes overridden variables to "inherit" default values from parent classes.
-                        if (!dataClassEntry.hasDefault && oldEntry.hasDefault && oldEntry.includeInInit) {
+                        // A bare annotation (`x: int`) inherits a parent field's default at
+                        // runtime. An explicit `field()` with no default or default_factory
+                        // does not, so the synthesized __init__ parameter is required.
+                        if (
+                            !dataClassEntry.hasDefault &&
+                            oldEntry.hasDefault &&
+                            oldEntry.includeInInit &&
+                            !isFieldSpecifierWithoutDefault
+                        ) {
                             dataClassEntry.hasDefault = true;
                             dataClassEntry.defaultExpr = oldEntry.defaultExpr;
                             hasDefault = true;
@@ -689,9 +698,11 @@ export function synthesizeDataClassMethods(
                         effectiveType = applySolvedTypeVars(effectiveType, solution);
                     }
 
-                    // Is the field type a descriptor object? If so, we need to extract the corresponding
-                    // type of the __init__ method parameter from the __set__ method.
-                    effectiveType = transformDescriptorType(evaluator, effectiveType);
+                    // Dataclass descriptors accept their __set__ input type. NamedTuple
+                    // fields store the annotated object without invoking a descriptor.
+                    if (!isNamedTuple) {
+                        effectiveType = transformDescriptorType(evaluator, effectiveType);
+                    }
 
                     if (entry.converter) {
                         const fieldType = effectiveType;
@@ -803,7 +814,18 @@ export function synthesizeDataClassMethods(
         symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
 
         if (replaceType) {
-            symbolTable.set('__replace__', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
+            if (synthesizeDunderReplace) {
+                symbolTable.set('__replace__', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
+            }
+            if (isNamedTuple && !symbolTable.has('_replace')) {
+                symbolTable.set(
+                    '_replace',
+                    Symbol.createWithType(
+                        SymbolFlags.ClassMember,
+                        createNamedTupleReplaceFromDunderReplace(replaceType)
+                    )
+                );
+            }
         }
     }
 

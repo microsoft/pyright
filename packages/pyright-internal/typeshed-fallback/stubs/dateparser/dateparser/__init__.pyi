@@ -11,7 +11,7 @@ _default_parser: DateDataParser
 
 @type_check_only
 class _Settings(TypedDict, total=False):  # noqa: Y049
-    DATE_ORDER: str
+    DATE_ORDER: Literal["DMY", "DYM", "MDY", "MYD", "YDM", "YMD"]
     PREFER_LOCALE_DATE_ORDER: bool
     TIMEZONE: str
     TO_TIMEZONE: str
@@ -22,6 +22,7 @@ class _Settings(TypedDict, total=False):  # noqa: Y049
     RELATIVE_BASE: datetime.datetime
     STRICT_PARSING: bool
     REQUIRE_PARTS: list[Literal["day", "month", "year"]]
+    IGNORE_SURROUNDING_TEXT: bool
     SKIP_TOKENS: list[str]
     NORMALIZE: bool
     RETURN_TIME_AS_PERIOD: bool

@@ -101,6 +101,7 @@ export function formatControlFlowGraph(flowNode: FlowNode, nodeInfo: AnalyzerNod
         if (
             f.flags &
             (FlowFlags.Assignment |
+                FlowFlags.Mutation |
                 FlowFlags.VariableAnnotation |
                 FlowFlags.WildcardImport |
                 FlowFlags.TrueCondition |
@@ -250,6 +251,7 @@ export function formatControlFlowGraph(flowNode: FlowNode, nodeInfo: AnalyzerNod
         if (flags & FlowFlags.LoopLabel) return 'Loop';
         if (flags & FlowFlags.Unbind) return 'Unbind';
         if (flags & FlowFlags.Assignment) return 'Assign';
+        if (flags & FlowFlags.Mutation) return 'Mutation';
         if (flags & FlowFlags.TrueCondition) return 'True';
         if (flags & FlowFlags.FalseCondition) return 'False';
         if (flags & FlowFlags.Call) return 'Call';
@@ -267,7 +269,7 @@ export function formatControlFlowGraph(flowNode: FlowNode, nodeInfo: AnalyzerNod
     }
 
     function getParseNode(f: FlowNode): ParseNode | undefined {
-        if (f.flags & FlowFlags.Assignment) {
+        if (f.flags & (FlowFlags.Assignment | FlowFlags.Mutation)) {
             return (f as FlowAssignment).node;
         }
 

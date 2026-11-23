@@ -329,13 +329,13 @@ class Variable:
     def trace_add(self, mode: Literal["array", "read", "write", "unset"], callback: Callable[[str, str, str], object]) -> str: ...
     def trace_remove(self, mode: Literal["array", "read", "write", "unset"], cbname: str) -> None: ...
     def trace_info(self) -> list[tuple[tuple[Literal["array", "read", "write", "unset"], ...], str]]: ...
-    @deprecated("Deprecated since Python 3.14. Use `trace_add()` instead.")
+    @deprecated("Deprecated; will be removed in Python 3.17. Use `trace_add()` instead.")
     def trace(self, mode, callback) -> str: ...
-    @deprecated("Deprecated since Python 3.14. Use `trace_add()` instead.")
+    @deprecated("Deprecated; will be removed in Python 3.17. Use `trace_add()` instead.")
     def trace_variable(self, mode, callback) -> str: ...
-    @deprecated("Deprecated since Python 3.14. Use `trace_remove()` instead.")
+    @deprecated("Deprecated; will be removed in Python 3.17. Use `trace_remove()` instead.")
     def trace_vdelete(self, mode, cbname) -> None: ...
-    @deprecated("Deprecated since Python 3.14. Use `trace_info()` instead.")
+    @deprecated("Deprecated; will be removed in Python 3.17. Use `trace_info()` instead.")
     def trace_vinfo(self) -> list[Incomplete]: ...
     def __eq__(self, other: object) -> bool: ...
     def __del__(self) -> None: ...
@@ -390,6 +390,9 @@ class Misc:
     master: Misc | None
     tk: _tkinter.TkappType
     children: dict[str, Widget]
+    if sys.version_info >= (3, 15):
+        __iter__: ClassVar[None]  # prevent using __getitem__ for iteration
+
     def destroy(self) -> None: ...
     def deletecommand(self, name: str) -> None: ...
     def tk_strictMotif(self, boolean=None): ...
@@ -2233,8 +2236,8 @@ class Entry(Widget, XView):
         insertofftime: int = 300,
         insertontime: int = 600,
         insertwidth: float | str = ...,
-        invalidcommand: str | list[str] | tuple[str, ...] | Callable[[], bool] = "",
-        invcmd: str | list[str] | tuple[str, ...] | Callable[[], bool] = "",  # same as invalidcommand
+        invalidcommand: str | list[str] | tuple[str, ...] | Callable[[], object] = "",
+        invcmd: str | list[str] | tuple[str, ...] | Callable[[], object] = "",  # same as invalidcommand
         justify: Literal["left", "center", "right"] = "left",
         name: str = ...,
         readonlybackground: str = ...,
@@ -2278,8 +2281,8 @@ class Entry(Widget, XView):
         insertofftime: int = ...,
         insertontime: int = ...,
         insertwidth: float | str = ...,
-        invalidcommand: str | list[str] | tuple[str, ...] | Callable[[], bool] = ...,
-        invcmd: str | list[str] | tuple[str, ...] | Callable[[], bool] = ...,
+        invalidcommand: str | list[str] | tuple[str, ...] | Callable[[], object] = ...,
+        invcmd: str | list[str] | tuple[str, ...] | Callable[[], object] = ...,
         justify: Literal["left", "center", "right"] = ...,
         readonlybackground: str = ...,
         relief: Literal["raised", "sunken", "flat", "ridge", "solid", "groove"] = ...,
@@ -3905,7 +3908,7 @@ class OptionMenu(Menubutton):
             variable: StringVar,
             value: str,
             *values: str,
-            command: Callable[[StringVar], object] | None = ...,
+            command: Callable[[str], object] | None = ...,
             name: str | None = None,
         ) -> None: ...
     else:
@@ -3916,7 +3919,7 @@ class OptionMenu(Menubutton):
             variable: StringVar,
             value: str,
             *values: str,
-            command: Callable[[StringVar], object] | None = ...,
+            command: Callable[[str], object] | None = ...,
         ) -> None: ...
     # configure, config, cget are inherited from Menubutton
     # destroy and __getitem__ are overridden, signature does not change
@@ -3939,6 +3942,9 @@ class _PhotoImageLike(_Image): ...
 class Image(_Image):
     name: Incomplete
     tk: _tkinter.TkappType
+    if sys.version_info >= (3, 15):
+        __iter__: ClassVar[None]  # prevent using __getitem__ for iteration
+
     def __init__(self, imgtype, name=None, cnf={}, master: Misc | _tkinter.TkappType | None = None, **kw) -> None: ...
     def __del__(self) -> None: ...
     def __setitem__(self, key, value) -> None: ...
@@ -4117,8 +4123,8 @@ class Spinbox(Widget, XView):
         insertofftime: int = 300,
         insertontime: int = 600,
         insertwidth: float | str = ...,
-        invalidcommand: str | list[str] | tuple[str, ...] | Callable[[], bool] = "",
-        invcmd: str | list[str] | tuple[str, ...] | Callable[[], bool] = "",
+        invalidcommand: str | list[str] | tuple[str, ...] | Callable[[], object] = "",
+        invcmd: str | list[str] | tuple[str, ...] | Callable[[], object] = "",
         justify: Literal["left", "center", "right"] = "left",
         name: str = ...,
         readonlybackground: str = ...,
@@ -4175,8 +4181,8 @@ class Spinbox(Widget, XView):
         insertofftime: int = ...,
         insertontime: int = ...,
         insertwidth: float | str = ...,
-        invalidcommand: str | list[str] | tuple[str, ...] | Callable[[], bool] = ...,
-        invcmd: str | list[str] | tuple[str, ...] | Callable[[], bool] = ...,
+        invalidcommand: str | list[str] | tuple[str, ...] | Callable[[], object] = ...,
+        invcmd: str | list[str] | tuple[str, ...] | Callable[[], object] = ...,
         justify: Literal["left", "center", "right"] = ...,
         readonlybackground: str = ...,
         relief: Literal["raised", "sunken", "flat", "ridge", "solid", "groove"] = ...,

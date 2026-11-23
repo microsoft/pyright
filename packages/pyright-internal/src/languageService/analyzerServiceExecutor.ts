@@ -14,19 +14,16 @@ import { CommandLineOptions } from '../common/commandLineOptions';
 import { LogLevel } from '../common/console';
 import { FileSystem } from '../common/fileSystem';
 import { LanguageServerBaseInterface, ServerSettings } from '../common/languageServerInterface';
-import { EmptyUri } from '../common/uri/emptyUri';
 import { Uri } from '../common/uri/uri';
 
-import { WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../workspaceFactory';
+import { Workspace } from '../workspaceFactory';
 
 export interface CloneOptions {
     useBackgroundAnalysis?: boolean;
-    typeStubTargetImportName?: string;
     fileSystem?: FileSystem;
 }
 
 export interface RunOptions {
-    typeStubTargetImportName?: string;
     trackFiles?: boolean;
     pythonEnvironmentName?: string;
 }
@@ -37,7 +34,6 @@ export class AnalyzerServiceExecutor {
             workspace.rootUri,
             serverSettings,
             options?.trackFiles ?? true,
-            options?.typeStubTargetImportName,
             options?.pythonEnvironmentName
         );
 
@@ -54,36 +50,12 @@ export class AnalyzerServiceExecutor {
         const instanceName = 'cloned service';
         const serviceId = getNextServiceId(instanceName);
 
-        options = options ?? {};
-
-        const tempWorkspace: Workspace = {
-            ...workspace,
-            workspaceName: `temp workspace for cloned service`,
-            rootUri: workspace.rootUri,
-            kinds: [...workspace.kinds, WellKnownWorkspaceKinds.Cloned],
-            service: workspace.service.clone(
-                instanceName,
-                serviceId,
-                options.useBackgroundAnalysis
-                    ? ls.createBackgroundAnalysis(serviceId, workspace.rootUri || EmptyUri.instance)
-                    : undefined,
-                options.fileSystem
-            ),
-            disableLanguageServices: true,
-            disableTaggedHints: true,
-            disableOrganizeImports: true,
-            disableWorkspaceSymbol: true,
-            isInitialized: createInitStatus(),
-            searchPathsToWatch: [],
-        };
-
-        const serverSettings = await ls.getSettings(workspace);
-        AnalyzerServiceExecutor.runWithOptions(tempWorkspace, serverSettings, {
-            typeStubTargetImportName: options.typeStubTargetImportName,
-            trackFiles: false,
+        return workspace.service.clone(instanceName, serviceId, {
+            backgroundAnalysis: options?.useBackgroundAnalysis
+                ? ls.createBackgroundAnalysis(serviceId, workspace.rootUri ?? Uri.empty())
+                : undefined,
+            fileSystem: options?.fileSystem,
         });
-
-        return tempWorkspace.service;
     }
 }
 
@@ -91,7 +63,6 @@ export function getEffectiveCommandLineOptions(
     workspaceRootUri: Uri | undefined,
     serverSettings: ServerSettings,
     trackFiles: boolean,
-    typeStubTargetImportName?: string,
     pythonEnvironmentName?: string
 ) {
     const commandLineOptions = new CommandLineOptions(workspaceRootUri, true);
@@ -146,10 +117,6 @@ export function getEffectiveCommandLineOptions(
         // When logLevel is "Trace", turn on verboseOutput as well
         // so we can get detailed log from analysis service.
         commandLineOptions.configSettings.verboseOutput = true;
-    }
-
-    if (typeStubTargetImportName) {
-        commandLineOptions.languageServerSettings.typeStubTargetImportName = typeStubTargetImportName;
     }
 
     commandLineOptions.configSettings.autoSearchPaths = serverSettings.autoSearchPaths;
