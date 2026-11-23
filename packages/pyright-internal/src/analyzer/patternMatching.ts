@@ -472,18 +472,23 @@ function narrowTypeBasedOnSequencePattern(
 // Retains a TypeVar subtype if narrowing left its expanded subtypes unchanged.
 // Otherwise uses the expanded subtypes that remain.
 function getNarrowedSubtypes(evaluator: TypeEvaluator, info: PatternSubtypeInfo[]): Type[] {
+    const typeSameCache = new Map<Type, boolean>();
+
     return info.map((entry) => {
         if (!isTypeVar(entry.subtype)) {
             return entry.subtype;
         }
 
-        const remainingType = combineTypes(
-            info.filter((other) => other.subtype === entry.subtype).map((other) => other.concreteSubtype)
-        );
+        let unchanged = typeSameCache.get(entry.subtype);
+        if (unchanged === undefined) {
+            const remainingType = combineTypes(
+                info.filter((other) => other.subtype === entry.subtype).map((other) => other.concreteSubtype)
+            );
+            unchanged = isTypeSame(remainingType, evaluator.makeTopLevelTypeVarsConcrete(entry.subtype));
+            typeSameCache.set(entry.subtype, unchanged);
+        }
 
-        return isTypeSame(remainingType, evaluator.makeTopLevelTypeVarsConcrete(entry.subtype))
-            ? entry.subtype
-            : entry.concreteSubtype;
+        return unchanged ? entry.subtype : entry.concreteSubtype;
     });
 }
 
