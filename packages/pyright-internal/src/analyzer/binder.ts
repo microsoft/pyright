@@ -23,6 +23,7 @@ import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { stripFileExtension } from '../common/pathUtils';
 import { convertTextRangeToRange } from '../common/positionUtils';
+import { PythonVersion, pythonVersion3_14 } from '../common/pythonVersion';
 import { TextRange, getEmptyRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { LocMessage } from '../localization/localize';
@@ -2444,13 +2445,24 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitComprehension(node: ComprehensionNode): boolean {
-        // Use evaluation scopes so lambda and class bodies act as non-async boundaries,
-        // while lambda defaults and class headers retain their enclosing context.
+        // Use evaluation scopes so lambda, class-body, and generic scopes have the right async boundaries.
         let enclosingScopeNode = ParseTreeUtils.getEvaluationScopeNode(node, this._nodeInfo).node;
-        while (
-            enclosingScopeNode.nodeType === ParseNodeType.Comprehension ||
-            enclosingScopeNode.nodeType === ParseNodeType.TypeParameterList
-        ) {
+        const annotationNode = ParseTreeUtils.getParentAnnotationNode(node);
+        const isFunctionAnnotation =
+            annotationNode?.parent?.nodeType === ParseNodeType.Parameter ||
+            annotationNode?.parent?.nodeType === ParseNodeType.Function;
+        const isDeferredAnnotation =
+            isFunctionAnnotation &&
+            PythonVersion.isGreaterOrEqualTo(this._fileInfo.executionEnvironment.pythonVersion, pythonVersion3_14);
+        const isPostponedAnnotation =
+            isFunctionAnnotation && this._fileInfo.futureImports.has('annotations') && !isDeferredAnnotation;
+        let isInDeferredGeneratorExpression = false;
+        // Type parameter scopes are not asynchronous, even when nested in an async function.
+        while (enclosingScopeNode.nodeType === ParseNodeType.Comprehension) {
+            // A generator expression's body is deferred and can be an async generator.
+            if (enclosingScopeNode.d.isGenerator) {
+                isInDeferredGeneratorExpression = true;
+            }
             enclosingScopeNode = ParseTreeUtils.getEvaluationScopeNode(enclosingScopeNode.parent!, this._nodeInfo).node;
         }
 
@@ -2481,8 +2493,9 @@ export class Binder extends ParseTreeWalker {
 
                         // Async for is not allowed outside of an async function
                         // unless we're in ipython mode.
-                        if (compr.d.asyncToken && !this._fileInfo.ipythonMode) {
+                        if (compr.d.asyncToken && !this._fileInfo.ipythonMode && !isPostponedAnnotation) {
                             if (
+                                isDeferredAnnotation ||
                                 enclosingScopeNode.nodeType !== ParseNodeType.Function ||
                                 !enclosingScopeNode.d.isAsync
                             ) {
@@ -2490,9 +2503,11 @@ export class Binder extends ParseTreeWalker {
                                 // generator expressions is deferred and therefore can be
                                 // run within the context of an async function later.
                                 if (
-                                    node.parent?.nodeType === ParseNodeType.List ||
-                                    node.parent?.nodeType === ParseNodeType.Set ||
-                                    node.parent?.nodeType === ParseNodeType.Dictionary
+                                    !node.d.isGenerator &&
+                                    !isInDeferredGeneratorExpression &&
+                                    (node.parent?.nodeType === ParseNodeType.List ||
+                                        node.parent?.nodeType === ParseNodeType.Set ||
+                                        node.parent?.nodeType === ParseNodeType.Dictionary)
                                 ) {
                                     this._addSyntaxError(LocMessage.asyncNotInAsyncFunction(), compr.d.asyncToken);
                                 }

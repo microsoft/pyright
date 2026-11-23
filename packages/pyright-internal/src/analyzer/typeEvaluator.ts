@@ -171,6 +171,7 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { assignTypeToPatternTargets, checkForUnusedPattern, narrowTypeBasedOnPattern } from './patternMatching';
 import { assignProperty } from './properties';
 import { assignClassToProtocol, assignModuleToProtocol } from './protocols';
+import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { createSentinelType } from './sentinel';
@@ -658,6 +659,39 @@ interface SuppressedNodeStackEntry {
 interface ExpectedTypeCacheEntry {
     type: Type;
     candidates: Type[];
+}
+
+class AsyncGeneratorFinder extends ParseTreeWalker {
+    private _found = false;
+
+    get found() {
+        return this._found;
+    }
+
+    override visitAwait(node: AwaitNode): boolean {
+        this._found = true;
+        return false;
+    }
+
+    override visitComprehension(node: ComprehensionNode): boolean {
+        if (node.d.isGenerator) {
+            return false;
+        }
+
+        this._found ||= node.d.forIfNodes.some(
+            (comp) => comp.nodeType === ParseNodeType.ComprehensionFor && comp.d.isAsync
+        );
+        return !this._found;
+    }
+
+    override visitLambda(node: LambdaNode): boolean {
+        node.d.params.forEach((param) => {
+            if (param.d.defaultValue) {
+                this.walk(param.d.defaultValue);
+            }
+        });
+        return false;
+    }
 }
 
 export function createTypeEvaluator(
@@ -16404,11 +16438,16 @@ export function createTypeEvaluator(
             if (comp.nodeType === ParseNodeType.ComprehensionFor && comp.d.isAsync) {
                 return true;
             }
-            return index > 0 && ParseTreeUtils.containsAwaitNode(comp);
+            return !node.d.isGenerator && index > 0 && ParseTreeUtils.containsAwaitNode(comp);
         });
         let type: Type = UnknownType.create();
 
-        if (ParseTreeUtils.containsAwaitNode(node.d.expr)) {
+        if (node.d.isGenerator) {
+            const asyncGeneratorFinder = new AsyncGeneratorFinder();
+            asyncGeneratorFinder.walk(node.d.expr);
+            asyncGeneratorFinder.walkMultiple(node.d.forIfNodes.slice(1));
+            isAsync ||= asyncGeneratorFinder.found;
+        } else if (ParseTreeUtils.containsAwaitNode(node.d.expr)) {
             isAsync = true;
         }
 
