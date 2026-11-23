@@ -121,6 +121,7 @@ export function validateConstructorArgs(
     // If this is an unspecialized generic type alias, specialize it now
     // using default type argument values.
     const aliasInfo = type.props?.typeAliasInfo;
+    const unspecializedAlias = aliasInfo?.shared.typeParams && !aliasInfo.typeArgs ? type : undefined;
     if (aliasInfo?.shared.typeParams && !aliasInfo.typeArgs) {
         type = applySolvedTypeVars(type, new ConstraintSolution(), {
             replaceUnsolved: {
@@ -181,7 +182,8 @@ export function validateConstructorArgs(
             type,
             skipUnknownArgCheck,
             inferenceContext,
-            newMethodTypeResult
+            newMethodTypeResult,
+            unspecializedAlias
         );
     });
 
@@ -200,7 +202,8 @@ export function validateConstructorArgs(
                 type,
                 skipUnknownArgCheck,
                 inferenceContext,
-                newMethodTypeResult
+                newMethodTypeResult,
+                unspecializedAlias
             );
 
             validatedArgExpressions = true;
@@ -247,7 +250,8 @@ function validateNewAndInitMethods(
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
-    newMethodTypeResult: TypeResult | undefined
+    newMethodTypeResult: TypeResult | undefined,
+    unspecializedAlias: ClassType | undefined
 ): CallResult {
     let returnType: Type | undefined;
     let validatedArgExpressions = false;
@@ -344,7 +348,11 @@ function validateNewAndInitMethods(
                 initMethodBindToType,
                 skipUnknownArgCheck,
                 inferenceContext,
-                initMethodTypeResult.type
+                initMethodTypeResult.type,
+                unspecializedAlias &&
+                    ClassType.isSameGenericClass(initMethodBindToType, ClassType.cloneAsInstance(unspecializedAlias))
+                    ? unspecializedAlias
+                    : undefined
             );
 
             if (initCallResult.argumentErrors) {
@@ -547,7 +555,8 @@ function validateInitMethod(
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
-    initMethodType: Type
+    initMethodType: Type,
+    unspecializedAlias: ClassType | undefined
 ): CallResult {
     let isTypeIncomplete = false;
     let argumentErrors = false;
@@ -569,10 +578,52 @@ function validateInitMethod(
     );
 
     const returnType = mapSubtypes(callResult.specializedInitSelfType ?? type, (selfType) => {
-        const adjustedClassType =
-            isClassInstance(selfType) && ClassType.isSameGenericClass(selfType, type)
+        // An Any or Unknown argument matched several __init__ overloads that
+        // construct different specializations, so the type arguments are unknown.
+        // Don't apply the constraints, which reflect only the first of those overloads.
+        if (isUnknown(selfType)) {
+            return applyExpectedTypeForConstructor(
+                evaluator,
+                type,
+                /* inferenceContext */ undefined,
+                new ConstraintTracker()
+            );
+        }
+
+        // A specialized __init__ self type must not widen type arguments
+        // explicitly supplied by the caller, even when overloads are ambiguous.
+        let adjustedClassType =
+            (!type.priv.typeArgs || unspecializedAlias) &&
+            isClassInstance(selfType) &&
+            ClassType.isSameGenericClass(selfType, type)
                 ? ClassType.cloneAsInstantiable(selfType)
                 : type;
+        if (unspecializedAlias?.priv.typeArgs && adjustedClassType.priv.typeArgs) {
+            // Infer the alias's variables from the specialized self type before
+            // replacing them with defaults. This also handles nested arguments
+            // such as Box[list[T]], while retaining the alias's fixed arguments.
+            const aliasConstraints = new ConstraintTracker();
+            const unknownAliasVars: TypeVarType[] = [];
+            unspecializedAlias.priv.typeArgs.forEach((arg, index) => {
+                const selfArg = adjustedClassType.priv.typeArgs![index];
+                if (selfArg) {
+                    evaluator.assignType(arg, selfArg, /* diag */ undefined, aliasConstraints);
+                    if (isUnknown(selfArg)) {
+                        addTypeVarsToListIfUnique(unknownAliasVars, getTypeVarArgsRecursive(arg));
+                    }
+                }
+            });
+            // Unknown here represents conflicting initializer overloads. A known
+            // occurrence of the same alias variable must not narrow it, regardless
+            // of argument order (for example, Pair[T, T] with self Pair[str, Unknown]).
+            unknownAliasVars.forEach((typeVar) => aliasConstraints.setBounds(typeVar, UnknownType.create()));
+            adjustedClassType = evaluator.solveAndApplyConstraints(unspecializedAlias, aliasConstraints, {
+                replaceUnsolved: {
+                    scopeIds: [unspecializedAlias.props!.typeAliasInfo!.shared.typeVarScopeId],
+                    tupleClassType: evaluator.getTupleClassType(),
+                },
+            }) as ClassType;
+        }
         return applyExpectedTypeForConstructor(
             evaluator,
             adjustedClassType,
