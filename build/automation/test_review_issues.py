@@ -83,6 +83,7 @@ from review_issues import (
     Console,
     ChunkResult,
     CheckPreflight,
+    ProviderPolicyError,
     GitHub,
     GitHubRead,
     InvestigationTools,
@@ -2812,6 +2813,114 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("private retry explanation", text)
         session.abort.assert_awaited_once()
 
+    async def test_policy_rejection_is_preserved_and_stops_structured_and_tool_bearing_waits(self):
+        for with_tools in (False, True):
+            with self.subTest(with_tools=with_tools):
+                rejected = self.event("model.call_failure", ModelCallFailureData(
+                    source=next(iter(ModelCallFailureSource)), status_code=422, error_code="cyber_policy",
+                    error_message="private provider policy payload",
+                ))
+                sdk, session, actual = await self.installed_wait([rejected], timeout=1)
+                tools = ReproductionEvidenceTools(FakeGitHub(), self.scratch, []) if with_tools else None
+                if tools is not None:
+                    session.rpc.tools.get_current_metadata.return_value = SimpleNamespace(
+                        tools=[SimpleNamespace(name=tool.name) for tool in tools.tools],
+                    )
+                with (
+                    patch.object(sdk.client, "create_session", wraps=sdk.client.create_session) as create_session,
+                    self.assertRaises(ProviderPolicyError) as caught,
+                ):
+                    await sdk.run(
+                        self.agent, "Offline", self.scratch, tools=tools, native_tools=[], schema=DraftCheck,
+                    )
+                self.assertEqual(caught.exception.failure.error_code, "cyber_policy")
+                self.assertEqual(caught.exception.failure.status_code, 422)
+                self.assertEqual(caught.exception.failure.event_id, str(rejected.id))
+                self.assertIn("not retryable", str(caught.exception))
+                create_session.assert_awaited_once()
+                session.send_and_wait.assert_awaited_once()
+                session.abort.assert_awaited_once()
+                session.disconnect.assert_awaited_once()
+                self.assertFalse(actual._structured_waits)
+                self.assertFalse((self.scratch / f"{self.agent.name}-last-response.txt").exists())
+        rows = self.records()
+        self.assertEqual(len([row for row in rows if row["type"] == "controller.policy_block"]), 2)
+        self.assertFalse([row for row in rows if row["type"] in {"controller.timeout", "controller.whitespace_stall"}])
+        self.assertNotIn("private provider policy payload", (self.scratch / "sdk-events.jsonl").read_text())
+        self.assertFalse([
+            task for task in asyncio.all_tasks()
+            if task.get_name().startswith(("sdk-response-", "sdk-whitespace-", "sdk-policy-"))
+        ])
+
+    async def test_policy_rejection_wins_over_a_racing_final_response_without_recovery_or_validation(self):
+        client = AsyncMock()
+        session = self.session()
+
+        async def create(**options):
+            async def respond(*_args, **_kwargs):
+                options["on_event"](self.event("model.call_failure", ModelCallFailureData(
+                    source=next(iter(ModelCallFailureSource)), status_code=422, error_code="content_filter",
+                ), agent_id="child"))
+                for _ in range(2):
+                    options["on_event"](self.event("assistant.message_delta", AssistantMessageDeltaData(
+                        delta_content=" ", message_id="reply",
+                    )))
+                return SimpleNamespace(data=AssistantMessageData(
+                    content='{"approved":true,"problems":[]}', message_id="reply",
+                ))
+            session.send_and_wait.side_effect = respond
+            return session
+
+        client.create_session.side_effect = create
+        validate = Mock()
+        with self.small_guard(), self.assertRaises(ProviderPolicyError):
+            await SDK(client, None, 10).run(self.agent, "Offline", self.scratch, schema=DraftCheck, validate=validate)
+        validate.assert_not_called()
+        client.create_session.assert_awaited_once()
+        session.send_and_wait.assert_awaited_once()
+        session.abort.assert_awaited_once()
+        session.disconnect.assert_awaited_once()
+        self.assertFalse((self.scratch / f"{self.agent.name}-last-response.txt").exists())
+
+    async def test_rate_limit_followed_by_success_is_not_a_terminal_policy_rejection(self):
+        client = AsyncMock()
+        session = self.session()
+        content = '{"approved":true,"problems":[]}'
+
+        async def create(**options):
+            async def respond(*_args, **_kwargs):
+                options["on_event"](self.event("model.call_failure", ModelCallFailureData(
+                    source=next(iter(ModelCallFailureSource)), status_code=429, error_code="rate_limit",
+                )))
+                return SimpleNamespace(data=AssistantMessageData(content=content, message_id="reply"))
+            session.send_and_wait.side_effect = respond
+            return session
+
+        client.create_session.side_effect = create
+        self.assertEqual(await SDK(client, None, 10).run(self.agent, "Offline", self.scratch, schema=DraftCheck), content)
+        session.abort.assert_not_awaited()
+        self.assertFalse([row for row in self.records() if row["type"] == "controller.policy_block"])
+
+    async def test_policy_failure_survives_abort_and_disconnect_errors(self):
+        sdk, session, actual = await self.installed_wait([
+            self.event("model.call_failure", ModelCallFailureData(
+                source=next(iter(ModelCallFailureSource)), status_code=422, error_code="cyber_policy",
+            )),
+        ], timeout=1)
+        session.abort.side_effect = RuntimeError("private abort payload")
+        session.disconnect.side_effect = JsonRpcError(-32000, "private disconnect payload")
+        with self.assertRaises(ProviderPolicyError) as caught:
+            await sdk.run(self.agent, "Offline", self.scratch, schema=DraftCheck)
+        self.assertEqual(caught.exception.failure.error_code, "cyber_policy")
+        session.abort.assert_awaited_once()
+        session.disconnect.assert_awaited_once()
+        self.assertFalse(actual._structured_waits)
+        failures = [row["data"] for row in self.records() if row["type"] == "controller.cleanup_failure"]
+        self.assertEqual([row["operation"] for row in failures], ["abort", "disconnect"])
+        text = (self.scratch / "sdk-events.jsonl").read_text()
+        self.assertNotIn("private abort payload", text)
+        self.assertNotIn("private disconnect payload", text)
+
     async def test_empty_and_repeated_deltas_are_numeric_metadata_not_completed_output(self):
         events = [
             self.event("assistant.message_delta", AssistantMessageDeltaData(delta_content=text, message_id="reply"))
@@ -2919,6 +3028,9 @@ class SDKLifecycleTests(unittest.IsolatedAsyncioTestCase):
                     result = await SDK(client, None, 1).run(self.agent, "Offline", self.scratch)
                 self.assertEqual(result, "Offline result")
                 probes = [row["data"] for row in self.records() if row["type"] == "controller.heartbeat"]
+                # Response cleanup can cancel a later probe; assert the completed ping, not that cleanup record.
+                probes = [probe for probe in probes if probe["rpc_status"] != "cancelled"]
+                self.assertTrue(probes)
                 self.assertEqual(probes[-1]["rpc_status"], "timeout" if mode == "timeout" else "error")
                 if mode == "rpc_error":
                     self.assertEqual(probes[-1]["rpc_error_code"], -32601)

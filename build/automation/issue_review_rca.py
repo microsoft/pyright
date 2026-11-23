@@ -13,6 +13,7 @@ import subprocess
 import uuid
 from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, JsonValue, TypeAdapter
 
@@ -39,6 +40,11 @@ class Breakpoint(Record):
 
 class RootCauseRun(Record):
     breakpoints: list[Breakpoint] = Field(default_factory=list, max_length=4)
+    observation: Literal["diagnostics", "internal_error"] = Field(
+        default="diagnostics",
+        description="CLI only: internal_error observes a source-linked Pyright crash (exit 2), not normal "
+        "diagnostics or an inspector/tool failure. Select it explicitly for both clean and debug crash runs.",
+    )
     project: str = Field(
         default="pyrightconfig.json", min_length=1, max_length=2048,
         description="CLI only: scratch-relative JSON configuration, e.g. controls\\pyrightconfig.json. "
@@ -141,6 +147,7 @@ class RootCauseRuntime:
             raise ValueError("Private RCA runtime changed during execution")
         return {
             "id": identifier, "kind": "debugger" if request.breakpoints else "product_run",
+            "observation": request.observation,
             "command": subprocess.list2cmdline(command), "cwd": str(self.scratch),
             "exit_code": code, "stdout": output, "stderr": error, "debug": debug,
             "inputs": inputs, "runtime_hash": self.snapshot_hash,

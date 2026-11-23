@@ -56,6 +56,10 @@ The eight-product-attempt allowance persists across resumption. Stop once decisi
 and a discriminating control distinguish the alternatives; return useful inconclusive findings rather than
 exhaustively debugging every suggested control.
 Code reading, an unchanged diagnostic count or a hypothetical breakpoint is not causal evidence.
+For a CLI crash use `rca_run(observation="internal_error")` explicitly for both clean and debug runs.
+The host requires matching Pyright internal-error headlines, exit 2, captured source linkage and no inspector
+errors, in addition to the unchanged input/runtime and observed producer-state requirements. Ordinary diagnostic
+observations still require exit 0/1 and JSON output. A tool failure or a generic exception is not a product crash.
 Explain the upstream input, first causally decisive decision, downstream state changes and final symptom,
 linking each observed step to evidence IDs. A downstream cache read, missing callback or diagnostic producer
 may explain propagation without identifying the assumption that needs repair. Use a control that distinguishes
@@ -83,3 +87,7 @@ identifies a primary candidate for the evidence gate, not a completed independen
 Use `inconclusive` or `blocked` when evidence is insufficient. A successful component experiment or injected input
 is only a partial finding unless the actual integration failure is observed. Preserve useful partial findings in Markdown.
 Current-version non-reproduction does not settle a historical bug. No GitHub comment draft.
+An inconclusive or blocked primary result can receive one controller-authorized completeness follow-up for an
+available missing observation or control. It does not reset the eight-product-attempt allowance or justify more
+exhaustive tracing. Keep missing original source/bindings unresolved and preserve both attempts' useful evidence.
+Provider policy rejection is terminal, not a setup problem to bypass through a different plan, model or session.

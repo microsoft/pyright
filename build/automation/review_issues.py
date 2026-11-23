@@ -36,7 +36,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, is_dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator, Literal, TypeVar
+from typing import Iterator, Literal, Never, TypeVar
 from urllib.parse import urlencode, urlparse
 
 import yaml
@@ -78,6 +78,7 @@ from issue_review_models import (
     ExploratoryReproductionScenarioTransport,
     Entry,
     Issue,
+    ProviderPolicyFailure,
     Record,
     ReproductionGate,
     ReproductionGateTransport,
@@ -92,6 +93,7 @@ from issue_review_models import (
     RootCause,
     RootCauseChallenge,
     RootCauseFindings,
+    RootCauseFollowup,
     RootCauseGate,
     RootCausePublication,
     Text,
@@ -230,6 +232,16 @@ LOCAL_SCHEMA_CONSTRAINTS = {
 
 class AutomationError(RuntimeError):
     pass
+
+
+class ProviderPolicyError(AutomationError):
+    def __init__(self, failure: ProviderPolicyFailure, events: Path):
+        self.failure = failure
+        status = "" if failure.status_code is None else f"HTTP {failure.status_code}, "
+        super().__init__(
+            f"{failure.agent} provider policy rejected the request ({status}{failure.error_code}). "
+            f"This is not retryable; no alternative plan, model or session bypass is permitted. Details: {events}"
+        )
 
 
 class ClosureRehearsal(Record):
@@ -619,6 +631,27 @@ def pyright_internal_errors(record: JsonValue) -> list[str]:
     return errors
 
 
+def rca_product_observation(record: dict[str, JsonValue]) -> dict[str, JsonValue] | None:
+    debug = record.get("debug")
+    if (
+        record.get("kind") not in {"product_run", "debugger"} or "error" in record
+        or not isinstance(debug, dict) or debug.get("errors")
+    ):
+        return None
+    observation = record.get("observation", "diagnostics")
+    if observation == "internal_error":
+        errors = pyright_internal_errors({**record, "kind": "pyright"})
+        if not errors:
+            return None
+        return {"observation": "internal_error", "internal_errors": [value for value in errors]}
+    if observation != "diagnostics" or record.get("exit_code") not in (0, 1):
+        return None
+    output = product_output(record)
+    return None if output is None else {
+        "observation": observation, "version": output["version"], "generalDiagnostics": output["generalDiagnostics"],
+    }
+
+
 def review_reproduction_errors(report: JsonValue) -> list[str]:
     """Collect independently detectable policy violations; partial data still requires full schema validation."""
     if not isinstance(report, dict) or not isinstance(claims := report.get("claims"), list):
@@ -977,7 +1010,7 @@ class GitHub:
         if not self.mutations_enabled and (
             method != "GET" or urlparse(endpoint).path.strip("/").casefold() == "graphql"
         ):
-            raise AutomationError("GitHub mutations are structurally disabled for closure rehearsal")
+            raise AutomationError("GitHub mutations are structurally disabled for closure rehearsal or RCA follow-up")
         command = ["gh", "api", "--hostname", "github.com", "--method", method, endpoint]
         if pages:
             command += ["--paginate", "--slurp"]
@@ -1630,7 +1663,7 @@ class InvestigationTools(ScreenedTools):
             self.log({"tool": "read_prepared_evidence", "error": str(error)})
             return ToolResult(text_result_for_llm=str(error), result_type="failure", error=str(error))
 
-    def validate_config(self, path: Path) -> None:
+    def validate_config(self, path: Path, *, allow_strict_list_inference: bool = False) -> None:
         if not path.resolve().is_relative_to(self.scratch):
             raise AutomationError("Configuration cannot link outside its assigned scratch directory")
         config = JSON.validate_json(path.read_text(encoding="utf-8"))
@@ -1643,6 +1676,9 @@ class InvestigationTools(ScreenedTools):
                     for item in value
                 ):
                     raise AutomationError(f"Configuration '{key}' must contain scratch-only paths")
+            elif key == "strictListInference" and allow_strict_list_inference:
+                if not isinstance(value, bool):
+                    raise AutomationError("Configuration 'strictListInference' must be a JSON boolean")
             elif key not in {
                 "pythonVersion", "pythonPlatform", "typeCheckingMode", "enableExperimentalFeatures"
             } and not key.startswith("report"):
@@ -1697,8 +1733,7 @@ class RootCauseTools(InvestigationTools):
         self.check_count = sum(record.get("kind") == "execution_attempt" for record in own)
         self.cli_baselines = [
             record for record in own if record.get("kind") == "product_run"
-            and record.get("exit_code") in (0, 1) and product_output(record) is not None
-            and isinstance(debug := record.get("debug"), dict) and not debug.get("errors")
+            and rca_product_observation(record) is not None
         ]
         self.cli_baseline = bool(self.cli_baselines)
         self.editor_baseline_failure = any(editor_failure(record) for record in own)
@@ -1707,6 +1742,8 @@ class RootCauseTools(InvestigationTools):
             Tool("rca_run", "Run the private actual Pyright CLI, optionally with source-mapped inspector breakpoints. "
                  "Select a scratch-relative JSON project for separate controls without changing the original. "
                  "Debugging requires a clean run of the same project and complete current source/configuration tree. "
+                 "For crashes explicitly select observation='internal_error' for both clean and debug runs; "
+                 "only source-linked Pyright internal errors qualify, never inspector/tool failures. "
                  "Expressions are read-only; no Python execution, source patches, or arbitrary commands.",
                  self.rca_run, RootCauseRun.model_json_schema()),
             Tool("rca_read_source", "Retrieve one authoritative HTTPS source and return a controller evidence ID.",
@@ -1762,12 +1799,13 @@ class RootCauseTools(InvestigationTools):
                 raise AutomationError("This RCA role has exhausted its eight product-check allowance; preserve remaining uncertainty")
             config = self.runtime.project_path(request)
             project = str(config.relative_to(self.scratch))
-            self.validate_config(config)
+            self.validate_config(config, allow_strict_list_inference=True)
             if self.runtime.snapshot_hash is None:
                 await self.runtime.prepare()
             inputs = self.runtime.capture_inputs()
             if request.breakpoints and not any(
                 record.get("project", "pyrightconfig.json") == project
+                and record.get("observation", "diagnostics") == request.observation
                 and record.get("cwd") == str(self.runtime.scratch)
                 and record.get("runtime_hash") == self.runtime.snapshot_hash
                 and record.get("inputs") == inputs
@@ -1775,21 +1813,24 @@ class RootCauseTools(InvestigationTools):
             ):
                 raise AutomationError(
                     f"First run a clean relevant CLI baseline for project {project!r} with the complete "
-                    "current source/configuration tree. Adding even excluded controls or changing another "
+                    "current source/configuration tree and the same observation. Adding even excluded controls or changing another "
                     "configuration invalidates the earlier pair. Freeze all files, run rca_run without "
                     "breakpoints for this project, then repeat with breakpoints and no intervening edits."
                 )
             self.check_count += 1
             self.log({"kind": "execution_attempt", "tool": "rca_run", "attempt": self.check_count, "project": project})
             record = await self.runtime.run(request)
-            if record.get("inputs") != inputs or record.get("project") != project:
+            if (
+                record.get("inputs") != inputs or record.get("project") != project
+                or record.get("observation", "diagnostics") != request.observation
+            ):
                 raise AutomationError("CLI inputs/project changed after preflight; freeze all files and take a fresh clean/debug pair")
+            if request.observation == "internal_error":
+                record["internal_errors"] = [
+                    value for value in pyright_internal_errors({**record, "kind": "pyright"})
+                ]
             if not request.breakpoints:
-                debug = record.get("debug")
-                self.cli_baseline = (
-                    record.get("exit_code") in (0, 1) and product_output(record) is not None
-                    and isinstance(debug, dict) and not debug.get("errors")
-                )
+                self.cli_baseline = rca_product_observation(record) is not None
                 if self.cli_baseline:
                     self.cli_baselines.append(record)
             return self._record_result(record)
@@ -1804,6 +1845,8 @@ class RootCauseTools(InvestigationTools):
                 request = RootCauseRun.model_validate(invocation.arguments)
                 if request.project != "pyrightconfig.json":
                     raise AutomationError("Project selection is available only for CLI runs, not editor scenarios")
+                if request.observation != "diagnostics":
+                    raise AutomationError("Internal-error observations are available only for CLI runs, not editor scenarios")
                 if self.editor is None or self.plan is None or self.plan.runner != "editor_interpreter":
                     raise AutomationError("Editor execution requires an editor-interpreter reproduction plan")
                 if request.breakpoints and not self.editor_baseline_failure:
@@ -2039,6 +2082,8 @@ class SDK:
         available = native_tools + [tool.name for tool in custom_tools] if tools else []
         guard = WhitespaceStallGuard() if schema is not None and tools is None and not available else None
         guard_signal = asyncio.Event()
+        policy_signal = asyncio.Event()
+        policy_failure: ProviderPolicyFailure | None = None
         saw_completed_response = False
         logs = evidence or scratch
         clock = asyncio.get_running_loop().time
@@ -2134,7 +2179,7 @@ class SDK:
                     log_event("controller.heartbeat", {**observation, **activity()})
 
         def event(event: SessionEvent) -> None:
-            nonlocal last_event, last_event_at, saw_completed_response
+            nonlocal last_event, last_event_at, saw_completed_response, policy_failure
             kind = event.type.value
             observed: dict[str, JsonValue] = {
                 "event_id": str(event.id), "event_at": event.timestamp.isoformat(),
@@ -2186,7 +2231,22 @@ class SDK:
                 if kind in DIAGNOSTIC_EVENTS or kind in {
                     "assistant.usage", "session.error", "tool.execution_start", "tool.execution_complete",
                 }:
-                    log_event(kind, {**observed, **event_metadata(event.data)})
+                    metadata = event_metadata(event.data)
+                    log_event(kind, {**observed, **metadata})
+                    code = metadata.get("error_code")
+                    if kind == "model.call_failure" and policy_failure is None and isinstance(code, str) and code.casefold() in {
+                        "cyber_policy", "content_filter", "content_policy_violation", "policy_violation",
+                    }:
+                        status = metadata.get("status_code")
+                        policy_failure = ProviderPolicyFailure(
+                            agent=agent.name, session_id=session_id, event_id=str(event.id), error_code=code,
+                            status_code=int(status) if (
+                                isinstance(status, (int, float)) and not isinstance(status, bool)
+                                and 100 <= status <= 599 and int(status) == status
+                            ) else None,
+                        )
+                        log_event("controller.policy_block", policy_failure.model_dump(mode="json"))
+                        policy_signal.set()
                 elif is_dataclass(event.data):
                     data = {
                         key: getattr(event.data, key) for key in (
@@ -2232,22 +2292,37 @@ class SDK:
             finally:
                 progress("abort_finished", completed=completed)
 
+        async def reject_policy(failure: ProviderPolicyFailure) -> Never:
+            error = ProviderPolicyError(failure, logs / "sdk-events.jsonl")
+            try:
+                await abort()
+            except (JsonRpcError, ProcessExitedError, RuntimeError, OSError, ValueError) as cleanup_error:
+                log_event("controller.cleanup_failure", {
+                    "operation": "abort", "exception": type(cleanup_error).__name__,
+                    "error_metadata": text_metadata(str(cleanup_error)),
+                })
+                raise error from cleanup_error
+            raise error
+
         async def wait_response() -> SessionEvent | None:
             async def send() -> SessionEvent | None:
                 return await session.send_and_wait(
                     prompt + response_transport_guidance(schema),
                     response_schema=None if schema is None else response_schema(schema), timeout=float("inf"),
                 )
-            if guard is None:
-                return await send()
             sender = asyncio.create_task(send(), name=f"sdk-response-{session_id}")
-            signal = asyncio.create_task(guard_signal.wait(), name=f"sdk-whitespace-{session_id}")
+            policy = asyncio.create_task(policy_signal.wait(), name=f"sdk-policy-{session_id}")
+            signal = None if guard is None else asyncio.create_task(guard_signal.wait(), name=f"sdk-whitespace-{session_id}")
             try:
                 while True:
-                    await asyncio.wait((sender, signal), return_when=asyncio.FIRST_COMPLETED)
+                    await asyncio.wait(
+                        [sender, policy] + ([] if signal is None else [signal]), return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if policy_failure is not None:
+                        raise ProviderPolicyError(policy_failure, logs / "sdk-events.jsonl")
                     if sender.done():
                         return sender.result()
-                    if guard.stalled():
+                    if guard is not None and guard.stalled():
                         retry_allowed = attempt_number == 1 and not saw_completed_response
                         log_event("controller.whitespace_stall", {
                             "guard": guard.snapshot(), "retry_allowed": retry_allowed and not recovery.index,
@@ -2259,12 +2334,14 @@ class SDK:
                             f"Details: {logs / 'sdk-events.jsonl'}",
                             session.session_id, retry_allowed,
                         )
-                    signal = asyncio.create_task(guard_signal.wait(), name=f"sdk-whitespace-{session_id}")
+                    if signal is not None:
+                        signal = asyncio.create_task(guard_signal.wait(), name=f"sdk-whitespace-{session_id}")
             finally:
-                for task in (sender, signal):
+                tasks = [sender, policy] + ([] if signal is None else [signal])
+                for task in tasks:
                     if not task.done():
                         task.cancel()
-                await asyncio.gather(sender, signal, return_exceptions=True)
+                await asyncio.gather(*tasks, return_exceptions=True)
 
         try:
             progress("session_setup")
@@ -2414,6 +2491,8 @@ class SDK:
                             tools.deadline = None
             raise AutomationError("No validated response")
         except TimeoutError as error:
+            if policy_failure is not None:
+                await reject_policy(policy_failure)
             if tools is not None and tools.screening_error is not None:
                 await abort()
                 raise tools.screening_error
@@ -2447,14 +2526,22 @@ class SDK:
             await abort()
             raise AutomationError(message) from error
         except WhitespaceStall:
+            if policy_failure is not None:
+                await reject_policy(policy_failure)
             await abort()
             raise
+        except ProviderPolicyError as error:
+            await reject_policy(error.failure)
         except AutomationError:
+            if policy_failure is not None:
+                await reject_policy(policy_failure)
             raise
         except ScreeningBlocked:
             await abort()
             raise
         except RuntimeError as error:
+            if policy_failure is not None:
+                await reject_policy(policy_failure)
             log_event("controller.failure", {
                 "exception": type(error).__name__, "error_metadata": text_metadata(str(error)), **activity(),
             })
@@ -2478,6 +2565,14 @@ class SDK:
                     try:
                         await session.disconnect()
                         completed = True
+                    except (JsonRpcError, ProcessExitedError, RuntimeError, OSError, ValueError) as cleanup_error:
+                        log_event("controller.cleanup_failure", {
+                            "operation": "disconnect", "exception": type(cleanup_error).__name__,
+                            "error_metadata": text_metadata(str(cleanup_error)),
+                        })
+                        if policy_failure is not None:
+                            raise ProviderPolicyError(policy_failure, logs / "sdk-events.jsonl") from cleanup_error
+                        raise
                     finally:
                         progress("disconnect_finished", completed=completed)
             finally:
@@ -2504,6 +2599,7 @@ class Console:
         reproduction_timeout: float = 900,
         rehearse_closures: bool = False,
         check_preflight: CheckPreflight | None = None,
+        rca_only: bool = False,
     ):
         self.github, self.sdk, self.state = github, sdk, state
         self.reviewer, self.duplicate, self.writer = reviewer, duplicate, writer
@@ -2511,10 +2607,11 @@ class Console:
         self.context_hash, self.revision, self.release = context_hash, revision, release
         self.check_preflight = check_preflight or CheckPreflight(ROOT / "packages" / "pyright" / "index.js")
         self.rehearse_closures = rehearse_closures
-        if rehearse_closures:
+        self.rca_only = rca_only
+        if rehearse_closures or rca_only:
             github.mutations_enabled = False
-        self.ask = reject_operator_approval if closure_only or rehearse_closures else ask
-        self.read_only = read_only or rehearse_closures
+        self.ask = reject_operator_approval if closure_only or rehearse_closures or rca_only else ask
+        self.read_only = read_only or rehearse_closures or rca_only
         self.closure_only, self.prepare_targets = closure_only, prepare_targets
         self.observe_blocked, self.reproduction_timeout = observe_blocked, reproduction_timeout
         self.current_context = current_context or (lambda: self.context_hash)
@@ -2553,7 +2650,7 @@ class Console:
         return Entry.model_validate_json(path.read_text(encoding="utf-8")) if path.exists() else None
 
     def key(self, issue: Issue) -> str:
-        mode = ("closure-only-v1\0" if self.closure_only else "") + (
+        mode = ("rca-only-followup-v1\0" if self.rca_only else "") + ("closure-only-v1\0" if self.closure_only else "") + (
             "exploratory-reproduction\0" if self.exploratory_reproduction else ""
         )
         return digest(self.context_hash + mode + issue.model_dump_json())
@@ -2627,6 +2724,12 @@ class Console:
         ]
 
     def report_hash(self, entry: Entry) -> str:
+        if entry.rca_followup is not None:
+            self.followup_packet(entry)
+            return digest(json.dumps({
+                "followup": entry.rca_followup.model_dump(), "context_hash": entry.context_hash,
+                "issue": entry.issue.model_dump(),
+            }, sort_keys=True))
         directory = self.directory(entry.issue.number)
         for name, expected in (("review.md", entry.review_markdown), ("duplicates.md", entry.duplicates_markdown)):
             if expected is None or (directory / name).read_text(encoding="utf-8") != expected:
@@ -2637,6 +2740,27 @@ class Console:
             "duplicate_evidence": None if entry.duplicates is None else entry.duplicates.model_dump(),
             "ledger": self.records(entry.issue.number),
         }, sort_keys=True))
+
+    def followup_packet(self, entry: Entry) -> Entry:
+        followup = entry.rca_followup
+        if (
+            followup is None or not self.rca_only or not self.read_only or self.github.mutations_enabled
+            or entry.context_hash != self.context_hash or entry.input_hash != self.key(entry.issue)
+            or entry.review is not None or entry.adjudication is not None or entry.duplicates is not None
+            or entry.reproduction_stage is not None or entry.closure is not None
+        ):
+            raise AutomationError("RCA follow-up requires its original publication-disabled mode and fresh input identity")
+        directory = self.directory(entry.issue.number)
+        raw = (directory / "triage-entry.json").read_bytes()
+        comments = JSON.validate_json((directory / "issue-discussion.json").read_text(encoding="utf-8"))
+        if (
+            hashlib.sha256(raw).hexdigest() != followup.source_entry_sha256
+            or not isinstance(comments, list) or discussion_hash(comments) != followup.discussion_hash
+        ):
+            raise AutomationError("RCA follow-up background or captured discussion changed")
+        previous = Entry.model_validate_json(raw)
+        require_followup_candidate(previous, entry.issue.number)
+        return previous
 
     def reproduction_records(self, stage: ReproductionStage) -> list[dict[str, JsonValue]]:
         path = Path(stage.directory) / "receipts.jsonl"
@@ -3814,6 +3938,7 @@ class Console:
             "challenge": None if root_cause.challenge is None else root_cause.challenge.model_dump(),
             "plan": None if root_cause.plan is None else root_cause.plan.model_dump(),
             "blocked_challenge": None if root_cause.blocked_challenge is None else root_cause.blocked_challenge.model_dump(),
+            "policy_failure": None if root_cause.policy_failure is None else root_cause.policy_failure.model_dump(),
             "prior_findings": [findings.model_dump() for findings in root_cause.prior_findings],
             "prior_plans": [plan.model_dump() for plan in root_cause.prior_plans],
             "markdown": root_cause.markdown, "records": self.rca_records(root_cause),
@@ -3884,7 +4009,8 @@ class Console:
             supported = False
             for record in selected:
                 debug = record.get("debug")
-                if record.get("kind") != "debugger" or record.get("exit_code") not in (0, 1) or not isinstance(debug, dict) or debug.get("errors"):
+                observed = rca_product_observation(record)
+                if record.get("kind") != "debugger" or observed is None or not isinstance(debug, dict):
                     continue
                 hits = debug.get("hits")
                 if not isinstance(hits, list):
@@ -3902,17 +4028,13 @@ class Console:
                         and isinstance(result.get("result"), dict)
                         for value in evaluations
                     ):
-                        observed = product_output(record)
-                        supported = supported or observed is not None and any(
-                            baseline.get("kind") == "product_run" and baseline.get("exit_code") in (0, 1)
-                            and isinstance(clean_debug := baseline.get("debug"), dict) and not clean_debug.get("errors")
+                        supported = supported or any(
+                            baseline.get("kind") == "product_run"
                             and baseline.get("inputs") == record.get("inputs")
                             and baseline.get("project", "pyrightconfig.json") == record.get("project", "pyrightconfig.json")
                             and baseline.get("cwd") == record.get("cwd")
                             and baseline.get("runtime_hash") == record.get("runtime_hash")
-                            and (output := product_output(baseline)) is not None
-                            and output.get("version") == observed.get("version")
-                            and output.get("generalDiagnostics") == observed.get("generalDiagnostics")
+                            and rca_product_observation(baseline) == observed
                             for baseline in selected
                         )
             if not supported:
@@ -3966,11 +4088,7 @@ class Console:
             if root_cause.plan is not None and root_cause.plan.runner == "editor_interpreter":
                 successful = editor_signature(record) is not None
             elif implementation:
-                debug = record.get("debug")
-                successful = (
-                    record.get("kind") in {"product_run", "debugger"} and record.get("exit_code") in (0, 1)
-                    and product_output(record) is not None and isinstance(debug, dict) and not debug.get("errors")
-                )
+                successful = rca_product_observation(record) is not None
             else:
                 successful = identifier in authorities
             if successful:
@@ -4003,7 +4121,7 @@ class Console:
                 report.append("### Reproduction plan\n\n" + code_block(root_cause.prior_plans[index - 1].model_dump_json(indent=2)) + "\n\n")
             report.append(findings.markdown + "\n\n")
         if root_cause.blocked_challenge:
-            report.append("## Blocked-result challenge\n\n" + code_block(root_cause.blocked_challenge.model_dump_json(indent=2)) + "\n\n")
+            report.append("## Completeness challenge\n\n" + code_block(root_cause.blocked_challenge.model_dump_json(indent=2)) + "\n\n")
         if root_cause.findings:
             report.append(root_cause.findings.markdown)
         if root_cause.gate:
@@ -4012,6 +4130,8 @@ class Console:
             report.append("\n\n## Independent challenge\n\n" + root_cause.challenge.markdown)
         if root_cause.error:
             report.append("\n\n## Failure\n\n" + root_cause.error)
+        if root_cause.policy_failure:
+            report.append("\n\n## Provider policy rejection\n\n" + code_block(root_cause.policy_failure.model_dump_json(indent=2)))
         report.append("\n\n## Controller evidence\n\n")
         for record in self.rca_records(root_cause):
             if isinstance(record, dict):
@@ -4027,6 +4147,8 @@ class Console:
 
     async def investigate_root_cause(self, entry: Entry) -> None:
         self.require_actionable_mode(entry)
+        if entry.root_cause is not None and entry.root_cause.policy_failure is not None:
+            raise ProviderPolicyError(entry.root_cause.policy_failure, Path(entry.root_cause.directory) / "sdk-events.jsonl")
         await self.github.screen_issue(entry.issue, self.directory(entry.issue.number))
         self.require_report_evidence(entry)
         if self.current_context() != self.context_hash or self.key(await self.github.issue(entry.issue.number)) != entry.input_hash:
@@ -4066,6 +4188,26 @@ class Console:
             self.github, scratch, self.release, directory, runtime, editor=editor, ask=self.ask,
             approval_lock=self._approval_lock,
         )
+        background = self.followup_packet(entry) if entry.rca_followup is not None else None
+        prior_context = "" if background is None else (
+            "\nPRIOR TRIAGE BACKGROUND ONLY, NOT CURRENT EVIDENCE:\n"
+            "The original triage state is unchanged. Its reports, verdict, commands and release comparisons "
+            "have NOT been recertified under this run's code/configuration/runtime. Do not copy their evidence "
+            "IDs, reproduce claims by assertion, or assume their semantic disposition. Reconstruct the relevant "
+            "example/settings from the freshly captured issue and discussion, and obtain fresh clean/debug "
+            "observations and independent controls. Historical targets remain unverified unless actually executed. "
+            "Identify outdated premises or missing information explicitly. No behavior/duplicate adjudication, "
+            "closure decisions, writing or publication is authorized in this mode.\n"
+            + json.dumps({
+                "source_context_hash": background.context_hash,
+                "source_issue_updated_at": background.issue.updated_at,
+                "product_surface": None if background.review is None else background.review.product_surface,
+                "review": background.review_markdown, "duplicates": background.duplicates_markdown,
+                "judgment": None if background.adjudication is None else background.adjudication.model_dump(),
+            })
+            + "\nFresh screened issue discussion:\n"
+            + (self.directory(entry.issue.number) / "issue-discussion.json").read_text(encoding="utf-8")
+        )
         context = (
             "Investigate only this unresolved issue using the supplied reproduction plan. Never start with an "
             "empty or wrong-surface CLI run. CLI plans use rca_run with an actual relevant example/config first. "
@@ -4077,7 +4219,9 @@ class Console:
             "or focused-test adapter exists. Other surfaces must remain explicitly blocked. "
             "First observe the relevant baseline failure and actual path reachability before debugging. "
             "Then use source-mapped breakpoints/readonly expressions if the missing question concerns internals. "
-            "The scratch config follows the ordinary review restrictions. No shell, installs, source patches, "
+            "The scratch config follows the ordinary review restrictions. "
+            "RCA CLI controls may explicitly set the boolean strictListInference; keep the original setting unchanged. "
+            "No shell, installs, source patches, "
             "reporter Python execution, substitute surface, or publication. Missing specs/history go to rca_read_source. "
             "Keep the original source/configuration unchanged. Create all separate control projects first; "
             "rca_run(project='controls\\\\pyrightconfig.json') selects a scratch-relative JSON configuration. "
@@ -4086,7 +4230,10 @@ class Console:
             "Adding even an excluded control file requires a fresh clean baseline before instrumentation. "
             "Use actual returned IDs. Implementation location must be 'parser/parser.ts:1885' style, with the "
             "ACTUAL mapped hit line, not a proposed breakpoint line; prefix editor locations with "
-            "'packages/vscode-pyright/src/'. A CLI cause needs identical clean/debug inputs and diagnostic results. "
+            "'packages/vscode-pyright/src/'. A CLI cause needs identical clean/debug inputs and matching observations. "
+            "Normal diagnostic observations still require exit 0/1 and parsed JSON. For checker crashes, explicitly "
+            "use rca_run(observation='internal_error') for both clean and debug runs; exit 2 must have the same "
+            "Pyright internal-error headline linked to a captured source file. Inspector/tool failures do not qualify. "
             "An editor cause needs matching fresh-profile clean/debug outcomes and versions, actual producer "
             "hits/state and discriminating controls. API-only or injected component inputs are partial findings, "
             "not faithful integration reproduction. Current-target evidence cannot settle historical behavior. "
@@ -4110,6 +4257,7 @@ class Console:
             f"Scratch: {scratch}\nIssue:\n{entry.issue.model_dump_json()}\n"
             + (entry.review_markdown or "") + "\n" + (entry.duplicates_markdown or "")
             + "\nUnresolved judgment:\n" + (entry.adjudication.model_dump_json() if entry.adjudication else "")
+            + prior_context
             + ("\nPrevious checkpoint failure to resolve:\n" + previous_error if resuming and previous_error else "")
         )
         try:
@@ -4122,7 +4270,8 @@ class Console:
             }
             def validate_plan(value: str) -> None:
                 plan = ReproductionPlan.model_validate_json(value)
-                surface = entry.review.product_surface if entry.review else "other"
+                review = entry.review or (None if background is None else background.review)
+                surface = review.product_surface if review else "other"
                 if surface in {"editor", "language_server"} and plan.runner == "cli":
                     raise AutomationError("A reported editor/LSP issue cannot use a CLI proxy reproduction plan")
 
@@ -4175,23 +4324,30 @@ class Console:
                     root_cause.status = "running" if root_cause.findings.status == "found" else root_cause.findings.status
                     root_cause.stage = (
                         "gate" if root_cause.findings.status == "found" else
-                        "blocked_challenge" if root_cause.findings.status == "blocked" and not root_cause.prior_plans
+                        "blocked_challenge" if not root_cause.prior_plans
                         else "complete"
                     )
                     self.save_rca_report(entry)
                 if root_cause.stage != "blocked_challenge":
                     break
                 if root_cause.findings is None:
-                    raise AutomationError("Blocked RCA checkpoint is missing its findings")
+                    raise AutomationError("RCA completeness checkpoint is missing its findings")
                 raw = await self.sdk.run(
-                    self.rca_agents[1], "BLOCKED-RESULT CHALLENGE: return BlockedChallenge. No new research or execution. "
+                    self.rca_agents[1], "COMPLETENESS CHALLENGE: return BlockedChallenge for these blocked or inconclusive "
+                    "primary findings. No new research or execution in this challenge. "
                     "Check for an avoidable setup mistake, ignored existing evidence or unused supported capability. "
+                    "Identify a concrete missing causal observation or discriminating control before proposing more work. "
                     "Authorize at most ONE materially different, executable alternative plan with no missing "
                     "prerequisites, no broader permissions, no downloads, no interpreter selection and no surface "
-                    "proxy. A genuine missing prerequisite or operator denial means retry=false. Do not retry the "
-                    "same empty or irrelevant CLI run. Preserve partial component findings and historical limits.\n"
+                    "proxy. A genuine missing prerequisite, missing original binding/source, operator denial or exhausted "
+                    "relevant execution allowance means retry=false. A conditional experiment cannot establish "
+                    "missing original information. Do not request exhaustive tracing, repeat an already answered check, "
+                    "retry a provider rejection or replace uncertainty with a finding merely to finish. Do not retry the "
+                    "same empty or irrelevant CLI run. Preserve partial findings, remaining questions and historical limits.\n"
                     + root_cause.findings.model_dump_json() + "\nPlan:\n" + root_cause.plan.model_dump_json()
-                    + "\nCapabilities:\n" + json.dumps(capabilities)
+                    + "\nCapabilities:\n" + json.dumps({
+                        **capabilities, "remaining_product_attempts": max(0, 8 - tools.check_count),
+                    })
                     + "\nController evidence:\n" + json.dumps(self.rca_records(root_cause)),
                     directory, schema=BlockedChallenge,
                 )
@@ -4205,8 +4361,10 @@ class Console:
                 scenario_fields = {"surface", "runner", "target", "setup", "controls"}
                 if alternative.model_dump(include=scenario_fields) == root_cause.plan.model_dump(include=scenario_fields) or (
                     alternative.runner == "editor_interpreter" and not (await editor.preflight())["available"]
-                ) or alternative.runner == "none" and alternative.surface != "research":
-                    raise AutomationError("Blocked challenger proposed an unchanged or unavailable alternative")
+                ) or (alternative.runner == "none" and alternative.surface != "research") or (
+                    alternative.runner != "none" and tools.check_count >= 8
+                ):
+                    raise AutomationError("Completeness challenger proposed an unchanged, unavailable or exhausted alternative")
                 if any(
                     isinstance(record, dict) and "Operator declined" in str(record.get("error", ""))
                     for record in self.rca_records(root_cause)
@@ -4279,6 +4437,8 @@ class Console:
             self.save_rca_report(entry)
         except (OSError, ValueError, AutomationError, TimeoutError) as error:
             root_cause.status, root_cause.error = "failed", str(error)
+            if isinstance(error, ProviderPolicyError):
+                root_cause.policy_failure = error.failure
             self.save_rca_report(entry)
             raise
         except asyncio.CancelledError:
@@ -4442,6 +4602,8 @@ class Console:
         if not self.rca_enabled:
             return
         root_cause = entry.root_cause
+        if root_cause is not None and root_cause.policy_failure is not None:
+            raise ProviderPolicyError(root_cause.policy_failure, Path(root_cause.directory) / "sdk-events.jsonl")
         if root_cause is not None and root_cause.status == "running":
             if root_cause.checkpoint_version == 1 and root_cause.evidence_hash != self.rca_hash(root_cause):
                 raise AutomationError("Interrupted RCA evidence changed since its checkpoint; inspect the saved attempt before retrying")
@@ -5092,6 +5254,9 @@ class Console:
 
     def require_report_evidence(self, entry: Entry) -> None:
         self.require_actionable_mode(entry)
+        if entry.rca_followup is not None:
+            self.followup_packet(entry)
+            return
         if entry.review is None or entry.duplicates is None or entry.adjudication is None:
             raise AutomationError("Both reports and adjudication are required")
         entry.adjudication.validate_reports(entry.review, entry.duplicates)
@@ -5174,6 +5339,7 @@ def unfinished_reproduction_publication(entry: Entry | None) -> bool:
 
 def require_run_mode(
     state: Path, exploratory: bool, *, overnight: bool = False, rehearse_closures: bool = False,
+    rca_from: Path | None = None,
 ) -> None:
     path = state / "run.json"
     if path.exists():
@@ -5187,6 +5353,224 @@ def require_run_mode(
         previous_rehearsal = previous.get("rehearse_closures", False) if isinstance(previous, dict) else None
         if not isinstance(previous_rehearsal, bool) or previous_rehearsal != rehearse_closures:
             raise AutomationError("Run closure rehearsal policy changed; use a fresh state directory")
+        if not isinstance(previous, dict) or previous.get("rca_from") != (None if rca_from is None else str(rca_from)):
+            raise AutomationError("Run RCA follow-up source/policy changed; use a fresh state directory")
+
+
+def require_followup_candidate(entry: Entry, number: int) -> None:
+    if entry.issue.number != number or entry.issue.html_url != f"https://github.com/{REPOSITORY}/issues/{number}":
+        raise AutomationError("Saved triage entry has the wrong repository/issue identity")
+    if entry.root_cause is not None and entry.root_cause.policy_failure is not None:
+        raise AutomationError("Provider-policy-blocked RCA cannot be retried through a follow-up run")
+    if (
+        entry.decision not in {"reviewed", "keep"} or entry.issue.state != "open"
+        or entry.review is None or entry.duplicates is None or entry.adjudication is None
+        or not entry.review_markdown or not entry.duplicates_markdown
+        or entry.closure is not None or not entry.unresolved()
+        or (entry.reproduction_stage is not None and (
+            entry.reproduction_stage.observation_only() or entry.reproduction_stage.action() is not None
+        ))
+    ):
+        raise AutomationError("RCA follow-up requires a completed unresolved triage entry, not a closure or failed review")
+
+
+def followup_mechanism_status(root_cause: RootCause) -> Literal["counterchecked", "candidate", "not_established"]:
+    if root_cause.publishable():
+        return "counterchecked"
+    findings = root_cause.findings
+    if (
+        root_cause.status in ("blocked", "inconclusive")
+        and findings is not None and findings.kind != "unknown" and findings.location and findings.evidence_ids
+        and (root_cause.gate is None or root_cause.gate.accepted)
+        and (root_cause.challenge is None or root_cause.challenge.verdict != "refuted")
+    ):
+        return "candidate"
+    return "not_established"
+
+
+async def run_rca_followup(console: Console, source: Path, issues: list[Issue], chunk_size: int, *, retry_failed: bool) -> None:
+    if not console.rca_only or not console.read_only or console.github.mutations_enabled:
+        raise AutomationError("RCA follow-up requires structurally disabled publication")
+    source, state = source.resolve(), console.state.resolve()
+    if source.is_relative_to(state) or state.is_relative_to(source):
+        raise AutomationError("RCA source and output must be distinct, non-overlapping directories")
+    source_run = JSON.validate_json((source / "run.json").read_text(encoding="utf-8"))
+    if not isinstance(source_run, dict) or source_run.get("repository") != REPOSITORY:
+        raise AutomationError("RCA follow-up source must be a saved microsoft/pyright triage run")
+    cohort: dict[str, JsonValue] = {
+        "schema_version": 1, "source_state": str(source), "context_hash": console.context_hash,
+        "source_run_sha256": hashlib.sha256((source / "run.json").read_bytes()).hexdigest(),
+        "issues": [issue.number for issue in issues], "github_mutations_enabled": False,
+    }
+    cohort_path = state / "rca-cohort.json"
+    if cohort_path.exists():
+        if JSON.validate_json(cohort_path.read_text(encoding="utf-8")) != cohort:
+            raise AutomationError("RCA follow-up cohort, source provenance or local inputs changed; use fresh state")
+    elif any(state.glob("[0-9]*/entry.json")):
+        raise AutomationError("RCA follow-up cannot adopt existing entries without its frozen cohort")
+    else:
+        atomic_write(cohort_path, json.dumps(cohort, indent=2))
+    completed: dict[int, dict[str, JsonValue]] = {}
+
+    def summarize() -> None:
+        rows: list[JsonValue] = [
+            completed.get(issue.number, {"issue_number": issue.number, "status": "pending"})
+            for issue in issues
+        ]
+        atomic_write(state / "rca-followup.json", json.dumps({
+            **cohort, "planned_issues": len(issues), "completed_issues": len(completed),
+            "complete": len(completed) == len(issues),
+            "outcome_counts": {
+                status: sum(row.get("status") == status for row in completed.values())
+                for status in ("found", "inconclusive", "blocked", "failed", "skipped")
+            },
+            "mechanism_counts": {
+                status: sum(row.get("mechanism_status") == status for row in completed.values())
+                for status in ("counterchecked", "candidate", "not_established")
+            },
+            "publication_ready": False,
+            "interpretation": "Mechanism evidence does not establish a bug or by-design verdict. "
+                              "RCA follow-up does not adjudicate semantics; prior triage is background only.",
+            "results": rows,
+        }, indent=2) + "\n")
+
+    async def investigate(snapshot: Issue) -> dict[str, JsonValue]:
+        directory = console.directory(snapshot.number)
+        if not directory.resolve().is_relative_to(state):
+            raise AutomationError("RCA follow-up output links outside its assigned state")
+        result_path = directory / "followup-result.json"
+        entry: Entry | None = None
+        row: dict[str, JsonValue] = {
+            "issue_number": snapshot.number, "issue_url": snapshot.html_url,
+            "context_hash": console.context_hash, "input_hash": console.key(snapshot),
+        }
+        try:
+            cached = JSON.validate_json(result_path.read_text(encoding="utf-8")) if result_path.exists() else None
+            if cached is not None and (
+                not isinstance(cached, dict) or any(cached.get(key) != value for key, value in row.items())
+            ):
+                raise AutomationError("Saved RCA follow-up result belongs to different inputs")
+            if isinstance(cached, dict) and cached.get("status") == "failed" and not retry_failed and not console.retry_rca:
+                return cached
+            current = await console.github.issue(snapshot.number)
+            if console.key(current) != console.key(snapshot):
+                raise AutomationError("Issue changed after cohort capture; use fresh state")
+            origin = source / str(snapshot.number) / "entry.json"
+            if not origin.resolve().is_relative_to(source):
+                raise AutomationError("Source triage entry links outside the saved run")
+            raw = origin.read_bytes()
+            previous = Entry.model_validate_json(raw)
+            require_followup_candidate(previous, snapshot.number)
+            source_hash = hashlib.sha256(raw).hexdigest()
+            row["source_entry_sha256"] = source_hash
+            entry = console.load(snapshot.number)
+            if current.state != "open":
+                row.update(status="skipped", message="Issue is no longer open; no replacement was selected")
+            else:
+                comments = await console.github.screen_issue(current, directory)
+                if entry is None:
+                    if cached is not None and (not retry_failed or cached.get("status") != "failed"):
+                        raise AutomationError("Previous follow-up setup failed or lost its entry; inspect before --retry-failed")
+                    atomic_write(directory / "triage-entry.json", raw.decode("utf-8"))
+                    atomic_write(directory / "issue-discussion.json", json.dumps(comments, indent=2))
+                    entry = Entry(
+                        input_hash=console.key(current), context_hash=console.context_hash, issue=current,
+                        rca_followup=RootCauseFollowup(
+                            source_state=str(source), source_entry_sha256=source_hash, discussion_hash=discussion_hash(comments),
+                        ),
+                        decision="reviewed",
+                    )
+                    console.save(entry)
+                console.require_report_evidence(entry)
+                if entry.rca_followup is None or (
+                    entry.rca_followup.source_state != str(source)
+                    or entry.rca_followup.source_entry_sha256 != source_hash
+                    or entry.rca_followup.discussion_hash != discussion_hash(comments)
+                    or entry.input_hash != console.key(current)
+                ):
+                    raise AutomationError("Saved RCA follow-up inputs or source entry changed; use fresh state")
+                if cached is not None and (
+                    not isinstance(cached, dict) or any(cached.get(key) != value for key, value in row.items())
+                ):
+                    raise AutomationError("Saved RCA follow-up result belongs to different inputs")
+                if entry.root_cause is not None and entry.root_cause.policy_failure is not None:
+                    raise ProviderPolicyError(
+                        entry.root_cause.policy_failure, Path(entry.root_cause.directory) / "sdk-events.jsonl",
+                    )
+                if isinstance(cached, dict) and cached.get("status") != "failed":
+                    root_cause = entry.root_cause
+                    if (
+                        root_cause is None or cached.get("status") != root_cause.status
+                        or root_cause.policy_failure is not None
+                        or cached.get("cause") != (None if root_cause.findings is None else root_cause.findings.cause)
+                        or cached.get("mechanism_status") != followup_mechanism_status(root_cause)
+                        or cached.get("semantic_disposition") != "not_adjudicated"
+                        or root_cause.evidence_hash != await run_target_io(console.rca_hash, root_cause)
+                    ):
+                        raise AutomationError("Completed RCA follow-up evidence changed")
+                    if root_cause.publishable():
+                        await run_target_io(console.require_rca_evidence, entry)
+                    return cached
+                await console.ensure_root_cause(entry)
+                if (
+                    console.current_context() != console.context_hash
+                    or console.key(await console.github.issue(snapshot.number)) != entry.input_hash
+                    or discussion_hash(await console.github.comments(snapshot.number)) != entry.rca_followup.discussion_hash
+                ):
+                    raise AutomationError("Issue, discussion or local inputs changed during RCA; saved findings require review")
+                root_cause = entry.root_cause
+                if root_cause is None or root_cause.status == "running":
+                    raise AutomationError("RCA follow-up returned without a completed result")
+                if root_cause.publishable():
+                    await run_target_io(console.require_rca_evidence, entry)
+                entry.error = None
+                console.save(entry)
+                row.update(
+                    status=root_cause.status, message=root_cause.error or "",
+                    cause=None if root_cause.findings is None else root_cause.findings.cause,
+                    directory=root_cause.directory,
+                    gated_cause=root_cause.publishable(),
+                    mechanism_status=followup_mechanism_status(root_cause),
+                    completeness_followup=root_cause.blocked_challenge is not None,
+                    alternative_executed=bool(root_cause.prior_plans),
+                )
+        except ScreeningBlocked as error:
+            row.update(status="skipped", message=str(error))
+        except (AutomationError, OSError, ValueError, TimeoutError) as error:
+            row.update(status="failed", message=str(error))
+            if entry is not None:
+                entry.error = str(error)
+                console.save(entry)
+        row.setdefault("mechanism_status", "not_established")
+        row["semantic_disposition"] = "not_adjudicated"
+        atomic_write(result_path, json.dumps(row, indent=2) + "\n")
+        show(f"#{snapshot.number}: RCA follow-up {row['status']}: {row.get('cause') or row.get('message') or ''}")
+        return row
+
+    summarize()
+    try:
+        for offset in range(0, len(issues), chunk_size):
+            if console.current_context() != console.context_hash:
+                raise AutomationError("Local RCA follow-up inputs changed; use fresh state")
+            chunk = issues[offset:offset + chunk_size]
+            show(f"\nRCA-only chunk {offset // chunk_size + 1}: " + ", ".join(f"#{issue.number}" for issue in chunk))
+            tasks = [asyncio.create_task(investigate(issue)) for issue in chunk]
+            try:
+                for task in asyncio.as_completed(tasks):
+                    result = await task
+                    number = result["issue_number"]
+                    assert isinstance(number, int)
+                    completed[number] = result
+                    summarize()
+            finally:
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+    finally:
+        summarize()
+    if failures := sum(row.get("status") == "failed" for row in completed.values()):
+        raise AutomationError(f"{failures} RCA follow-up issue(s) failed; inspect rca-followup.json")
 
 
 def import_rehearsal_entry(source: Path, state: Path, number: int) -> Entry:
@@ -5710,6 +6094,10 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--retry-rca", action="store_true", help="Resume compatible failed RCA checkpoints; retry completed blocked/inconclusive attempts")
     parser.add_argument("--no-rca", action="store_true", help="Disable root-cause analysis and RCA comment publication")
     parser.add_argument(
+        "--rca-from", type=Path,
+        help="RCA-only follow-up of explicit --issues from saved triage; fresh evidence, all chunks, never draft or publish",
+    )
+    parser.add_argument(
         "--reproduction-registry", choices=REGISTRIES, default=NPM_REGISTRY,
         help="Explicit trusted npm registry for checker targets and isolated main dependencies (default: public npm)",
     )
@@ -5756,6 +6144,14 @@ async def main(args: argparse.Namespace) -> None:
     overnight = getattr(args, "overnight", False)
     rehearsal = getattr(args, "rehearse_closures", False)
     rehearsal_source = getattr(args, "rehearsal_from", None)
+    rca_source = getattr(args, "rca_from", None)
+    rca_only = rca_source is not None
+    if rca_only:
+        if not args.issues:
+            raise AutomationError("--rca-from requires an explicit bounded --issues list")
+        if exploratory or overnight or rehearsal or rehearsal_source is not None or getattr(args, "no_rca", False):
+            raise AutomationError("--rca-from cannot combine with exploratory, overnight, rehearsal or --no-rca modes")
+        args.read_only, non_interactive = True, True
     if rehearsal_source is not None and not rehearsal:
         raise AutomationError("--rehearsal-from requires --rehearse-closures")
     if rehearsal:
@@ -5771,9 +6167,15 @@ async def main(args: argparse.Namespace) -> None:
         raise AutomationError("--non-interactive requires --dry-run")
     if overnight and exploratory and not args.read_only:
         raise AutomationError("Overnight exploratory reproduction requires --dry-run; assumptions cannot authorize closures")
-    prepare_targets = (not overnight and not rehearsal) or getattr(args, "prepare_targets", False)
+    prepare_targets = not rca_only and ((not overnight and not rehearsal) or getattr(args, "prepare_targets", False))
     scorer = InjectionScreening.from_environment()
     args.state_dir = args.state_dir.expanduser().resolve()
+    if rca_source is not None:
+        rca_source = rca_source.expanduser().resolve()
+        if rca_source.is_relative_to(args.state_dir) or args.state_dir.is_relative_to(rca_source):
+            raise AutomationError("RCA source and output must be distinct, non-overlapping directories")
+        if args.state_dir.exists() and any(args.state_dir.iterdir()) and not (args.state_dir / "run.json").is_file():
+            raise AutomationError("RCA follow-up cannot adopt a nonempty output directory without run provenance")
     if rehearsal and args.state_dir.exists() and any(args.state_dir.iterdir()):
         raise AutomationError("Closure rehearsal requires a fresh --state-dir; keep previous attempts unchanged")
     if rehearsal_source is not None:
@@ -5806,7 +6208,7 @@ async def main(args: argparse.Namespace) -> None:
         Agent.load(AGENTS / f"{name}.md", name)
         for name in ("pyright-issue-reproducer", "pyright-issue-reproduction-gate")
     ]
-    github = GitHub(scorer=scorer, mutations_enabled=not rehearsal)
+    github = GitHub(scorer=scorer, mutations_enabled=not rehearsal and not rca_only)
     release_result = await github.api("GET", f"repos/{REPOSITORY}/releases/latest")
     if not isinstance(release_result, dict):
         raise AutomationError("GitHub returned invalid latest-release metadata")
@@ -5829,6 +6231,8 @@ async def main(args: argparse.Namespace) -> None:
         editor_options["publication_policy"] = "overnight-closure-only-v1"
         editor_options["target_preparation"] = "authorized" if prepare_targets else "cache-only"
         editor_options["diagnostic_observations"] = "bounded-source-settings-cases-v4" if observe_blocked else "disabled"
+    if rca_source is not None:
+        editor_options["rca_from"] = str(rca_source)
     target_cache = getattr(args, "target_cache", None)
     if target_cache is not None:
         target_cache = target_cache.expanduser().resolve()
@@ -5847,7 +6251,7 @@ async def main(args: argparse.Namespace) -> None:
             reconcile.add(saved.issue.number)
             if not any(issue.number == saved.issue.number for issue in issues):
                 issues.append(await github.issue(saved.issue.number))
-    issues = [issue for issue in issues if rehearsal or issue.state == "open" or issue.number in reconcile]
+    issues = [issue for issue in issues if rca_only or rehearsal or issue.state == "open" or issue.number in reconcile]
     show(f"{len(issues)} open/reconciliation issues in {REPOSITORY}; chunks of {args.chunk_size}. State: {args.state_dir}")
     show(f"Model for all SDK stages: {args.model}")
     rca_enabled = not getattr(args, "no_rca", False) and not exploratory and not overnight and not rehearsal
@@ -5857,6 +6261,7 @@ async def main(args: argparse.Namespace) -> None:
         show(f"RCA investigation/countercheck active budget: {rca_timeout}s per turn (separate from --timeout).")
     show(
         "Exploratory reproduction: observation-only; no drafting, mutations, adjudication or RCA." if exploratory else
+        "RCA-only follow-up: fresh observations, prior triage is background only; all mutations and drafting disabled." if rca_only else
         "Closure rehearsal: real writing and pre-publication gates; all GitHub mutations structurally disabled." if rehearsal else
         "Dry run: no drafting or GitHub mutations, including label creation." if args.read_only else
         "Overnight publication: only qualified fixed/by-design/duplicate closures; all other issues are report-only." if overnight else
@@ -5872,8 +6277,12 @@ async def main(args: argparse.Namespace) -> None:
             + ("enabled; omitted settings use disclosed controller defaults, never closure evidence."
                if observe_blocked else "disabled.")
         )
-    show("Reproduction: isolated historical npm release, pinned upstream main, and latest npm release; unavailable targets remain blocked.")
-    if not exploratory:
+    show(
+        "RCA reproduction: fresh prepared-source observations only; saved historical comparisons are not recertified."
+        if rca_only else
+        "Reproduction: isolated historical npm release, pinned upstream main, and latest npm release; unavailable targets remain blocked."
+    )
+    if not exploratory and not rca_only:
         show(
             "Omitted reproduction settings use disclosed defaults: " + json.dumps(reproduction_defaults())
             + "; reported values win. Defaulted comparisons do not establish reporter-faithful fixed/non-reproducible actions."
@@ -5886,8 +6295,13 @@ async def main(args: argparse.Namespace) -> None:
     show("Prepare the source CLI with 'pnpm run build:cli:dev' before this run. Do not change source or build outputs during review.")
     show("Copilot searches use ripgrep; optional indexed search is disabled for SDK compatibility.")
     with state_lock(args.state_dir):
-        require_run_mode(args.state_dir, exploratory, overnight=overnight, rehearse_closures=rehearsal)
-        atomic_write(args.state_dir / "run.json", json.dumps({
+        require_run_mode(args.state_dir, exploratory, overnight=overnight, rehearse_closures=rehearsal, rca_from=rca_source)
+        run_path = args.state_dir / "run.json"
+        if rca_only and run_path.exists():
+            previous_run = JSON.validate_json(run_path.read_text(encoding="utf-8"))
+            if not isinstance(previous_run, dict) or previous_run.get("context_hash") != fingerprint:
+                raise AutomationError("RCA follow-up local inputs changed; keep the checkpoint and use fresh state")
+        run_metadata = {
             "repository": REPOSITORY, "revision": git("rev-parse", "HEAD"),
             "context_hash": fingerprint, "runtime": runtime.strip(),
             "sdk": importlib.metadata.version("github-copilot-sdk"),
@@ -5909,10 +6323,13 @@ async def main(args: argparse.Namespace) -> None:
             "overnight": overnight, "prepare_targets": prepare_targets,
             "rehearse_closures": rehearsal,
             "rehearsal_from": None if rehearsal_source is None else str(rehearsal_source),
+            "rca_from": None if rca_source is None else str(rca_source),
             "target_cache": str(target_cache or args.state_dir / "targets"),
             "exploratory_reproduction": exploratory,
             "started_at": datetime.now(timezone.utc).isoformat(),
-        }, indent=2))
+        }
+        if not rca_only or not run_path.exists():
+            atomic_write(run_path, json.dumps(run_metadata, indent=2))
         if overnight and not rehearsal:
             save_overnight_report(
                 args.state_dir, fingerprint, issues, [], read_only=args.read_only, finished=False,
@@ -5948,7 +6365,14 @@ async def main(args: argparse.Namespace) -> None:
                 observe_blocked=observe_blocked, reproduction_timeout=reproduction_timeout,
                 rehearse_closures=rehearsal,
                 check_preflight=check_preflight,
+                rca_only=rca_only,
             )
+            if rca_source is not None:
+                await run_rca_followup(
+                    console, rca_source, issues, args.chunk_size, retry_failed=args.retry_failed,
+                )
+                show("RCA follow-up complete. Local results: " + str(args.state_dir / "rca-followup.json"))
+                return
             pending = [
                 issue for issue in issues if (
                     rehearsal

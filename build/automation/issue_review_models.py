@@ -906,6 +906,14 @@ class RootCausePublication(Record):
     comment_url: str | None = None
 
 
+class ProviderPolicyFailure(Record):
+    agent: Text
+    session_id: str | None
+    event_id: Text
+    error_code: Text
+    status_code: int | None = Field(default=None, ge=100, le=599)
+
+
 class RootCause(Record):
     input_hash: Text
     directory: Text
@@ -926,10 +934,12 @@ class RootCause(Record):
     post_decision: Literal["pending", "declined", "posted"] = "pending"
     publication: RootCausePublication | None = None
     error: str | None = None
+    policy_failure: ProviderPolicyFailure | None = None
 
     def publishable(self) -> bool:
         return (
-            self.status == "found" and self.findings is not None and self.findings.status == "found"
+            self.policy_failure is None
+            and self.status == "found" and self.findings is not None and self.findings.status == "found"
             and self.gate is not None and self.gate.accepted
             and self.challenge is not None and self.challenge.verdict == "survived"
             and self.markdown is not None and self.evidence_hash is not None
@@ -957,6 +967,12 @@ class DiagnosticObservations(DiagnosticObservationCase):
     cases: list[DiagnosticObservationCase] = Field(default_factory=list, max_length=8)
 
 
+class RootCauseFollowup(Record):
+    source_state: Text
+    source_entry_sha256: Text
+    discussion_hash: Text
+
+
 class Entry(Record):
     input_hash: str
     context_hash: str
@@ -976,6 +992,7 @@ class Entry(Record):
     scratch_directory: str | None = None
     rca_opt_in: Literal["not_asked", "declined", "accepted"] = "not_asked"
     root_cause: RootCause | None = None
+    rca_followup: RootCauseFollowup | None = None
     reproduction_stage: ReproductionStage | None = None
     diagnostic_observations: DiagnosticObservations | None = None
 

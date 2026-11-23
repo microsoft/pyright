@@ -12,9 +12,9 @@ from copilot import ToolInvocation
 from pydantic import JsonValue
 
 from issue_review_evidence import MAX_RESPONSE_BYTES
-from issue_review_models import BlockedChallenge, DraftCheck, Entry, ReproductionPlan, RootCause, RootCauseChallenge, RootCauseFindings, RootCauseGate
+from issue_review_models import BlockedChallenge, DraftCheck, Entry, ProviderPolicyFailure, ReproductionPlan, RootCause, RootCauseChallenge, RootCauseFindings, RootCauseGate
 from issue_review_rca import Breakpoint, RootCauseRun, RootCauseRuntime, Runner
-from review_issues import AGENTS, SDK, Agent, AutomationError, ChunkResult, Console, RootCauseTools, atomic_write, arguments, chunk_table, dry_run_proposal
+from review_issues import AGENTS, SDK, Agent, AutomationError, ChunkResult, Console, ProviderPolicyError, RootCauseTools, atomic_write, arguments, chunk_table, dry_run_proposal
 from test_review_issues import FakeGitHub, audit, issue, save_evidence
 from test_issue_review_editor import editor_record
 
@@ -303,6 +303,62 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaisesRegex(AutomationError, "actual independent"):
                 self.console.validate_rca_challenge(self.root, self.root.challenge)
             self.records[2][field] = original
+
+    def use_crash_records(self):
+        for record in self.records:
+            record.update({
+                "observation": "internal_error", "exit_code": 2, "stdout": "", "cwd": str(self.state),
+                "stderr": f'An internal error occurred while type checking file "{self.state / "example.py"}": '
+                "RangeError: Maximum call stack size exceeded\n    at getTypeOfMember\n",
+            })
+
+    async def test_crash_cause_needs_explicit_source_linked_matching_clean_debug_observations(self):
+        assert self.root.findings is not None
+        self.use_crash_records()
+        self.persist_records()
+        self.console.validate_rca_findings(self.entry, self.root, self.root.findings)
+        mutations: list[tuple[str, JsonValue]] = [
+            ("observation", "diagnostics"), ("exit_code", 1), ("error", "Inspector timed out"),
+            ("stderr", "RangeError: Maximum call stack size exceeded"),
+            ("stderr", str(self.records[1]["stderr"]).replace("RangeError", "TypeError")),
+            ("inputs", [{"file": "different.py", "content": "value = 1"}]),
+            ("cwd", str(self.state / "different")),
+            ("debug", {"errors": ["Breakpoint condition failed"], "hits": []}),
+        ]
+        original = json.loads(json.dumps(self.records))
+        for field, value in mutations:
+            with self.subTest(field=field, value=value):
+                self.records = json.loads(json.dumps(original))
+                self.records[1][field] = value
+                self.persist_records()
+                message = "controller did not observe" if field == "error" else "matching clean/debug"
+                with self.assertRaisesRegex(AutomationError, message):
+                    self.console.validate_rca_findings(self.entry, self.root, self.root.findings)
+        self.records = original
+        self.records[0]["observation"] = "diagnostics"
+        self.persist_records()
+        with self.assertRaisesRegex(AutomationError, "matching clean/debug"):
+            self.console.validate_rca_findings(self.entry, self.root, self.root.findings)
+
+    async def test_independent_crash_countercheck_requires_its_own_valid_observation(self):
+        assert self.root.challenge is not None
+        self.use_crash_records()
+        self.persist_records()
+        self.console.validate_rca_challenge(self.root, self.root.challenge)
+        for field, value in (
+            ("observation", "diagnostics"), ("exit_code", 1), ("error", "tool failed"),
+            ("stderr", "RangeError: Maximum call stack size exceeded"), ("investigator", "root_cause"),
+        ):
+            with self.subTest(field=field):
+                original = self.records[2].get(field)
+                self.records[2][field] = value
+                self.persist_records()
+                with self.assertRaisesRegex(AutomationError, "actual independent"):
+                    self.console.validate_rca_challenge(self.root, self.root.challenge)
+                if original is None:
+                    del self.records[2][field]
+                else:
+                    self.records[2][field] = original
 
     async def test_partial_producer_capture_requires_repair_not_rewording(self):
         assert self.root.findings is not None
@@ -782,6 +838,178 @@ class RootCauseTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(root.status, "failed")
         self.assertIn("Debugger unavailable", root.markdown or "")
 
+    async def test_provider_policy_failure_is_saved_and_cannot_be_retried_or_published(self):
+        failure = ProviderPolicyFailure(
+            agent="pyright-issue-root-cause", session_id="offline-policy", event_id="policy-event",
+            error_code="cyber_policy", status_code=422,
+        )
+
+        async def response(_agent, _prompt, _scratch, **options):
+            if options["schema"] is ReproductionPlan:
+                return self.plan.model_dump_json()
+            atomic_write(options["tools"].evidence / "checks.jsonl", "".join(
+                json.dumps(record) + "\n" for record in self.records[:2]
+            ))
+            raise ProviderPolicyError(failure, options["evidence"] / "sdk-events.jsonl")
+
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=response)) as run:
+            with self.assertRaises(ProviderPolicyError):
+                await self.console.investigate_root_cause(self.entry)
+        self.assertEqual(run.await_count, 2)
+        saved = self.console.load(123)
+        assert saved is not None and saved.root_cause is not None
+        root = saved.root_cause
+        self.assertEqual(root.status, "failed")
+        self.assertEqual(root.stage, "investigation")
+        self.assertEqual(root.policy_failure, failure)
+        self.assertIn("cyber_policy", root.markdown or "")
+        self.assertIn("HTTP 422", root.error or "")
+        self.assertEqual(len(self.console.rca_records(root)), 2)
+        checkpoint = (Path(root.directory) / "result.json").read_bytes()
+        self.console.retry_rca = True
+        with patch.object(self.console.sdk, "run", AsyncMock()) as run:
+            for operation in (self.console.ensure_root_cause, self.console.investigate_root_cause):
+                with self.assertRaises(ProviderPolicyError):
+                    await operation(saved)
+        run.assert_not_awaited()
+        self.assertEqual((Path(root.directory) / "result.json").read_bytes(), checkpoint)
+        self.root.policy_failure = failure
+        self.assertFalse(self.root.publishable())
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_inconclusive_findings_get_one_supported_followup_without_resetting_checks(self):
+        assert self.root.findings is not None and self.root.gate is not None and self.root.challenge is not None
+        first = self.root.findings.model_copy(update={
+            "status": "inconclusive", "markdown": "Partial mechanism; an available control can distinguish it.",
+        })
+        alternative = self.plan.model_copy(update={"controls": ["Use the already available discriminating control"]})
+        for final_status in ("found", "inconclusive"):
+            with self.subTest(final_status=final_status):
+                final = self.root.findings.model_copy(update={"status": final_status})
+                replies = [
+                    self.plan, first,
+                    BlockedChallenge(
+                        retry=True, reason="Existing evidence supplies a discriminating control",
+                        alternative=alternative, missing_prerequisites=[],
+                    ),
+                    final,
+                ]
+                if final_status == "found":
+                    replies.extend([self.root.gate, self.root.challenge])
+                investigator_tools = []
+                schemas = []
+
+                async def response(_agent, prompt, _scratch, **options):
+                    schema = options["schema"]
+                    schemas.append(schema)
+                    if schema is RootCauseFindings:
+                        tools = options["tools"]
+                        investigator_tools.append(tools)
+                        if len(investigator_tools) == 1:
+                            tools.check_count = 2
+                            atomic_write(tools.evidence / "checks.jsonl", "".join(
+                                json.dumps(record) + "\n" for record in self.records[:2]
+                            ))
+                        else:
+                            self.assertIs(tools, investigator_tools[0])
+                            self.assertEqual(tools.check_count, 2)
+                            self.assertIn(first.markdown, prompt)
+                    if schema is BlockedChallenge:
+                        self.assertNotIn("tools", options)
+                        self.assertIn("COMPLETENESS CHALLENGE", prompt)
+                        self.assertIn('"remaining_product_attempts": 6', prompt)
+                        self.assertIn("missing original", prompt)
+                    if schema is RootCauseChallenge:
+                        with (options["tools"].evidence / "checks.jsonl").open("a", encoding="utf-8") as stream:
+                            stream.write(json.dumps(self.records[2]) + "\n")
+                    raw = replies.pop(0).model_dump_json()
+                    if "validate" in options:
+                        options["validate"](raw)
+                    return raw
+
+                with patch.object(self.console.sdk, "run", AsyncMock(side_effect=response)):
+                    await self.console.investigate_root_cause(self.entry)
+                root = self.entry.root_cause
+                assert root is not None
+                self.assertEqual(root.status, final_status)
+                self.assertEqual(root.stage, "complete")
+                self.assertEqual(root.prior_findings, [first])
+                self.assertEqual(root.prior_plans, [self.plan])
+                self.assertEqual(root.plan, alternative)
+                self.assertIn(first.markdown, root.markdown or "")
+                self.assertIn(final.markdown, root.markdown or "")
+                self.assertEqual(root.publishable(), final_status == "found")
+                self.assertEqual(schemas.count(BlockedChallenge), 1)
+                self.assertFalse(replies)
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_inconclusive_followup_preserves_missing_original_information(self):
+        assert self.root.findings is not None
+        partial = self.root.findings.model_copy(update={
+            "status": "inconclusive", "markdown": "Conditional experiment; the original binding is unavailable.",
+        })
+        replies = [
+            self.plan, partial,
+            BlockedChallenge(
+                retry=False, reason="A conditional example cannot establish the omitted original binding.",
+                alternative=None, missing_prerequisites=["Original binding"],
+            ),
+        ]
+
+        async def response(_agent, _prompt, _scratch, **options):
+            if "tools" in options:
+                atomic_write(options["tools"].evidence / "checks.jsonl", "".join(
+                    json.dumps(record) + "\n" for record in self.records[:2]
+                ))
+            return replies.pop(0).model_dump_json()
+
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=response)) as run:
+            await self.console.investigate_root_cause(self.entry)
+        self.assertEqual(run.await_count, 3)
+        root = self.entry.root_cause
+        assert root is not None and root.blocked_challenge is not None
+        self.assertEqual(root.findings, partial)
+        self.assertEqual(root.blocked_challenge.missing_prerequisites, ["Original binding"])
+        self.assertEqual(root.prior_findings, [])
+        self.assertEqual(root.status, "inconclusive")
+        self.assertEqual(root.stage, "complete")
+        self.assertFalse(root.publishable())
+        self.assertIn(partial.markdown, root.markdown or "")
+        self.assertEqual(self.github.mutations, [])
+
+    async def test_completeness_challenge_cannot_grant_more_product_attempts(self):
+        assert self.root.findings is not None
+        partial = self.root.findings.model_copy(update={"status": "inconclusive"})
+        replies = [
+            self.plan, partial,
+            BlockedChallenge(
+                retry=True, reason="Another control might help",
+                alternative=self.plan.model_copy(update={"controls": ["Another product run"]}),
+                missing_prerequisites=[],
+            ),
+        ]
+
+        async def response(_agent, prompt, _scratch, **options):
+            if "tools" in options:
+                options["tools"].check_count = 8
+                atomic_write(options["tools"].evidence / "checks.jsonl", "".join(
+                    json.dumps(record) + "\n" for record in self.records[:2]
+                ))
+            if options["schema"] is BlockedChallenge:
+                self.assertIn('"remaining_product_attempts": 0', prompt)
+            return replies.pop(0).model_dump_json()
+
+        with patch.object(self.console.sdk, "run", AsyncMock(side_effect=response)) as run:
+            with self.assertRaisesRegex(AutomationError, "exhausted alternative"):
+                await self.console.investigate_root_cause(self.entry)
+        self.assertEqual(run.await_count, 3)
+        root = self.entry.root_cause
+        assert root is not None
+        self.assertEqual(root.findings, partial)
+        self.assertEqual(root.status, "failed")
+        self.assertFalse(root.publishable())
+        self.assertEqual(self.github.mutations, [])
+
     async def test_blocked_challenge_runs_at_most_one_different_attempt_and_preserves_partial_findings(self):
         assert self.root.findings is not None
         first = self.root.findings.model_copy(update={"status": "blocked", "markdown": "First attempt has useful partial evidence."})
@@ -935,6 +1163,37 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((scratch / "original.py").read_bytes(), original)
         self.assertEqual((scratch / "pyrightconfig.json").read_bytes(), configuration)
 
+    async def test_crash_baselines_are_explicit_and_survive_only_same_role_observation_resumption(self):
+        async def capture(command: list[str], cwd: Path) -> tuple[int, str, str]:
+            manifest = json.loads(Path(command[-1]).read_text(encoding="utf-8"))
+            atomic_write(Path(manifest["artifact"]), json.dumps({"id": manifest["id"], "errors": [], "hits": []}))
+            return 2, "", (
+                f'An internal error occurred while type checking file "{cwd / "original.py"}": '
+                "RangeError: Maximum call stack size exceeded\n    at getTypeOfMember\n"
+            )
+
+        runtime, tools = self.prepared_runtime(capture)
+        await self.run_cli(tools)
+        self.assertFalse(tools.cli_baseline)
+        clean = await self.run_cli(tools, observation="internal_error")
+        self.assertEqual(clean.result_type, "success", clean.text_result_for_llm)
+        points = [{"file": r"parser\parser.ts", "line": 1}]
+        debug = await self.run_cli(tools, observation="internal_error", breakpoints=points)
+        self.assertEqual(debug.result_type, "success", debug.text_result_for_llm)
+        self.assertEqual(json.loads(debug.text_result_for_llm)["observation"], "internal_error")
+        self.assertEqual(len(json.loads(debug.text_result_for_llm)["internal_errors"]), 1)
+        ordinary = await self.run_cli(tools, breakpoints=points)
+        self.assertEqual(ordinary.result_type, "failure")
+        self.assertEqual(tools.check_count, 3)
+        resumed = RootCauseTools(FakeGitHub(), runtime.scratch, {}, runtime.directory, runtime)
+        result = await self.run_cli(resumed, observation="internal_error", breakpoints=points)
+        self.assertEqual(result.result_type, "success", result.text_result_for_llm)
+        adversary = RootCauseTools(FakeGitHub(), runtime.scratch, {}, runtime.directory, runtime, adversary=True)
+        borrowed = await self.run_cli(adversary, observation="internal_error", breakpoints=points)
+        self.assertEqual(borrowed.result_type, "failure")
+        self.assertEqual(adversary.check_count, 0)
+        self.assertEqual(resumed.check_count, 4)
+
     async def test_project_paths_and_config_paths_respect_their_actual_base(self):
         runtime, tools = self.prepared_runtime()
         config = runtime.scratch / "controls" / "pyrightconfig.json"
@@ -949,6 +1208,25 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(result.result_type, "failure")
                 self.assertIn("scratch-relative JSON", result.text_result_for_llm)
         self.assertEqual(tools.check_count, 0)
+
+    async def test_rca_accepts_only_boolean_strict_list_inference(self):
+        runtime, tools = self.prepared_runtime()
+        config = runtime.scratch / "pyrightconfig.json"
+        for value in ("true", 1, None):
+            with self.subTest(value=value):
+                atomic_write(config, json.dumps({"strictListInference": value}))
+                result = await self.run_cli(tools)
+                self.assertEqual(result.result_type, "failure")
+                self.assertIn("must be a JSON boolean", result.text_result_for_llm)
+        self.assertEqual(tools.check_count, 0)
+        for value in (True, False):
+            with self.subTest(value=value):
+                atomic_write(config, json.dumps({"strictListInference": value}))
+                result = await self.run_cli(tools)
+                self.assertEqual(result.result_type, "success", result.text_result_for_llm)
+                with self.assertRaisesRegex(AutomationError, "unavailable in this controlled probe"):
+                    tools.validate_config(config)
+        self.assertEqual(tools.check_count, 2)
 
     async def test_stale_input_tree_requires_a_fresh_clean_pair_without_spending_an_attempt(self):
         runtime, tools = self.prepared_runtime()

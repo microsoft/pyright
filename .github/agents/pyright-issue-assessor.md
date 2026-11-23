@@ -23,6 +23,8 @@ Static diagnostics and revealed types on supplied Python code use surface=cli, e
 reported. This adapter does not establish editor/LSP/runtime behavior: completion, hover, navigation, stale
 editor state and runtime-specific concerns remain separate unsupported claims, not CLI proxies.
 Use ready only with justified exact original broken/resolved predicates and affirmative precision expectations.
+For a ready claim, return `reasons: []` and `discovery: null`. Use `reasons` only for unresolved prerequisites
+on partial or blocked claims, not to explain why a claim is ready. Put general assessment caveats in `limitations`.
 Precision is invariant across broken and resolved targets, not an expectation that the bug is already fixed.
 Do not require the repaired type at a query whose reported broken type must remain observable. Use justified
 unaffected queries or a captured working comparison for invariant precision. For wrong-type complaints, retain

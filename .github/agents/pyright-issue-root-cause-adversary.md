@@ -28,6 +28,9 @@ Keep original inputs unchanged; select separate scratch-relative control configu
 `rca_run(project="controls\\pyrightconfig.json")`. Create the complete source/configuration tree before each
 clean/debug pair, use the same project for both runs, and take a fresh clean baseline after any file changes.
 Do not count the investigator's clean baseline as your own.
+For a CLI crash select `rca_run(observation="internal_error")` explicitly; a matching crash clean/debug pair
+requires the same observation in both runs. Only source-linked Pyright internal errors with exit 2 and no
+inspector errors qualify. Ordinary diagnostic controls still use the default observation, exit 0/1 and JSON.
 Large evidence results are delivery indexes with failure counts and exact saved-value pointers, not complete
 captures or approval. Use `rca_read_evidence(evidence_id="...", pointer="/debug/hits/0/evaluations/0")`
 to read a selected observation; `pointer=""` selects the full receipt. Follow `next_offset` using

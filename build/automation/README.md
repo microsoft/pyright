@@ -20,6 +20,50 @@ Failed or screened-out issues remain explicit; run completion does not mean ever
 The console does not implement fixes.
 The original `pyright-issue-reviewer` remains a separate read-only, non-executing reviewer and is not used by this console.
 
+## Publication-disabled RCA backlog follow-up
+
+Use `--rca-from` with an explicit bounded list of issues left unresolved by a saved triage run:
+
+```powershell
+uv run --env-file .env build\automation\review_issues.py `
+    --rca-from C:\issue-reviews\completed-triage --issues 123 456 `
+    --chunk-size 2 --timeout 1200 --rca-timeout 1200 `
+    --state-dir C:\issue-reviews\rca-followup
+```
+
+This mode implies noninteractive read-only execution and advances through **all selected chunks**. The GitHub
+transport structurally rejects mutations and GraphQL; no writer, closure evaluation, labels, comments or
+publication ledger is invoked. It cannot combine with `--overnight`, exploratory reproduction, closure
+rehearsal or `--no-rca`. Use a separate, non-overlapping output directory. Previously closed, failed,
+closure-eligible or provider-policy-blocked source entries cannot become follow-up candidates. Selected issues
+that have since closed are recorded as skipped, never silently replaced.
+
+The original run is not modified or resealed. A byte-preserving snapshot of each selected triage entry is
+explicitly **background only**, even when the implementation/context has changed. Its verdicts, check IDs,
+historical comparisons and claimed observations are not newly validated evidence. The target issue and full
+discussion are freshly captured and screened; the normal RCA planner/investigator, producer-evidence gate
+and independent executable challenge obtain fresh observations from the current prepared runtime.
+Missing historical targets, original bindings or supported integration runners remain limitations. There is
+no implicit target download/build or additional execution approval.
+
+`rca-cohort.json` binds the ordered selection, source-run hash and current context. Each issue retains
+`triage-entry.json`, `issue-discussion.json`, its ordinary RCA checkpoints and `followup-result.json`.
+Run-level `rca-followup.json` records pending and completed issues, found/inconclusive/blocked/failed/skipped
+counts, and whether a completeness check or actual alternative investigation ran. Completed rows separately
+record `mechanism_status`: `counterchecked` passed both causal checks, `candidate` cites a possible producer
+and evidence without confirming it, and `not_established` records no such supported assessment.
+`semantic_disposition` is always `not_adjudicated` in this mode; neither a mechanism finding nor the copied
+triage disposition substitutes for a fresh judgment about intended behavior. Completion means coverage,
+not publication readiness.
+
+Rerun the same command/state to validate and reuse completed results while processing unfinished issues.
+The existing `--retry-rca` explicitly resumes compatible interrupted/failed RCA checkpoints; it cannot bypass
+a provider rejection. In follow-up mode completed results are reused rather than reinvestigated, even with
+that flag. `--retry-failed` retries setup failures but does not independently authorize restarting a failed RCA.
+Changed code/model/runtime/context, cohort, source provenance, frozen evidence or captured issue/discussion
+blocks reuse; preserve the saved attempt and start fresh state rather than upgrading it to a new contract.
+Follow-up state cannot be resumed as an ordinary publication-enabled review.
+
 ## Publication-disabled closure rehearsal
 
 The local `run_overnight.ps1 -FocusedRehearsal` launcher selects four open issues in two chunks:
@@ -556,6 +600,8 @@ python build\automation\assess_issues.py --issue 12345 --state-dir .assessment-n
 
 Replace the issue number, paths, and pinned SHA with the intended inputs. Omitted Python/checking settings stay
 missing unless `--allow-assumed-settings` explicitly authorizes bounded, disclosed experimental choices.
+Readiness records use `reasons: []` and `discovery: null` for claims with complete verification predicates.
+Only partial or blocked claims list unresolved prerequisites in `reasons`; readiness itself is not a checker observation.
 Prose interpreter versions may end a sentence with a period; the captured version/span excludes that
 punctuation without changing report bytes. Malformed, explicitly quoted and literal/CLI setting values
 are not repaired this way, and other missing settings remain blockers.
@@ -1569,6 +1615,8 @@ uv run build\automation\review_issues.py --issues 11881 11876 --dry-run --no-rca
 There is no RCA opt-in prompt. Three bounded roles, inspired by Pyrx's investigator, evidence gate and adversary, run:
 an investigator gathers evidence, a tool-less gate checks the causal explanation, and an independent challenger
 tries a competing explanation. The gate/challenger run only when the investigator finds a potential cause.
+Separately, a tool-less completeness check reviews blocked or inconclusive primary findings before giving up;
+it can authorize one supported follow-up as described below, not acceptance of an unproven cause.
 Missing specification or historical evidence goes to authoritative research rather than unnecessary debugging.
 The gate evaluates the investigator's primary evidence **before** the adversary runs. It must not reject solely
 for absence of that future role's independent execution. Acceptance only starts the challenge; a publishable RCA
@@ -1629,9 +1677,20 @@ A control must distinguish the strongest competing explanation; a downstream cac
 that the cache is the cause. Preserve useful partial mechanisms when the evidence cannot distinguish alternatives.
 Behavior reports also include a controller-rendered per-claim disposition/reproduction table. A supported policy
 can coexist with a historical diagnostic that no longer reproduces; unresolved material claims still block closure.
-For a blocked conclusion, a tool-less challenger checks the plan, capabilities and ledger for an avoidable setup
-mistake or ignored evidence. It can authorize **one** materially different supported attempt, never downloads,
-broader permissions, interpreter selection, or an override of denied execution. Earlier findings/plans are retained.
+For blocked or inconclusive primary findings, a tool-less completeness challenger checks the plan, capabilities,
+ledger and remaining execution allowance for an avoidable setup mistake, ignored evidence or an available missing
+causal observation/discriminating control. It can authorize **one** materially different supported attempt, never
+downloads, broader permissions, interpreter selection, exhausted product-check allowances, or an override of denied
+execution. Earlier findings/plans are retained. Missing original source/bindings remain missing; conditional experiments
+do not establish the reporter's omitted input. A second inconclusive result stops. Rejected evidence gates and
+unsuccessful independent challenges do not enter this follow-up loop.
+
+Explicit provider policy rejections (including `cyber_policy`) are terminal SDK failures, not inconclusive causal
+findings or retryable setup problems. The controller stops/drains the wait and aborts/disconnects the session, records
+safe error code, HTTP status and session/event IDs in the RCA's `policy_failure`, and preserves existing observations.
+It never copies the raw provider message into the report, starts another plan/model/session to bypass the rejection,
+or retries that checkpoint through `--retry-rca`. This also takes precedence over whitespace recovery and a racing
+final response. Ordinary transient rate limits remain SDK-managed. Old run artifacts are not edited.
 
 ### Isolated editor interpreter-handoff investigations
 

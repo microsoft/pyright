@@ -538,6 +538,12 @@ snapshot. A stale/missing pair is rejected before debugger execution without spe
 Changes during execution also invalidate the capture; no relaxed fingerprint comparison is used.
 Controls execute under the same bounded eight-attempt allowance. Project selection is CLI-only, not an editor adapter.
 
+Crash investigations explicitly select `rca_run(observation="internal_error")` for both clean and debug runs.
+Qualification requires exit 2 and matching Pyright internal-error headlines tied to captured source files,
+with unchanged inputs/runtime and actual producer hits/state. Inspector errors and generic tool exceptions do
+not qualify. The adversary must execute its own qualifying check; ordinary diagnostic controls still require
+exit 0/1 and parsed JSON. Legacy receipts without an observation remain diagnostic-only, never reclassified as crashes.
+
 Large RCA tool receipts use bounded delivery indexes rather than overflowing the model-visible response.
 Raw captured receipts remain unchanged on disk; source locations, failed/missing observation counts and exact
 JSON pointers are available in the index. `rca_read_evidence` accepts a `pointer` (`""` selects the root),
@@ -579,10 +585,22 @@ editor error. Read-only Windows update-mutex checks reject an updating host befo
 race blocks repeated launches for that attempt, rather than hiding the prerequisite failure behind another timeout.
 The operator must finish the update before retrying; the controller never bypasses it.
 
-A blocked-result challenge checks avoidable setup mistakes, available evidence and supported alternatives.
+A completeness challenge checks blocked **and inconclusive primary** findings for avoidable setup mistakes,
+ignored evidence, a missing causal observation/control and supported alternatives before stopping.
 At most one materially different alternative is allowed, within the original permissions and product-check budget.
-Operator denial and genuine missing prerequisites cannot be waived. Both attempts' plans/findings remain in the
+The challenger receives the remaining execution allowance; an exhausted allowance cannot authorize another product run.
+Operator denial and genuine missing prerequisites, including omitted original source/bindings, cannot be waived.
+A conditional example does not fill missing reporter information. Both attempts' plans/findings remain in the
 report. This is not a loop that keeps trying unrelated CLI examples until a conclusion appears.
+For checkpoint compatibility the saved stage/record names remain `blocked_challenge`/`BlockedChallenge`.
+Rejected primary gates and unsuccessful independent challenges still remain inconclusive, without another loop.
+
+Explicit provider policy error codes stop the SDK wait, drain it and abort/disconnect the owned session instead
+of being reported as a missing structured response or timeout. Safe code/status/session/event metadata is saved
+as `policy_failure` in the failed RCA report/checkpoint, without the provider's raw message. The failure cannot
+publish, enter the completeness challenge, trigger whitespace recovery, or resume through `--retry-rca`.
+No alternative plan/model/session is used to bypass a rejection. Transient rate-limit events remain SDK-managed
+and are not classified as policy blocks. Previously saved attempts are not rewritten.
 
 Only a found cause that passes both gate and challenge can be published as a qualified potential-cause comment.
 `rich-mirror` writes the full technical handoff, preserving reproduction/configuration, actual versus expected
@@ -593,6 +611,23 @@ original adjudication. Observed implementation behavior is not by-design intent 
 Stale evidence/local inputs/discussion block posting. Saved markers reconcile ambiguous POSTs without duplicate
 comments. `--dry-run` still runs automatic local RCA but disables drafting/publication.
 See the console README for `--retry-rca`, private-runtime requirements, limitations and recovery.
+
+For CLI RCA only, a separate control project can set the documented boolean `strictListInference`
+to isolate list inference without changing the original project or enabling other settings.
+
+`--rca-from <saved-triage-run>` provides a separate, always-publication-disabled follow-up for an explicit
+bounded `--issues` selection. It processes all chunks without repeating behavior/duplicate adjudication or
+closure decisions. Saved unresolved triage is copied byte-for-byte as **background**, not recertified or
+promoted across implementation/context changes. Fresh screened issue/discussion captures and the ordinary
+RCA evidence/gate/independent-challenge pipeline establish new current-runtime observations; prior commands,
+report IDs, released-checker results and semantic verdicts cannot substitute. The source run stays unchanged.
+The ordered cohort/source/context and frozen per-issue background/discussion bind resumable state.
+The result separates `mechanism_status` (counterchecked, candidate, or not established) from
+`semantic_disposition` (not adjudicated in this mode). A cited candidate is not a validated cause,
+and even a counterchecked mechanism does not settle bug versus intended behavior.
+Completed results are integrity-checked and reused; failed checkpoints require the existing explicit retry
+flags, and policy rejections stay terminal. All selected cases remain accounted for, including closed/skipped,
+ineligible and failed cases. Follow-up state cannot enable publication or be adopted by ordinary review.
 
 ## Supporting audit record
 
