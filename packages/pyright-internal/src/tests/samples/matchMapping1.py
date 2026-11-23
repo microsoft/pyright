@@ -4,7 +4,7 @@
 from enum import Enum
 from typing import Literal, Mapping, TypedDict, TypeVar
 
-from typing_extensions import NotRequired  # pyright: ignore[reportMissingModuleSource]
+from typing_extensions import NotRequired, assert_never  # pyright: ignore[reportMissingModuleSource]
 
 
 def test_unknown(value_to_match):
@@ -222,6 +222,28 @@ def test_capture_union_field_negative_narrowing(msg: UnionFieldA | UnionFieldB) 
             reveal_type(msg, expected_text="UnionFieldA")
         case _:
             reveal_type(msg, expected_text="UnionFieldB")
+
+
+TUnionField = TypeVar("TUnionField", bound=UnionFieldA | UnionFieldB)
+
+
+def test_union_bound_typevar_negative_narrowing(msg: TUnionField) -> TUnionField:
+    match msg:
+        case {"kind": "a"}:
+            return msg
+        case _:
+            reveal_type(msg, expected_text="UnionFieldB*")
+            return msg
+
+
+def test_union_bound_typevar_negative_exhaustion(msg: TUnionField) -> TUnionField:
+    match msg:
+        case {"kind": "a"}:
+            return msg
+        case {"kind": "b"}:
+            return msg
+        case _:
+            assert_never(msg)
 
 
 def test_expand_entry_negative_narrowing(msg: MsgA | MsgB) -> None:

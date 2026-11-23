@@ -430,8 +430,8 @@ function narrowTypeBasedOnSequencePattern(
             // didn't narrow any of its entries. Replacing it with a plain tuple
             // would lose the class.
             const isUnnarrowedTupleSubclass =
-                isClassInstance(entry.subtype) &&
-                !ClassType.isBuiltIn(entry.subtype, 'tuple') &&
+                isClassInstance(entry.concreteSubtype) &&
+                !ClassType.isBuiltIn(entry.concreteSubtype, 'tuple') &&
                 !entry.isIndeterminateLength &&
                 !entry.isUnboundedTuple &&
                 narrowedEntryTypes.length === unnarrowedEntryTypes.length &&
@@ -633,11 +633,14 @@ function narrowTypeBasedOnMappingPattern(
         }
 
         const keyNames = keyEntryInfos.map((entry) => entry.keyValue);
-        return mapSubtypes(type, (subtype) => {
-            if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
+        const remainingInfo: PatternSubtypeInfo[] = [];
+        let isNarrowed = false;
+
+        evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (concreteSubtype, subtype) => {
+            if (isClassInstance(concreteSubtype) && ClassType.isTypedDictClass(concreteSubtype)) {
                 const typedDictMembers = getTypedDictMembersForClass(
                     evaluator,
-                    subtype,
+                    concreteSubtype,
                     /* allowNarrowed */ true,
                     keyNames
                 );
@@ -671,12 +674,16 @@ function narrowTypeBasedOnMappingPattern(
                 });
 
                 if (matchesAllEntries) {
+                    isNarrowed = true;
                     return undefined;
                 }
             }
 
-            return subtype;
+            remainingInfo.push({ subtype, concreteSubtype });
+            return undefined;
         });
+
+        return isNarrowed ? combineTypes(getNarrowedSubtypes(evaluator, remainingInfo)) : type;
     }
 
     let mappingInfo = getMappingPatternInfo(evaluator, type, pattern);
