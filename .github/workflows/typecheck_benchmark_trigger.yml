@@ -99,6 +99,17 @@ jobs:
                 core.notice('The pull request does not change analyzer sources or bundled typeshed')
                 return
               }
+              const authorResponsibility = require('./build/checkAuthorResponsibility.js')
+              const { result } = await authorResponsibility.evaluate({ github, context, pullNumber: issueNumber })
+              if (result.state !== 'success') {
+                const report = require('./build/reportPullRequestCheck.js')
+                await report({
+                  github, context, name: 'Type checker benchmark', headSha: pullRequest.head.sha, useCommitStatus: true,
+                  status: 'completed', conclusion: 'skipped', summary: authorResponsibility.FOLLOW_UP_SKIPPED,
+                })
+                core.notice(authorResponsibility.FOLLOW_UP_SKIPPED)
+                return
+              }
             } else {
               const permission = await github.rest.repos.getCollaboratorPermissionLevel({
                 owner: context.repo.owner,

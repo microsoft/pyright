@@ -70,6 +70,16 @@ jobs:
             if (!validated) return
             const { pullRequest } = validated
             const report = require('./build/reportPullRequestCheck.js')
+            const authorResponsibility = require('./build/checkAuthorResponsibility.js')
+            const { result } = await authorResponsibility.evaluate({ github, context, pullNumber: pullRequest.number })
+            if (result.state !== 'success') {
+              await report({
+                github, context, name: 'mypy_primer', headSha: pullRequest.head.sha, useCommitStatus: true,
+                status: 'completed', conclusion: 'skipped', summary: authorResponsibility.FOLLOW_UP_SKIPPED,
+              })
+              core.notice(authorResponsibility.FOLLOW_UP_SKIPPED)
+              return
+            }
             core.setOutput('head-sha', pullRequest.head.sha)
             const statusId = await report({
               github, context, name: 'mypy_primer', headSha: pullRequest.head.sha, useCommitStatus: true,
