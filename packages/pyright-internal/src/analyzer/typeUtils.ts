@@ -496,7 +496,7 @@ export function mapSignatures(
     if (implementation && isFunction(implementation)) {
         newImplementation = callback(implementation);
 
-        if (newImplementation) {
+        if (newImplementation !== implementation) {
             changeMade = true;
         }
     }
@@ -509,7 +509,21 @@ export function mapSignatures(
         return newSignatures[0];
     }
 
-    return OverloadedType.create(newSignatures, newImplementation);
+    return createOverloadedTypeFromBorrowedSignatures(newSignatures, newImplementation);
+}
+
+// Rebuilding an overload must not reparent signatures borrowed from another overload.
+export function createOverloadedTypeFromBorrowedSignatures(
+    signatures: readonly FunctionType[],
+    implementation?: Type
+): OverloadedType {
+    const cloneIfOwned = (signature: FunctionType) =>
+        signature.priv.overloaded ? TypeBase.cloneType(signature) : signature;
+
+    return OverloadedType.create(
+        signatures.map(cloneIfOwned),
+        implementation && isFunction(implementation) ? cloneIfOwned(implementation) : implementation
+    );
 }
 
 // The code flow engine uses a special form of the UnknownType (with the
@@ -3913,7 +3927,7 @@ export class TypeVarTransformer {
             this._pendingFunctionTransformations.pop();
 
             // Construct a new overload with the specialized function types.
-            return requiresUpdate ? OverloadedType.create(newOverloads, newImpl) : type;
+            return requiresUpdate ? createOverloadedTypeFromBorrowedSignatures(newOverloads, newImpl) : type;
         }
 
         return type;
