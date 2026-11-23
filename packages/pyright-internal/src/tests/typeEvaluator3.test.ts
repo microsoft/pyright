@@ -594,6 +594,28 @@ test('Comprehension11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Comprehension12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['comprehension12.py']);
+
+    TestUtils.validateResults(analysisResults, 12);
+});
+
+test('Comprehension13', () => {
+    const configOptions13 = new ConfigOptions(Uri.empty());
+    configOptions13.defaultPythonVersion = pythonVersion3_13;
+    const configOptions14 = new ConfigOptions(Uri.empty());
+    configOptions14.defaultPythonVersion = pythonVersion3_14;
+
+    TestUtils.validateResults(TestUtils.typeAnalyzeSampleFiles(['comprehension13.py'], configOptions13), 1);
+    TestUtils.validateResults(TestUtils.typeAnalyzeSampleFiles(['comprehension13.py'], configOptions14), 1);
+
+    TestUtils.validateResults(TestUtils.typeAnalyzeSampleFiles(['comprehension14.py'], configOptions13), 0);
+    TestUtils.validateResults(TestUtils.typeAnalyzeSampleFiles(['comprehension14.py'], configOptions14), 1);
+
+    TestUtils.validateResults(TestUtils.typeAnalyzeSampleFiles(['comprehension15.py'], configOptions13), 0);
+    TestUtils.validateResults(TestUtils.typeAnalyzeSampleFiles(['comprehension15.py'], configOptions14), 1);
+});
+
 test('Literals1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals1.py']);
 
