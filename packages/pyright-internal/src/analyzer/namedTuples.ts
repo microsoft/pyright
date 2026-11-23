@@ -87,8 +87,13 @@ export function createNamedTupleType(
     const nameArg = includesTypes ? argList[0] : getPositionalOrKeywordArg(argList, 0, 'typename');
     const entriesArg = includesTypes ? argList[1] : getPositionalOrKeywordArg(argList, 1, 'field_names');
 
+    const hasUnpackedDictArg =
+        !includesTypes && argList.some((arg) => arg.argCategory === ArgCategory.UnpackedDictionary);
+
     if (!nameArg) {
-        evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleFirstArg(), errorNode);
+        if (!hasUnpackedDictArg) {
+            evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleFirstArg(), errorNode);
+        }
     } else if (nameArg.argCategory !== ArgCategory.Simple) {
         evaluator.addDiagnostic(
             DiagnosticRule.reportArgumentType,
@@ -164,7 +169,9 @@ export function createNamedTupleType(
     const entryTypes: Type[] = [];
 
     if (!entriesArg) {
-        evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleSecondArg(), errorNode);
+        if (!hasUnpackedDictArg) {
+            evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleSecondArg(), errorNode);
+        }
         addGenericGetAttribute = true;
     } else {
         if (entriesArg.argCategory !== ArgCategory.Simple) {

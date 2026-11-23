@@ -1,7 +1,7 @@
 # This sample tests the type checker's handling of named tuples.
 
 from collections import namedtuple
-from typing import Final, NamedTuple
+from typing import Final, NamedTuple, TypedDict
 
 NamedTuple1 = namedtuple("NamedTuple1", "field1 field2")
 NamedTuple1(1, 2)
@@ -120,6 +120,32 @@ def func4():
 
     # This should generate an error.
     NamedTuple9(1, 2, 3)
+
+
+class TypenameKw(TypedDict):
+    typename: str
+
+
+class FieldNamesKw(TypedDict):
+    field_names: str
+
+
+def func5(kwargs: FieldNamesKw):
+    NamedTuple10 = namedtuple("NamedTuple10", **kwargs)
+    NamedTuple10(1, 2)
+
+
+def func6(kwargs: TypenameKw):
+    NamedTuple11 = namedtuple(field_names="a b", **kwargs)
+    NamedTuple11(1, 2)
+
+
+def func7():
+    # This should generate an error.
+    namedtuple("NamedTuple12")
+
+    # This should generate an error.
+    namedtuple(field_names="a b")
 
 
 # This should generate an error because NamedTuple isn't allowed in isinstance.
