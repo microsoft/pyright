@@ -400,6 +400,17 @@ const typePromotions: Map<string, string[]> = new Map([
     ['builtins.bytes', ['builtins.bytearray', 'builtins.memoryview']],
 ]);
 
+// Non-dunder names owned by CPython's Annotated wrapper rather than its origin.
+const annotatedAliasOwnMembers = new Set([
+    'copy_with',
+    '_determine_new_args',
+    '_make_substitution',
+    '_inst',
+    '_name',
+    '_paramspec_tvars',
+    '_typevar_types',
+]);
+
 // How many levels deep should we attempt to infer return
 // types based on call-site argument types? The deeper we go,
 // the more types we may be able to infer, but the worse the
@@ -4125,6 +4136,118 @@ export function createTypeEvaluator(
         return typeResult;
     }
 
+    function getSingleValueDeclaration(node: ParseNode): Declaration | undefined {
+        let decls: readonly Declaration[] | undefined;
+        if (node.nodeType === ParseNodeType.Name) {
+            decls = getDeclInfoForNameNode(node)?.decls;
+        } else if (node.nodeType === ParseNodeType.MemberAccess) {
+            const receiver = readTypeCache(node.d.leftExpr, /* flags */ undefined);
+            if (receiver && isModule(receiver)) {
+                decls = ModuleType.getField(receiver, node.d.member.d.value)?.getDeclarations();
+            } else if (
+                receiver &&
+                isInstantiableClass(receiver) &&
+                !receiver.priv.includeSubclasses &&
+                hasDefaultMetaclass(receiver)
+            ) {
+                decls = lookUpClassMember(
+                    receiver,
+                    node.d.member.d.value,
+                    MemberAccessFlags.SkipInstanceMembers
+                )?.symbol.getDeclarations();
+            }
+        }
+
+        return decls?.length === 1 ? resolveAliasDeclaration(decls[0], /* resolveLocalNames */ true) : undefined;
+    }
+
+    function hasDefaultMetaclass(classType: ClassType): boolean {
+        const metaclass = classType.shared.effectiveMetaclass;
+        return !!metaclass && isInstantiableClass(metaclass) && ClassType.isBuiltIn(metaclass, 'type');
+    }
+
+    function getAnnotatedOriginExpression(node: ParseNode | undefined): ExpressionNode | undefined {
+        if (node?.nodeType === ParseNodeType.Index) {
+            const base = readTypeCache(node.d.leftExpr, /* flags */ undefined);
+            const arg = node.d.items[0];
+            if (
+                base &&
+                isInstantiableClass(base) &&
+                ClassType.isBuiltIn(base, 'Annotated') &&
+                arg?.d.argCategory === ArgCategory.Simple &&
+                !arg.d.name
+            ) {
+                return arg.d.valueExpr;
+            }
+        }
+
+        return undefined;
+    }
+
+    // The erased annotation can describe a class even when the runtime origin
+    // is a ForwardRef, NewType, or another typing object. Follow only expressions
+    // whose runtime lookup is known to reach the class that the annotation describes.
+    function isAnnotatedAliasOfClass(node: ExpressionNode, aliasType: Type, classType: ClassType): boolean {
+        const aliasInfo = aliasType.props?.typeAliasInfo;
+        if (!aliasInfo || aliasInfo.shared.isTypeAliasType || ClassType.isPartiallyEvaluated(classType)) {
+            return false;
+        }
+
+        const decl = getSingleValueDeclaration(node);
+        let origin: ParseNode | undefined = getAnnotatedOriginExpression(
+            decl?.type === DeclarationType.Variable && decl.typeAliasName ? decl.inferredTypeSource : undefined
+        );
+        for (let depth = 0; origin && depth < maxRecursiveTypeAliasRecursionCount; depth++) {
+            if (origin.nodeType === ParseNodeType.Index) {
+                const nestedOrigin = getAnnotatedOriginExpression(origin);
+                if (nestedOrigin) {
+                    // Annotated flattens nested wrappers at runtime.
+                    origin = nestedOrigin;
+                    continue;
+                }
+
+                // Only standard generic subscription forwards to the same class. A
+                // metaclass or a user-defined __class_getitem__ can return another object.
+                const genericDecl = getSingleValueDeclaration(origin.d.leftExpr);
+                if (
+                    genericDecl?.type !== DeclarationType.Class ||
+                    genericDecl !== classType.shared.declaration ||
+                    !classType.priv.typeArgs ||
+                    !hasDefaultMetaclass(classType) ||
+                    ClassType.isBuiltIn(classType, 'type')
+                ) {
+                    return false;
+                }
+
+                const getItem = lookUpClassMember(
+                    classType,
+                    '__class_getitem__',
+                    MemberAccessFlags.SkipInstanceMembers
+                );
+                return getItem
+                    ? isClass(getItem.classType) &&
+                          (getItem.classType.shared.moduleName === 'builtins' ||
+                              getItem.classType.shared.fullName === 'typing.Generic')
+                    : !!genericDecl.node.d.typeParams ||
+                          classType.shared.mro.some(
+                              (base) => isClass(base) && base.shared.fullName === 'typing.Generic'
+                          );
+            }
+
+            const originDecl = getSingleValueDeclaration(origin);
+            if (originDecl?.type === DeclarationType.Class) {
+                return originDecl === classType.shared.declaration;
+            }
+
+            origin =
+                originDecl?.type === DeclarationType.Variable && originDecl.typeAliasName
+                    ? originDecl.inferredTypeSource
+                    : undefined;
+        }
+
+        return false;
+    }
+
     function getTypeOfMemberAccessWithBaseType(
         node: MemberAccessNode,
         baseTypeResult: TypeResult,
@@ -4138,6 +4261,7 @@ export function createTypeEvaluator(
         const fileInfo = nodeInfo.getFileInfo(node);
         let type: Type | undefined;
         let narrowedTypeForSet: Type | undefined;
+        let memberAccessDiagType: Type | undefined;
         let typeErrors = false;
         let isIncomplete = !!baseTypeResult.isIncomplete;
         let isAsymmetricAccessor: boolean | undefined;
@@ -4154,6 +4278,8 @@ export function createTypeEvaluator(
         if (baseTypeResult.isIncomplete && isUnbound(baseType)) {
             return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
         }
+
+        const baseTypeForm = baseType.props?.typeForm;
 
         if (baseType.props?.specialForm && (flags & EvalFlags.TypeExpression) === 0) {
             baseType = baseType.props.specialForm;
@@ -4300,15 +4426,55 @@ export function createTypeEvaluator(
                 }
 
                 if (!typeResult) {
+                    const memberFlags =
+                        (flags & EvalFlags.TypeExpression) === 0
+                            ? MemberAccessFlags.Default
+                            : MemberAccessFlags.TypeExpression;
                     typeResult = getTypeOfBoundMember(
                         node.d.member,
                         baseType,
                         memberName,
                         usage,
                         diag,
-                        (flags & EvalFlags.TypeExpression) === 0 ? undefined : MemberAccessFlags.TypeExpression,
+                        memberFlags,
                         baseTypeResult.bindToSelfType
                     );
+
+                    if (
+                        !typeResult &&
+                        usage.method === 'get' &&
+                        (flags & EvalFlags.TypeExpression) === 0 &&
+                        baseTypeForm &&
+                        isClassInstance(baseTypeForm) &&
+                        ClassType.isBuiltIn(baseType, 'Annotated') &&
+                        !(memberName.startsWith('__') && memberName.endsWith('__')) &&
+                        !annotatedAliasOwnMembers.has(memberName) &&
+                        isAnnotatedAliasOfClass(node.d.leftExpr, baseTypeResult.type, baseTypeForm)
+                    ) {
+                        const originClass = ClassType.cloneAsInstantiable(baseTypeForm);
+                        const fallbackDiag = new DiagnosticAddendum();
+                        typeResult =
+                            getTypeOfEnumMember(
+                                evaluatorInterface,
+                                node,
+                                originClass,
+                                memberName,
+                                isIncomplete,
+                                nodeInfo
+                            ) ??
+                            getTypeOfBoundMember(
+                                node.d.member,
+                                originClass,
+                                memberName,
+                                usage,
+                                fallbackDiag,
+                                memberFlags
+                            );
+                        if (typeResult?.typeErrors) {
+                            diag = fallbackDiag;
+                            memberAccessDiagType = originClass;
+                        }
+                    }
                 }
 
                 if (typeResult) {
@@ -4605,7 +4771,8 @@ export function createTypeEvaluator(
 
                 addDiagnostic(
                     rule,
-                    diagMessage.format({ name: memberName, type: printType(baseType) }) + diag.getString(),
+                    diagMessage.format({ name: memberName, type: printType(memberAccessDiagType ?? baseType) }) +
+                        diag.getString(),
                     node.d.member,
                     diag.getEffectiveTextRange() ?? node.d.member
                 );

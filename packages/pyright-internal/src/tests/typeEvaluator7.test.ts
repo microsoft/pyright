@@ -2185,6 +2185,37 @@ test('Annotated2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Annotated10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotated10.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('Annotated11', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotated11.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 10);
+});
+
+test('Annotated12', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotated12.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 12);
+    const errors = analysisResults[0].errors;
+    assert.deepStrictEqual(
+        errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [30, 31, 32, 38, 39, 40, 42, 43, 44, 72, 86, 87].map((line) => [
+            line,
+            DiagnosticRule.reportAttributeAccessIssue,
+        ])
+    );
+    assert.match(errors.find((diagnostic) => diagnostic.range.start.line + 1 === 86)!.message, /__get__/);
+});
+
 test('Circular1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
