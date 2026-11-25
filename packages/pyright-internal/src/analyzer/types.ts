@@ -597,6 +597,7 @@ export interface DataClassEntry {
     includeInInit: boolean;
     type: Type;
     converter?: ArgumentNode | undefined;
+    converterInputType?: Type | undefined;
 }
 
 export interface TypedDictEntry {

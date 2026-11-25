@@ -10,7 +10,7 @@ def converter_simple(s: str) -> int: ...
 def converter_passThru(x: str | int) -> str | int: ...
 
 
-def model_field(*, converter: Callable[..., Any]) -> Any: ...
+def model_field(*, converter: Callable[..., Any], init: bool = True) -> Any: ...
 
 
 @dataclass_transform(field_specifiers=(model_field,))
@@ -40,9 +40,9 @@ reveal_type(
 
 
 reveal_type(DC1.asymmetric, expected_text="int")
+# This should generate an error.
 DC1.asymmetric = "2"
 reveal_type(DC1.asymmetric, expected_text="int")
-# This should generate an error because only strs can be assigned to field0.
 DC1.asymmetric = 2
 
 reveal_type(DC1.symmetric, expected_text="str | int")
@@ -69,3 +69,31 @@ DC3([1, 2, 3])
 
 # This should generate an error.
 DC3(["", 1])
+
+
+class DC4(ModelBase):
+    a: int = model_field(converter=converter_simple, init=False)
+
+
+class DC5(ModelBase):
+    a: int = model_field(converter=converter_simple)
+
+    def __init__(self) -> None: ...
+
+
+def func1(dc4: DC4):
+    dc4.a = "1"
+
+
+def func2(dc4: DC4):
+    # This should generate an error.
+    dc4.a = 1
+
+
+def func3(dc5: DC5):
+    dc5.a = "1"
+
+
+def func4(dc5: DC5):
+    # This should generate an error.
+    dc5.a = 1

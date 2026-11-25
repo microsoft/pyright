@@ -4964,17 +4964,39 @@ export function createTypeEvaluator(
         );
 
         if (!isDescriptorError && usage.method === 'set' && usage.setType) {
+            let declaredTypeForSet = type;
+
+            // Assigning to a dataclass field through an instance applies the field's converter.
+            if (isAccessedThroughObject && isClass(memberInfo.classType)) {
+                const converterInputType = ClassType.getDataClassEntries(memberInfo.classType).find(
+                    (entry) => entry.name === memberName
+                )?.converterInputType;
+
+                if (converterInputType) {
+                    declaredTypeForSet = partiallySpecializeType(
+                        converterInputType,
+                        memberInfo.classType,
+                        getTypeClassType(),
+                        selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : classType
+                    );
+
+                    if (!isTypeSame(declaredTypeForSet, type)) {
+                        isAsymmetricAccessor = true;
+                    }
+                }
+            }
+
             if (errorNode && memberInfo.symbol.hasTypedDeclarations()) {
                 // This is an assignment to a member with a declared type. Apply
                 // narrowing logic based on the assigned type. Skip this for
                 // descriptor-based accesses.
                 narrowedTypeForSet = isDescriptorApplied
                     ? usage.setType.type
-                    : narrowTypeBasedOnAssignment(type, usage.setType).type;
+                    : narrowTypeBasedOnAssignment(declaredTypeForSet, usage.setType).type;
             }
 
             // Verify that the assigned type is compatible.
-            if (!assignType(type, usage.setType.type, diag?.createAddendum())) {
+            if (!assignType(declaredTypeForSet, usage.setType.type, diag?.createAddendum())) {
                 if (!usage.setType.isIncomplete) {
                     diag?.addMessage(
                         LocAddendum.memberAssignment().format({

@@ -31,13 +31,7 @@ import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod } from './constructors';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import { createNamedTupleReplaceFromDunderReplace, updateNamedTupleBaseClass } from './namedTuples';
-import {
-    getClassFullName,
-    getEnclosingClassOrFunction,
-    getScopeIdForNode,
-    getTypeSourceId,
-    getTypeVarScopesForNode,
-} from './parseTreeUtils';
+import { getEnclosingClassOrFunction, getScopeIdForNode, getTypeVarScopesForNode } from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
@@ -45,7 +39,6 @@ import { Arg, EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes'
 import {
     AnyType,
     ClassType,
-    ClassTypeFlags,
     combineTypes,
     DataClassBehaviors,
     DataClassEntry,
@@ -63,15 +56,12 @@ import {
     OverloadedType,
     TupleTypeArg,
     Type,
-    TypeVarScopeType,
     TypeVarType,
     UnknownType,
-    Variance,
 } from './types';
 import {
     addSolutionForSelfType,
     applySolvedTypeVars,
-    buildSolution,
     buildSolutionFromSpecializedClass,
     computeMroLinearization,
     convertToInstance,
@@ -680,6 +670,18 @@ export function synthesizeDataClassMethods(
         entryEvaluator.entry.type = entryEvaluator.evaluator();
     });
 
+    localDataClassEntries.forEach((entry) => {
+        if (entry.converter && !entry.isClassVar) {
+            entry.converterInputType = getConverterInputType(
+                evaluator,
+                entry.converter,
+                transformDescriptorType(evaluator, entry.type),
+                entry.name,
+                nodeInfo
+            );
+        }
+    });
+
     const symbolTable = ClassType.getSymbolTable(classType);
     const keywordOnlyParams: FunctionParam[] = [];
 
@@ -691,7 +693,7 @@ export function synthesizeDataClassMethods(
 
                     // If the type refers to Self of the parent class, we need to
                     // transform it to refer to the Self of this subclass.
-                    let effectiveType = entry.type;
+                    let effectiveType = entry.converterInputType ?? entry.type;
                     if (entry.classType !== classType && requiresSpecialization(effectiveType)) {
                         const solution = new ConstraintSolution();
                         addSolutionForSelfType(solution, entry.classType, classType);
@@ -700,34 +702,11 @@ export function synthesizeDataClassMethods(
 
                     // Dataclass descriptors accept their __set__ input type. NamedTuple
                     // fields store the annotated object without invoking a descriptor.
-                    if (!isNamedTuple) {
+                    if (!isNamedTuple && !entry.converterInputType) {
                         effectiveType = transformDescriptorType(evaluator, effectiveType);
                     }
 
                     if (entry.converter) {
-                        const fieldType = effectiveType;
-                        effectiveType = getConverterInputType(
-                            evaluator,
-                            entry.converter,
-                            effectiveType,
-                            entry.name,
-                            nodeInfo
-                        );
-                        symbolTable.set(
-                            entry.name,
-                            getDescriptorForConverterField(
-                                evaluator,
-                                classType,
-                                node,
-                                entry.nameNode,
-                                entry.converter,
-                                entry.name,
-                                fieldType,
-                                effectiveType,
-                                nodeInfo
-                            )
-                        );
-
                         if (entry.hasDefault) {
                             defaultType = entry.type;
                         }
@@ -1175,103 +1154,6 @@ function getConverterAsFunction(
     return undefined;
 }
 
-// Synthesizes an asymmetric descriptor class to be used in place of the
-// annotated type of a field with a converter. The descriptor's __get__ method
-// returns the declared type of the field and its __set__ method accepts the
-// converter's input type. Returns the symbol for an instance of this descriptor
-// type.
-function getDescriptorForConverterField(
-    evaluator: TypeEvaluator,
-    dataclass: ClassType,
-    dataclassNode: ParseNode,
-    fieldNameNode: NameNode | undefined,
-    converterNode: ParseNode,
-    fieldName: string,
-    getType: Type,
-    setType: Type,
-    nodeInfo: AnalyzerNodeInfoAccessor
-): Symbol {
-    const fileInfo = nodeInfo.getFileInfo(dataclassNode);
-    const typeMetaclass = evaluator.getBuiltInType(dataclassNode, 'type');
-    const descriptorName = `__converterDescriptor_${fieldName}`;
-
-    const descriptorClass = ClassType.createInstantiable(
-        descriptorName,
-        getClassFullName(converterNode, fileInfo.moduleName, descriptorName),
-        fileInfo.moduleName,
-        fileInfo.fileUri,
-        ClassTypeFlags.None,
-        getTypeSourceId(converterNode),
-        /* declaredMetaclass */ undefined,
-        isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
-    );
-
-    const scopeId = getScopeIdForNode(converterNode, nodeInfo);
-    descriptorClass.shared.typeVarScopeId = scopeId;
-
-    // Make the descriptor generic, copying the type parameters from the dataclass.
-    descriptorClass.shared.typeParams = dataclass.shared.typeParams.map((typeParm) => {
-        const typeParam = TypeVarType.cloneForScopeId(
-            typeParm,
-            scopeId,
-            descriptorClass.shared.name,
-            TypeVarScopeType.Class
-        );
-        typeParam.priv.computedVariance = Variance.Covariant;
-        return typeParam;
-    });
-
-    const solution = buildSolution(dataclass.shared.typeParams, descriptorClass.shared.typeParams);
-    getType = applySolvedTypeVars(getType, solution);
-    setType = applySolvedTypeVars(setType, solution);
-
-    descriptorClass.shared.baseClasses.push(evaluator.getBuiltInType(dataclassNode, 'object'));
-    computeMroLinearization(descriptorClass);
-
-    const fields = ClassType.getSymbolTable(descriptorClass);
-    const selfType = synthesizeTypeVarForSelfCls(descriptorClass, /* isClsParam */ false);
-
-    const setFunction = FunctionType.createSynthesizedInstance('__set__');
-    FunctionType.addParam(
-        setFunction,
-        FunctionParam.create(ParamCategory.Simple, selfType, FunctionParamFlags.TypeDeclared, 'self')
-    );
-    FunctionType.addParam(
-        setFunction,
-        FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'obj')
-    );
-    FunctionType.addParam(
-        setFunction,
-        FunctionParam.create(ParamCategory.Simple, setType, FunctionParamFlags.TypeDeclared, 'value')
-    );
-    setFunction.shared.declaredReturnType = evaluator.getNoneType();
-    const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
-    fields.set('__set__', setSymbol);
-
-    const getFunction = FunctionType.createSynthesizedInstance('__get__');
-    FunctionType.addParam(
-        getFunction,
-        FunctionParam.create(ParamCategory.Simple, selfType, FunctionParamFlags.TypeDeclared, 'self')
-    );
-    FunctionType.addParam(
-        getFunction,
-        FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'obj')
-    );
-    FunctionType.addParam(
-        getFunction,
-        FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'objtype')
-    );
-    getFunction.shared.declaredReturnType = getType;
-    const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
-    fields.set('__get__', getSymbol);
-
-    const descriptorInstance = ClassType.specialize(ClassType.cloneAsInstance(descriptorClass), [
-        ...dataclass.shared.typeParams,
-    ]);
-
-    return Symbol.createWithType(SymbolFlags.ClassMember, descriptorInstance, fieldNameNode);
-}
-
 // If the specified type is a descriptor — in particular, if it implements a
 // __set__ method, this method transforms the type into the input parameter
 // for the set method.
@@ -1314,6 +1196,9 @@ export function addInheritedDataClassEntries(classType: ClassType, entries: Data
                 // to the type parameter namespace of child class.
                 const updatedEntry = { ...entry, mroClass };
                 updatedEntry.type = applySolvedTypeVars(updatedEntry.type, solution);
+                if (updatedEntry.converterInputType) {
+                    updatedEntry.converterInputType = applySolvedTypeVars(updatedEntry.converterInputType, solution);
+                }
 
                 if (entry.isClassVar) {
                     // If this entry is a class variable, it overrides an existing
