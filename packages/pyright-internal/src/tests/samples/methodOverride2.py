@@ -113,8 +113,17 @@ class Derived4_2(Base4):
 
 
 class Derived4_3(Base4):
-    # This should generate an error.
     def method1(self) -> int: ...
+
+
+class HasValueAndName4(HasValue4, Protocol):
+    name: str
+
+
+class Derived4_4(Base4):
+    name: str
+
+    def method1(self: HasValueAndName4) -> int: ...
 
 
 class Base5[T]:
@@ -132,17 +141,19 @@ class Derived5_1(Base5[int]):
 
 
 class Derived5_2(Base5[str]):
-    # This should generate an error.
     def method1(self) -> int: ...
 
-    # This should generate an error.
     @classmethod
     def method2(cls) -> int: ...
 
 
-class Derived5_3(Base5[str]):
+class Derived5_3(Base5[int]):
     # This should generate an error.
-    def method1(self: object) -> int: ...
+    def method1(self: HasValue4) -> int: ...
+
+    # This should generate an error.
+    @classmethod
+    def method2(cls: type[HasValue4]) -> int: ...
 
 
 class Base6:
@@ -168,4 +179,23 @@ class Derived7_1(Base7, Base6): ...
 
 # This should generate an error because the base classes define
 # method1 in an incompatible way.
-class Derived7_2(Base7, Base5[str]): ...
+class Derived7_2(Base4, Base6): ...
+
+
+class Base8:
+    def method1(self) -> int: ...
+
+    def method2(self) -> Base8: ...
+
+
+class Derived8_1(Base8):
+    def method1(self: Self) -> int: ...
+
+
+class Derived8_2(Base8):
+    def method2[S: Base8](self: S) -> S: ...
+
+
+class Derived8_3(Base8):
+    # This should generate an error.
+    def method1(self: HasValue4) -> int: ...

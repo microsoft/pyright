@@ -19154,7 +19154,9 @@ export function createTypeEvaluator(
 
     const overrideValidation = createOverrideValidation({
         assignType,
+        createSubclass,
         getEffectiveReturnType,
+        makeTopLevelTypeVarsConcrete,
         printType,
         solveAndApplyConstraints,
     });
