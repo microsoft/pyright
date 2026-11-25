@@ -657,11 +657,7 @@ export function getCodeFlowEngine(
                                         keyValue = keyNode.d.strings[0].d.value;
                                     }
 
-                                    if (
-                                        isKeyDeletion ||
-                                        (targetNode.parent?.nodeType === ParseNodeType.Assignment &&
-                                            keyValue !== undefined)
-                                    ) {
+                                    if (isKeyDeletion || keyValue !== undefined) {
                                         const narrowedResult = preventRecursion(assignmentFlowNode, () => {
                                             const flowTypeResult = getTypeFromFlowNode(assignmentFlowNode.antecedent);
                                             let keyTypeResult: TypeResult | undefined;

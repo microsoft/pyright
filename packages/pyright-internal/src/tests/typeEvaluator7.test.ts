@@ -1900,7 +1900,7 @@ test('TypedDict18', () => {
 test('TypedDict19', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict19.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('TypedDict20', () => {
