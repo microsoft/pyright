@@ -20,7 +20,21 @@ import { Uri } from '../common/uri/uri';
 import { getFileSpec, UriEx } from '../common/uri/uriUtils';
 import { TestFileSystem } from './harness/vfs/filesystem';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
-import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
+import { parseAndGetTestState as parseTestState, TestState } from './harness/fourslash/testState';
+
+const testStates: TestState[] = [];
+
+afterEach(() => {
+    for (const state of testStates.splice(0)) {
+        state.dispose();
+    }
+});
+
+function parseAndGetTestState(...args: Parameters<typeof parseTestState>) {
+    const result = parseTestState(...args);
+    testStates.push(result.state);
+    return result;
+}
 
 test('random library file changed', () => {
     const state = parseAndGetTestState('', '/projectRoot').state;
@@ -1070,6 +1084,7 @@ function getRegisteredLibraryFileWatchers(root: string, extraPaths: string[], ex
 
     const data = parseTestData(root, '', '');
     const state = new TestState(root, data);
+    testStates.push(state);
 
     const options = new CommandLineOptions(state.workspace.rootUri, false);
     options.languageServerSettings.watchForLibraryChanges = true;
@@ -1080,3 +1095,39 @@ function getRegisteredLibraryFileWatchers(root: string, extraPaths: string[], ex
 
     return state.testFS.fileWatchers;
 }
+
+test.each([
+    ['unlink', true],
+    ['unlinkDir', true],
+    ['unlink', false],
+    ['unlinkDir', false],
+] as const)('source watcher handles native %s events (tracked: %s)', (event, tracked) => {
+    const state = parseAndGetTestState(
+        `
+// @filename: package/test.py
+//// value: int = "wrong"
+    `,
+        '/projectRoot'
+    ).state;
+    const cmdOptions = new CommandLineOptions(state.workspace.rootUri, false);
+    cmdOptions.languageServerSettings.watchForSourceChanges = true;
+    state.workspace.service.setOptions(cmdOptions);
+    const program = state.workspace.service.test_program;
+    while (program.analyze());
+    let invalidatedReason: InvalidatedReason | undefined;
+    state.workspace.service.test_setOnInvalidatedCallback((reason) => {
+        invalidatedReason = reason;
+    });
+    const fileUri = Uri.file('/projectRoot/package/test.py', state.serviceProvider);
+    state.testFS.unlinkSync(fileUri);
+    let removedUri = event === 'unlink' ? fileUri : fileUri.getDirectory();
+    if (event === 'unlinkDir') {
+        state.testFS.rmdirSync(removedUri);
+    }
+    if (!tracked) {
+        removedUri = Uri.file('/projectRoot/unrelated' + (event === 'unlink' ? '.py' : ''), state.serviceProvider);
+    }
+    state.testFS.fireFileWatcherEvent(removedUri.toString(), event);
+    assert.strictEqual(invalidatedReason, tracked ? InvalidatedReason.SourceWatcherChanged : undefined);
+    state.dispose();
+});

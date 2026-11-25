@@ -13,6 +13,7 @@ module.exports = (_, { mode }) => {
         context: __dirname,
         entry: {
             testServer: './main.ts',
+            cliWatch: '../harness/cliWatchMain.ts',
         },
         target: 'node',
         output: {
