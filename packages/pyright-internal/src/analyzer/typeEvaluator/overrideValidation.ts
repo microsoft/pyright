@@ -10,6 +10,7 @@ import { DiagnosticAddendum } from '../../common/diagnostic';
 import { LocAddendum } from '../../localization/localize';
 import { ParamCategory } from '../../parser/parseNodes';
 import { ConstraintTracker } from '../constraintTracker';
+import { DeclarationType } from '../declaration';
 import { getParamListDetails, ParamKind } from '../parameterUtils';
 import { isPrivateOrProtectedName } from '../symbolNameUtils';
 import { AssignTypeFlags, SolveConstraintsOptions, TypeEvaluator } from '../typeEvaluatorTypes';
@@ -18,17 +19,21 @@ import {
     FunctionParam,
     FunctionType,
     isAnyOrUnknown,
+    isClass,
+    isClassInstance,
     isFunction,
     isFunctionOrOverloaded,
     isTypeVar,
     OverloadedType,
     Type,
 } from '../types';
-import { ApplyTypeVarOptions } from '../typeUtils';
+import { ApplyTypeVarOptions, mapSubtypes } from '../typeUtils';
 
 interface Context {
     readonly assignType: TypeEvaluator['assignType'];
+    readonly createSubclass: TypeEvaluator['createSubclass'];
     readonly getEffectiveReturnType: (type: FunctionType) => Type;
+    readonly makeTopLevelTypeVarsConcrete: TypeEvaluator['makeTopLevelTypeVarsConcrete'];
     readonly printType: TypeEvaluator['printType'];
     readonly solveAndApplyConstraints: (
         type: Type,
@@ -40,12 +45,19 @@ interface Context {
 
 // Validates overrides and reports mismatches through evaluator compatibility and diagnostic callbacks.
 export function createOverrideValidation(context: Context) {
-    const { assignType, getEffectiveReturnType, printType, solveAndApplyConstraints } = context;
+    const {
+        assignType,
+        createSubclass,
+        getEffectiveReturnType,
+        makeTopLevelTypeVarsConcrete,
+        printType,
+        solveAndApplyConstraints,
+    } = context;
 
     function validateOverrideMethod(
         baseMethod: Type,
         overrideMethod: FunctionType | OverloadedType,
-        baseClass: ClassType | undefined,
+        childClass: ClassType | undefined,
         diag: DiagnosticAddendum,
         enforceParamNames = true
     ): boolean {
@@ -59,7 +71,7 @@ export function createOverrideValidation(context: Context) {
         if (isFunction(baseMethod)) {
             // Handle the easy case - a simple function overriding another simple function.
             if (isFunction(overrideMethod)) {
-                return validateOverrideMethodInternal(baseMethod, overrideMethod, diag, enforceParamNames);
+                return validateOverrideMethodInternal(baseMethod, overrideMethod, childClass, diag, enforceParamNames);
             }
 
             const overloadsAndImpl = [...OverloadedType.getOverloads(overrideMethod)];
@@ -75,6 +87,7 @@ export function createOverrideValidation(context: Context) {
                     return validateOverrideMethodInternal(
                         baseMethod,
                         overrideOverload,
+                        childClass,
                         /* diag */ undefined,
                         enforceParamNames
                     );
@@ -91,14 +104,15 @@ export function createOverrideValidation(context: Context) {
         // override must match all of the overloads.
         if (isFunction(overrideMethod)) {
             return OverloadedType.getOverloads(baseMethod).every((overload) => {
-                // If the override isn't applicable for this base class, skip the check.
-                if (baseClass && !isOverrideMethodApplicable(overload, baseClass)) {
+                // If the override isn't applicable for this child class, skip the check.
+                if (childClass && !isOverrideMethodApplicable(overload, childClass)) {
                     return true;
                 }
 
                 return validateOverrideMethodInternal(
                     overload,
                     overrideMethod,
+                    childClass,
                     diag?.createAddendum(),
                     enforceParamNames
                 );
@@ -116,14 +130,15 @@ export function createOverrideValidation(context: Context) {
             let possibleMatchIndex: number | undefined;
 
             let matchIndex = baseOverloads.findIndex((baseOverload, index) => {
-                // If the override isn't applicable for this base class, skip the check.
-                if (baseClass && !isOverrideMethodApplicable(baseOverload, baseClass)) {
+                // If the override isn't applicable for this child class, skip the check.
+                if (childClass && !isOverrideMethodApplicable(baseOverload, childClass)) {
                     return false;
                 }
 
                 const isCompatible = validateOverrideMethodInternal(
                     baseOverload,
                     overrideOverload,
+                    childClass,
                     /* diag */ undefined,
                     enforceParamNames
                 );
@@ -160,9 +175,9 @@ export function createOverrideValidation(context: Context) {
 
             // See if all of the remaining overrides are nonapplicable.
             if (
-                !baseClass ||
+                !childClass ||
                 unmatchedOverloads.some((overload) => {
-                    return isOverrideMethodApplicable(overload, baseClass);
+                    return isOverrideMethodApplicable(overload, childClass);
                 })
             ) {
                 // We didn't find matches for all of the base overloads.
@@ -212,9 +227,49 @@ export function createOverrideValidation(context: Context) {
         );
     }
 
+    // Intersects the child class with each subtype of the base method's declared
+    // self or cls type, with TypeVars made concrete: the narrower of the two if
+    // one is assignable to the other, and otherwise a synthesized subclass of
+    // both. It is Never where no subclass of both exists: either is final, or
+    // the synthesized subclass isn't assignable to the subtype.
+    function getSelfClsIntersection(childClass: ClassType, baseParamType: Type): Type {
+        const declaration = childClass.shared.declaration;
+        const errorNode = declaration?.type === DeclarationType.Class ? declaration.node.d.name : declaration?.node;
+
+        return mapSubtypes(makeTopLevelTypeVarsConcrete(baseParamType), (subtype) => {
+            if (!isClass(subtype)) {
+                return subtype;
+            }
+
+            const isInstance = isClassInstance(subtype);
+            const childType = isInstance ? ClassType.cloneAsInstance(childClass) : childClass;
+
+            if (assignType(subtype, childType)) {
+                return childType;
+            }
+
+            if (assignType(childType, subtype)) {
+                return subtype;
+            }
+
+            if (ClassType.isFinal(childClass) || ClassType.isFinal(subtype)) {
+                return undefined;
+            }
+
+            if (!errorNode) {
+                return childType;
+            }
+
+            const subclass = createSubclass(errorNode, childClass, ClassType.cloneAsInstantiable(subtype));
+            const intersection = isInstance ? ClassType.cloneAsInstance(subclass) : subclass;
+            return assignType(subtype, intersection) ? intersection : undefined;
+        });
+    }
+
     function validateOverrideMethodInternal(
         baseMethod: FunctionType,
         overrideMethod: FunctionType,
+        childClass: ClassType | undefined,
         diag: DiagnosticAddendum | undefined,
         enforceParamNames: boolean
     ): boolean {
@@ -322,9 +377,9 @@ export function createOverrideValidation(context: Context) {
             );
 
             for (let i = 0; i < positionalParamCount; i++) {
-                // If the first parameter is a "self" or "cls" parameter, skip the
-                // test because these are allowed to violate the Liskov substitution
-                // principle.
+                // If the first parameter is a "self" or "cls" parameter, the Liskov
+                // substitution principle requires the override to accept the
+                // intersection of the child class and the base parameter's type.
                 //
                 // Note: the checker deliberately defeats this skip for the
                 // "callable variable overridden by a method" case by marking both
@@ -337,6 +392,30 @@ export function createOverrideValidation(context: Context) {
                         FunctionType.isClassMethod(overrideMethod) ||
                         FunctionType.isConstructorMethod(overrideMethod)
                     ) {
+                        const baseParamType = baseParamDetails.params[i].type;
+                        const overrideParamType = overrideParamDetails.params[i].type;
+
+                        if (
+                            childClass &&
+                            !(isTypeVar(overrideParamType) && overrideParamType.shared.isSynthesized) &&
+                            !assignType(
+                                overrideParamType,
+                                getSelfClsIntersection(childClass, baseParamType),
+                                diag?.createAddendum(),
+                                /* constraints */ undefined,
+                                AssignTypeFlags.Default
+                            )
+                        ) {
+                            diag?.addMessage(
+                                LocAddendum.overrideParamType().format({
+                                    index: i + 1,
+                                    baseType: printType(baseParamType),
+                                    overrideType: printType(overrideParamType),
+                                })
+                            );
+                            canOverride = false;
+                        }
+
                         continue;
                     }
                 }
