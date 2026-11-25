@@ -86,7 +86,7 @@ import {
     YieldFromNode,
     YieldNode,
 } from '../parser/parseNodes';
-import { OperatorType } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, isAnnotationEvaluationPostponed } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowNodeTypeOptions, FlowNodeTypeResult, getCodeFlowEngine } from './codeFlowEngine';
@@ -1477,7 +1477,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Ternary: {
-                typeResult = getTypeOfTernaryOperation(evaluatorInterface, node, flags, inferenceContext, nodeInfo);
+                typeResult = getTypeOfTernaryOperation(evaluatorInterface, node, flags, inferenceContext);
                 break;
             }
 
@@ -1578,6 +1578,31 @@ export function createTypeEvaluator(
             validateTypeIsInstantiable(typeResult, flags, node);
         }
 
+        // If this is a constant boolean expression, assign it a literal type.
+        if (
+            (node.nodeType === ParseNodeType.Name ||
+                node.nodeType === ParseNodeType.MemberAccess ||
+                node.nodeType === ParseNodeType.UnaryOperation ||
+                node.nodeType === ParseNodeType.BinaryOperation) &&
+            (flags & EvalFlags.TypeExpression) === 0 &&
+            isClassInstance(typeResult.type) &&
+            ClassType.isBuiltIn(typeResult.type, 'bool') &&
+            (typeResult.type.priv.literalValue === undefined ||
+                (node.nodeType === ParseNodeType.Name && node.d.value === 'TYPE_CHECKING')) &&
+            areTypeCheckingNamesValid(node)
+        ) {
+            const fileInfo = nodeInfo.getFileInfo(node);
+            const constExprValue = evaluateStaticBoolExpression(
+                node,
+                fileInfo.executionEnvironment,
+                fileInfo.definedConstants
+            );
+
+            if (constExprValue !== undefined) {
+                typeResult = { ...typeResult, type: ClassType.cloneWithLiteral(typeResult.type, constExprValue) };
+            }
+        }
+
         // If this is a PEP 695 type alias, remove the special form so the type
         // printer prints it as its aliased type rather than TypeAliasType.
         if ((flags & EvalFlags.TypeExpression) !== 0 && typeResult.type.props?.typeForm === undefined) {
@@ -1588,6 +1613,55 @@ export function createTypeEvaluator(
         }
 
         return typeResult;
+    }
+
+    // Determines whether each name spelled TYPE_CHECKING within a static condition
+    // refers to typing's TYPE_CHECKING or to a variable assigned False.
+    function areTypeCheckingNamesValid(node: ExpressionNode): boolean {
+        switch (node.nodeType) {
+            case ParseNodeType.Name: {
+                if (node.d.value !== 'TYPE_CHECKING') {
+                    return true;
+                }
+
+                const decls =
+                    lookUpSymbolRecursive(node, node.d.value, /* honorCodeFlow */ false)?.symbol.getDeclarations() ??
+                    [];
+
+                return (
+                    decls.length > 0 &&
+                    decls.every((decl) => {
+                        const resolvedDecl = resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+                        if (resolvedDecl?.type !== DeclarationType.Variable) {
+                            return false;
+                        }
+
+                        if (resolvedDecl.moduleName === 'typing') {
+                            return true;
+                        }
+
+                        const source = resolvedDecl.inferredTypeSource;
+                        return source?.nodeType === ParseNodeType.Constant && source.d.constType === KeywordType.False;
+                    })
+                );
+            }
+
+            case ParseNodeType.AssignmentExpression: {
+                return areTypeCheckingNamesValid(node.d.rightExpr);
+            }
+
+            case ParseNodeType.UnaryOperation: {
+                return areTypeCheckingNamesValid(node.d.expr);
+            }
+
+            case ParseNodeType.BinaryOperation: {
+                return areTypeCheckingNamesValid(node.d.leftExpr) && areTypeCheckingNamesValid(node.d.rightExpr);
+            }
+
+            default: {
+                return true;
+            }
+        }
     }
 
     // Reports the case where a function or class has been decorated with
@@ -12202,20 +12276,6 @@ export function createTypeEvaluator(
                 // can be specialized.
                 typeAliasPlaceholder.shared.recursiveAlias!.typeParams =
                     rightHandType.props?.typeAliasInfo?.shared.typeParams;
-            } else {
-                // If the RHS is a constant boolean expression, assign it a literal type.
-                const constExprValue = evaluateStaticBoolExpression(
-                    node.d.rightExpr,
-                    fileInfo.executionEnvironment,
-                    fileInfo.definedConstants
-                );
-
-                if (constExprValue !== undefined) {
-                    const boolType = getBuiltInObject(node, 'bool');
-                    if (isClassInstance(boolType)) {
-                        rightHandType = ClassType.cloneWithLiteral(boolType, constExprValue);
-                    }
-                }
             }
         }
 
@@ -13172,8 +13232,7 @@ export function createTypeEvaluator(
                     node.d.name,
                     classType,
                     initSubclassArgs,
-                    dataClassBehaviors,
-                    nodeInfo
+                    dataClassBehaviors
                 );
             }
 

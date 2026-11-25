@@ -18,7 +18,6 @@ import { Tokenizer } from '../parser/tokenizer';
 import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
-import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { Arg, TypeEvaluator } from './typeEvaluatorTypes';
 import {
@@ -70,15 +69,11 @@ export function createNamedTupleType(
             (arg) => arg.argCategory === ArgCategory.Simple && arg.name?.d.value === 'rename'
         );
 
-        if (renameArg?.valueExpression) {
-            const renameValue = evaluateStaticBoolExpression(
-                renameArg.valueExpression,
-                fileInfo.executionEnvironment,
-                fileInfo.definedConstants
-            );
-            if (renameValue === true) {
-                allowRename = true;
-            }
+        if (
+            renameArg &&
+            !evaluator.canBeFalsy(evaluator.getTypeOfArg(renameArg, /* inferenceContext */ undefined).type)
+        ) {
+            allowRename = true;
         }
     }
 

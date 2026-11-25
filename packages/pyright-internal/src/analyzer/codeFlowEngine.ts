@@ -14,7 +14,15 @@
 import { ConsoleInterface } from '../common/console';
 import { assert, fail } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { ArgCategory, ExpressionNode, IndexNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import {
+    ArgCategory,
+    ExpressionNode,
+    IndexNode,
+    MemberAccessNode,
+    NameNode,
+    ParseNode,
+    ParseNodeType,
+} from '../parser/parseNodes';
 import { OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import {
@@ -40,6 +48,7 @@ import {
 import { formatControlFlowGraph } from './codeFlowUtils';
 import { getBoundCallMethod, getBoundNewMethod } from './constructors';
 import { DeclarationType } from './declaration';
+import { hasTypeForDeclaration } from './declarationUtils';
 import {
     getEvaluationScopeNode,
     getTypedDictKeyDeletionCall,
@@ -49,6 +58,7 @@ import {
     printExpression,
 } from './parseTreeUtils';
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
+import { Symbol } from './symbol';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment, narrowForKeyDeletion } from './typedDicts';
 import { EvalFlags, Reachability, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
@@ -63,6 +73,7 @@ import {
     isFunction,
     isFunctionOrOverloaded,
     isInstantiableClass,
+    isModule,
     isNever,
     isOverloaded,
     isParamSpec,
@@ -71,6 +82,7 @@ import {
     isTypeVarTuple,
     isUnion,
     maxTypeRecursionCount,
+    ModuleType,
     NeverType,
     OverloadedType,
     Type,
@@ -85,6 +97,7 @@ import {
     derivesFromStdlibClass,
     doForEachSubtype,
     isIncompleteUnknown,
+    isLiteralType,
     isTypeAliasPlaceholder,
     mapSubtypes,
 } from './typeUtils';
@@ -213,6 +226,11 @@ const maxConvergenceAttemptLimit = 256;
 // for debugging but not something that is actionable for users, so disable by
 // default.
 const enablePrintConvergenceLimitHit = false;
+
+const enum ConditionReferenceDeclKind {
+    Final,
+    Declared,
+}
 
 export function getCodeFlowEngine(
     evaluator: TypeEvaluator,
@@ -837,7 +855,10 @@ export function getCodeFlowEngine(
 
                     if (curFlowNode.flags & (FlowFlags.TrueNeverCondition | FlowFlags.FalseNeverCondition)) {
                         const conditionalFlowNode = curFlowNode as FlowCondition;
-                        if (!options?.skipConditionalNarrowing && conditionalFlowNode.reference) {
+                        if (
+                            !options?.skipConditionalNarrowing &&
+                            conditionalFlowNode.reference?.nodeType === ParseNodeType.Name
+                        ) {
                             // Don't allow apply if the conditional expression references the expression
                             // we're already narrowing. This case will be handled by the TrueCondition
                             // or FalseCondition node.
@@ -1366,6 +1387,51 @@ export function getCodeFlowEngine(
         };
     }
 
+    // Determines whether a condition's reference is a Final variable assigned a
+    // value in its declaration or has a declared type, looking through imports.
+    // Other types aren't inferred because that would be too expensive.
+    function getConditionReferenceDeclKind(
+        reference: NameNode | MemberAccessNode
+    ): ConditionReferenceDeclKind | undefined {
+        let symbol: Symbol | undefined;
+
+        if (reference.nodeType === ParseNodeType.Name) {
+            symbol = evaluator.lookUpSymbolRecursive(reference, reference.d.value, /* honorCodeFlow */ false)?.symbol;
+        } else {
+            const baseExpr = reference.d.leftExpr;
+            if (baseExpr.nodeType !== ParseNodeType.Name) {
+                return undefined;
+            }
+
+            const baseType = evaluator.getTypeOfExpression(baseExpr).type;
+            if (isModule(baseType)) {
+                symbol = ModuleType.getField(baseType, reference.d.member.d.value);
+            }
+        }
+
+        if (!symbol) {
+            return undefined;
+        }
+
+        const resolvedDecls = symbol
+            .getDeclarations()
+            .map((decl) => evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true));
+
+        if (
+            resolvedDecls.some(
+                (decl) => decl?.type === DeclarationType.Variable && !!decl.isFinal && !!decl.inferredTypeSource
+            )
+        ) {
+            return ConditionReferenceDeclKind.Final;
+        }
+
+        if (symbol.hasTypedDeclarations() || resolvedDecls.some((decl) => decl && hasTypeForDeclaration(decl))) {
+            return ConditionReferenceDeclKind.Declared;
+        }
+
+        return undefined;
+    }
+
     // Proves presence only for this indexed read, without attaching a key/value
     // correlation to types that can escape the guard's execution.
     function isKeyPresentInTypedDict(node: IndexNode): boolean {
@@ -1649,17 +1715,9 @@ export function getCodeFlowEngine(
                 ) {
                     const conditionalFlowNode = curFlowNode as FlowCondition;
                     if (conditionalFlowNode.reference) {
-                        // Make sure the reference type has a declared type. If not,
-                        // don't bother trying to infer its type because that would be
-                        // too expensive.
-                        const symbolWithScope = evaluator.lookUpSymbolRecursive(
-                            conditionalFlowNode.reference,
-                            conditionalFlowNode.reference.d.value,
-                            /* honorCodeFlow */ false
-                        );
-
-                        if (symbolWithScope && symbolWithScope.symbol.hasTypedDeclarations()) {
-                            let isUnreachable = false;
+                        const referenceDeclKind = getConditionReferenceDeclKind(conditionalFlowNode.reference);
+                        if (referenceDeclKind !== undefined) {
+                            let unreachability: Reachability | undefined;
 
                             const typeNarrowingCallback = getTypeNarrowingCallback(
                                 evaluator,
@@ -1682,12 +1740,19 @@ export function getCodeFlowEngine(
                                 const narrowedType = narrowedTypeResult?.type ?? refTypeInfo.type;
 
                                 if (isNever(narrowedType) && !refTypeInfo.isIncomplete) {
-                                    isUnreachable = true;
+                                    // A Final with a literal type is treated like a
+                                    // statically-evaluated condition.
+                                    unreachability =
+                                        referenceDeclKind === ConditionReferenceDeclKind.Final &&
+                                        isClassInstance(refTypeInfo.type) &&
+                                        isLiteralType(refTypeInfo.type)
+                                            ? Reachability.UnreachableStaticCondition
+                                            : Reachability.UnreachableByAnalysis;
                                 }
                             }
 
-                            if (isUnreachable) {
-                                return cacheReachabilityResult(Reachability.UnreachableByAnalysis);
+                            if (unreachability !== undefined) {
+                                return cacheReachabilityResult(unreachability);
                             }
                         }
                     }

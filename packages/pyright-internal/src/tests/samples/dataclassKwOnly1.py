@@ -1,6 +1,9 @@
 # This sample tests the Python 3.10 additions to dataclass.
 
 from dataclasses import dataclass, KW_ONLY, field
+from typing import Final
+
+IS_KW_ONLY: Final = True
 
 
 @dataclass
@@ -88,3 +91,15 @@ class DC6:
 
 
 DC6("hi", b=1, c=2)
+
+
+@dataclass
+class DC7:
+    b: int = field(kw_only=IS_KW_ONLY, default=3)
+    a: str
+
+
+DC7("hi", b=1)
+
+# This should generate an error because "b" is keyword-only.
+DC7("hi", 1)

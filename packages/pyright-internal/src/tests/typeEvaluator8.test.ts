@@ -780,7 +780,7 @@ test('NamedTuple8', () => {
 test('NamedTuple9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple9.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('NamedTuple10', () => {
@@ -1368,10 +1368,39 @@ test('StaticExpression2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('StaticExpression3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonPlatform = 'Linux';
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(
+        ['staticExpression4.py', 'staticExpression3.py'],
+        configOptions
+    );
+
+    assert.strictEqual(analysisResults.length, 2);
+    assert.strictEqual(analysisResults[0].errors.length, 6);
+    assert.strictEqual(analysisResults[1].errors.length, 0);
+});
+
+test('StaticExpression5', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonPlatform = 'Linux';
+    configOptions.defineConstant.set('DEFINED_STR', 'hi!');
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['staticExpression5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('StaticExpressionLiteral1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['staticExpressionLiteral1.py']);
 
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('Ternary1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['ternary1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('SpecialForm1', () => {
@@ -1870,11 +1899,11 @@ test('TupleLiteralInference4', () => {
 
 test('TupleLiteralInference5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleLiteralInference5.py']);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
     analysisResults[0].errors.forEach((diag) => assert.strictEqual(diag.getRule(), DiagnosticRule.reportArgumentType));
     assert.deepStrictEqual(
         analysisResults[0].errors.map((diag) => diag.range.start.line + 1).sort((left, right) => left - right),
-        [80, 89]
+        [55, 80, 89]
     );
 });
 

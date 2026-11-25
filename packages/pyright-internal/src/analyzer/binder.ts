@@ -3356,13 +3356,16 @@ export class Binder extends ParseTreeWalker {
             this._currentScopeCodeFlowExpressions!.add(referenceKey);
         });
 
-        // Select the first name expression.
-        const filteredExprList = expressionList.filter((expr) => expr.nodeType === ParseNodeType.Name);
+        // Select the first name expression, or the first member access
+        // expression if there is no name expression.
+        const reference =
+            expressionList.find((expr): expr is NameNode => expr.nodeType === ParseNodeType.Name) ??
+            expressionList.find((expr): expr is MemberAccessNode => expr.nodeType === ParseNodeType.MemberAccess);
 
         const conditionalFlowNode: FlowCondition = {
             flags,
             id: this._getUniqueFlowNodeId(),
-            reference: filteredExprList.length > 0 ? (filteredExprList[0] as NameNode) : undefined,
+            reference,
             expression,
             antecedent,
         };

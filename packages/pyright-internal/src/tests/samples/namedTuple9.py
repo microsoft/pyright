@@ -3,7 +3,10 @@
 
 
 from collections import namedtuple
-from typing import NamedTuple
+from typing import Final, NamedTuple
+
+RENAME: Final = True
+NO_RENAME: Final = False
 
 
 # This should generate an error because "def" is a keyword.
@@ -22,3 +25,10 @@ NT4 = NamedTuple("NT4", [("abc", int), ("def", int)])
 
 # These are soft keywords, so they shouldn't generate an error.
 NT5 = namedtuple("NT5", ["type", "match"])
+
+NT6 = namedtuple("NT6", ["abc", "def"], rename=RENAME)
+
+v6 = NT6(abc=0, _1=0)
+
+# This should generate an error because "def" is a keyword.
+NT7 = namedtuple("NT7", ["abc", "def"], rename=NO_RENAME)

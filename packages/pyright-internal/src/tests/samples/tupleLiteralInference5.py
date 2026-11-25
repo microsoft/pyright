@@ -51,8 +51,8 @@ def conditional_control() -> None:
     result = "b" if value else ""
     row = (result,)
     rows = [row]
-    assert_type(rows, list[tuple[Literal["", "b"]]])
-    rows.append(("",))
+    assert_type(rows, list[tuple[Literal["b"]]])
+    rows.append(("",))  # This should generate an argument-type error.
 
 
 def unmarked_control(value: str) -> None:

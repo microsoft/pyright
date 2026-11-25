@@ -18,6 +18,7 @@ import {
     isClassInstance,
     isFunction,
     isFunctionOrOverloaded,
+    isInstantiableClass,
     isNever,
     isTypeSame,
     isUnion,
@@ -89,8 +90,14 @@ export function createEvaluatorNarrowing(context: Context) {
             }
 
             case TypeCategory.Class: {
+                // The truthiness of a class object is determined by its metaclass.
                 if (TypeBase.isInstantiable(type)) {
-                    return false;
+                    const metaclass = type.shared.effectiveMetaclass;
+                    return (
+                        !!metaclass &&
+                        isInstantiableClass(metaclass) &&
+                        canBeFalsy(ClassType.cloneAsInstance(metaclass), recursionCount)
+                    );
                 }
 
                 // Sentinels are always truthy.
@@ -144,11 +151,6 @@ export function createEvaluatorNarrowing(context: Context) {
                     return true;
                 }
 
-                const lenMethod = lookUpObjectMember(type, '__len__');
-                if (lenMethod) {
-                    return true;
-                }
-
                 const boolMethod = lookUpObjectMember(type, '__bool__');
                 if (boolMethod) {
                     const boolMethodType = getTypeOfMember(boolMethod);
@@ -165,6 +167,12 @@ export function createEvaluatorNarrowing(context: Context) {
                         }
                     }
 
+                    return true;
+                }
+
+                // Truthiness falls back to __len__ only if __bool__ isn't defined.
+                const lenMethod = lookUpObjectMember(type, '__len__');
+                if (lenMethod) {
                     return true;
                 }
 
@@ -210,8 +218,14 @@ export function createEvaluatorNarrowing(context: Context) {
             }
 
             case TypeCategory.Class: {
+                // The truthiness of a class object is determined by its metaclass.
                 if (TypeBase.isInstantiable(type)) {
-                    return true;
+                    const metaclass = type.shared.effectiveMetaclass;
+                    return (
+                        !metaclass ||
+                        !isInstantiableClass(metaclass) ||
+                        canBeTruthy(ClassType.cloneAsInstance(metaclass), recursionCount)
+                    );
                 }
 
                 if (isNoneInstance(type)) {

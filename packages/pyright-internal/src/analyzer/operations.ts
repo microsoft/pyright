@@ -24,7 +24,6 @@ import { OperatorType } from '../parser/tokenizerTypes';
 import { getInfoReader, AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
 import { getEnclosingLambda, isWithinLoop, operatorSupportsChaining, printOperator } from './parseTreeUtils';
 import { getScopeForNode } from './scopeUtils';
-import { evaluateStaticBoolExpression } from './staticExpressions';
 import { getTupleComparisonResult, isTupleOrdering } from './tupleComparison';
 import { EvalFlags, MagicMethodDeprecationInfo, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
@@ -832,27 +831,27 @@ export function getTypeOfTernaryOperation(
     evaluator: TypeEvaluator,
     node: TernaryNode,
     flags: EvalFlags,
-    inferenceContext: InferenceContext | undefined,
-    nodeInfo: AnalyzerNodeInfoAccessor
+    inferenceContext: InferenceContext | undefined
 ): TypeResult {
-    const fileInfo = nodeInfo.getFileInfo(node);
-
     if ((flags & EvalFlags.TypeExpression) !== 0) {
         evaluator.addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.ternaryNotAllowed(), node);
         return { type: UnknownType.create() };
     }
 
-    evaluator.getTypeOfExpression(node.d.testExpr);
+    const testTypeResult = evaluator.getTypeOfExpression(node.d.testExpr);
 
     const typesToCombine: Type[] = [];
     let isIncomplete = false;
     let typeErrors = false;
 
-    const constExprValue = evaluateStaticBoolExpression(
-        node.d.testExpr,
-        fileInfo.executionEnvironment,
-        fileInfo.definedConstants
-    );
+    let constExprValue: boolean | undefined;
+    if (!testTypeResult.isIncomplete) {
+        if (!evaluator.canBeFalsy(testTypeResult.type)) {
+            constExprValue = true;
+        } else if (!evaluator.canBeTruthy(testTypeResult.type)) {
+            constExprValue = false;
+        }
+    }
 
     if (constExprValue !== false && evaluator.isNodeReachable(node.d.ifExpr)) {
         const ifType = evaluator.getTypeOfExpression(node.d.ifExpr, flags, inferenceContext);

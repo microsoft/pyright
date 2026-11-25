@@ -1,7 +1,9 @@
 # This sample tests the handling of frozen dataclass types.
 
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import ClassVar, Final
+
+IS_FROZEN: Final = True
 
 
 @dataclass(frozen=False)
@@ -52,3 +54,14 @@ b.val4 = 3
 @dataclass(frozen=True)
 class DC6(DC2):
     val2: int = 6
+
+
+@dataclass(frozen=IS_FROZEN)
+class DC7:
+    val1: int = 6
+
+
+c = DC7()
+
+# This should generate an error because the dataclass is frozen.
+c.val1 = 3
