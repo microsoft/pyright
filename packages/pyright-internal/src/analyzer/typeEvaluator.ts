@@ -86,7 +86,7 @@ import {
     YieldFromNode,
     YieldNode,
 } from '../parser/parseNodes';
-import { OperatorType } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, isAnnotationEvaluationPostponed } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowNodeTypeOptions, FlowNodeTypeResult, getCodeFlowEngine } from './codeFlowEngine';
@@ -1587,7 +1587,9 @@ export function createTypeEvaluator(
             (flags & EvalFlags.TypeExpression) === 0 &&
             isClassInstance(typeResult.type) &&
             ClassType.isBuiltIn(typeResult.type, 'bool') &&
-            typeResult.type.priv.literalValue === undefined
+            (typeResult.type.priv.literalValue === undefined ||
+                (node.nodeType === ParseNodeType.Name && node.d.value === 'TYPE_CHECKING')) &&
+            areTypeCheckingNamesValid(node)
         ) {
             const fileInfo = nodeInfo.getFileInfo(node);
             const constExprValue = evaluateStaticBoolExpression(
@@ -1611,6 +1613,55 @@ export function createTypeEvaluator(
         }
 
         return typeResult;
+    }
+
+    // Determines whether each name spelled TYPE_CHECKING within a static condition
+    // refers to typing's TYPE_CHECKING or to a variable assigned False.
+    function areTypeCheckingNamesValid(node: ExpressionNode): boolean {
+        switch (node.nodeType) {
+            case ParseNodeType.Name: {
+                if (node.d.value !== 'TYPE_CHECKING') {
+                    return true;
+                }
+
+                const decls =
+                    lookUpSymbolRecursive(node, node.d.value, /* honorCodeFlow */ false)?.symbol.getDeclarations() ??
+                    [];
+
+                return (
+                    decls.length > 0 &&
+                    decls.every((decl) => {
+                        const resolvedDecl = resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+                        if (resolvedDecl?.type !== DeclarationType.Variable) {
+                            return false;
+                        }
+
+                        if (resolvedDecl.moduleName === 'typing') {
+                            return true;
+                        }
+
+                        const source = resolvedDecl.inferredTypeSource;
+                        return source?.nodeType === ParseNodeType.Constant && source.d.constType === KeywordType.False;
+                    })
+                );
+            }
+
+            case ParseNodeType.AssignmentExpression: {
+                return areTypeCheckingNamesValid(node.d.rightExpr);
+            }
+
+            case ParseNodeType.UnaryOperation: {
+                return areTypeCheckingNamesValid(node.d.expr);
+            }
+
+            case ParseNodeType.BinaryOperation: {
+                return areTypeCheckingNamesValid(node.d.leftExpr) && areTypeCheckingNamesValid(node.d.rightExpr);
+            }
+
+            default: {
+                return true;
+            }
+        }
     }
 
     // Reports the case where a function or class has been decorated with

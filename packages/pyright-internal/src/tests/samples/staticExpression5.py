@@ -27,3 +27,13 @@ def func3() -> None:
 def func4() -> None:
     # This should generate an error.
     v: Literal[True] = sys.platform == "win32"
+
+
+def func5(TYPE_CHECKING: bool) -> None:
+    assert_type(TYPE_CHECKING, bool)
+    assert_type(not TYPE_CHECKING, bool)
+
+
+def func6() -> None:
+    TYPE_CHECKING = False
+    assert_type(TYPE_CHECKING, Literal[True])
