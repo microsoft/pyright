@@ -46,6 +46,22 @@ def func4(t: tuple[int, ...]) -> None:
             # A plain tuple is still narrowed to the matched length.
             reveal_type(t, expected_text="tuple[int, int]")
 
+
+def func5[T: A](a: T) -> T:
+    match a:
+        case _, _:
+            reveal_type(a, expected_text="T@func5")
+    return a
+
+
+def func6[T: B](b: T) -> T:
+    match b:
+        case str(), _:
+            reveal_type(b, expected_text="tuple[str, int]*")
+            # This should generate an error.
+            b.x
+    return b
+
 class Integers(tuple[int, ...]):
     pass
 

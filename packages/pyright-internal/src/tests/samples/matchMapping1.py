@@ -2,9 +2,9 @@
 # described in PEP 634) that contain mapping patterns.
 
 from enum import Enum
-from typing import Literal, TypedDict
+from typing import Literal, Mapping, TypedDict, TypeVar
 
-from typing_extensions import NotRequired  # pyright: ignore[reportMissingModuleSource]
+from typing_extensions import NotRequired, assert_never  # pyright: ignore[reportMissingModuleSource]
 
 
 def test_unknown(value_to_match):
@@ -224,6 +224,51 @@ def test_capture_union_field_negative_narrowing(msg: UnionFieldA | UnionFieldB) 
             reveal_type(msg, expected_text="UnionFieldB")
 
 
+TUnionField = TypeVar("TUnionField", bound=UnionFieldA | UnionFieldB)
+
+
+def test_union_bound_typevar_negative_narrowing(msg: TUnionField) -> TUnionField:
+    match msg:
+        case {"kind": "a"}:
+            return msg
+        case _:
+            reveal_type(msg, expected_text="UnionFieldB*")
+            return msg
+
+
+def test_union_bound_typevar_negative_exhaustion(msg: TUnionField) -> TUnionField:
+    match msg:
+        case {"kind": "a"}:
+            return msg
+        case {"kind": "b"}:
+            return msg
+        case _:
+            assert_never(msg)
+
+
+TNotRequired = TypeVar("TNotRequired", bound=TD1 | UnionFieldA)
+
+
+def test_union_bound_typevar_not_required_narrowing(subj: TNotRequired) -> TNotRequired:
+    match subj:
+        case {"v1": _}:
+            reveal_type(subj, expected_text="TD1*")
+            reveal_type(subj["v1"], expected_text="int")
+            return subj
+        case _:
+            return subj
+
+
+def test_union_bound_typevar_not_required_access(subj: TNotRequired) -> TNotRequired:
+    match subj:
+        case {"v1": _}:
+            # This should generate an error.
+            reveal_type(subj["v2"], expected_text="int")
+            return subj
+        case _:
+            return subj
+
+
 def test_expand_entry_negative_narrowing(msg: MsgA | MsgB) -> None:
     match msg:
         case {"v": 1, "kind": "a", **rest}:
@@ -243,3 +288,39 @@ def test_non_literal_field_negative_narrowing(msg: Reading | None) -> None:
             reveal_type(msg, expected_text="Reading")
         case _:
             reveal_type(msg, expected_text="Reading | None")
+
+
+T = TypeVar("T")
+
+
+def test_typevar_subject(subj: T) -> T:
+    match subj:
+        case {"k": v}:
+            reveal_type(subj, expected_text="T@test_typevar_subject")
+            return subj
+        case _:
+            return subj
+
+
+TUnion = TypeVar("TUnion", bound=int | Mapping[str, int])
+
+
+def test_union_bound_typevar_subject(subj: TUnion) -> TUnion:
+    match subj:
+        case {"k": v}:
+            reveal_type(subj, expected_text="Mapping[str, int]*")
+            reveal_type(v, expected_text="int")
+            return subj
+        case _:
+            reveal_type(subj, expected_text="TUnion@test_union_bound_typevar_subject")
+            return subj
+
+
+def test_union_bound_typevar_subject_expand_entry(subj: TUnion) -> TUnion:
+    match subj:
+        case {**rest}:
+            reveal_type(subj, expected_text="Mapping[str, int]*")
+            return subj
+        case _:
+            reveal_type(subj, expected_text="int*")
+            return subj

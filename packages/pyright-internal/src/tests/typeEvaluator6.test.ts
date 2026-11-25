@@ -742,7 +742,7 @@ test('MatchSequence3', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequence3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('MatchSequenceVariadic', () => {
@@ -889,7 +889,7 @@ test('MatchMapping1', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchMapping1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('MatchMapping2', () => {
@@ -966,7 +966,7 @@ test('MatchUnnecessary1', () => {
 
     configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['matchUnnecessary1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 7);
+    TestUtils.validateResults(analysisResults2, 11);
 });
 
 test('List1', () => {
