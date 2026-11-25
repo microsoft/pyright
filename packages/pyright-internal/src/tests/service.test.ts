@@ -6,18 +6,21 @@
 
 import assert from 'assert';
 
-import { CancellationToken } from 'vscode-jsonrpc';
+import { CancellationToken, CancellationTokenSource } from 'vscode-jsonrpc';
 import { InvalidatedReason } from '../analyzer/backgroundAnalysisProgram';
-import { getNextServiceId } from '../analyzer/service';
+import { AnalyzerService, getNextServiceId } from '../analyzer/service';
 import { SourceEnumerator } from '../analyzer/sourceEnumerator';
 import { IPythonMode } from '../analyzer/sourceFile';
+import { OperationCanceledException } from '../common/cancellationUtils';
 import { NullConsole } from '../common/console';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { StatusMutationListener } from '../common/extensibility';
 import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
 import { ServiceKeys } from '../common/serviceKeys';
+import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
 import { getFileSpec, UriEx } from '../common/uri/uriUtils';
+import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
@@ -340,6 +343,42 @@ test('source enumeration skips config files matching an exclude file spec', () =
         enumerator.getDiscoveredConfigFiles().map((uri) => uri.key),
         [Uri.file('/projectRoot/pyrightconfig.json', fs).key]
     );
+});
+
+test('workspace source enumeration yields between time slices and stops when cancelled', async () => {
+    const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: '/' });
+    for (const name of ['a', 'b', 'c']) {
+        fs.mkdirpSync(`/projectRoot/${name}`);
+        fs.writeFileSync(Uri.file(`/projectRoot/${name}/module.py`, fs), 'x = 1');
+    }
+
+    const cons = new NullConsole();
+    const service = new AnalyzerService('test service', createServiceProvider(fs, cons), {
+        console: cons,
+        hostFactory: () => new TestAccessHost(),
+        maxAnalysisTime: { openFilesTimeInMs: 1, noOpenFilesTimeInMs: 1 },
+        shouldRunAnalysis: () => false,
+    });
+    const options = new CommandLineOptions(Uri.file('/projectRoot', fs), /* fromLanguageServer */ true);
+    options.languageServerSettings.enableAmbientAnalysis = false;
+    service.setOptions(options);
+
+    let now = 0;
+    const dateNow = jest.spyOn(Date, 'now').mockImplementation(() => (now += 1000));
+    try {
+        const source = new CancellationTokenSource();
+        const enumeration = service.enumerateAllSourceFiles(source.token);
+        source.cancel();
+
+        await assert.rejects(enumeration, OperationCanceledException.is);
+        assert.deepStrictEqual(service.getUserFiles(), []);
+
+        await service.enumerateAllSourceFiles(CancellationToken.None);
+        assert.strictEqual(service.getUserFiles().length, 3);
+    } finally {
+        dateNow.mockRestore();
+        service.dispose();
+    }
 });
 
 test('random library file changed, nested search paths', () => {
