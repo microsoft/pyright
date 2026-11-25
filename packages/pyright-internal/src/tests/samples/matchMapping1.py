@@ -246,6 +246,29 @@ def test_union_bound_typevar_negative_exhaustion(msg: TUnionField) -> TUnionFiel
             assert_never(msg)
 
 
+TNotRequired = TypeVar("TNotRequired", bound=TD1 | UnionFieldA)
+
+
+def test_union_bound_typevar_not_required_narrowing(subj: TNotRequired) -> TNotRequired:
+    match subj:
+        case {"v1": _}:
+            reveal_type(subj, expected_text="TD1*")
+            reveal_type(subj["v1"], expected_text="int")
+            return subj
+        case _:
+            return subj
+
+
+def test_union_bound_typevar_not_required_access(subj: TNotRequired) -> TNotRequired:
+    match subj:
+        case {"v1": _}:
+            # This should generate an error.
+            reveal_type(subj["v2"], expected_text="int")
+            return subj
+        case _:
+            return subj
+
+
 def test_expand_entry_negative_narrowing(msg: MsgA | MsgB) -> None:
     match msg:
         case {"v": 1, "kind": "a", **rest}:

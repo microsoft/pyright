@@ -734,11 +734,7 @@ function narrowTypeBasedOnMappingPattern(
                                 if (!isNever(narrowedValueType)) {
                                     // If this is a "NotRequired" entry that has not yet been demonstrated
                                     // to be present, we can mark it as "provided" at this point.
-                                    if (
-                                        !valueEntry.isRequired &&
-                                        !valueEntry.isProvided &&
-                                        isTypeSame(mappingSubtypeInfo.subtype, mappingSubtypeInfo.typedDict!)
-                                    ) {
+                                    if (!valueEntry.isRequired && !valueEntry.isProvided) {
                                         const newNarrowedEntriesMap = new Map<string, TypedDictEntry>(
                                             mappingSubtypeInfo.typedDict!.priv.typedDictNarrowedEntries ?? []
                                         );
@@ -750,13 +746,18 @@ function narrowTypeBasedOnMappingPattern(
                                         });
 
                                         // Clone the TypedDict object with the new entries.
-                                        mappingSubtypeInfo.subtype = ClassType.cloneAsInstance(
+                                        const narrowedTypedDict = ClassType.cloneAsInstance(
                                             ClassType.cloneForNarrowedTypedDictEntries(
                                                 ClassType.cloneAsInstantiable(mappingSubtypeInfo.typedDict!),
                                                 newNarrowedEntriesMap
                                             )
                                         );
-                                        mappingSubtypeInfo.typedDict = mappingSubtypeInfo.subtype;
+
+                                        if (isTypeSame(mappingSubtypeInfo.subtype, mappingSubtypeInfo.typedDict!)) {
+                                            mappingSubtypeInfo.subtype = narrowedTypedDict;
+                                        }
+                                        mappingSubtypeInfo.concreteSubtype = narrowedTypedDict;
+                                        mappingSubtypeInfo.typedDict = narrowedTypedDict;
                                     }
 
                                     return narrowedValueType;
