@@ -5,7 +5,7 @@
 # namespace overrides a non-data descriptor. This includes descriptors
 # declared on `type`, since `type` is its own metaclass.
 
-from typing import Any, ClassVar, Self, overload
+from typing import Any, Callable, ClassVar, Self, overload
 
 
 class Get:
@@ -197,3 +197,27 @@ def func13():
 def func14():
     # This should generate an error.
     ClassD.attr2 = ""
+
+
+class GetWithInstanceSetDelete:
+    def __init__(self) -> None:
+        self.__set__: Callable[[object, int], None] = lambda obj, value: None
+        self.__delete__: Callable[[object], None] = lambda obj: None
+
+    def __get__(self, obj: object, owner: Any) -> int: ...
+
+
+class MetaclassE(type):
+    attr1 = GetWithInstanceSetDelete()
+
+
+class ClassE(metaclass=MetaclassE):
+    attr1 = ""
+
+
+reveal_type(ClassE.attr1, expected_text="str")
+
+
+def func15():
+    ClassE.attr1 = ""
+    del ClassE.attr1

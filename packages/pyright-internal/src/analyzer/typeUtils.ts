@@ -1454,11 +1454,14 @@ export function isDataDescriptorInstance(type: Type, requireGetter: boolean): bo
         return true;
     }
 
-    if (requireGetter && !lookUpObjectMember(type, '__get__')) {
+    if (requireGetter && !lookUpObjectMember(type, '__get__', MemberAccessFlags.SkipInstanceMembers)) {
         return false;
     }
 
-    return !!lookUpObjectMember(type, '__set__') || !!lookUpObjectMember(type, '__delete__');
+    return (
+        !!lookUpObjectMember(type, '__set__', MemberAccessFlags.SkipInstanceMembers) ||
+        !!lookUpObjectMember(type, '__delete__', MemberAccessFlags.SkipInstanceMembers)
+    );
 }
 
 // Checks whether an instantiable class type (i.e. the class itself, not an instance of it)
