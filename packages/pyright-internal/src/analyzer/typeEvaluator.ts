@@ -8029,7 +8029,9 @@ export function createTypeEvaluator(
         if (FunctionType.isBuiltIn(type, 'namedtuple')) {
             addDiagnostic(DiagnosticRule.reportUntypedNamedTuple, LocMessage.namedTupleNoTypes(), errorNode);
 
-            const result: CallResult = {
+            validateArgs(errorNode, argList, { type: type }, constraints, skipUnknownArgCheck, inferenceContext);
+
+            return {
                 returnType: createNamedTupleType(
                     evaluatorInterface,
                     errorNode,
@@ -8038,10 +8040,6 @@ export function createTypeEvaluator(
                     nodeInfo
                 ),
             };
-
-            validateArgs(errorNode, argList, { type: type }, constraints, skipUnknownArgCheck, inferenceContext);
-
-            return result;
         }
 
         // Handle the NewType specially, replacing the normal return type.

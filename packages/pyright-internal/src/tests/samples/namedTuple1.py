@@ -148,6 +148,16 @@ def func7():
     namedtuple(field_names="a b")
 
 
+def func8():
+    # This should generate an error.
+    namedtuple("NamedTuple13", [1])
+
+
+def func9():
+    # This should generate an error.
+    namedtuple(field_names=[1], typename="NamedTuple14")
+
+
 # This should generate an error because NamedTuple isn't allowed in isinstance.
 if isinstance(1, NamedTuple):
     pass
