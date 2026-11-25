@@ -1,6 +1,6 @@
 # This sample tests the case where a method is overriding an overloaded method.
 
-from typing import Any, Generic, Literal, TypeVar, overload
+from typing import Any, Generic, Literal, Protocol, TypeVar, final, overload
 
 _T = TypeVar("_T")
 _S = TypeVar("_S")
@@ -567,3 +567,27 @@ class Child14_1(Parent14):
     # This should generate an error because the override does not
     # handle all overloads of the base method.
     def m1(self, x: object, y: int = 0, /) -> object: ...
+
+
+class HasValue15(Protocol):
+    value: int
+
+
+class Parent15:
+    @overload
+    def m1(self: HasValue15, x: int) -> int: ...
+
+    @overload
+    def m1(self, x: str) -> str: ...
+
+    def m1(self, x: int | str) -> int | str: ...
+
+
+class Child15_1(Parent15):
+    # This should generate an error.
+    def m1(self, x: str) -> str: ...
+
+
+@final
+class Child15_2(Parent15):
+    def m1(self, x: str) -> str: ...

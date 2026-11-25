@@ -10,6 +10,7 @@ import { DiagnosticAddendum } from '../../common/diagnostic';
 import { LocAddendum } from '../../localization/localize';
 import { ParamCategory } from '../../parser/parseNodes';
 import { ConstraintTracker } from '../constraintTracker';
+import { DeclarationType } from '../declaration';
 import { getParamListDetails, ParamKind } from '../parameterUtils';
 import { isPrivateOrProtectedName } from '../symbolNameUtils';
 import { AssignTypeFlags, SolveConstraintsOptions, TypeEvaluator } from '../typeEvaluatorTypes';
@@ -18,8 +19,11 @@ import {
     FunctionParam,
     FunctionType,
     isAnyOrUnknown,
+    isClass,
+    isClassInstance,
     isFunction,
     isFunctionOrOverloaded,
+    isNever,
     isTypeVar,
     isUnion,
     OverloadedType,
@@ -30,7 +34,9 @@ import { ApplyTypeVarOptions, getTypeVarScopeIds, mapSubtypes } from '../typeUti
 
 interface Context {
     readonly assignType: TypeEvaluator['assignType'];
+    readonly createSubclass: TypeEvaluator['createSubclass'];
     readonly getEffectiveReturnType: (type: FunctionType) => Type;
+    readonly makeTopLevelTypeVarsConcrete: TypeEvaluator['makeTopLevelTypeVarsConcrete'];
     readonly printType: TypeEvaluator['printType'];
     readonly solveAndApplyConstraints: (
         type: Type,
@@ -42,7 +48,14 @@ interface Context {
 
 // Validates overrides and reports mismatches through evaluator compatibility and diagnostic callbacks.
 export function createOverrideValidation(context: Context) {
-    const { assignType, getEffectiveReturnType, printType, solveAndApplyConstraints } = context;
+    const {
+        assignType,
+        createSubclass,
+        getEffectiveReturnType,
+        makeTopLevelTypeVarsConcrete,
+        printType,
+        solveAndApplyConstraints,
+    } = context;
 
     function validateOverrideMethod(
         baseMethod: Type,
@@ -233,22 +246,12 @@ export function createOverrideValidation(context: Context) {
             return true;
         }
 
-        // If this is a self or cls parameter, determine whether the override
-        // class can be assigned to the base parameter type. If not, then this
-        // override doesn't apply. This is important for overloads where the
-        // base class contains some overload signatures that are not applicable
-        // to the child class.
-        const childSelfOrClsType = FunctionType.isInstanceMethod(baseMethod)
-            ? ClassType.cloneAsInstance(childClass)
-            : childClass;
-
-        return assignType(
-            baseParamDetails.params[0].type,
-            childSelfOrClsType,
-            /* diag */ undefined,
-            /* constraints */ undefined,
-            AssignTypeFlags.Default
-        );
+        // If this is a self or cls parameter, determine whether the child class
+        // or a subclass of it can be assigned to the base parameter type. If
+        // not, then this override doesn't apply. This is important for overloads
+        // where the base class contains some overload signatures that are not
+        // applicable to the child class.
+        return !isNever(getSelfClsIntersection(childClass, baseParamDetails.params[0].type));
     }
 
     // Solves the TypeVars in an annotated "self" or "cls" parameter against
@@ -276,6 +279,45 @@ export function createOverrideValidation(context: Context) {
 
         const specializedFunction = solveAndApplyConstraints(method, constraints);
         return isFunction(specializedFunction) ? specializedFunction : method;
+    }
+
+    // Intersects the child class with each subtype of the base method's declared
+    // self or cls type, with TypeVars made concrete: the narrower of the two if
+    // one is assignable to the other, and otherwise a synthesized subclass of
+    // both. It is Never where no subclass of both exists: either is final, or
+    // the synthesized subclass isn't assignable to the subtype.
+    function getSelfClsIntersection(childClass: ClassType, baseParamType: Type): Type {
+        const declaration = childClass.shared.declaration;
+        const errorNode = declaration?.type === DeclarationType.Class ? declaration.node.d.name : declaration?.node;
+
+        return mapSubtypes(makeTopLevelTypeVarsConcrete(baseParamType), (subtype) => {
+            if (!isClass(subtype)) {
+                return subtype;
+            }
+
+            const isInstance = isClassInstance(subtype);
+            const childType = isInstance ? ClassType.cloneAsInstance(childClass) : childClass;
+
+            if (assignType(subtype, childType)) {
+                return childType;
+            }
+
+            if (assignType(childType, subtype)) {
+                return subtype;
+            }
+
+            if (ClassType.isFinal(childClass) || ClassType.isFinal(subtype)) {
+                return undefined;
+            }
+
+            if (!errorNode) {
+                return childType;
+            }
+
+            const subclass = createSubclass(errorNode, childClass, ClassType.cloneAsInstantiable(subtype));
+            const intersection = isInstance ? ClassType.cloneAsInstance(subclass) : subclass;
+            return assignType(subtype, intersection) ? intersection : undefined;
+        });
     }
 
     function validateOverrideMethodInternal(
