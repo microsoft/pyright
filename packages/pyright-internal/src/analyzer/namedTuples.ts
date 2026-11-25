@@ -20,6 +20,7 @@ import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
+import { getTypedDictMembersForClass } from './typedDicts';
 import { Arg, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     computeMroLinearization,
@@ -41,6 +42,7 @@ import {
     FunctionTypeFlags,
     TupleTypeArg,
     Type,
+    TypedDictEntry,
     UnknownType,
     combineTypes,
     isClassInstance,
@@ -79,6 +81,11 @@ export function createNamedTupleType(
             if (renameValue === true) {
                 allowRename = true;
             }
+        } else if (!renameArg) {
+            const renameEntry = getUnpackedTypedDictEntry(evaluator, argList, 'rename');
+            if (renameEntry?.isRequired && !evaluator.canBeFalsy(renameEntry.valueType)) {
+                allowRename = true;
+            }
         }
     }
 
@@ -107,9 +114,22 @@ export function createNamedTupleType(
     // Is there is a default arg? If so, is it defined in a way that we
     // can determine its length statically?
     const defaultsArg = argList.find((arg) => arg.name?.d.value === 'defaults');
+    let defaultsArgType: Type | undefined;
     let defaultArgCount: number | undefined = 0;
     if (defaultsArg && defaultsArg.valueExpression) {
-        const defaultsArgType = evaluator.getTypeOfExpression(defaultsArg.valueExpression).type;
+        defaultsArgType = evaluator.getTypeOfExpression(defaultsArg.valueExpression).type;
+    } else if (!defaultsArg && !includesTypes) {
+        const defaultsEntry = getUnpackedTypedDictEntry(evaluator, argList, 'defaults');
+        if (defaultsEntry) {
+            if (defaultsEntry.isRequired) {
+                defaultsArgType = defaultsEntry.valueType;
+            } else {
+                defaultArgCount = undefined;
+            }
+        }
+    }
+
+    if (defaultsArgType) {
         if (
             isClassInstance(defaultsArgType) &&
             isTupleClass(defaultsArgType) &&
@@ -550,6 +570,28 @@ export function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[]
 function getPositionalOrKeywordArg(argList: Arg[], index: number, paramName: string): Arg | undefined {
     const positionalArgs = argList.filter((arg) => !arg.name && arg.argCategory !== ArgCategory.UnpackedDictionary);
     return positionalArgs[index] ?? argList.find((arg) => arg.name?.d.value === paramName);
+}
+
+function getUnpackedTypedDictEntry(
+    evaluator: TypeEvaluator,
+    argList: Arg[],
+    paramName: string
+): TypedDictEntry | undefined {
+    for (const arg of argList) {
+        if (arg.argCategory !== ArgCategory.UnpackedDictionary) {
+            continue;
+        }
+
+        const argType = evaluator.getTypeOfArg(arg, /* inferenceContext */ undefined).type;
+        if (isClassInstance(argType) && ClassType.isTypedDictClass(argType)) {
+            const entry = getTypedDictMembersForClass(evaluator, argType).knownItems.get(paramName);
+            if (entry) {
+                return entry;
+            }
+        }
+    }
+
+    return undefined;
 }
 
 function validateAndRenameField(

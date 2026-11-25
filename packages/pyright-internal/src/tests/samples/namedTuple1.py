@@ -158,6 +158,22 @@ def func9():
     namedtuple(field_names=[1], typename="NamedTuple14")
 
 
+class DefaultsKw(TypedDict):
+    defaults: tuple[int]
+
+
+def func10(kwargs: DefaultsKw):
+    NamedTuple15 = namedtuple("NamedTuple15", "a b", **kwargs)
+    NamedTuple15(1)
+
+
+def func11(kwargs: DefaultsKw):
+    NamedTuple16 = namedtuple("NamedTuple16", "a b", **kwargs)
+
+    # This should generate an error.
+    NamedTuple16()
+
+
 # This should generate an error because NamedTuple isn't allowed in isinstance.
 if isinstance(1, NamedTuple):
     pass

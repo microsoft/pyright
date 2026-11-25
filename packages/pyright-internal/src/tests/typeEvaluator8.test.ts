@@ -732,7 +732,7 @@ test('Tuple19', () => {
 test('NamedTuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple1.py']);
 
-    TestUtils.validateResults(analysisResults, 21);
+    TestUtils.validateResults(analysisResults, 22);
 });
 
 test('NamedTuple2', () => {
@@ -780,7 +780,7 @@ test('NamedTuple8', () => {
 test('NamedTuple9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple9.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('NamedTuple10', () => {
