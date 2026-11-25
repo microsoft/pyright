@@ -1,7 +1,7 @@
 # This sample tests the type checker's handling of named tuples.
 
 from collections import namedtuple
-from typing import Final, NamedTuple
+from typing import Final, NamedTuple, TypedDict
 
 NamedTuple1 = namedtuple("NamedTuple1", "field1 field2")
 NamedTuple1(1, 2)
@@ -103,6 +103,75 @@ def func2():
 
     # This should generate an error.
     n2 = NamedTuple8(a=1, b=2)
+
+
+NamedTuple9 = namedtuple(field_names=["a", "b"], defaults=(1,), typename="NamedTuple9")
+
+
+def func3():
+    reveal_type(NamedTuple9, expected_text="type[NamedTuple9]")
+    NamedTuple9(1)
+    NamedTuple9(1, 2)
+
+
+def func4():
+    # This should generate an error.
+    NamedTuple9()
+
+    # This should generate an error.
+    NamedTuple9(1, 2, 3)
+
+
+class TypenameKw(TypedDict):
+    typename: str
+
+
+class FieldNamesKw(TypedDict):
+    field_names: str
+
+
+def func5(kwargs: FieldNamesKw):
+    NamedTuple10 = namedtuple("NamedTuple10", **kwargs)
+    NamedTuple10(1, 2)
+
+
+def func6(kwargs: TypenameKw):
+    NamedTuple11 = namedtuple(field_names="a b", **kwargs)
+    NamedTuple11(1, 2)
+
+
+def func7():
+    # This should generate an error.
+    namedtuple("NamedTuple12")
+
+    # This should generate an error.
+    namedtuple(field_names="a b")
+
+
+def func8():
+    # This should generate an error.
+    namedtuple("NamedTuple13", [1])
+
+
+def func9():
+    # This should generate an error.
+    namedtuple(field_names=[1], typename="NamedTuple14")
+
+
+class DefaultsKw(TypedDict):
+    defaults: tuple[int]
+
+
+def func10(kwargs: DefaultsKw):
+    NamedTuple15 = namedtuple("NamedTuple15", "a b", **kwargs)
+    NamedTuple15(1)
+
+
+def func11(kwargs: DefaultsKw):
+    NamedTuple16 = namedtuple("NamedTuple16", "a b", **kwargs)
+
+    # This should generate an error.
+    NamedTuple16()
 
 
 # This should generate an error because NamedTuple isn't allowed in isinstance.

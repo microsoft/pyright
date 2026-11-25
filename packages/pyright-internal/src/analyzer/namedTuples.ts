@@ -20,6 +20,7 @@ import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
+import { getTypedDictMembersForClass } from './typedDicts';
 import { Arg, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     computeMroLinearization,
@@ -41,6 +42,7 @@ import {
     FunctionTypeFlags,
     TupleTypeArg,
     Type,
+    TypedDictEntry,
     UnknownType,
     combineTypes,
     isClassInstance,
@@ -79,30 +81,55 @@ export function createNamedTupleType(
             if (renameValue === true) {
                 allowRename = true;
             }
+        } else if (!renameArg) {
+            const renameEntry = getUnpackedTypedDictEntry(evaluator, argList, 'rename');
+            if (renameEntry?.isRequired && !evaluator.canBeFalsy(renameEntry.valueType)) {
+                allowRename = true;
+            }
         }
     }
 
-    if (argList.length === 0) {
-        evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleFirstArg(), errorNode);
-    } else {
-        const nameArg = argList[0];
-        if (nameArg.argCategory !== ArgCategory.Simple) {
-            evaluator.addDiagnostic(
-                DiagnosticRule.reportArgumentType,
-                LocMessage.namedTupleFirstArg(),
-                argList[0].valueExpression || errorNode
-            );
-        } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
-            className = nameArg.valueExpression.d.strings.map((s) => s.d.value).join('');
+    // The typename and field_names parameters of namedtuple are positional-or-keyword.
+    // Those of NamedTuple are positional-only.
+    const nameArg = includesTypes ? argList[0] : getPositionalOrKeywordArg(argList, 0, 'typename');
+    const entriesArg = includesTypes ? argList[1] : getPositionalOrKeywordArg(argList, 1, 'field_names');
+
+    const hasUnpackedDictArg =
+        !includesTypes && argList.some((arg) => arg.argCategory === ArgCategory.UnpackedDictionary);
+
+    if (!nameArg) {
+        if (!hasUnpackedDictArg) {
+            evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleFirstArg(), errorNode);
         }
+    } else if (nameArg.argCategory !== ArgCategory.Simple) {
+        evaluator.addDiagnostic(
+            DiagnosticRule.reportArgumentType,
+            LocMessage.namedTupleFirstArg(),
+            nameArg.valueExpression || errorNode
+        );
+    } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
+        className = nameArg.valueExpression.d.strings.map((s) => s.d.value).join('');
     }
 
     // Is there is a default arg? If so, is it defined in a way that we
     // can determine its length statically?
     const defaultsArg = argList.find((arg) => arg.name?.d.value === 'defaults');
+    let defaultsArgType: Type | undefined;
     let defaultArgCount: number | undefined = 0;
     if (defaultsArg && defaultsArg.valueExpression) {
-        const defaultsArgType = evaluator.getTypeOfExpression(defaultsArg.valueExpression).type;
+        defaultsArgType = evaluator.getTypeOfExpression(defaultsArg.valueExpression).type;
+    } else if (!defaultsArg && !includesTypes) {
+        const defaultsEntry = getUnpackedTypedDictEntry(evaluator, argList, 'defaults');
+        if (defaultsEntry) {
+            if (defaultsEntry.isRequired) {
+                defaultsArgType = defaultsEntry.valueType;
+            } else {
+                defaultArgCount = undefined;
+            }
+        }
+    }
+
+    if (defaultsArgType) {
         if (
             isClassInstance(defaultsArgType) &&
             isTupleClass(defaultsArgType) &&
@@ -161,11 +188,12 @@ export function createNamedTupleType(
     let addGenericGetAttribute = false;
     const entryTypes: Type[] = [];
 
-    if (argList.length < 2) {
-        evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleSecondArg(), errorNode);
+    if (!entriesArg) {
+        if (!hasUnpackedDictArg) {
+            evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleSecondArg(), errorNode);
+        }
         addGenericGetAttribute = true;
     } else {
-        const entriesArg = argList[1];
         if (entriesArg.argCategory !== ArgCategory.Simple) {
             addGenericGetAttribute = true;
         } else {
@@ -537,6 +565,33 @@ export function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[]
     });
 
     return isUpdateNeeded;
+}
+
+function getPositionalOrKeywordArg(argList: Arg[], index: number, paramName: string): Arg | undefined {
+    const positionalArgs = argList.filter((arg) => !arg.name && arg.argCategory !== ArgCategory.UnpackedDictionary);
+    return positionalArgs[index] ?? argList.find((arg) => arg.name?.d.value === paramName);
+}
+
+function getUnpackedTypedDictEntry(
+    evaluator: TypeEvaluator,
+    argList: Arg[],
+    paramName: string
+): TypedDictEntry | undefined {
+    for (const arg of argList) {
+        if (arg.argCategory !== ArgCategory.UnpackedDictionary) {
+            continue;
+        }
+
+        const argType = evaluator.getTypeOfArg(arg, /* inferenceContext */ undefined).type;
+        if (isClassInstance(argType) && ClassType.isTypedDictClass(argType)) {
+            const entry = getTypedDictMembersForClass(evaluator, argType).knownItems.get(paramName);
+            if (entry) {
+                return entry;
+            }
+        }
+    }
+
+    return undefined;
 }
 
 function validateAndRenameField(

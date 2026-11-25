@@ -3,7 +3,7 @@
 
 
 from collections import namedtuple
-from typing import NamedTuple
+from typing import Literal, NamedTuple, NotRequired, TypedDict
 
 
 # This should generate an error because "def" is a keyword.
@@ -22,3 +22,30 @@ NT4 = NamedTuple("NT4", [("abc", int), ("def", int)])
 
 # These are soft keywords, so they shouldn't generate an error.
 NT5 = namedtuple("NT5", ["type", "match"])
+
+
+class RenameTrue(TypedDict):
+    rename: Literal[True]
+
+
+class RenameBool(TypedDict):
+    rename: bool
+
+
+class RenameNotRequired(TypedDict):
+    rename: NotRequired[Literal[True]]
+
+
+def func1(kwargs: RenameTrue):
+    NT6 = namedtuple("NT6", ["abc", "def"], **kwargs)
+    NT6(abc=0, _1=0)
+
+
+def func2(kwargs: RenameBool):
+    # This should generate an error because "def" is a keyword.
+    namedtuple("NT7", ["abc", "def"], **kwargs)
+
+
+def func3(kwargs: RenameNotRequired):
+    # This should generate an error because "def" is a keyword.
+    namedtuple("NT8", ["abc", "def"], **kwargs)
