@@ -14,6 +14,14 @@ import * as path from 'path';
 
 jest.setTimeout(60_000);
 
+// Windows paths are case-insensitive and the watcher may report the drive letter in a
+// different case than os.tmpdir() does, so compare them in a platform-aware way.
+function isSamePath(a: string, b: string): boolean {
+    const left = path.resolve(a);
+    const right = path.resolve(b);
+    return process.platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right;
+}
+
 test.each(['file', 'directory'])('watch clears diagnostics after native %s deletion', async (kind) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright-watch-'));
     const bundle = path.resolve(__dirname, '../../out/cliWatch.bundle.js');
@@ -45,7 +53,7 @@ test.each(['file', 'directory'])('watch clears diagnostics after native %s delet
     let failure: Error | undefined;
     let sourceWatcherReady = false;
     child.on('message', (message: { kind?: string; paths?: string[] }) => {
-        if (message.kind === 'watcher-ready' && message.paths?.some((item) => path.resolve(item) === root)) {
+        if (message.kind === 'watcher-ready' && message.paths?.some((item) => isSamePath(item, root))) {
             sourceWatcherReady = true;
         }
     });
