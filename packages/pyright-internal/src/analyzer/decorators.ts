@@ -10,6 +10,7 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { PythonVersion, pythonVersion3_9, pythonVersion3_10, pythonVersion3_13 } from '../common/pythonVersion';
 import { LocMessage } from '../localization/localize';
 import { ArgCategory, CallNode, DecoratorNode, FunctionNode, ParamCategory, ParseNodeType } from '../parser/parseNodes';
 import { AnalyzerNodeInfoAccessor } from './analyzerNodeInfo';
@@ -203,6 +204,25 @@ export function applyFunctionDecorator(
               )
             : inputFunctionType;
 
+    const pythonVersion = fileInfo.executionEnvironment.pythonVersion;
+    if (
+        isInstantiableClass(decoratorType) &&
+        ClassType.isBuiltIn(decoratorType, 'classmethod') &&
+        isClassInstance(decoratorArg) &&
+        ClassType.isBuiltIn(decoratorArg, 'classmethod') &&
+        PythonVersion.isGreaterOrEqualTo(pythonVersion, pythonVersion3_9) &&
+        PythonVersion.isLessThan(pythonVersion, pythonVersion3_13)
+    ) {
+        // Python 3.9 passes no owner to the inner classmethod, so it binds to
+        // the type of the receiver. Later versions pass the owner through.
+        if (PythonVersion.isLessThan(pythonVersion, pythonVersion3_10)) {
+            const nestedType = TypeBase.cloneType(decoratorArg);
+            nestedType.priv.classMethodNestingDepth = (decoratorArg.priv.classMethodNestingDepth ?? 0) + 1;
+            return nestedType;
+        }
+        return decoratorArg;
+    }
+
     let returnType = getTypeOfDecorator(evaluator, decoratorNode, decoratorArg, nodeInfo);
 
     // Check for some built-in decorator types with known semantics.
@@ -247,6 +267,17 @@ export function applyFunctionDecorator(
             switch (decoratorType.shared.name) {
                 case 'classmethod':
                 case 'staticmethod': {
+                    // Callable objects returned by another decorator need the
+                    // descriptor produced by classmethod or staticmethod. Function
+                    // flags cannot represent their binding behavior.
+                    if (isClassInstance(inputFunctionType) && !isProperty(inputFunctionType)) {
+                        if (isClassInstance(returnType)) {
+                            returnType = TypeBase.cloneType(returnType);
+                            returnType.priv.decoratedCallableType = inputFunctionType;
+                        }
+                        return returnType;
+                    }
+
                     const requiredFlag =
                         decoratorType.shared.name === 'classmethod'
                             ? FunctionTypeFlags.ClassMethod
