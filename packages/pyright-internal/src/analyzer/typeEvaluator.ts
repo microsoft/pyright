@@ -551,6 +551,7 @@ export function createTypeEvaluator(
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: SuppressedNodeStackEntry[] = [];
     const assignClassToSelfStack: AssignClassToSelfInfo[] = [];
+    const constructorCallStack: { node: ExpressionNode; args: Arg[]; type: ClassType }[] = [];
 
     let functionRecursionMap = new Map<number, FunctionRecursionInfo[]>();
     let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
@@ -7878,6 +7879,45 @@ export function createTypeEvaluator(
         };
     }
 
+    // A finite class-valued constructor chain can return to the same generic
+    // class by consuming one of its nested type arguments. Recursive constructor
+    // annotations that keep or expand the specialization do not make this progress.
+    function isNestedConstructorType(outerType: ClassType, innerType: ClassType): boolean {
+        class ConstructorTypeWalker extends TypeWalker {
+            found = false;
+            // Bound breadth as well as TypeWalker's existing recursion depth.
+            private _remaining = 100;
+
+            override walk(type: Type): void {
+                if (--this._remaining < 0) {
+                    this.cancelWalk();
+                    return;
+                }
+                super.walk(type);
+            }
+
+            override visitClass(type: ClassType): void {
+                // Specialization preserves the nested argument objects. Require
+                // identity rather than approximate deep equality, which treats
+                // types as equal when its recursion limit is reached.
+                if (
+                    ClassType.isSameGenericClass(type, innerType) &&
+                    type.priv.typeArgs === innerType.priv.typeArgs &&
+                    type.priv.tupleTypeArgs === innerType.priv.tupleTypeArgs
+                ) {
+                    this.found = true;
+                    this.cancelWalk();
+                    return;
+                }
+                super.visitClass(type);
+            }
+        }
+
+        const walker = new ConstructorTypeWalker();
+        outerType.priv.typeArgs?.forEach((typeArg) => walker.walk(typeArg));
+        return walker.found;
+    }
+
     function validateCallArgsForSubtype(
         errorNode: ExpressionNode,
         argList: Arg[],
@@ -7954,14 +7994,49 @@ export function createTypeEvaluator(
                 }
 
                 if (TypeBase.isInstantiable(expandedCallType)) {
-                    return validateCallForInstantiableClass(
-                        errorNode,
-                        argList,
-                        expandedCallType,
-                        unexpandedCallType,
-                        skipUnknownArgCheck,
-                        inferenceContext
-                    );
+                    // A class-valued __new__, __init__, or metaclass __call__ can
+                    // lead back to the same generic class with the same arguments.
+                    // Permit reentry only when it unwraps a nested specialization.
+                    // Comparing the entire growing specialization on every call can
+                    // itself be prohibitively expensive.
+                    // A fresh argument list indicates reentrant expression evaluation,
+                    // which must be allowed to complete normally.
+                    let recursiveConstructorCount = 0;
+                    if (
+                        constructorCallStack.some((entry) => {
+                            if (
+                                entry.node !== errorNode ||
+                                entry.args !== argList ||
+                                !ClassType.isSameGenericClass(entry.type, expandedCallType)
+                            ) {
+                                return false;
+                            }
+
+                            // Alias metadata may itself contain cycles, so nested
+                            // identity alone is insufficient to guarantee progress.
+                            return (
+                                ++recursiveConstructorCount >= maxTypeRecursionCount ||
+                                !isNestedConstructorType(entry.type, expandedCallType)
+                            );
+                        })
+                    ) {
+                        touchArgTypes();
+                        return { returnType: UnknownType.create(), argumentErrors: true };
+                    }
+
+                    constructorCallStack.push({ node: errorNode, args: argList, type: expandedCallType });
+                    try {
+                        return validateCallForInstantiableClass(
+                            errorNode,
+                            argList,
+                            expandedCallType,
+                            unexpandedCallType,
+                            skipUnknownArgCheck,
+                            inferenceContext
+                        );
+                    } finally {
+                        constructorCallStack.pop();
+                    }
                 }
 
                 return validateCallForClassInstance(
