@@ -1317,10 +1317,22 @@ test('Constructor36', () => {
 test('Constructor37', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor37.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 9);
     assert.deepStrictEqual(
-        analysisResults[0].errors.map((diagnostic) => diagnostic.getRule()),
-        [DiagnosticRule.reportIncompatibleMethodOverride, DiagnosticRule.reportArgumentType]
+        analysisResults[0].errors
+            .sort((left, right) => left.range.start.line - right.range.start.line)
+            .map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [23, DiagnosticRule.reportIncompatibleMethodOverride],
+            [54, DiagnosticRule.reportArgumentType],
+            [96, DiagnosticRule.reportArgumentType],
+            [98, DiagnosticRule.reportArgumentType],
+            [111, DiagnosticRule.reportArgumentType],
+            [152, DiagnosticRule.reportArgumentType],
+            [154, DiagnosticRule.reportArgumentType],
+            [156, DiagnosticRule.reportArgumentType],
+            [165, DiagnosticRule.reportArgumentType],
+        ]
     );
 });
 
