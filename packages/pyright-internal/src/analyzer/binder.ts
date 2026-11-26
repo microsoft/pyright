@@ -1871,26 +1871,8 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitAwait(node: AwaitNode) {
-        // Make sure this is within an async lambda or function.
-        const execScopeNode = ParseTreeUtils.getExecutionScopeNode(node, this._nodeInfo);
-        if (execScopeNode?.nodeType !== ParseNodeType.Function || !execScopeNode.d.isAsync) {
-            if (this._fileInfo.ipythonMode && execScopeNode?.nodeType === ParseNodeType.Module) {
-                // Top level await is allowed in ipython mode.
-                return true;
-            }
-
-            const isInGenerator =
-                node.parent?.nodeType === ParseNodeType.Comprehension &&
-                node.parent?.parent?.nodeType !== ParseNodeType.List &&
-                node.parent?.parent?.nodeType !== ParseNodeType.Set &&
-                node.parent?.parent?.nodeType !== ParseNodeType.Dictionary;
-
-            // Allow if it's within a generator expression. Execution of
-            // generator expressions is deferred and therefore can be
-            // run within the context of an async function later.
-            if (!isInGenerator) {
-                this._addSyntaxError(LocMessage.awaitNotInAsync(), node.d.awaitToken);
-            }
+        if (!this._isAwaitAllowed(node)) {
+            this._addSyntaxError(LocMessage.awaitNotInAsync(), node.d.awaitToken);
         }
 
         return true;
@@ -2664,6 +2646,55 @@ export class Binder extends ParseTreeWalker {
         }
 
         return true;
+    }
+
+    private _isAwaitAllowed(node: AwaitNode): boolean {
+        // Preserve the established Binder behavior for type forms; their legality is validated separately.
+        if (
+            ParseTreeUtils.isWithinTypeAnnotation(node, /* requireQuotedAnnotation */ false, this._nodeInfo) ||
+            ParseTreeUtils.isNodeContainedWithinNodeType(node, ParseNodeType.TypeParameter) ||
+            ParseTreeUtils.isNodeContainedWithinNodeType(node, ParseNodeType.TypeAlias)
+        ) {
+            const executionScope = ParseTreeUtils.getExecutionScopeNode(node, this._nodeInfo);
+            if (
+                (executionScope.nodeType === ParseNodeType.Function && executionScope.d.isAsync) ||
+                (executionScope.nodeType === ParseNodeType.Module && !!this._fileInfo.ipythonMode)
+            ) {
+                return true;
+            }
+
+            const parentNode = node.parent?.nodeType === ParseNodeType.Unpack ? node.parent.parent : node.parent;
+            return parentNode?.nodeType === ParseNodeType.Comprehension && parentNode.d.isGenerator;
+        }
+
+        let scopeNode = ParseTreeUtils.getEvaluationScopeNode(node, this._nodeInfo).node;
+
+        while (true) {
+            switch (scopeNode.nodeType) {
+                case ParseNodeType.Function:
+                    return scopeNode.d.isAsync;
+
+                case ParseNodeType.Module:
+                    return !!this._fileInfo.ipythonMode;
+
+                case ParseNodeType.Comprehension:
+                    if (scopeNode.d.isGenerator) {
+                        return true;
+                    }
+                    break;
+
+                case ParseNodeType.Lambda:
+                case ParseNodeType.Class:
+                case ParseNodeType.TypeParameterList:
+                    return false;
+            }
+
+            if (!scopeNode.parent) {
+                return false;
+            }
+
+            scopeNode = ParseTreeUtils.getEvaluationScopeNode(scopeNode.parent, this._nodeInfo).node;
+        }
     }
 
     // Helper method to determine if an expression is a non-empty list or tuple literal.

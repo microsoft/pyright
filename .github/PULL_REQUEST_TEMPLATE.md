@@ -26,3 +26,9 @@ aggregate error counts.
 <!-- Describe any changed or widened types and why the result is correct. If precision regresses, follow
 .github/agents/pyright-test-policy.md and include its required evidence and classification. For material performance
 risks, report representative baseline/head measurements; otherwise give a bounded cost argument. -->
+
+## Author responsibility
+
+Read the [AI contribution policy](https://github.com/microsoft/pyright/blob/main/AI_POLICY.md) and confirm before submitting:
+
+- [ ] I personally reviewed and understand this entire pull request, including any AI-assisted work, ran the checks appropriate to the change, and take responsibility for the contribution and its follow-up.

@@ -350,7 +350,14 @@ export function createExpressionEvaluation(context: Context) {
             );
             typeResult = { type: UnknownType.create() };
         } else {
-            const iteratorTypeResult = getTypeOfIterator(iterTypeResult, /* isAsync */ false, node) ?? {
+            const isComprehension = node.parent?.nodeType === ParseNodeType.Comprehension;
+            const iteratorTypeResult = getTypeOfIterator(
+                iterTypeResult,
+                /* isAsync */ false,
+                isComprehension ? node.d.expr : node,
+                /* emitNotIterableError */ true,
+                /* preserveInvalidSubtypes */ isComprehension
+            ) ?? {
                 type: UnknownType.create(!!iterTypeResult.isIncomplete),
                 isIncomplete: iterTypeResult.isIncomplete,
             };
@@ -1005,7 +1012,8 @@ export function createExpressionEvaluation(context: Context) {
         typeResult: TypeResult,
         isAsync: boolean,
         errorNode: ExpressionNode,
-        emitNotIterableError = true
+        emitNotIterableError = true,
+        preserveInvalidSubtypes = false
     ): TypeResult | undefined {
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         const nextMethodName = isAsync ? '__anext__' : '__next__';
@@ -1144,10 +1152,10 @@ export function createExpressionEvaluation(context: Context) {
             }
 
             isValidIterator = false;
-            return undefined;
+            return preserveInvalidSubtypes ? UnknownType.create(!!isIncomplete) : undefined;
         });
 
-        return isValidIterator ? { type: iterableType, isIncomplete } : undefined;
+        return isValidIterator || preserveInvalidSubtypes ? { type: iterableType, isIncomplete } : undefined;
     }
 
     function getTypeOfIterable(

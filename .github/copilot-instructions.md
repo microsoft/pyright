@@ -21,7 +21,9 @@ Select `pyright-pr-review` for the coordinated review workflow described in
 [PR review agents](../docs/pr-review-agents.md). Its five independent specialists include the ordinary
 `pyright-pr-monkey` adversarial reviewer and a dedicated `pyright-pr-safety-reviewer` using the
 [PR type-specification review skill](skills/pyright-pr-typespec-review/SKILL.md) for an additional investigation and example-led feedback.
-The skill also supports standalone assessments and QA callers with their own execution and result contracts.
+For a quick, read-only check of local changes or a draft PR, ask `pyright-pr-review` for an
+[author preflight](../docs/pr-review-agents.md#preflight-for-authors). It uses the same skill without launching the
+review panel. The skill also supports standalone assessments and QA callers with their own execution and result contracts.
 Specialists return evidence and drafts; the coordinator owns the final assessment and explicitly authorized publication.
 
 ## Build and Test
@@ -129,6 +131,11 @@ Tests live in `packages/pyright-internal/src/tests/`. There are two main pattern
 ### Test Policy
 
 Tests are the specification for Pyright behavior. Never modify tests just to make CI pass. Any change that makes types less precise (e.g., `T → Unknown`, `list[int] → list[Any]`, `Literal["x"] → str`) is a regression by default and requires explicit justification. See `.github/agents/pyright-test-policy.md` for details.
+
+For repairs to shared inference or narrowing logic, apply the
+[bounded repair-completion checkpoint](skills/pyright-pr-typespec-review/references/probe-design.md#repair-completion-checkpoint)
+as part of the existing self-review, including ordinary fixes outside a PR review. Reuse compatible evidence; this does
+not require another reviewer panel.
 
 ## Code Style
 

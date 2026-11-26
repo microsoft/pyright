@@ -110,9 +110,9 @@ extends:
                 persistCredentials: True
               - template: /build/templates/npmAuthenticate.yml@self
               - task: UseNode@1
-                displayName: Use Node 24.15.0
+                displayName: Use Node 24.22.2
                 inputs:
-                  version: 24.15.0
+                  version: 24.22.2
               # The 1ES agent image ships Node but not pnpm, and corepack cannot
               # fetch it in the restricted-network build, so install the pinned pnpm
               # via npm (which honors NPM_CONFIG_USERCONFIG for the authenticated feed).
@@ -218,9 +218,9 @@ extends:
                 persistCredentials: True
               - template: /build/templates/npmAuthenticate.yml@self
               - task: UseNode@1
-                displayName: Use Node 24.15.0
+                displayName: Use Node 24.22.2
                 inputs:
-                  version: 24.15.0
+                  version: 24.22.2
               # The 1ES agent image ships Node but not pnpm, and corepack cannot
               # fetch it in the restricted-network build, so install the pinned pnpm
               # via npm (which honors NPM_CONFIG_USERCONFIG for the authenticated feed).
@@ -380,7 +380,7 @@ extends:
                   - checkout: none
                   - task: UseNode@1
                     inputs:
-                      version: 24.15.0
+                      version: 24.22.2
                   - template: /build/templates/npmAuthenticate.yml@self
                   - script: |
                       npm install --ignore-scripts=false -g @vscode/vsce@3.9.2
@@ -483,7 +483,7 @@ extends:
                   - checkout: none
                   - task: UseNode@1
                     inputs:
-                      version: 24.15.0
+                      version: 24.22.2
                   - task: DownloadPipelineArtifact@2
                     displayName: 'Download Artifacts from Validation Job'
                     inputs:

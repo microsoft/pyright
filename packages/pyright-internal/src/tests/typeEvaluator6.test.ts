@@ -19,6 +19,7 @@ import {
     pythonVersion3_11,
     pythonVersion3_12,
     pythonVersion3_13,
+    pythonVersion3_15,
     pythonVersion3_8,
 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
@@ -52,6 +53,18 @@ test('Overload5', () => {
 test('OverloadCall1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadCall1.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Datetime1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['datetime1.py']);
+    TestUtils.validateResults(analysisResults, 2);
+    assert.deepStrictEqual(
+        analysisResults[0].errors.map((diagnostic) => [diagnostic.range.start.line + 1, diagnostic.getRule()]),
+        [
+            [62, DiagnosticRule.reportArgumentType],
+            [65, DiagnosticRule.reportArgumentType],
+        ]
+    );
 });
 
 test('OverloadCall2', () => {
@@ -722,6 +735,14 @@ test('MatchSequence2', () => {
     configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequence2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('MatchSequence3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_12;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequence3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('MatchSequenceVariadic', () => {
@@ -1458,4 +1479,11 @@ test('DisjointBase1', () => {
 test('DisjointBase2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['disjointBase2.py']);
     TestUtils.validateResults(analysisResults, 11);
+});
+
+test('DisjointBase3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = pythonVersion3_15;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['disjointBase3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
 });
