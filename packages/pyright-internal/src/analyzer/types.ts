@@ -899,6 +899,9 @@ export interface ClassDetailsPriv {
 
     // The callable object wrapped by a built-in method decorator.
     decoratedCallableType?: ClassType | undefined;
+
+    // Additional classmethod layers that replace the owner with its metaclass in Python 3.9.
+    classMethodNestingDepth?: number | undefined;
 }
 
 export interface ClassType extends TypeBase<TypeCategory.Class> {

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Callable, Generic, TypeVar
+from typing import Callable, Generic, TypeVar, overload
 from typing_extensions import assert_type
 
 T = TypeVar("T")
@@ -42,6 +42,51 @@ class Example:
 
 class Child(Example):
     pass
+
+
+class OverloadedWrapper:
+    def __init__(self, func: Callable[..., int]) -> None:
+        self.func = func
+
+    def __call__(self, owner: type, value: int) -> int:
+        return self.func(owner, value)
+
+    @overload
+    def __get__(self, instance: type, owner: None) -> Callable[[str], str]: ...
+    @overload
+    def __get__(self, instance: type, owner: type) -> Callable[[int], int]: ...
+    def __get__(
+        self, instance: type, owner: type | None
+    ) -> Callable[[str], str] | Callable[[int], int]:
+        return str.upper if owner is None else abs
+
+
+cm = classmethod
+
+
+class OverloadedExample:
+    @cm
+    @OverloadedWrapper
+    def method(cls, value: int) -> int:
+        return value
+
+
+class OverloadedChild(OverloadedExample):
+    pass
+
+
+if sys.version_info < (3, 10) and sys.version_info >= (3, 9):
+    assert_type(OverloadedExample.method("text"), str)
+    assert_type(OverloadedChild().method("text"), str)
+
+    # This should generate an error because Python 3.9 selects the None overload.
+    OverloadedChild.method(1)
+else:
+    assert_type(OverloadedExample().method(1), int)
+    assert_type(OverloadedChild.method(1), int)
+
+    # This should generate an error because the callable accepts int.
+    OverloadedChild().method("text")
 
 
 if sys.version_info >= (3, 9) and sys.version_info < (3, 13):

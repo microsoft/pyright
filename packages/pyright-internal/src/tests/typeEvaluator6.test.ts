@@ -1404,6 +1404,7 @@ test('Decorator8', () => {
 test.each([
     ['3.8', pythonVersion3_8],
     ['3.9', pythonVersion3_9],
+    ['3.10', pythonVersion3_10],
     ['3.11', pythonVersion3_11],
     ['3.12', pythonVersion3_12],
     ['3.13', pythonVersion3_13],
@@ -1412,12 +1413,13 @@ test.each([
     configOptions.defaultPythonVersion = pythonVersion;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator9.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test.each([
     ['3.8', pythonVersion3_8, 1],
     ['3.9', pythonVersion3_9, 4],
+    ['3.10', pythonVersion3_10, 4],
     ['3.11', pythonVersion3_11, 4],
     ['3.12', pythonVersion3_12, 4],
     ['3.13', pythonVersion3_13, 1],

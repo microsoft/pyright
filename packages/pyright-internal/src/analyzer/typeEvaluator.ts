@@ -27,6 +27,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positionUtils';
 import {
     PythonVersion,
+    pythonVersion3_10,
     pythonVersion3_13,
     pythonVersion3_14,
     pythonVersion3_6,
@@ -7197,7 +7198,7 @@ export function createTypeEvaluator(
         memberName: string,
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum | undefined,
-        bindToClass = false
+        classMethodAccess?: { receiver: Type; owner: Type }
     ): MemberAccessTypeResult {
         const isAccessedThroughObject = TypeBase.isInstance(classType);
 
@@ -7370,15 +7371,14 @@ export function createTypeEvaluator(
                 classArgType = isAccessedThroughObject ? ClassType.cloneAsInstantiable(classType) : classType;
             }
 
-            if (bindToClass) {
-                // classmethod passes the owner as both "obj" and "owner".
-                argList[0].typeResult = { type: classArgType };
+            if (classMethodAccess) {
+                argList[0].typeResult = { type: classMethodAccess.receiver };
             }
 
             // Provide "owner" argument.
             argList.push({
                 argCategory: ArgCategory.Simple,
-                typeResult: { type: classArgType },
+                typeResult: { type: classMethodAccess?.owner ?? classArgType },
             });
         } else if (usage.method === 'set') {
             // Provide "value" argument.
@@ -7460,8 +7460,24 @@ export function createTypeEvaluator(
                     PythonVersion.isLessThan(pythonVersion, pythonVersion3_13) &&
                     lookUpClassMember(wrappedCallableType, '__get__')
                 ) {
-                    // Python 3.9-3.12 delegates to the wrapped descriptor with the
-                    // owner class as both arguments, even for instance access.
+                    const passesNone = PythonVersion.isLessThan(pythonVersion, pythonVersion3_10);
+                    let receiver = selfType
+                        ? convertToInstantiable(selfType)
+                        : isAccessedThroughObject
+                        ? ClassType.cloneAsInstantiable(classType)
+                        : classType;
+                    if (passesNone) {
+                        const nestingDepth = concreteMemberType.priv.classMethodNestingDepth ?? 0;
+                        for (let i = 0; i < nestingDepth; i++) {
+                            receiver = mapSubtypes(makeTopLevelTypeVarsConcrete(receiver), (subtype) => {
+                                if (isInstantiableClass(subtype)) {
+                                    return subtype.shared.effectiveMetaclass ?? UnknownType.create();
+                                }
+                                return isAnyOrUnknown(subtype) ? subtype : UnknownType.create();
+                            });
+                        }
+                    }
+                    // 3.9 calls __get__(cls, None); 3.10-3.12 calls __get__(cls, cls).
                     return applyDescriptorAccessMethod(
                         wrappedCallableType,
                         wrappedCallableType,
@@ -7473,7 +7489,7 @@ export function createTypeEvaluator(
                         memberName,
                         usage,
                         diag,
-                        /* bindToClass */ true
+                        { receiver, owner: passesNone ? getNoneType() : receiver }
                     );
                 }
                 const callMember = getTypeOfBoundMember(
