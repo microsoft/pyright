@@ -31,6 +31,7 @@ import {
     InferenceContext,
     MemberAccessFlags,
     convertToInstantiable,
+    expandUnpackedTypeVarsInTupleArgs,
     getClassMemberIterator,
     getLiteralTypeClassName,
     getTypeCondition,
@@ -69,6 +70,7 @@ import {
     isNever,
     isOverloaded,
     isUnion,
+    isUnpackedTypeVarTuple,
 } from './types';
 
 // Maps binary operators to the magic methods that implement them.
@@ -1423,6 +1425,20 @@ function validateArithmeticOperation(
                                     ...rightSubtypeExpanded.priv.tupleTypeArgs,
                                 ])
                             );
+                        }
+
+                        // Unpacked TypeVars whose upper bounds are tuples can
+                        // still combine if their bounds leave at most one
+                        // unbounded element.
+                        const combinedTypeArgs = expandUnpackedTypeVarsInTupleArgs([
+                            ...leftSubtypeExpanded.priv.tupleTypeArgs,
+                            ...rightSubtypeExpanded.priv.tupleTypeArgs,
+                        ]);
+
+                        if (
+                            combinedTypeArgs.filter((t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type)).length <= 1
+                        ) {
+                            return ClassType.cloneAsInstance(specializeTupleClass(tupleClassType, combinedTypeArgs));
                         }
                     }
 

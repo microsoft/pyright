@@ -1,7 +1,7 @@
 # This sample tests indexing of tuples with slice expressions.
 
 
-from typing import SupportsIndex, TypeVarTuple, overload
+from typing import Literal, SupportsIndex, TypeVarTuple, overload
 
 
 def func1(val1: tuple[int, str, None], val2: tuple[int, ...]):
@@ -199,3 +199,45 @@ def func8(val1: InstanceShadowTuple):
 
     first: tuple[int] = val1[:1]
     reveal_type(first, expected_text="tuple[int]")
+
+
+def func9(val1: tuple[int, str, None, bytes, float, bool]):
+    x1 = val1[::2]
+    reveal_type(x1, expected_text="tuple[int, None, float]")
+
+    x2 = val1[1::2]
+    reveal_type(x2, expected_text="tuple[str, bytes, bool]")
+
+    x3 = val1[:2:-2]
+    reveal_type(x3, expected_text="tuple[bool, bytes]")
+
+    x4 = val1[::-1]
+    reveal_type(x4, expected_text="tuple[bool, float, bytes, None, str, int]")
+
+    x5 = val1[-2::-3]
+    reveal_type(x5, expected_text="tuple[float, str]")
+
+    x6 = val1[None:None:True]
+    reveal_type(x6, expected_text="tuple[int, str, None, bytes, float, bool]")
+
+    x7 = val1[10:-10:-4]
+    reveal_type(x7, expected_text="tuple[bool, str]")
+
+
+def func10(
+    val1: tuple[int, str, None],
+    start: Literal[0, 1],
+    end: Literal[1] | None,
+    step: Literal[1, -2],
+):
+    x1 = val1[start:]
+    reveal_type(x1, expected_text="tuple[int, str, None] | tuple[str, None]")
+
+    x2 = val1[:end]
+    reveal_type(x2, expected_text="tuple[int, str, None] | tuple[int]")
+
+    x3 = val1[::step]
+    reveal_type(x3, expected_text="tuple[int, str, None] | tuple[None, int]")
+
+    x4 = val1[start::step]
+    reveal_type(x4, expected_text="tuple[int, str, None] | tuple[int] | tuple[str, None] | tuple[str]")
