@@ -1589,7 +1589,8 @@ function applyDataClassBehaviorOverrideValue(
     classType: ClassType,
     argName: string,
     argValue: boolean | undefined,
-    behaviors: DataClassBehaviors
+    behaviors: DataClassBehaviors,
+    isImplicitDefault = false
 ) {
     switch (argName) {
         case 'order':
@@ -1619,9 +1620,10 @@ function applyDataClassBehaviorOverrideValue(
             }
 
             // A class that directly provides dataclass transform behaviors is
-            // neither frozen nor non-frozen, so it isn't subject to the normal
-            // dataclass inheritance compatibility checks.
-            if (isDataClassTransformClass(classType)) {
+            // neither frozen nor non-frozen when it uses the transform's
+            // default. An explicit frozen override still needs to be checked
+            // against concrete dataclass ancestors.
+            if (isImplicitDefault && isDataClassTransformClass(classType)) {
                 break;
             }
 
@@ -1765,7 +1767,8 @@ export function applyDataClassClassBehaviorOverrides(
             classType,
             'frozen',
             defaultBehaviors.frozenDefault,
-            behaviors
+            behaviors,
+            /* isImplicitDefault */ true
         );
     }
 }
