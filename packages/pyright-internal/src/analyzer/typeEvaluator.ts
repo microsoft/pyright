@@ -10382,6 +10382,29 @@ export function createTypeEvaluator(
         return errorNode;
     }
 
+    // Only look at element types of nested lists. Unknowns in other types, such as
+    // the parameter of a lambda inside a list, don't make a match provisional.
+    function getNestedListElementUnknown(type: Type, listDepth = 0): UnknownType | undefined {
+        if (isUnknown(type) && listDepth > 1) {
+            return type;
+        }
+        if (listDepth >= maxTypeRecursionCount) {
+            return undefined;
+        }
+        if (isUnion(type)) {
+            for (const subtype of type.priv.subtypes) {
+                const unknown = getNestedListElementUnknown(subtype, listDepth);
+                if (unknown) {
+                    return unknown;
+                }
+            }
+        } else if (isClassInstance(type) && ClassType.isBuiltIn(type, 'list')) {
+            const elementType = type.priv.typeArgs?.[0];
+            return elementType && getNestedListElementUnknown(elementType, listDepth + 1);
+        }
+        return undefined;
+    }
+
     // Attempts to find an overloaded function for each set of argument
     // types in the expandedArgTypes list. If an argument type is undefined,
     // its type is evaluated from the argument's expression using the
@@ -10413,6 +10436,7 @@ export function createTypeEvaluator(
             const hasArgTypeOverride = argTypeOverride.some((a) => a !== undefined);
             let possibleMatchResults: MatchedOverloadInfo[] = [];
             let possibleMatchInvolvesIncompleteUnknown = false;
+            let sawProvisionalNestedListMatch = false;
             isDefinitiveMatchFound = false;
 
             for (let overloadIndex = 0; overloadIndex < argParamMatches.length; overloadIndex++) {
@@ -10451,29 +10475,27 @@ export function createTypeEvaluator(
                 }
 
                 if (!callResult.argumentErrors && callResult.returnType) {
-                    // A context can introduce nested Unknowns while inferring a literal.
-                    // Keep that candidate provisional so a later overload can infer it
-                    // more precisely. Do not treat Unknowns introduced while contextually
-                    // typing other expressions (such as an unannotated lambda parameter)
-                    // as evidence that the candidate is provisional. Preserve the existing
-                    // handling of expanded unions.
-                    const nestedUnknownArg =
-                        expandedArgTypes.length === 1
-                            ? callResult.argResults?.find((argResult, argIndex) => {
-                                  const valueExpression = matchResults.argParams[argIndex]?.argument.valueExpression;
-                                  return (
-                                      valueExpression !== undefined &&
-                                      (valueExpression.nodeType === ParseNodeType.List ||
-                                          valueExpression.nodeType === ParseNodeType.Set ||
-                                          valueExpression.nodeType === ParseNodeType.Dictionary ||
-                                          valueExpression.nodeType === ParseNodeType.Tuple) &&
-                                      isPartlyUnknown(argResult.argType)
-                                  );
-                              })?.argType
-                            : undefined;
-                    const anyOrUnknownArg =
-                        callResult.anyOrUnknownArg ??
-                        (nestedUnknownArg ? containsAnyOrUnknown(nestedUnknownArg, /* recurse */ true) : undefined);
+                    let anyOrUnknownArg = callResult.anyOrUnknownArg;
+                    if (expandedArgTypes.length === 1 && !anyOrUnknownArg && !matchResults.unpackedArgOfUnknownLength) {
+                        // A union context can fall back to an Unknown element type when
+                        // inferring nested list literals. Let a later overload infer those
+                        // elements more precisely before relying on the fallback match.
+                        for (const [index, argResult] of callResult.argResults?.entries() ?? []) {
+                            const { argument, paramType } = matchResults.argParams[index];
+                            const expression = argument.valueExpression;
+                            if (
+                                isUnion(paramType) &&
+                                expression?.nodeType === ParseNodeType.List &&
+                                expression.d.items.some((item) => item.nodeType === ParseNodeType.List)
+                            ) {
+                                anyOrUnknownArg = getNestedListElementUnknown(argResult.argType);
+                                if (anyOrUnknownArg) {
+                                    sawProvisionalNestedListMatch = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
 
                     if (
                         evaluatorOptions.experimentalOverloadResult &&
@@ -10533,7 +10555,7 @@ export function createTypeEvaluator(
                             );
                         }
                         isDefinitiveMatchFound = true;
-                        if (expandedTypesIndex === 0) {
+                        if (sawProvisionalNestedListMatch) {
                             firstMatchForFinalValidation = matchedOverloadInfo;
                         }
                         break;
@@ -10641,10 +10663,9 @@ export function createTypeEvaluator(
 
         // And run through the first expanded argument list one more time to
         // populate the type cache, without applying a different branch's constraints.
-        // A possible match can precede a definitive match, so use the selected
-        // match for the first argument list rather than the first candidate seen.
-        const firstMatch =
-            expandedArgTypes.length === 1 ? firstMatchForFinalValidation ?? matchedOverloads[0] : matchedOverloads[0];
+        // Use the selected overload's context when it follows a provisional
+        // nested list match.
+        const firstMatch = firstMatchForFinalValidation ?? matchedOverloads[0];
         const finalConstraints =
             expandedArgTypes.length > 1 ? firstMatch.constraints : constraints ?? firstMatch.constraints;
         const finalCallResult = validateArgTypesWithContext(
