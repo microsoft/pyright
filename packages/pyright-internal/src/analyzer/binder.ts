@@ -3213,10 +3213,17 @@ export class Binder extends ParseTreeWalker {
             return node.antecedents[0];
         }
 
+        // Don't count unreachable antecedents. Code flow analysis stops
+        // when it reaches one, so they add no paths.
+        const reachableAntecedentCount = node.antecedents.filter(
+            (antecedent) =>
+                !(antecedent.flags & (FlowFlags.UnreachableStructural | FlowFlags.UnreachableStaticCondition))
+        ).length;
+
         // The cyclomatic complexity is the number of edges minus the
         // number of nodes in the graph. Add n-1 where n is the number
         // of antecedents (edges) and 1 represents the label node.
-        this._codeFlowComplexity += node.antecedents.length - 1;
+        this._codeFlowComplexity += Math.max(reachableAntecedentCount - 1, 0);
 
         return node;
     }
