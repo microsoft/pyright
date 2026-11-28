@@ -104,6 +104,7 @@ import {
 } from '../types';
 import {
     addConditionToType,
+    ClassMember,
     combineSameSizedTuples,
     convertToInstance,
     derivesFromAnyOrUnknown,
@@ -114,6 +115,7 @@ import {
     getSpecializedTupleType,
     getTypeCondition,
     InferenceContext,
+    isDataDescriptorInstance,
     isLiteralType,
     isMetaclassInstance,
     isNoneInstance,
@@ -228,6 +230,7 @@ interface Context {
     readonly printType: TypeEvaluator['printType'];
     readonly resolveDeclaredMemberType: (
         symbol: Symbol,
+        memberName: string,
         classOrObjectBase: ClassType | undefined,
         memberAccessClass: Type | undefined,
         useDescriptorSetterType: boolean,
@@ -722,6 +725,28 @@ export function createExpressionEvaluation(context: Context) {
         return typeResult;
     }
 
+    // A metaclass data descriptor intercepts assignments to the class's attribute.
+    function getMetaclassDataDescriptor(
+        classType: ClassType,
+        memberName: string
+    ): { metaclass: ClassType; memberInfo: ClassMember } | undefined {
+        const metaclass = classType.shared.effectiveMetaclass;
+        if (!metaclass || !isInstantiableClass(metaclass)) {
+            return undefined;
+        }
+
+        const memberInfo = lookUpClassMember(metaclass, memberName, MemberAccessFlags.SkipInstanceMembers);
+        if (!memberInfo) {
+            return undefined;
+        }
+
+        if (!isDataDescriptorInstance(getEffectiveTypeOfSymbol(memberInfo.symbol), /* requireGetter */ false)) {
+            return undefined;
+        }
+
+        return { metaclass: ClassType.cloneAsInstance(metaclass), memberInfo };
+    }
+
     function getDeclaredTypeForExpression(expression: ExpressionNode, usage?: EvaluatorUsage): Type | undefined {
         let symbol: Symbol | undefined;
         let selfType: ClassType | TypeVarType | undefined;
@@ -729,12 +754,14 @@ export function createExpressionEvaluation(context: Context) {
         let memberAccessClass: Type | undefined;
         let bindFunction = true;
         let useDescriptorSetterType = false;
+        let symbolName: string | undefined;
 
         switch (expression.nodeType) {
             case ParseNodeType.Name: {
                 const symbolWithScope = lookUpSymbolRecursive(expression, expression.d.value, /* honorCodeFlow */ true);
                 if (symbolWithScope) {
                     symbol = symbolWithScope.symbol;
+                    symbolName = expression.d.value;
 
                     // Handle the case where the symbol is a class-level variable
                     // where the type isn't declared in this class but is in
@@ -770,6 +797,7 @@ export function createExpressionEvaluation(context: Context) {
                 const baseType = getTypeOfExpression(expression.d.leftExpr, EvalFlags.MemberAccessBaseDefaults).type;
                 const baseTypeConcrete = makeTopLevelTypeVarsConcrete(baseType);
                 const memberName = expression.d.member.d.value;
+                symbolName = memberName;
 
                 if (isTypeVar(baseType)) {
                     selfType = baseType;
@@ -823,16 +851,25 @@ export function createExpressionEvaluation(context: Context) {
                             // bind it to the object if it's a function.
                             bindFunction = !classMemberInfo?.isInstanceMember;
                         } else if (isInstantiableClass(baseSubtype)) {
-                            const classMemberInfo = lookUpClassMember(
-                                baseSubtype,
-                                memberName,
-                                MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.DeclaredTypesOnly
-                            );
+                            const metaclassDescriptor = getMetaclassDataDescriptor(baseSubtype, memberName);
 
-                            classOrObjectBase = baseSubtype;
-                            memberAccessClass = classMemberInfo?.classType;
-                            symbol = classMemberInfo?.symbol;
-                            useDescriptorSetterType = false;
+                            if (metaclassDescriptor) {
+                                classOrObjectBase = metaclassDescriptor.metaclass;
+                                memberAccessClass = metaclassDescriptor.memberInfo.classType;
+                                symbol = metaclassDescriptor.memberInfo.symbol;
+                                useDescriptorSetterType = true;
+                            } else {
+                                const classMemberInfo = lookUpClassMember(
+                                    baseSubtype,
+                                    memberName,
+                                    MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.DeclaredTypesOnly
+                                );
+
+                                classOrObjectBase = baseSubtype;
+                                memberAccessClass = classMemberInfo?.classType;
+                                symbol = classMemberInfo?.symbol;
+                                useDescriptorSetterType = false;
+                            }
                             bindFunction = true;
                         } else if (isModule(baseSubtype)) {
                             classOrObjectBase = undefined;
@@ -852,6 +889,7 @@ export function createExpressionEvaluation(context: Context) {
                             const subtypeDeclaredType = symbol
                                 ? resolveDeclaredMemberType(
                                       symbol,
+                                      memberName,
                                       classOrObjectBase,
                                       memberAccessClass,
                                       useDescriptorSetterType,
@@ -986,9 +1024,10 @@ export function createExpressionEvaluation(context: Context) {
             }
         }
 
-        if (symbol) {
+        if (symbol && symbolName) {
             return resolveDeclaredMemberType(
                 symbol,
+                symbolName,
                 classOrObjectBase,
                 memberAccessClass,
                 useDescriptorSetterType,
