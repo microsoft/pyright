@@ -1111,6 +1111,40 @@ describe('Import tests with fake venv', () => {
             assert(!importResult.filteredImplicitImports?.has('b'));
         });
 
+        test.each([
+            { parent: 'pkg', firstInit: true, secondInit: true },
+            { parent: 'pkg', firstInit: true, secondInit: false },
+            { parent: 'pkg', firstInit: false, secondInit: true },
+            { parent: 'outer/pkg', firstInit: true, secondInit: true },
+        ])('namespace portions respect regular parent $parent ($firstInit, $secondInit)', (testCase) => {
+            const files = [
+                { path: combinePaths('/', 'packages1', testCase.parent, 'ns', 'a.py'), content: '' },
+                { path: combinePaths('/', 'packages2', testCase.parent, 'ns', 'b.py'), content: '' },
+            ];
+            for (const [root, hasInit] of [
+                ['packages1', testCase.firstInit],
+                ['packages2', testCase.secondInit],
+            ] as const) {
+                if (hasInit) {
+                    files.push({ path: combinePaths('/', root, testCase.parent, '__init__.py'), content: '' });
+                }
+            }
+
+            const importResult = getImportResult(
+                files,
+                [...testCase.parent.split('/'), 'ns'],
+                (config) => {
+                    config.defaultExtraPaths = [UriEx.file('/packages1'), UriEx.file('/packages2')];
+                },
+                /* preImport */ undefined,
+                ['a', 'b']
+            );
+            assert(importResult.isImportFound);
+            assert(importResult.isNamespacePackage);
+            assert.strictEqual(importResult.filteredImplicitImports?.has('a'), testCase.firstInit);
+            assert.strictEqual(importResult.filteredImplicitImports?.has('b'), !testCase.firstInit);
+        });
+
         test('default workspace importing side by side file', () => {
             const files = [
                 {

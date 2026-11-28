@@ -1760,16 +1760,15 @@ export class ImportResolver {
         return bestResultSoFar;
     }
 
-    // Determines whether an import result is a namespace package whose final
-    // directory has no "__init__.py(i)" file, so its symbols come only from
-    // the submodules listed in its implicit imports.
+    // Only merge portions when every parent is also a namespace package.
+    // A regular package limits its submodules to that package's search path.
     private _isNamespacePortion(importResult: ImportResult) {
         return (
             importResult.isImportFound &&
             importResult.isNamespacePackage &&
             !importResult.isStubPackage &&
             importResult.resolvedUris.length > 0 &&
-            importResult.resolvedUris[importResult.resolvedUris.length - 1].isEmpty()
+            importResult.resolvedUris.every((uri) => uri.isEmpty())
         );
     }
 
@@ -1798,7 +1797,12 @@ export class ImportResolver {
         for (const portion of namespacePortions) {
             portion.implicitImports?.forEach((implicitImport, name) => {
                 if (!implicitImports.has(name)) {
-                    implicitImports.set(name, implicitImport);
+                    implicitImports.set(
+                        name,
+                        portion.importType === bestImport.importType
+                            ? implicitImport
+                            : { ...implicitImport, importType: portion.importType }
+                    );
                 }
             });
         }
