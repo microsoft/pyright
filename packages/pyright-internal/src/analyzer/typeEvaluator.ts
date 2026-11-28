@@ -10384,23 +10384,47 @@ export function createTypeEvaluator(
 
     // Only look at element types of nested lists. Unknowns in other types, such as
     // the parameter of a lambda inside a list, don't make a match provisional.
-    function getNestedListElementUnknown(type: Type, listDepth = 0): UnknownType | undefined {
+    function getNestedListElementUnknown(
+        expression: ExpressionNode,
+        type: Type,
+        listDepth = 0
+    ): UnknownType | undefined {
+        if (expression.nodeType === ParseNodeType.Unpack) {
+            return getNestedListElementUnknown(expression.d.expr, type, listDepth);
+        }
+        if (expression.nodeType === ParseNodeType.Comprehension && isExpressionNode(expression.d.expr)) {
+            return getNestedListElementUnknown(expression.d.expr, type, listDepth);
+        }
         if (isUnknown(type) && listDepth > 1) {
-            return type;
+            return expression.nodeType !== ParseNodeType.Name && expression.nodeType !== ParseNodeType.List
+                ? type
+                : undefined;
         }
         if (listDepth >= maxTypeRecursionCount) {
             return undefined;
         }
         if (isUnion(type)) {
             for (const subtype of type.priv.subtypes) {
-                const unknown = getNestedListElementUnknown(subtype, listDepth);
+                const unknown = getNestedListElementUnknown(expression, subtype, listDepth);
                 if (unknown) {
                     return unknown;
                 }
             }
-        } else if (isClassInstance(type) && ClassType.isBuiltIn(type, 'list')) {
+        } else if (
+            expression.nodeType === ParseNodeType.List &&
+            expression.d.items.length > 0 &&
+            isClassInstance(type) &&
+            ClassType.isBuiltIn(type, 'list')
+        ) {
             const elementType = type.priv.typeArgs?.[0];
-            return elementType && getNestedListElementUnknown(elementType, listDepth + 1);
+            if (elementType) {
+                for (const item of expression.d.items) {
+                    const unknown = getNestedListElementUnknown(item, elementType, listDepth + 1);
+                    if (unknown) {
+                        return unknown;
+                    }
+                }
+            }
         }
         return undefined;
     }
@@ -10488,7 +10512,7 @@ export function createTypeEvaluator(
                                 expression?.nodeType === ParseNodeType.List &&
                                 expression.d.items.some((item) => item.nodeType === ParseNodeType.List)
                             ) {
-                                anyOrUnknownArg = getNestedListElementUnknown(argResult.argType);
+                                anyOrUnknownArg = getNestedListElementUnknown(expression, argResult.argType);
                                 if (anyOrUnknownArg) {
                                     sawProvisionalNestedListMatch = true;
                                     break;

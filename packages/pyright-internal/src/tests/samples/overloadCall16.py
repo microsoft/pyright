@@ -60,3 +60,36 @@ def choose_nested(callbacks: object) -> object:
 
 
 assert_type(choose_nested([[lambda unused: 1]]), int)
+
+
+@overload
+def choose_unknown_list(value: Sequence[str] | Sequence[Sequence[str]]) -> str: ...
+
+
+@overload
+def choose_unknown_list(value: Sequence[Sequence[object]]) -> object: ...
+
+
+def choose_unknown_list(value: object) -> object:
+    return "result"
+
+
+@overload
+def choose_deep_unknown_list(value: Sequence[str] | Sequence[Sequence[Sequence[str]]]) -> str: ...
+
+
+@overload
+def choose_deep_unknown_list(value: Sequence[Sequence[Sequence[object]]]) -> object: ...
+
+
+def choose_deep_unknown_list(value: object) -> object:
+    return "result"
+
+
+def check_unknown_list(row: list[str] | list, value) -> None:
+    assert_type(choose_unknown_list([row, []]), str)
+    assert_type(choose_unknown_list([[], row]), str)
+    assert_type(choose_unknown_list([[value]]), str)
+    assert_type(choose_unknown_list([[x for x in row]]), str)
+    assert_type(choose_unknown_list([[*row]]), str)
+    assert_type(choose_deep_unknown_list([[[value]]]), str)
