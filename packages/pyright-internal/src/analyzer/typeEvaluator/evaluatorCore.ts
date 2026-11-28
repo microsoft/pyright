@@ -102,8 +102,7 @@ import {
     isPartlyUnknown,
     isSentinelLiteral,
     isTypeAliasPlaceholder,
-    lookUpClassMember,
-    lookUpObjectMember,
+    lookUpCustomObjectMember,
     mapSubtypes,
     MemberAccessFlags,
     requiresTypeArgs,
@@ -353,7 +352,7 @@ export function createEvaluatorCore(contextDependencies: Context) {
                 if (subtype.shared.isInstanceHashable !== undefined) {
                     isObjectHashable = subtype.shared.isInstanceHashable;
                 } else {
-                    const hashMember = lookUpObjectMember(subtype, '__hash__', MemberAccessFlags.SkipObjectBaseClass);
+                    const hashMember = lookUpCustomObjectMember(subtype, '__hash__');
 
                     if (hashMember && hashMember.isTypeDeclared) {
                         const decls = hashMember.symbol.getTypedDeclarations();
@@ -1412,11 +1411,8 @@ export function createEvaluatorCore(contextDependencies: Context) {
             }
 
             // Does the class have an operator overload for eq?
-            const metaclass = leftType.shared.effectiveMetaclass;
-            if (metaclass && isClass(metaclass)) {
-                if (lookUpClassMember(metaclass, '__eq__', MemberAccessFlags.SkipObjectBaseClass)) {
-                    return true;
-                }
+            if (lookUpCustomObjectMember(leftType, '__eq__')) {
+                return true;
             }
 
             return false;
@@ -1500,11 +1496,7 @@ export function createEvaluatorCore(contextDependencies: Context) {
             }
 
             // Does the class have an operator overload for eq?
-            const eqMethod = lookUpClassMember(
-                ClassType.cloneAsInstantiable(leftType),
-                '__eq__',
-                MemberAccessFlags.SkipObjectBaseClass
-            );
+            const eqMethod = lookUpCustomObjectMember(leftType, '__eq__');
 
             if (eqMethod) {
                 // If this is a synthesized method for a dataclass, we can assume
