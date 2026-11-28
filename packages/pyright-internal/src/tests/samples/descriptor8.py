@@ -1,9 +1,10 @@
 # This sample tests assignment and deletion through a data descriptor
 # that lacks the corresponding __set__ or __delete__ method, and
 # assignment and deletion of a descriptor on the class object, which
-# replace or remove the class's entry without invoking the descriptor.
+# replace or remove the class's entry without invoking the descriptor,
+# and assignment through a union of data descriptors.
 
-from typing import Any
+from typing import Any, ClassVar
 
 
 class GetSet:
@@ -70,3 +71,20 @@ def func8(b: ClassB):
 def func9(c: ClassC):
     # This should generate an error.
     c.getdelete = 1
+
+
+class SetList[T]:
+    def __set__(self, obj: object, value: list[T]) -> None: ...
+
+
+class ClassD:
+    attr: ClassVar[SetList[int] | SetList[str]]
+
+
+def func10(d: ClassD):
+    d.attr = []
+
+
+def func11(d: ClassD):
+    # This should generate an error.
+    d.attr = [1]

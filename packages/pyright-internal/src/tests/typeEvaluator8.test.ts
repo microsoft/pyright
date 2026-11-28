@@ -1071,7 +1071,7 @@ test('Descriptor7', () => {
 test('Descriptor8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor8.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 
     const message = 'Method "__set__" is not defined for descriptor class "GetDelete"';
     expect(analysisResults[0].errors[3].message).toContain(message);

@@ -221,3 +221,24 @@ reveal_type(ClassE.attr1, expected_text="str")
 def func15():
     ClassE.attr1 = ""
     del ClassE.attr1
+
+
+class SetListStr:
+    def __set__(self, obj: object, value: list[str]) -> None: ...
+
+
+class MetaclassF(type):
+    attr1 = SetListStr()
+
+
+class ClassF(metaclass=MetaclassF):
+    attr1: list[int] = []
+
+
+def func16():
+    ClassF.attr1 = []
+
+
+def func17():
+    # This should generate an error.
+    ClassF.attr1 = [1]

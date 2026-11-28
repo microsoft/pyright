@@ -2187,6 +2187,7 @@ export function createTypeEvaluator(
     // the symbol has no declared type.
     function resolveDeclaredMemberType(
         symbol: Symbol,
+        memberName: string,
         classOrObjectBase: ClassType | undefined,
         memberAccessClass: Type | undefined,
         useDescriptorSetterType: boolean,
@@ -2198,10 +2199,20 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        // If it's a descriptor, we need to get the setter type. A data descriptor
-        // without a setter provides no declared type for the assigned value.
-        if (useDescriptorSetterType) {
+        // Assigning to a dataclass field through an instance applies the field's converter.
+        const converterInputType =
+            useDescriptorSetterType && memberAccessClass && isClass(memberAccessClass)
+                ? ClassType.getDataClassEntries(memberAccessClass).find((entry) => entry.name === memberName)
+                      ?.converterInputType
+                : undefined;
+
+        if (converterInputType) {
+            declaredType = converterInputType;
+        } else if (useDescriptorSetterType) {
+            // If it's a descriptor, we need to get the setter type. A data descriptor
+            // without a setter provides no declared type for the assigned value.
             let isSetterTypeUnavailable = false;
+            let setterCount = 0;
 
             declaredType = mapSubtypes(declaredType, (subtype) => {
                 if (!isClassInstance(subtype)) {
@@ -2214,6 +2225,7 @@ export function createTypeEvaluator(
                     if (isAnyOrUnknown(valueType)) {
                         isSetterTypeUnavailable = true;
                     }
+                    setterCount++;
                     return valueType;
                 }
 
@@ -2226,6 +2238,26 @@ export function createTypeEvaluator(
 
             if (isSetterTypeUnavailable) {
                 return undefined;
+            }
+
+            // The assigned value must satisfy every setter, so a union of setter types
+            // that differ only in type arguments provides no single expected type.
+            if (setterCount > 1 && isUnion(declaredType)) {
+                const firstSubtype = declaredType.priv.subtypes[0];
+
+                if (
+                    isClassInstance(firstSubtype) &&
+                    declaredType.priv.subtypes.every(
+                        (subtype) =>
+                            isClassInstance(subtype) &&
+                            ClassType.isSameGenericClass(
+                                ClassType.cloneAsInstantiable(firstSubtype),
+                                ClassType.cloneAsInstantiable(subtype)
+                            )
+                    )
+                ) {
+                    return undefined;
+                }
             }
         }
 

@@ -97,3 +97,19 @@ def func3(dc5: DC5):
 def func4(dc5: DC5):
     # This should generate an error.
     dc5.a = 1
+
+
+def converter_list(values: list[str]) -> list[int]: ...
+
+
+class DC6(ModelBase):
+    a: list[int] = model_field(converter=converter_list)
+
+
+def func5(dc6: DC6):
+    dc6.a = []
+
+
+def func6(dc6: DC6):
+    # This should generate an error.
+    dc6.a = [1]
