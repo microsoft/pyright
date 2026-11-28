@@ -61,7 +61,6 @@ import {
     isLiteralTypeOrUnion,
     isMaybeDescriptorClass,
     isMaybeDescriptorInstance,
-    MemberAccessFlags,
     isNoneInstance,
     isNoneTypeClass,
     isProperty,
@@ -69,6 +68,7 @@ import {
     isTupleClass,
     isUnboundedTupleClass,
     lookUpClassMember,
+    lookUpCustomObjectMember,
     lookUpObjectMember,
     mapSubtypes,
     selfSpecializeClass,
@@ -1535,11 +1535,7 @@ function getStringLiteralForStrEnumMember(enumMember: ClassType): ClassType | un
         return undefined;
     }
 
-    const equalityMember = lookUpObjectMember(
-        enumMember,
-        '__eq__',
-        MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
-    );
+    const equalityMember = lookUpCustomObjectMember(enumMember, '__eq__');
     if (
         !equalityMember ||
         !isClass(equalityMember.classType) ||

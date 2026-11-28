@@ -1011,6 +1011,17 @@ test('Comparison2', () => {
     TestUtils.validateResults(analysisResults2, 18);
 });
 
+test('Comparison3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['comparison3.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['comparison3.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 1);
+});
+
 test('EmptyContainers1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['emptyContainers1.py']);
     TestUtils.validateResults(analysisResults, 5);

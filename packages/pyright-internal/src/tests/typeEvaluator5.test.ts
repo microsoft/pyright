@@ -188,6 +188,11 @@ test('Hashability3', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Hashability4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['hashability4.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Override1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['override1.py']);
     TestUtils.validateResults(analysisResults, 5);

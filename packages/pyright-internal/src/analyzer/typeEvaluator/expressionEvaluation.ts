@@ -122,6 +122,7 @@ import {
     isTupleClass,
     isTupleIndexUnambiguous,
     lookUpClassMember,
+    lookUpCustomObjectMember,
     lookUpObjectMember,
     makeInferenceContext,
     makeTypeVarsBound,
@@ -1051,13 +1052,7 @@ export function createExpressionEvaluation(context: Context) {
                     // non-callable __iter__) makes the object not iterable.
                     let hasExplicitIterMember = false;
                     if (!isAsync && isClassInstance(subtype)) {
-                        hasExplicitIterMember = !!lookUpObjectMember(
-                            subtype,
-                            iterMethodName,
-                            MemberAccessFlags.SkipInstanceMembers |
-                                MemberAccessFlags.SkipAttributeAccessOverride |
-                                MemberAccessFlags.SkipObjectBaseClass
-                        );
+                        hasExplicitIterMember = !!lookUpCustomObjectMember(subtype, iterMethodName);
                     }
 
                     if (!isAsync && isClassInstance(subtype) && !hasExplicitIterMember) {

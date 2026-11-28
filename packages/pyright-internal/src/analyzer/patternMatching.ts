@@ -85,8 +85,8 @@ import {
     isTupleClass,
     isUnboundedTupleClass,
     lookUpClassMember,
+    lookUpCustomObjectMember,
     mapSubtypes,
-    MemberAccessFlags,
     partiallySpecializeType,
     preserveUnknown,
     specializeTupleClass,
@@ -1565,22 +1565,7 @@ function narrowTypeBasedOnValuePattern(
 
 // Determines whether implicit equality may use an implementation other than object.__eq__.
 export function hasCustomEq(type: Type): boolean {
-    if (isInstantiableClass(type)) {
-        const metaclass = type.shared.effectiveMetaclass;
-        if (!metaclass || !isInstantiableClass(metaclass)) {
-            return true;
-        }
-        type = ClassType.cloneAsInstance(metaclass);
-    }
-
-    return (
-        !isClassInstance(type) ||
-        !!lookUpClassMember(
-            type,
-            '__eq__',
-            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers
-        )
-    );
+    return !isClass(type) || !!lookUpCustomObjectMember(type, '__eq__');
 }
 
 // Returns information about all subtypes that match the definition of a "mapping" as
