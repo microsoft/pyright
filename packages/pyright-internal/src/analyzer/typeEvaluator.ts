@@ -16984,6 +16984,15 @@ export function createTypeEvaluator(
             return { type: UnknownType.create() };
         }
 
+        // Externalize any TypeVars that appear in the type.
+        const typeVarScopes: TypeVarScopeId[] = [];
+        if (type.shared.typeVarScopeId) {
+            typeVarScopes.push(type.shared.typeVarScopeId);
+        }
+        if (type.shared.methodClass?.shared.typeVarScopeId) {
+            typeVarScopes.push(type.shared.methodClass.shared.typeVarScopeId);
+        }
+
         const evalCount = type.shared.inferredReturnType?.evaluationCount ?? 0;
 
         // If the return type has already been lazily evaluated,
@@ -17039,14 +17048,6 @@ export function createTypeEvaluator(
                 returnType = UnknownType.create();
             }
 
-            // Externalize any TypeVars that appear in the type.
-            const typeVarScopes: TypeVarScopeId[] = [];
-            if (type.shared.typeVarScopeId) {
-                typeVarScopes.push(type.shared.typeVarScopeId);
-            }
-            if (type.shared.methodClass?.shared.typeVarScopeId) {
-                typeVarScopes.push(type.shared.methodClass.shared.typeVarScopeId);
-            }
             returnType = makeTypeVarsFree(returnType, typeVarScopes);
 
             // Cache the type for next time.
@@ -17082,13 +17083,12 @@ export function createTypeEvaluator(
             if (!hasDecorators && !isAsync) {
                 const contextualReturnType = inferReturnTypeForCallSite(type, callSiteInfo);
                 if (contextualReturnType) {
-                    returnType = contextualReturnType;
-
-                    if (type.shared.declaration?.node) {
-                        // Externalize any TypeVars that appear in the type.
-                        const liveScopeIds = getTypeVarScopesForNode(type.shared.declaration.node);
-                        returnType = makeTypeVarsFree(returnType, liveScopeIds);
-                    }
+                    // TypeVars from the caller's scope are already bound.
+                    const callSiteScopeIds = getTypeVarScopesForNode(callSiteInfo.errorNode);
+                    returnType = makeTypeVarsFree(
+                        contextualReturnType,
+                        typeVarScopes.filter((scopeId) => !callSiteScopeIds.includes(scopeId))
+                    );
                 }
             }
         }
