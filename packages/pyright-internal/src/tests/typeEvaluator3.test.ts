@@ -1063,7 +1063,7 @@ test('MethodOverride3', () => {
 
 test('MethodOverride4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride4.py']);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 14);
 });
 
 test('MethodOverride5', () => {
@@ -1083,7 +1083,7 @@ test('MethodOverride6', () => {
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['methodOverride6.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 3);
+    TestUtils.validateResults(analysisResults2, 15);
 });
 
 test('MethodOverride7', () => {

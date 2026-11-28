@@ -18798,14 +18798,18 @@ export function createTypeEvaluator(
         overrideMethod: FunctionType | OverloadedType,
         baseClass: ClassType | undefined,
         diag: DiagnosticAddendum,
-        enforceParamNames = true
+        enforceParamNames = true,
+        baseClassSelf?: ClassType,
+        childClassSelf?: ClassType
     ): boolean {
         return overrideValidation.validateOverrideMethod(
             baseMethod,
             overrideMethod,
             baseClass,
             diag,
-            enforceParamNames
+            enforceParamNames,
+            baseClassSelf,
+            childClassSelf
         );
     }
 
@@ -19358,7 +19362,9 @@ export function createTypeEvaluator(
 
     const overrideValidation = createOverrideValidation({
         assignType,
+        createSubclass,
         getEffectiveReturnType,
+        makeTopLevelTypeVarsConcrete,
         printType,
         solveAndApplyConstraints,
     });

@@ -1277,6 +1277,7 @@ export function createTypeCompatibility(context: Context) {
                 if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
                     if (srcParam.defaultType) {
                         if (
+                            (flags & AssignTypeFlags.IncludeOverlapByOmission) === 0 &&
                             isOverlapOnlyByOmission(destParamType, destParam.defaultType, srcParamType) &&
                             checkParamListOmission()
                         ) {
@@ -1716,6 +1717,7 @@ export function createTypeCompatibility(context: Context) {
                     if (srcParamInfo.defaultType && destParamInfo.defaultType) {
                         if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0) {
                             if (
+                                (flags & AssignTypeFlags.IncludeOverlapByOmission) === 0 &&
                                 isOverlapOnlyByOmission(destParamInfo.type, destParamInfo.defaultType, srcParamType) &&
                                 checkParamListOmission()
                             ) {
