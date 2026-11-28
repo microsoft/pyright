@@ -11,7 +11,7 @@ import { LocAddendum } from '../../localization/localize';
 import { ParamCategory } from '../../parser/parseNodes';
 import { ConstraintTracker } from '../constraintTracker';
 import { DeclarationType } from '../declaration';
-import { getParamListDetails, ParamKind } from '../parameterUtils';
+import { getParamListDetails, ParamKind, VirtualParamDetails } from '../parameterUtils';
 import { isPrivateOrProtectedName } from '../symbolNameUtils';
 import { AssignTypeFlags, SolveConstraintsOptions, TypeEvaluator } from '../typeEvaluatorTypes';
 import {
@@ -30,7 +30,7 @@ import {
     Type,
     TypeVarType,
 } from '../types';
-import { ApplyTypeVarOptions, getTypeVarScopeIds, mapSubtypes } from '../typeUtils';
+import { ApplyTypeVarOptions, getTypeVarScopeIds, isEllipsisType, mapSubtypes } from '../typeUtils';
 
 interface Context {
     readonly assignType: TypeEvaluator['assignType'];
@@ -330,6 +330,12 @@ export function createOverrideValidation(context: Context) {
         const overrideParamDetails = getParamListDetails(overrideMethod);
         const constraints = new ConstraintTracker();
 
+        const assignDefaultArgType = (paramInfo: VirtualParamDetails) => {
+            if (paramInfo.defaultType && !isEllipsisType(paramInfo.defaultType)) {
+                assignType(paramInfo.type, paramInfo.defaultType, /* diag */ undefined, constraints);
+            }
+        };
+
         let canOverride = true;
 
         if (!FunctionType.isGradualCallableForm(baseMethod) && !FunctionType.isGradualCallableForm(overrideMethod)) {
@@ -410,6 +416,8 @@ export function createOverrideValidation(context: Context) {
                         ) {
                             foundParamCountMismatch = true;
                         }
+
+                        assignDefaultArgType(overrideParamDetails.params[i]);
                     }
                 }
             }
@@ -653,6 +661,8 @@ export function createOverrideValidation(context: Context) {
                 const baseParamInfo = baseKwOnlyParams.find((pi) => paramInfo.param.name === pi.param.name);
 
                 if (!baseParamInfo) {
+                    assignDefaultArgType(paramInfo);
+
                     if (baseParamDetails.kwargsIndex === undefined) {
                         if (!paramInfo.defaultType) {
                             diag?.addMessage(

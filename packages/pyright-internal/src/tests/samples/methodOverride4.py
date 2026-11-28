@@ -100,6 +100,20 @@ class SubclassF6(BaseF):
     def method1[T = int](self, x: int | T) -> T | int: ...
 
 
+class SubclassF7(BaseF):
+    # This should generate an error because of a return type mismatch.
+    def method1[T: str](self, x: int, y: T = "") -> int | T: ...
+
+
+class SubclassF8(BaseF):
+    # This should generate an error because of a return type mismatch.
+    def method1[T: str](self, x: int, *, y: T = "") -> int | T: ...
+
+
+class SubclassF9(BaseF):
+    def method1[T: int](self, x: int, y: T = 0) -> int | T: ...
+
+
 class BaseG:
     @classmethod
     def method1(cls, x: int) -> int: ...

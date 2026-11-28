@@ -1036,7 +1036,7 @@ test('MethodOverride3', () => {
 
 test('MethodOverride4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride4.py']);
-    TestUtils.validateResults(analysisResults, 12);
+    TestUtils.validateResults(analysisResults, 14);
 });
 
 test('MethodOverride5', () => {
