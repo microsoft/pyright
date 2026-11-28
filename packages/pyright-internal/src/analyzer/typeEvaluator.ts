@@ -7018,6 +7018,53 @@ export function createTypeEvaluator(
         return expressionEvaluation.getTypeOfSuperCall(node);
     }
 
+    // Only look at element types of nested lists. Unknowns in other types, such as
+    // the parameter of a lambda inside a list, don't make a match provisional.
+    function getNestedListElementUnknown(
+        expression: ExpressionNode,
+        type: Type,
+        listDepth = 0
+    ): UnknownType | undefined {
+        if (expression.nodeType === ParseNodeType.Unpack) {
+            return getNestedListElementUnknown(expression.d.expr, type, listDepth);
+        }
+        if (expression.nodeType === ParseNodeType.Comprehension && isExpressionNode(expression.d.expr)) {
+            return getNestedListElementUnknown(expression.d.expr, type, listDepth);
+        }
+        if (isUnknown(type) && listDepth > 1) {
+            return expression.nodeType !== ParseNodeType.Name && expression.nodeType !== ParseNodeType.List
+                ? type
+                : undefined;
+        }
+        if (listDepth >= maxTypeRecursionCount) {
+            return undefined;
+        }
+        if (isUnion(type)) {
+            for (const subtype of type.priv.subtypes) {
+                const unknown = getNestedListElementUnknown(expression, subtype, listDepth);
+                if (unknown) {
+                    return unknown;
+                }
+            }
+        } else if (
+            expression.nodeType === ParseNodeType.List &&
+            expression.d.items.length > 0 &&
+            isClassInstance(type) &&
+            ClassType.isBuiltIn(type, 'list')
+        ) {
+            const elementType = type.priv.typeArgs?.[0];
+            if (elementType) {
+                for (const item of expression.d.items) {
+                    const unknown = getNestedListElementUnknown(item, elementType, listDepth + 1);
+                    if (unknown) {
+                        return unknown;
+                    }
+                }
+            }
+        }
+        return undefined;
+    }
+
     // Attempts to find an overloaded function for each set of argument
     // types in the expandedArgTypes list. If an argument type is undefined,
     // its type is evaluated from the argument's expression using the
@@ -7037,6 +7084,7 @@ export function createTypeEvaluator(
         const returnTypes: Type[] = [];
         const specializedInitSelfTypes: Type[] = [];
         let matchedOverloads: MatchedOverloadInfo[] = [];
+        let firstMatchForFinalValidation: MatchedOverloadInfo | undefined;
         let isTypeIncomplete = false;
         let overloadsUsedForCall: FunctionType[] = [];
         let isDefinitiveMatchFound = false;
@@ -7048,6 +7096,7 @@ export function createTypeEvaluator(
             const hasArgTypeOverride = argTypeOverride.some((a) => a !== undefined);
             let possibleMatchResults: MatchedOverloadInfo[] = [];
             let possibleMatchInvolvesIncompleteUnknown = false;
+            let sawProvisionalNestedListMatch = false;
             isDefinitiveMatchFound = false;
 
             for (let overloadIndex = 0; overloadIndex < argParamMatches.length; overloadIndex++) {
@@ -7086,6 +7135,28 @@ export function createTypeEvaluator(
                 }
 
                 if (!callResult.argumentErrors && callResult.returnType) {
+                    let anyOrUnknownArg = callResult.anyOrUnknownArg;
+                    if (expandedArgTypes.length === 1 && !anyOrUnknownArg && !matchResults.unpackedArgOfUnknownLength) {
+                        // A union context can fall back to an Unknown element type when
+                        // inferring nested list literals. Let a later overload infer those
+                        // elements more precisely before relying on the fallback match.
+                        for (const [index, argResult] of callResult.argResults?.entries() ?? []) {
+                            const { argument, paramType } = matchResults.argParams[index];
+                            const expression = argument.valueExpression;
+                            if (
+                                isUnion(paramType) &&
+                                expression?.nodeType === ParseNodeType.List &&
+                                expression.d.items.some((item) => item.nodeType === ParseNodeType.List)
+                            ) {
+                                anyOrUnknownArg = getNestedListElementUnknown(expression, argResult.argType);
+                                if (anyOrUnknownArg) {
+                                    sawProvisionalNestedListMatch = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
                     if (
                         evaluatorOptions.experimentalOverloadResult &&
                         !callResult.isTypeIncomplete &&
@@ -7114,11 +7185,11 @@ export function createTypeEvaluator(
                     };
                     matchedOverloads.push(matchedOverloadInfo);
 
-                    if (callResult.anyOrUnknownArg || matchResults.unpackedArgOfUnknownLength) {
+                    if (anyOrUnknownArg || matchResults.unpackedArgOfUnknownLength) {
                         possibleMatchResults.push(matchedOverloadInfo);
 
-                        if (callResult.anyOrUnknownArg) {
-                            if (isIncompleteUnknown(callResult.anyOrUnknownArg)) {
+                        if (anyOrUnknownArg) {
+                            if (isIncompleteUnknown(anyOrUnknownArg)) {
                                 possibleMatchInvolvesIncompleteUnknown = true;
                             }
                         }
@@ -7144,6 +7215,9 @@ export function createTypeEvaluator(
                             );
                         }
                         isDefinitiveMatchFound = true;
+                        if (sawProvisionalNestedListMatch) {
+                            firstMatchForFinalValidation = matchedOverloadInfo;
+                        }
                         break;
                     }
                 }
@@ -7249,13 +7323,14 @@ export function createTypeEvaluator(
 
         // And run through the first expanded argument list one more time to
         // populate the type cache, without applying a different branch's constraints.
+        // Use the selected overload's context when it follows a provisional
+        // nested list match.
+        const firstMatch = firstMatchForFinalValidation ?? matchedOverloads[0];
         const finalConstraints =
-            expandedArgTypes.length > 1
-                ? matchedOverloads[0].constraints
-                : constraints ?? matchedOverloads[0].constraints;
+            expandedArgTypes.length > 1 ? firstMatch.constraints : constraints ?? firstMatch.constraints;
         const finalCallResult = validateArgTypesWithContext(
             errorNode,
-            matchedOverloads[0].matchResults,
+            firstMatch.matchResults,
             finalConstraints,
             skipUnknownArgCheck,
             inferenceContext
