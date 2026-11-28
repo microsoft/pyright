@@ -1781,6 +1781,23 @@ export function lookUpObjectMember(
     return undefined;
 }
 
+// Looks up a member on the object's class, skipping instance members
+// and object.
+export function lookUpCustomObjectMember(type: ClassType, memberName: string): ClassMember | undefined {
+    const flags = MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipInstanceMembers;
+
+    if (TypeBase.isInstantiable(type)) {
+        const metaclass = type.shared.effectiveMetaclass;
+        if (!metaclass || !isInstantiableClass(metaclass)) {
+            return getClassMemberIterator(metaclass ?? UnknownType.create(), memberName, flags).next().value;
+        }
+
+        return lookUpClassMember(metaclass, memberName, flags);
+    }
+
+    return lookUpClassMember(type, memberName, flags);
+}
+
 // Looks up a member in a class using the multiple-inheritance rules
 // defined by Python.
 export function lookUpClassMember(

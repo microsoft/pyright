@@ -88,7 +88,6 @@ import {
 import {
     applySolvedTypeVars,
     ApplyTypeVarOptions,
-    ClassMember,
     convertToInstance,
     derivesFromClassRecursive,
     derivesFromStdlibClass,
@@ -104,6 +103,7 @@ import {
     isSentinelLiteral,
     isTypeAliasPlaceholder,
     lookUpClassMember,
+    lookUpCustomObjectMember,
     lookUpObjectMember,
     mapSubtypes,
     MemberAccessFlags,
@@ -1373,46 +1373,6 @@ export function createEvaluatorCore(contextDependencies: Context) {
         );
     }
 
-    // A class object's __eq__ comes from its metaclass.
-    function lookUpEqOperatorOverload(type: Type): ClassMember | undefined {
-        let classType: ClassType | undefined;
-        if (isInstantiableClass(type)) {
-            const metaclass = type.shared.effectiveMetaclass;
-            classType = metaclass && isClass(metaclass) ? metaclass : undefined;
-        } else if (isClassInstance(type)) {
-            classType = ClassType.cloneAsInstantiable(type);
-        }
-
-        if (!classType) {
-            return undefined;
-        }
-
-        const eqMethod = lookUpClassMember(classType, '__eq__', MemberAccessFlags.SkipObjectBaseClass);
-
-        // If this is a synthesized method for a dataclass, we can assume
-        // that other dataclass types will not be comparable.
-        if (eqMethod && ClassType.isDataClass(classType) && eqMethod.symbol.getSynthesizedType()) {
-            return undefined;
-        }
-
-        return eqMethod;
-    }
-
-    // The right operand's __eq__ runs only as the reflected fallback of ==,
-    // and built-in __eq__ methods return NotImplemented for other types.
-    function hasEqOperatorOverload(leftType: Type, rightType: Type, assumeIsOperator: boolean) {
-        if (lookUpEqOperatorOverload(leftType)) {
-            return true;
-        }
-
-        if (assumeIsOperator) {
-            return false;
-        }
-
-        const eqMethod = lookUpEqOperatorOverload(rightType);
-        return !!eqMethod && !(isClass(eqMethod.classType) && ClassType.isBuiltIn(eqMethod.classType));
-    }
-
     function isTypeComparable(leftType: Type, rightType: Type, assumeIsOperator = false) {
         if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
             return true;
@@ -1449,8 +1409,15 @@ export function createEvaluatorCore(contextDependencies: Context) {
                 }
             }
 
-            // Does either operand have an operator overload for eq?
-            return hasEqOperatorOverload(leftType, rightType, assumeIsOperator);
+            // Does the class have an operator overload for eq?
+            const metaclass = leftType.shared.effectiveMetaclass;
+            if (metaclass && isClass(metaclass)) {
+                if (lookUpClassMember(metaclass, '__eq__', MemberAccessFlags.SkipObjectBaseClass)) {
+                    return true;
+                }
+            }
+
+            return !assumeIsOperator && hasReflectedCustomEq(rightType);
         }
 
         if (isClassInstance(leftType)) {
@@ -1530,11 +1497,38 @@ export function createEvaluatorCore(contextDependencies: Context) {
                 }
             }
 
-            // Does either operand have an operator overload for eq?
-            return hasEqOperatorOverload(leftType, rightType, assumeIsOperator);
+            // Does the class have an operator overload for eq?
+            const eqMethod = lookUpClassMember(
+                ClassType.cloneAsInstantiable(leftType),
+                '__eq__',
+                MemberAccessFlags.SkipObjectBaseClass
+            );
+
+            if (eqMethod) {
+                // If this is a synthesized method for a dataclass, we can assume
+                // that other dataclass types will not be comparable.
+                if (ClassType.isDataClass(leftType) && eqMethod.symbol.getSynthesizedType()) {
+                    return !assumeIsOperator && hasReflectedCustomEq(rightType);
+                }
+
+                return true;
+            }
+
+            return !assumeIsOperator && hasReflectedCustomEq(rightType);
         }
 
         return true;
+    }
+
+    // For ==, Python falls back to the right operand's reflected __eq__.
+    // Built-in classes return NotImplemented for other types.
+    function hasReflectedCustomEq(rightType: Type) {
+        if (!isClass(rightType)) {
+            return false;
+        }
+
+        const eqMethod = lookUpCustomObjectMember(rightType, '__eq__');
+        return !!eqMethod && !(isClass(eqMethod.classType) && ClassType.isBuiltIn(eqMethod.classType));
     }
 
     function isFinalVariable(symbol: Symbol): boolean {

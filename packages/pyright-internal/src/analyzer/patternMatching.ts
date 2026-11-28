@@ -1521,8 +1521,7 @@ function narrowTypeBasedOnValuePattern(
 
                         // Literal (including enum) values are handled specially: narrow to
                         // the literal if it is assignable to the subject, and eliminate the
-                        // subject if the literal is not comparable to it and the subject
-                        // cannot supply a reflected custom __eq__.
+                        // subject if the literal is not comparable to it.
                         if (isClassInstance(valueSubtypeExpanded) && isLiteralType(valueSubtypeExpanded)) {
                             if (evaluator.assignType(subjectSubtypeExpanded, valueSubtypeExpanded)) {
                                 return valueSubtypeUnexpanded;
@@ -1530,8 +1529,7 @@ function narrowTypeBasedOnValuePattern(
 
                             if (
                                 !evaluator.isTypeComparable(valueSubtypeExpanded, subjectSubtypeExpanded) &&
-                                isClassInstance(subjectSubtypeExpanded) &&
-                                (ClassType.isBuiltIn(subjectSubtypeExpanded) || !hasCustomEq(subjectSubtypeExpanded))
+                                isClassInstance(subjectSubtypeExpanded)
                             ) {
                                 return undefined;
                             }

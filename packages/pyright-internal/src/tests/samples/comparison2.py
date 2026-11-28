@@ -197,3 +197,23 @@ def func17(a: A, d: ClassWithEq):
     # This should generate an error if reportUnnecessaryComparison is enabled.
     if a is d:
         pass
+
+
+class ClassWithInstanceEq:
+    def __init__(self) -> None:
+        self.__eq__ = lambda other: True
+
+
+def func18(a: A, f: ClassWithInstanceEq):
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if a == f:
+        pass
+
+
+class ClassWithInheritedBuiltInEq(int): ...
+
+
+def func19(a: A, f: ClassWithInheritedBuiltInEq):
+    # This should generate an error if reportUnnecessaryComparison is enabled.
+    if a == f:
+        pass
