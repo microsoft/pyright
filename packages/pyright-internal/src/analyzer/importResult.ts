@@ -21,6 +21,8 @@ export interface ImplicitImport {
     isNativeLib: boolean;
     name: string;
     uri: Uri;
+    // The originating portion's type when namespace packages are merged.
+    importType?: ImportType;
     pyTypedInfo?: PyTypedInfo | undefined;
 }
 

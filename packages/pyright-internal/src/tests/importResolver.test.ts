@@ -961,6 +961,190 @@ describe('Import tests with fake venv', () => {
             assert(!importResult.isImportFound);
         });
 
+        test('namespace package portions merged for from import', () => {
+            const files = [
+                {
+                    path: combinePaths('/', 'packages1', 'ns', 'a.py'),
+                    content: 'def f(): pass',
+                },
+                {
+                    path: combinePaths('/', 'packages2', 'ns', 'b.py'),
+                    content: 'def g(): pass',
+                },
+            ];
+
+            const importResult = getImportResult(
+                files,
+                ['ns'],
+                (config) => {
+                    config.defaultExtraPaths = [
+                        UriEx.file(combinePaths('/', 'packages1')),
+                        UriEx.file(combinePaths('/', 'packages2')),
+                    ];
+                },
+                /* preImport */ undefined,
+                ['a', 'b']
+            );
+            assert(importResult.isImportFound);
+            assert(importResult.isNamespacePackage);
+            assert.strictEqual(
+                importResult.filteredImplicitImports?.get('a')?.uri.key,
+                UriEx.file(combinePaths('/', 'packages1', 'ns', 'a.py')).key
+            );
+            assert.strictEqual(
+                importResult.filteredImplicitImports?.get('b')?.uri.key,
+                UriEx.file(combinePaths('/', 'packages2', 'ns', 'b.py')).key
+            );
+        });
+
+        test('namespace package portions merged with earlier portion winning', () => {
+            const files = [
+                {
+                    path: combinePaths('/', 'packages1', 'ns', 'a.py'),
+                    content: 'def f(): pass',
+                },
+                {
+                    path: combinePaths('/', 'packages2', 'ns', 'a.py'),
+                    content: 'def f(): pass',
+                },
+                {
+                    path: combinePaths('/', 'packages2', 'ns', 'b.py'),
+                    content: 'def g(): pass',
+                },
+            ];
+
+            const importResult = getImportResult(
+                files,
+                ['ns'],
+                (config) => {
+                    config.defaultExtraPaths = [
+                        UriEx.file(combinePaths('/', 'packages1')),
+                        UriEx.file(combinePaths('/', 'packages2')),
+                    ];
+                },
+                /* preImport */ undefined,
+                ['a', 'b']
+            );
+            assert(importResult.isImportFound);
+            assert.strictEqual(
+                importResult.filteredImplicitImports?.get('a')?.uri.key,
+                UriEx.file(combinePaths('/', 'packages1', 'ns', 'a.py')).key
+            );
+            assert.strictEqual(
+                importResult.filteredImplicitImports?.get('b')?.uri.key,
+                UriEx.file(combinePaths('/', 'packages2', 'ns', 'b.py')).key
+            );
+        });
+
+        test('namespace package portions merged with earlier portion winning when later one is picked', () => {
+            const files = [
+                {
+                    path: combinePaths('/', 'packages1', 'ns', 'a.py'),
+                    content: 'def f(): pass',
+                },
+                {
+                    path: combinePaths('/', 'packages2', 'ns', 'a.py'),
+                    content: 'def f(): pass',
+                },
+                {
+                    path: combinePaths('/', 'packages2', 'ns', 'b.py'),
+                    content: 'def g(): pass',
+                },
+            ];
+
+            // Only "b" is requested, so the second portion is the one picked.
+            // Its implicit import for "a" must still give way to the first portion's.
+            const importResult = getImportResult(
+                files,
+                ['ns'],
+                (config) => {
+                    config.defaultExtraPaths = [
+                        UriEx.file(combinePaths('/', 'packages1')),
+                        UriEx.file(combinePaths('/', 'packages2')),
+                    ];
+                },
+                /* preImport */ undefined,
+                ['b']
+            );
+            assert(importResult.isImportFound);
+            assert.strictEqual(
+                importResult.implicitImports?.get('a')?.uri.key,
+                UriEx.file(combinePaths('/', 'packages1', 'ns', 'a.py')).key
+            );
+            assert.strictEqual(
+                importResult.filteredImplicitImports?.get('b')?.uri.key,
+                UriEx.file(combinePaths('/', 'packages2', 'ns', 'b.py')).key
+            );
+        });
+
+        test('namespace package portions not merged into regular package', () => {
+            const files = [
+                {
+                    path: combinePaths('/', 'packages1', 'ns', '__init__.py'),
+                    content: '',
+                },
+                {
+                    path: combinePaths('/', 'packages1', 'ns', 'a.py'),
+                    content: 'def f(): pass',
+                },
+                {
+                    path: combinePaths('/', 'packages2', 'ns', 'b.py'),
+                    content: 'def g(): pass',
+                },
+            ];
+
+            const importResult = getImportResult(
+                files,
+                ['ns'],
+                (config) => {
+                    config.defaultExtraPaths = [
+                        UriEx.file(combinePaths('/', 'packages1')),
+                        UriEx.file(combinePaths('/', 'packages2')),
+                    ];
+                },
+                /* preImport */ undefined,
+                ['a', 'b']
+            );
+            assert(importResult.isImportFound);
+            assert(!importResult.isNamespacePackage);
+            assert(importResult.filteredImplicitImports?.has('a'));
+            assert(!importResult.filteredImplicitImports?.has('b'));
+        });
+
+        test.each([
+            { parent: 'pkg', firstInit: true, secondInit: true },
+            { parent: 'pkg', firstInit: true, secondInit: false },
+            { parent: 'pkg', firstInit: false, secondInit: true },
+            { parent: 'outer/pkg', firstInit: true, secondInit: true },
+        ])('namespace portions respect regular parent $parent ($firstInit, $secondInit)', (testCase) => {
+            const files = [
+                { path: combinePaths('/', 'packages1', testCase.parent, 'ns', 'a.py'), content: '' },
+                { path: combinePaths('/', 'packages2', testCase.parent, 'ns', 'b.py'), content: '' },
+            ];
+            for (const [root, hasInit] of [
+                ['packages1', testCase.firstInit],
+                ['packages2', testCase.secondInit],
+            ] as const) {
+                if (hasInit) {
+                    files.push({ path: combinePaths('/', root, testCase.parent, '__init__.py'), content: '' });
+                }
+            }
+
+            const importResult = getImportResult(
+                files,
+                [...testCase.parent.split('/'), 'ns'],
+                (config) => {
+                    config.defaultExtraPaths = [UriEx.file('/packages1'), UriEx.file('/packages2')];
+                },
+                /* preImport */ undefined,
+                ['a', 'b']
+            );
+            assert(importResult.isImportFound);
+            assert(importResult.isNamespacePackage);
+            assert.strictEqual(importResult.filteredImplicitImports?.has('a'), testCase.firstInit);
+            assert.strictEqual(importResult.filteredImplicitImports?.has('b'), !testCase.firstInit);
+        });
+
         test('default workspace importing side by side file', () => {
             const files = [
                 {
@@ -1018,7 +1202,8 @@ describe('Import tests with fake venv', () => {
         files: { path: string; content: string }[],
         nameParts: string[],
         setup?: (c: ConfigOptions) => void,
-        preImport?: (importResolver: ImportResolver, uri: Uri, configOptions: ConfigOptions) => void
+        preImport?: (importResolver: ImportResolver, uri: Uri, configOptions: ConfigOptions) => void,
+        importedSymbols: string[] = []
     ) {
         const { importResolver, uri, configOptions } = setupImportResolver(files, setup);
 
@@ -1029,7 +1214,7 @@ describe('Import tests with fake venv', () => {
         const importResult = importResolver.resolveImport(uri, configOptions.findExecEnvironment(uri), {
             leadingDots: 0,
             nameParts: nameParts,
-            importedSymbols: new Set<string>(),
+            importedSymbols: new Set<string>(importedSymbols),
         });
 
         // Add the config venvpath to the import result so we can output it on failure.

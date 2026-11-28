@@ -1757,9 +1757,14 @@ export class Program {
                 }
 
                 importResult.filteredImplicitImports?.forEach((implicitImport) => {
-                    if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
+                    const implicitImportResult = {
+                        ...importResult,
+                        importType: implicitImport.importType ?? importResult.importType,
+                        pyTypedInfo: implicitImport.pyTypedInfo ?? importResult.pyTypedInfo,
+                    };
+                    if (this._isImportAllowed(sourceFileInfo, implicitImportResult, implicitImport.isStubFile)) {
                         if (!implicitImport.isNativeLib) {
-                            const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
+                            const thirdPartyTypeInfo = getThirdPartyImportInfo(implicitImportResult);
                             newImportPathMap.set(implicitImport.uri.key, {
                                 path: implicitImport.uri,
                                 isTypeshedFile:
