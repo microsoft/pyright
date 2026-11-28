@@ -103,6 +103,7 @@ import {
     isSentinelLiteral,
     isTypeAliasPlaceholder,
     lookUpClassMember,
+    lookUpCustomObjectMember,
     lookUpObjectMember,
     mapSubtypes,
     MemberAccessFlags,
@@ -1399,10 +1400,7 @@ export function createEvaluatorCore(contextDependencies: Context) {
         }
 
         if (isInstantiableClass(leftType) || (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'type'))) {
-            if (
-                isInstantiableClass(rightType) ||
-                (isClassInstance(rightType) && ClassType.isBuiltIn(rightType, 'type'))
-            ) {
+            if (isClass(rightType)) {
                 const genericLeftType = ClassType.specialize(leftType, /* typeArgs */ undefined);
                 const genericRightType = ClassType.specialize(rightType, /* typeArgs */ undefined);
 
@@ -1419,7 +1417,7 @@ export function createEvaluatorCore(contextDependencies: Context) {
                 }
             }
 
-            return false;
+            return !assumeIsOperator && hasReflectedCustomEq(rightType);
         }
 
         if (isClassInstance(leftType)) {
@@ -1510,16 +1508,27 @@ export function createEvaluatorCore(contextDependencies: Context) {
                 // If this is a synthesized method for a dataclass, we can assume
                 // that other dataclass types will not be comparable.
                 if (ClassType.isDataClass(leftType) && eqMethod.symbol.getSynthesizedType()) {
-                    return false;
+                    return !assumeIsOperator && hasReflectedCustomEq(rightType);
                 }
 
                 return true;
             }
 
-            return false;
+            return !assumeIsOperator && hasReflectedCustomEq(rightType);
         }
 
         return true;
+    }
+
+    // For ==, Python falls back to the right operand's reflected __eq__.
+    // Built-in classes return NotImplemented for other types.
+    function hasReflectedCustomEq(rightType: Type) {
+        if (!isClass(rightType)) {
+            return false;
+        }
+
+        const eqMethod = lookUpCustomObjectMember(rightType, '__eq__');
+        return !!eqMethod && !(isClass(eqMethod.classType) && ClassType.isBuiltIn(eqMethod.classType));
     }
 
     function isFinalVariable(symbol: Symbol): boolean {
